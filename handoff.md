@@ -8,9 +8,11 @@ workflow graph. First client: Rosa (rosa.surf).
 
 ## Current State
 Planning is complete; no code exists yet.
-- `docs/PLAN.md` and `docs/PLAYBOOK.md` written, `README.md` added. All three are
-  untracked and uncommitted on branch `planning-new-project-vast-f8736c16`
-  (worktree at `~/.superset/worktrees/tachyon/planning-new-project-vast-f8736c16`).
+- `docs/PLAN.md`, `docs/PLAYBOOK.md`, `README.md`, `handoff.md` committed as
+  `ddd5c80` on `main` in `~/Projects/tachyon` and pushed to
+  https://github.com/BloodyDeathRoll/tachyon (private, created 2026-10-24). The
+  Superset worktree branch `planning-new-project-vast-f8736c16` points at the same
+  commit. This handoff edit is uncommitted.
 - Figma: frame "Tachyon workflow" (node `386:2`, file `DO4wXVmArw9ihwZVx6gTA4`,
   page `workflows`) is drawn and visually checked: 7 stations + 2 checkpoints on a
   spine, factory row of 4 units, return arrow Learn → Calendar, 7 side cards.
@@ -55,6 +57,9 @@ Planning is complete; no code exists yet.
 5. Drew the Figma frame with the workflow-graph skill's design system, then replaced
    the 13 line arrows with single-headed vectors.
 6. Removed `disableRemoteControl` from user settings.
+7. On the user's instruction: committed, fast-forwarded `main` locally (no PR),
+   created the private GitHub repo `BloodyDeathRoll/tachyon` with `gh repo create
+   --source=. --push`, and pushed `main`.
 
 ## Failed Attempts
 - `figma.createLine()` with `strokeCap='ARROW_LINES'` puts an arrowhead on both ends.
@@ -65,8 +70,7 @@ Planning is complete; no code exists yet.
 - Looked for the reel sources on disk; none found. Replay is the only route.
 
 ## Next Step
-1. Ask the user whether to commit `docs/`, `README.md`, `handoff.md` and open a PR
-   (never commit without being asked).
+1. Commit this handoff edit when the user asks (never commit unasked).
 2. Operator tasks before any code runs for Rosa: create the Instagram Business
    account, create the Meta app (Instagram Login, scopes `instagram_business_basic`,
    `_content_publish`, `_manage_insights`, `_manage_comments`, `_manage_messages`),

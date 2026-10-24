@@ -1,184 +1,303 @@
-# Tachyon — plan (v1, 2026-10-24)
+# Tachyon — plan (consolidated, 2026-10-24)
 
-Tachyon runs the marketing funnel of a target product: short-video-first content per
-channel, scheduled publishing, performance tracking, and a weekly learning loop that
-changes the next plan. One Claude brain, a thin Python spine, one folder per client.
+Tachyon acts as a client's VP of Marketing on social. It plans the week, produces short
+vertical videos, publishes and schedules, listens and replies, measures, and changes next
+week's plan from the numbers. One Claude brain running versioned skills, a thin Python
+spine, one folder per client. Instagram first.
 
-## Decisions (2026-10-24, with the operator)
+History: `history/PLAN-v1.md` (first plan), `history/PLAN-v2.md` (fresh-research plan),
+`history/PLAN-v2-vs-v1.md` (what each missed), `RESEARCH-2026-10-24.md` (sources, each
+fact marked verified / agent-reported / unverified).
 
-| Topic | Decision |
-|---|---|
-| Publishing | Instagram Graph API direct (Instagram Login, Business/Creator account, no Facebook Page). Postiz later for channel 2+. |
-| Approval | Weekly batch approval page. Per-post approval for the first 2 weeks of each client. |
-| Runtime | PC only for now (renders need Playwright + ffmpeg anyway). Move the cron to a VM if volume justifies it. |
-| Channels, phase 1 | Instagram only. TikTok + YouTube Shorts after the loop has run a few weeks. |
-| Brain | Claude (Fable/Opus) via `claude -p` + Claude Code sessions. No local LLMs. |
-| Old code | `~/Projects/tachion-old` mined for prompts and patterns only (see §5). New code here. |
-| Assumed | English only. No paid AI video generation. No paid ads. |
+## Decisions
 
-## 1. Shape
+| # | Topic | Decision | Date |
+|---|---|---|---|
+| 1 | Publishing | Instagram API direct. **Facebook Login for Business**: professional account linked to a Facebook Page (page may stay unpublished). Unlocks the Audio API, Business Discovery, hashtag search. Standard Access, no App Review for our own accounts. | 2026-10-24 |
+| 2 | Render engine | **Both, compared.** Engine A: HTML + Playwright frame capture + ffmpeg (ours, made the Rosa reels). Engine B: Remotion (free ≤3 people, local library). Same brief to both, operator picks the default; the other stays as fallback. | 2026-10-24 |
+| 3 | Runtime | PC only. Cloud scheduled tasks for LLM-only stations only if the PC proves unreliable. | 2026-10-24 |
+| 4 | Music | Both: original audio baked in, or a Sound Collection track attached at publish via the Audio API. Audio type is a tracked feature in Learn. | 2026-10-24 |
+| 5 | Engagement on other accounts | **Assisted daily round.** The system names the account, the post, the time and the comment; the operator posts. No private API, ever. | 2026-10-24 |
+| 6 | Vendor seam (Zernio) | Later. `publisher/` has an adapter interface from day one, one implementation (Graph API). | 2026-10-24 |
+| 7 | AI label | **Never shown.** No generative video or image models anywhere in the pipeline; `is_ai_generated` never set; final mux strips all metadata; QA fails any file carrying C2PA, SynthID or IPTC AI fields. Text goes through `/ig-human`. | 2026-10-24 |
+| 8 | Approval | Weekly batch page; per-post for the first 2 weeks of each client. | 2026-10-24 |
+| 9 | Channels | Instagram only in phase 1. Then YouTube Shorts (direct API, cheap), then TikTok after its posting audit. Postiz dropped: its agent reads neither comments nor analytics. | 2026-10-24 |
+| 10 | Brain | Claude via `claude -p` and Claude Code sessions, skills in `skills/`. No local LLMs. | 2026-10-24 |
+| 11 | Old code | `~/Projects/tachion-old` mined for prompts and patterns only (§6). | 2026-10-24 |
+| 12 | Assumed | English only. No paid ads. No generative AI media. | 2026-10-24 |
 
-A cycle. Stations 0–6, two human checkpoints, memory in the middle, a return arrow
-from Learn back to Calendar. Purple = an LLM runs it, yellow = plain code.
+## 1. Principles
+
+1. **Code does what must be identical every time** (state, queue, publishing, metric
+   math, spec checks). **Claude does judgement** (strategy, scripts, films, replies,
+   diagnosis). Claude calls spine tools; it never re-implements them.
+2. **Nothing on screen or in a caption that is not in `product.md`.** Unknown numbers
+   come back as `{{number}}` and block QA.
+3. **Official APIs only.** Where the API has no path (commenting on other accounts), the
+   system prepares, the human posts.
+4. **Every post is a durable record with a state**, idempotent on `(client, slot_id)`,
+   with a provenance line for every asset.
+5. **Heuristic scores are floors, not predictions.** Winners are decided by the account's
+   own numbers against its own trailing median, with sample-size guards.
+6. **Human gate by default; autonomy is a per-client, per-stream grant** in
+   `grants.yaml`, revocable with one switch (`emergency_stop`).
+7. **No AI watermark, by construction** (decision 7).
+
+## 2. Shape
 
 ```
-0 Intake (once per client) ─ CP1 strategy ─ 1 Calendar (4 weeks)
-        │                                        │
-        └──────── 6 Learn (weekly) ◄── 5 Measure (daily) ◄── 4 Listen (daily)
-                                                 ▲
-2 Factory (per slot): script → render → package → QA ─ CP2 weekly batch ─ 3 Publish (cron)
+0 Intake (once) ── CP1 strategy ── 1 Plan (weekly) ── 2 Produce (per slot) ── 3 QA ── CP2 approve
+                                        ▲                                                   │
+                                        │                                      4 Publish (queue, cron)
+                                        │                                                   │
+                       7 Learn (weekly) ◄── 6 Measure (24 h / 72 h / 7 d) ◄── 5 Listen (webhooks, daily)
 ```
 
-## 2. Stations
+Content item states, enforced in `state.py`:
+`IDEA → BRIEFED → SCRIPTED → RENDERED → QA → NEEDS_APPROVAL → APPROVED → QUEUED →
+PUBLISHING → PUBLISHED → MEASURING → ANALYZED`, plus `REJECTED`, `FAILED`, `NEEDS_INPUT`,
+`MANUAL_HANDOFF`.
+
+## 3. Stations
 
 ### 0 · Intake — once per client, one Claude Code session
-Inputs: the product (repo, live app, docs), operator answers, account grants.
+Skills: `intake` (ours, propose-don't-interrogate, from tachion-old prompts 1, 3, 4, 5,
+6), marketingskills `content-strategy` + `marketing-psychology`, marketing plugin
+`competitive-brief`, `/ig-profile` (12-part rubric, 100 points).
 Outputs in `clients/<name>/`:
-- `product.md` — facts sheet. Every number measured from the real app or git; it is
-  what the Factory is allowed to put on screen.
-- `brand.md` — mission, archetype, voice as "X but never Y", visual identity (colors,
-  fonts, logo paths), banned words.
-- `audience.md` — personas, trigger states, verbatim pains, language pack.
-- `strategy.md` — the insight (tension), the play, positioning, KPIs, kill criteria,
-  content pillars, posting cadence.
-- `funnel.md` — conversion events (what counts as lead / sale), UTM scheme, link in bio,
-  landing pages, analytics source.
-- `grants.json` — standing grants: Instagram token + ig_user_id, GA4 property, Blob
-  bucket; `auto_publish: false` until the operator flips it.
-Runtime: `Claude Code · intake session` using the tachion-old prompts 1, 3, 4, 5, 6 and
-the propose-don't-interrogate intake prompt.
+- `product.md` facts sheet; every number measured from the live app or git, dated.
+- `brand.md` = voice (the skill repo's `voice.md` template: on-camera voice, words never
+  said, positions, off-limits, proof it may use, keyword CTA) + visual identity + banned
+  words. Also copied to `~/.claude/instagram/voice.md` so the `ig-*` skills read it.
+- `audience.md` personas, trigger states, verbatim pains, language pack.
+- `strategy.md` tension, play, positioning, pillars, cadence, KPIs, kill criteria.
+- `funnel.md` conversion events, UTM scheme, link in bio, landing pages.
+- `competitors.yaml` 6–12 professional accounts within ~10× our size. Business Discovery
+  reads their median views → `swipe.md` (`/ig-viral` logic, no scraping).
+- `profile.md` name field, bio, pinned three, highlights, link: scored, rewritten,
+  applied by hand.
+- `grants.yaml` page id, ig_user_id, token ref, GA4 property, Blob bucket; autonomy flags
+  all `false`; `emergency_stop: false`.
+- `assets/` client footage, logos, fonts, each with `provenance.yaml` (source, licence,
+  allowed use, date, "no generative model" attestation).
 
-### CP1 · Strategy approval — manual
-Operator reads `strategy.md` + `funnel.md`, edits or approves. Nothing downstream runs
-before this.
+### CP1 · Strategy approval — operator
+Reads `strategy.md`, `funnel.md`, `profile.md`. Nothing runs before this.
 
-### 1 · Calendar — every 4 weeks (and after every Learn)
-`claude -p · calendar.prompt` → `clients/<name>/calendar.yaml`
-- 3–5 reels per week, each slot: date, pillar, hook formula, format, CTA, experiment id.
-- One pre-registered A/B per week, one variable (hook / length / cover / CTA).
-- Hooks from the hooks library (26 formulas from instagram-agent-skill + what won here).
+### 1 · Plan — weekly, Monday, `claude -p plan`
+Skills: `/ig-plan` (mix: proof 1, teach 1–2, opinion 1, story 1/2 wk, offer 1/2 wk; never
+two of a kind back to back), marketingskills `social`, marketing plugin `campaign-plan`.
+Reads `strategy.md`, `swipe.md`, `lessons.yaml`, `log.md` (no theme repeat in 14 days),
+this week's product facts.
+Writes:
+- `calendar.yaml`: 3–5 reel slots (cadence data: largest gain is going from 1–2 to 3–5 a
+  week), each with date, time, pillar, angle, hook formula id from `hooks.json`, length
+  target, CTA, audio type, `experiment_id` or null, `trial: true|false`.
+- One pre-registered experiment per week, one variable (hook formula, 15–30 s vs
+  30–60 s, cover, CTA), with hypothesis, primary metric, guardrail metric, window, and a
+  `directional_only` flag when the sample is under threshold.
+- `engage/<date>.md`, the daily round (decision 5): 10 targets a day (5 reach / 3 peers /
+  2 buyers) from `competitors.yaml` and hashtag `top_media`. Per target: account, the
+  specific post (permalink), **when to post the comment** (the target's usual posting
+  hour plus 10–40 min, from Business Discovery timestamps), two drafted comments
+  (`/ig-comment`'s nine types, humanized), and the reason this account. Operator
+  completes it in a 20-minute window and ticks each line; ticks are logged so Learn can
+  see which accounts reply back.
 
-### 2 · Factory — per calendar slot
-Four units, run in order, all outputs under `clients/<name>/posts/<slot-id>/`.
-1. **Script & beats** — `claude -p · script.prompt`: 0–3 s hook, timed beats, on-screen
-   text, CTA, caption draft. Every claim cites a line in `product.md`.
-2. **Render** — `python · render.py + ffmpeg · no LLM`: the HTML motion-film pipeline
-   (one page, `render(t)`, seeded RNG, Playwright at 120–240 fps, `tmix` → 60 fps, real
-   app captures, Pixabay stock + music). 9:16 master; 1:1 and 16:9 by relayout switch
-   (`?ar=`), never by crop. Film sources live in `clients/<name>/films/` in git.
-3. **Package** — `claude -p · package.prompt`: final caption, 5–10 hashtags, cover
-   frame pick, alt text, UTM link, `meta.json`. Reel spec check: MP4 H.264/AAC, 9:16,
-   ≤300 MB, 3 s–15 min, moov atom first.
-4. **QA** — `claude -p · qa.prompt`: vision pass on sampled frames (legibility, clipped
-   text, brand colors), every on-screen number re-verified against the live app, brand
-   review against `brand.md`, AI-label decision (`is_ai_generated`), legal red lines.
-   Verdict line `VERDICT: APPROVED | NEEDS_REVISION`; max 2 revision rounds.
-Output: `video.mp4`, `cover.jpg`, `caption.txt`, `meta.json`, `qa.md`.
+### 2 · Produce — per slot: `claude -p script` → render → `claude -p package`
+1. **Script** (`/ig-reel` + ours). Three hooks from `hooks.json`, different formulas;
+   `hookscore.py` ranks them, reject <50; spoken script and separate on-screen text (≤6
+   words a card, inside the safe zone: y 230–1440, right 230 px clear); `beats.py
+   --target N` until clean; `/ig-human` (`humanize.py` + `detect.py`, ≥70, no check <55),
+   then `avoid-ai-writing` as a second opinion. Every claim cites a line of `product.md`.
+2. **Film** (Claude as motion designer). The brief that produced the Rosa reels is the
+   model: one prompt, Claude writes the whole film. Film source lives in
+   `clients/<name>/films/<slug>/` in git, driven by the script JSON, with `?ar=` /
+   `?theme=` switches (9:16 master, 1:1 and 16:9 by relayout, never crop). Inputs: real
+   app captures via Playwright, client footage from `assets/`, code animation, voice-over
+   via ElevenLabs when the script calls for it, SFX/music from `assets/` or none. No
+   generative video or images (decision 7).
+3. **Render** (no LLM). Engine A: `render.py`, deterministic frame capture with a
+   virtual clock (Playwright, 120–240 fps, `tmix` → 60 fps), ffmpeg mux. Engine B:
+   Remotion `renderMedia()`. Both end in the same ffmpeg pass: H.264 yuv420p 1080×1920
+   30 or 60 fps, AAC 48 kHz, moov first, `-map_metadata -1`, ≤300 MB, 15–60 s, captions
+   burned in. Engine comparison (decision 2): same showreel brief to both, operator
+   judges, result recorded in `CHANGELOG.md`.
+4. **Package** (`/ig-caption`). `caption.py`-linted caption (the ask, not a second hook;
+   ≤5 hashtags; search terms in prose; no link), cover frame or `thumb_offset`, UTM link
+   for the bio, `meta.json` (hook id, formula, length, pillar, CTA, audio type,
+   experiment id, engine).
 
-### CP2 · Weekly batch approval — manual
-`review/` page lists the week's packages (video, caption, cover, QA verdict). Operator
-approves, edits caption, or rejects with a note (goes back to Script). First 2 weeks of a
-client: every post individually; after that: the weekly batch.
+### 3 · QA — `claude -p qa` with vision, plus `spec_check.py`
+Machine: dimensions, duration, fps, codec, loudness, blank or duplicate frames, text in
+the safe zone, no watermark or third-party logo (originality rules), provenance present
+for every asset, **exiftool + c2patool report zero provenance or AI fields**.
+Claude: every number re-measured against the live app, brand review (marketing plugin
+`brand-review`), client red lines (Rosa: no competitor data, no scraped cams,
+attribution), humanizer score. `VERDICT: APPROVED | NEEDS_REVISION`, max 2 rounds, then
+`NEEDS_INPUT`.
 
-### 3 · Publisher — cron on the PC, `cron -> publish.py (python) · no LLM`
-- Upload `video.mp4` to a public URL (Vercel Blob), `POST /{ig_id}/media`
-  (`media_type=REELS`, `video_url`, `caption`, `cover_url`/`thumb_offset`),
-  poll `status_code` until `FINISHED`, `POST /{ig_id}/media_publish`.
-- Store `ig_media_id`, permalink, publish time in `tachyon.db`.
-- Respect `content_publishing_limit` (100 / 24 h). Retry with backoff; on failure
-  write a manual-post package and notify the operator.
-- Fallback mode for any client without API access: the same package, posted by hand.
+### CP2 · Approval — operator, `review/` page
+Shows video, caption, cover, QA report, slot, experiment, trial flag. Approve, edit
+caption, or reject with a note. First 2 weeks per client: every post; then the weekly
+batch. `grants.yaml` can later auto-approve a named pillar after N clean weeks.
 
-### 4 · Listen — daily, `claude -p · replies.prompt`
-Three inbound streams, all via the Graph API (scopes `instagram_business_manage_comments`,
-`instagram_business_manage_messages`):
-- **Comments** on our posts: read, draft a reply in brand voice, hide spam.
-- **Mentions and tags**: read, draft a reply or a thank-you comment.
-- **DMs** (Messaging API): read inbound, draft a reply. Meta allows replies within 24 h of
-  the user's last message; no cold outbound DMs.
-Operator sends the drafts (first weeks); `grants.json` can later allow auto-reply per
-stream. Drafting logic adapted from instagram-agent-skill `ig-reply`, `ig-comment`,
-`ig-dm` (those skills draft text only; they have no API).
-Not done, by design: commenting on other accounts' posts or cold DMs. The official API
-does not offer them, and private-API automation risks the account.
-Themes, objections and verbatim language are appended to `audience.md`; lead-shaped DMs
-("where do I download", "do you cover X") are logged as conversions in `tachyon.db`.
+### 4 · Publish — `publish.py` from a queue, cron every 10 min
+- Upload video and cover to Vercel Blob. Create the container **≤24 h before the slot**
+  (containers expire) with `caption`, `cover_url` or `thumb_offset`, `share_to_feed`,
+  `audio_configuration` when the slot uses a Sound Collection track (Audio API trending
+  or search), `trial_params {graduation_strategy: SS_PERFORMANCE}` when `trial: true`,
+  `collaborators` for partner posts. Never `is_ai_generated`.
+- Poll `status_code` once a minute up to 5 min; `media_publish` at the slot; store
+  `ig_media_id`, permalink, timestamps. Read `content_publishing_limit` first
+  (100 / 24 h).
+- Retry with backoff; on failure the item goes to `MANUAL_HANDOFF` with a ready-to-post
+  package and a notification. Published only when Meta returns the id.
+- Weekly `refresh_token.py`. `emergency_stop` halts the queue. Every write to Meta is
+  appended to `journal` (intent before, outcome after).
 
-### 5 · Measure — daily, `python · insights.py + ga4.py · no LLM`
-- Per post from the Graph API: reach, plays, likes, comments, saves, shares, follows,
-  profile visits, link clicks, 3 s hold if exposed.
-- From GA4, by UTM: sessions, and the client's conversion events (for Rosa:
-  `app_install`, `favorite_add`, `push_optin_start`, `share`).
-- Written to `tachyon.db` (`posts`, `metrics_daily`, `experiments`). Scorecard per post,
-  hook, pillar, format: value vs the client's trailing median (outlier multiple).
+### 5 · Listen — webhooks + daily `claude -p replies`
+`listen/` is a small Vercel function subscribed to `comments`, `mentions`, `messages`,
+`story_insights`. Daily, Claude triages with `/ig-reply`'s buckets (keyword / lead /
+substance / question / support / noise) and drafts:
+- **Comments on our media**: reply in voice; concede the true part to critics; nothing
+  to haters; hide abuse.
+- **Keyword comments**: one private reply within 7 days, the promised thing first, no
+  gate (`/ig-dm`). This is the supported comment-to-DM funnel.
+- **Mentions**: reply via `/mentions` or a thank-you comment.
+- **Inbound DMs**: reply inside the 24 h window; lead-shaped messages logged as
+  conversions.
+- **Questions with demand** (liked comments) are queued to Plan as formula #16.
+Operator sends drafts until `grants.yaml` flips `auto_reply.comments`, then
+`auto_reply.keyword_dm`, then `auto_reply.dm`. Never outbound to strangers. Themes and
+verbatim language are appended to `audience.md`.
 
-### 6 · Learn — weekly, `claude -p · diagnose.prompt`
-- Winners and losers vs median, A/B verdicts, non-follower reach share, saves/reach.
-- Updates: hooks library, `strategy.md` deltas (pillars, cadence, CTA), next
-  `calendar.yaml` brief. Routes each fix to the station that owns it.
-- Writes `clients/<name>/reports/<week>.md` and the client dashboard page.
-→ back to 1 · Calendar.
+### 6 · Measure — `insights.py`, `ga4.py`, `discovery.py`, no LLM
+- Per media at 24 h, 72 h, 7 d: `views, reach, likes, comments, shares, saved, reposts,
+  follows, profile_visits, ig_reels_avg_watch_time, reels_skip_rate, total_interactions`.
+  Derived: sends/reach, likes/reach, follows/reach, saves/reach, hold = avg watch /
+  duration, outlier multiple = views / trailing-median views.
+- Account daily: `views, reach, accounts_engaged, follows_and_unfollows,
+  profile_links_taps`.
+- GA4 by UTM: sessions and the client's conversion events.
+- Competitors monthly via Business Discovery: median views per account → `swipe.md`
+  with outlier multiples and formula ids.
+- Engagement round: which targets replied or followed back, per account.
+- Product measures: operator minutes per approved post, model and render cost per
+  asset, publish failure rate, share of posts with complete 7-day metrics, QA catches.
+- Store `tachyon.db`: `posts`, `metric_snapshots` (source, window, collected_at),
+  `experiments`, `conversions`, `engage_log`, `costs`, `journal`.
 
-## 3. Memory and layout
+### 7 · Learn — weekly, Sunday, `score.py` then `claude -p learn`
+- `score.py` (adapted from media-pipeline `fetch_insights.py`): composite from ratios
+  with weights renormalised over the metrics present; **minimum-reach floor** excludes
+  small-sample posts; a feature (hook formula, length band, pillar, CTA, audio type,
+  engine, slot time) gets a ±1 signal only with ≥3 samples on each side and a gap above
+  one SD of the window; 14-day TTL on signals, 30-day on top subjects; signals are
+  advisory.
+- Experiment verdicts from the pre-registered metric; `directional_only` when under
+  threshold. Trial reels: compare non-follower sends/reach and skip rate, graduate or
+  kill.
+- Claude writes `reports/<week>.md` (`/ig-audit` shape: top and bottom five, what the
+  data says, STOP / DO MORE, hook problem vs profile problem; marketing plugin
+  `performance-report` for the client-facing version) and proposes deltas to
+  `strategy.md` (pillar mix, cadence, length, CTA, posting time, engagement targets) as
+  a diff the operator accepts at CP1-lite. Accepted lessons go to `lessons.yaml` (read by
+  Plan) and `CHANGELOG.md`.
+- Hook selection in Plan uses the signals as a small bandit with forced exploration (one
+  slot a week on an untested formula).
+
+## 4. Layout
 
 ```
 tachyon/
-  spine/          publish.py, insights.py, ga4.py, render.py, review/ (approval page), db.py
-  prompts/        intake/*, calendar.prompt, script.prompt, package.prompt, qa.prompt,
-                  replies.prompt, diagnose.prompt
-  hooks/          hooks library (formulas + per-client winners)
-  clients/<name>/ product.md brand.md audience.md strategy.md funnel.md grants.json
-                  calendar.yaml films/ posts/<slot>/ reports/ tachyon.db
-  docs/           PLAN.md PLAYBOOK.md
+  skills/           versioned SKILL.md per station; third-party skills vendored with
+                    SOURCE.md (repo, commit, licence, local changes)
+    intake/ plan/ script/ film/ package/ qa/ replies/ learn/
+    vendor/ ig-* (13, MIT) · marketingskills social copywriting content-strategy video
+            marketing-psychology (MIT) · marketing plugin brand-review campaign-plan
+            competitive-brief performance-report (Apache-2.0) · avoid-ai-writing (MIT)
+            · remotion skills (engine B)
+  spine/            db.py state.py publisher/{base,graph}.py insights.py ga4.py
+                    discovery.py score.py spec_check.py refresh_token.py render.py
+                    review/ listen/
+  tools/            hookscore.py beats.py caption.py humanize.py detect.py swipe.py
+  data/             hooks.json (26 formulas + ours) slop.json rubric.json
+  clients/<name>/   product.md brand.md audience.md strategy.md funnel.md competitors.yaml
+                    profile.md grants.yaml assets/ films/ calendar.yaml engage/ swipe.md
+                    lessons.yaml log.md posts/<slot>/ reports/ CHANGELOG.md tachyon.db
+  docs/             PLAN.md PLAYBOOK.md RESEARCH-*.md history/
 ```
 
-## 4. External services
+## 5. External services
 
 | Service | Used for | Notes |
 |---|---|---|
-| Instagram Graph API (Instagram Login) | publish Reels, insights, comments, mentions, DMs | scopes `instagram_business_basic`, `instagram_business_content_publish`, `instagram_business_manage_insights`, `instagram_business_manage_comments`, `instagram_business_manage_messages`. App in dev mode works for accounts with a role; App Review only for other people's accounts. |
-| Vercel Blob | public `video_url` for the API | the API fetches the file, it does not accept uploads |
-| GA4 Data API | conversions by UTM | Rosa property already tracks the events above |
-| Pixabay | stock footage and music | Playwright with `channel:'chrome'` to get past Cloudflare |
-| Playwright + ffmpeg | render | PC |
+| Instagram API, Facebook Login for Business | publish Reels, Audio API, trial reels, insights, comments, mentions, DMs, Business Discovery, hashtag search | scopes `instagram_basic`, `instagram_content_publish`, `instagram_manage_comments`, `instagram_manage_messages`, `instagram_manage_insights`, `pages_show_list`, `pages_read_engagement`. Page-scoped long-lived token, weekly refresh. Standard Access. |
+| Vercel Blob + one function | public `video_url`; webhook endpoint | the API fetches the file |
+| GA4 Data API | conversions by UTM | Rosa property already fires the events |
+| ElevenLabs | voice-over when scripted | audio only; no label implications |
+| Playwright + ffmpeg (+ Remotion for engine B) | render | PC |
+| exiftool + c2patool | QA provenance check | PC |
+| Later: YouTube Data API, TikTok Content Posting API | channel 2 and 3 | YouTube: 100 uploads/day bucket, native `publishAt`. TikTok: audit before public posts. Cross-platform music licence needed first; Sound Collection is Meta-only. |
 
-## 5. Reused from tachion-old (prompts and patterns, not code)
+## 6. Reused from tachion-old (prompts and patterns, not code)
 
-- Prompts: Brand DNA (1), Audience Researcher (3), Competitive Scanner (4), Strategist (5),
-  Insight Hunter (6), Concept Director (8), Experiment Designer (15), Diagnostician (18),
-  the Quality Floor block, the intake prompt in `web/app.py` lines 196–280.
-- Patterns: checkpoint as control flow with resume; standing grants per client
-  (`policy/__init__.py`); reviewer `VERDICT:` line; visual-spec JSON with a stable seed
-  label; one markdown file per station per campaign.
+- Prompts: Brand DNA (1), Audience Researcher (3), Competitive Scanner (4), Strategist
+  (5), Insight Hunter (6), Concept Director (8), Experiment Designer (15), Diagnostician
+  (18), the Quality Floor block, the intake prompt in `web/app.py` lines 196–280.
+- Patterns: checkpoint as control flow with resume; standing grants per client; reviewer
+  `VERDICT:` line; visual-spec JSON with a stable seed; one markdown file per station.
 - Dropped: Ollama/Groq/Mistral routing, HTMX dashboard, 19 agents as 19 calls,
-  SQLAlchemy text-blob models, ComfyUI Wan workflows (never ran).
+  SQLAlchemy text-blob models, ComfyUI Wan workflows.
 
-## 6. Rosa — first run
+## 7. Rosa — first run
 
-- Product: rosa.surf, free 15-day surf forecast, 2290 spots, refreshed 4×/day, rating
-  formula public, installable PWA, push swell alerts, embeddable widget, live cams.
-  GA4 `G-NKQNM6YLQ1`, events already wired. 50 signed-in users on 2026-09-17.
-- Account: new Instagram Business account (handle to pick), bio link
+- Product: rosa.surf, free 15-day surf forecast, refreshed 4×/day, rating formula public,
+  installable PWA, push swell alerts, embeddable widget, live cams. GA4 `G-NKQNM6YLQ1`,
+  events wired. 50 signed-in users on 2026-09-17. Spot count on screen must be
+  re-measured before reuse (2290 as of 2026-10-04).
+- Accounts: Facebook Page "Rosa Surf" (unpublished is fine), Instagram professional
+  account linked to it, Meta app with Facebook Login for Business, Standard Access, the
+  scopes above. Handle to pick. Bio link
   `https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=<slot>`.
-- Launch content, already rendered in `~/Videos/rosa/`:
-  `rosa-favorites-9x16.mp4` (15 s), `rosa-swim-9x16.mp4` (15 s),
-  `rosa-showreel-v14-30s-blues-9x16.mp4` (30 s) — post-ready;
-  `rosa promo.mp4` is 1920×1080 and needs a 9:16 relayout, not a crop.
-- **Film sources are lost** (scratchpad wiped twice). First Factory task: rebuild
-  `reel13.html` + scripts by replaying the session jsonl, commit under
-  `clients/rosa/films/`. Numbers on screen (spot count, load time, bundle size) are
-  as of 2026-10-04 and must be re-measured before reuse.
-- Pillars: swell animation map (`/charts`), "why this rating" transparency, free vs
-  Surfline, spot spotlights (Israel, California, Hawaii, Portugal, Brazil), swell-alert
-  moments, the widget for surf shops and schools.
-- Conversions: `app_install`, `favorite_add` (sign-in = lead), `push_optin_start`.
+- Launch content in `~/Videos/rosa/`: `rosa-favorites-9x16.mp4` (15 s),
+  `rosa-swim-9x16.mp4` (15 s), `rosa-showreel-v14-30s-blues-9x16.mp4` (30 s) are the
+  first three slots after a QA pass (numbers, metadata strip). `rosa promo.mp4` is 16:9
+  and gets relaid out once a film source exists.
+- **Film sources are lost.** Rebuild from the session jsonl under `~/.claude/projects/`
+  as a design reference; commit under `clients/rosa/films/`. The same showreel brief is
+  the engine-comparison brief.
+- Pillars: swell animation map (`/charts`), "why this rating" transparency, free 15 days
+  vs paywall, spot spotlights by region, swell-alert moments, widget for shops and
+  schools.
+- Keyword CTA candidates: `SWELL` (push-alert how-to), `SPOT` (spot page link), `WIDGET`.
+- Trial reels once the account is eligible (reported 200 followers, unverified); before
+  that, experiments are sequential across weeks.
+- Conversions: `app_install`, `favorite_add` (= lead), `push_optin_start`, `share`.
+- Partner posts: `collaborators` with surf shops and schools that embed the widget.
 - Not built in Rosa yet and would help: per-spot share cards, shareable `/charts` state.
 
-## 7. Build order
+## 8. Build order
 
-1. Spine skeleton: `db.py`, `clients/rosa/` from Intake, `review/` page.
-2. Publisher + Measure against the real Instagram account (post one existing clip).
-3. Factory: recover film sources, `render.py` with `?ar=` and `?theme=` switches,
-   script/package/qa prompts.
-4. Calendar + Learn, first 4-week run for Rosa.
-5. Listen. Then Postiz for TikTok/Shorts.
+1. Spine skeleton: `db.py`, `state.py`, `clients/rosa/` from an Intake session,
+   `review/` page.
+2. Meta app + Page + account. `publish.py` posts one existing clip (after QA strips
+   metadata); `insights.py` pulls it at 24 h. Loop proven with no rendering.
+3. Engine comparison: showreel brief to engine A and engine B; operator picks the
+   default; record in `CHANGELOG.md`.
+4. Produce + QA: first film in `clients/rosa/films/`, `script` / `film` / `package` /
+   `qa` skills, `spec_check.py` with the provenance check.
+5. `listen/` webhook + `replies` skill; keyword private reply.
+6. Plan + Learn: `calendar.yaml`, `engage/`, `score.py`, first 4-week run.
+7. Business Discovery → `swipe.md`; monthly competitor refresh.
+8. Channel 2: YouTube Shorts, then TikTok after audit, after a cross-platform music
+   licence.
+
+## 9. Unverified, to confirm in the build
+
+- Hashtag cap of 5 per post (skill repo claim).
+- Trial-reel eligibility threshold (200 followers, third-party).
+- TikTok and YouTube quota details came from a sub-agent against official pages.
+- Whether exiftool and c2patool catch every marker Meta reads; test by publishing a
+  stripped file to a private test account and checking for the label.
