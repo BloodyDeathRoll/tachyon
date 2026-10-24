@@ -1,0 +1,38 @@
+# Accounts whose audience Rosa wants. Status: candidates, 2026-10-24.
+# handle existence and size are UNVERIFIED until discovery.py reads them via Business
+# Discovery; the operator adds or removes at CP1. role: reach | peer | buyer (ig-plan).
+# "within ~10x our size" is meaningless at 0 followers; start with the niche's voices and
+# re-balance toward peers after week 4.
+candidates:
+  - handle: surfline
+    role: reach
+    why: the paywalled incumbent; its comment threads are where "why is it a 7" gets asked
+    verified: false
+  - handle: windyapp
+    role: reach
+    why: forecast-app audience, international
+    verified: false
+  - handle: surfertoday
+    role: reach
+    why: surf news, worldwide, posts daily
+    verified: false
+  - handle: theinertia
+    role: reach
+    why: surf culture, large and comment-heavy
+    verified: false
+  - handle: swellnet
+    role: reach
+    why: Australia (277 Rosa spots), forecast-literate audience
+    verified: false
+  - handle: stab
+    role: reach
+    why: surf media, opinionated audience
+    verified: false
+  - handle: wsl
+    role: reach
+    why: event days drive forecast curiosity
+    verified: false
+  # peers: small forecast / weather / spot accounts, to be found by hashtag top_media
+  # (#surfforecast, #swellalert, #surfreport) once the app has access. Fill 3.
+  # buyers: surf shops and schools in Portugal, Israel, California, Hawaii that could
+  # embed the widget. Fill 2, by hand, from the 14 cam owners first (Playocean, WITH SEA).

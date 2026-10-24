@@ -1,0 +1,8 @@
+# One entry per asset file. QA fails any asset without an entry. generative must be false.
+# - file: showreel-v14-30s-blues-9x16.mp4
+#   source: rendered by the Rosa HTML motion-film pipeline, 2026-10-04 (sources lost, see PLAN §7)
+#   licence: ours
+#   allowed_use: any Rosa channel
+#   generative: false
+#   added: 2026-10-24
+assets: []

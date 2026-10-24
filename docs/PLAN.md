@@ -253,10 +253,12 @@ tachyon/
 
 ## 7. Rosa — first run
 
-- Product: rosa.surf, free 15-day surf forecast, refreshed 4×/day, rating formula public,
-  installable PWA, push swell alerts, embeddable widget, live cams. GA4 `G-NKQNM6YLQ1`,
-  events wired. 50 signed-in users on 2026-09-17. Spot count on screen must be
-  re-measured before reuse (2290 as of 2026-10-04).
+- Product: rosa.surf, free surf forecast with no paywall, 16-day horizon (site copy says
+  "15-day"), refreshed 4×/day, 3,056 spots in 55 countries (2026-10-24), rating
+  explained as size · period · wind, installable PWA, push swell alerts, embeddable
+  widget, 14 official cams. GA4 `G-NKQNM6YLQ1`, events wired. 33 real accounts on
+  2026-10-23. Facts sheet: `clients/rosa/product.md`. Clips from 2026-10-04 carry old
+  spot counts: re-measure before reuse.
 - Accounts: Facebook Page "Rosa Surf" (unpublished is fine), Instagram professional
   account linked to it, Meta app with Facebook Login for Business, Standard Access, the
   scopes above. Handle to pick. Bio link
@@ -268,9 +270,9 @@ tachyon/
 - **Film sources are lost.** Rebuild from the session jsonl under `~/.claude/projects/`
   as a design reference; commit under `clients/rosa/films/`. The same showreel brief is
   the engine-comparison brief.
-- Pillars: swell animation map (`/charts`), "why this rating" transparency, free 15 days
-  vs paywall, spot spotlights by region, swell-alert moments, widget for shops and
-  schools.
+- Pillars: "why this rating", swell map (`/charts`), free with no paywall (never name a
+  competitor without a measurement), spot spotlights by region, swell-alert moments,
+  widget for shops and schools.
 - Keyword CTA candidates: `SWELL` (push-alert how-to), `SPOT` (spot page link), `WIDGET`.
 - Trial reels once the account is eligible (reported 200 followers, unverified); before
   that, experiments are sequential across weeks.

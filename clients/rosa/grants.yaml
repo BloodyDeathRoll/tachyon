@@ -1,0 +1,12 @@
+# Identifiers and switches only. Tokens live in the environment (see token_env).
+page_id: null            # Facebook Page "Rosa Surf" — not created yet (2026-10-24)
+ig_user_id: null         # Instagram professional account — not created yet
+token_env: TACHYON_ROSA_TOKEN
+ga4_property: null       # numeric GA4 property id for G-NKQNM6YLQ1 — to fill
+blob_bucket: null
+auto_approve_pillars: []
+auto_reply:
+  comments: false
+  keyword_dm: false
+  dm: false
+emergency_stop: false
