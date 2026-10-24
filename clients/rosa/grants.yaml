@@ -9,3 +9,8 @@ auto_reply:
   comments: false
   dm: false
 emergency_stop: false
+bio_link:                 # the one Instagram bio link, fixed; publisher moves its target (spine/publisher/links.py)
+  public_url: https://rosa.surf/ig
+  edge_config_id: ecfg_9t46ooc6vd2at8fryihbvfzxu4ea   # Vercel Edge Config "tachyon-links"
+  team_id: team_jeHaUEFEe9q9CoUA71Vij1Kr
+  key: rosa_ig

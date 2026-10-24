@@ -22,7 +22,7 @@ Shows you why a day rates. Check your spot ↓
 
 ## Link
 
-`https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=bio`
+`https://rosa.surf/ig` (fixed; redirects to the newest reel's campaign URL, moved automatically by the publisher)
 
 ## Pinned three (week 1)
 

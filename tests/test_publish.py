@@ -187,3 +187,50 @@ def test_publish_refuses_url_in_first_comment(client):
     (C.client_dir(client) / "posts" / SLOT / "first_comment.txt").write_text("link: https://example.test/")
     with pytest.raises(publish.PublishError, match="not clickable"):
         publish.publish_slot(client, SLOT, graph=FakeGraph(), sleep=lambda s: None)
+
+
+class FakeRun:
+    """Stands in for subprocess.run: records the vercel api call, returns a JSON reply."""
+    def __init__(self, rc=0, out='{"status":"ok"}', err=""):
+        self.rc, self.out, self.err, self.calls = rc, out, err, []
+
+    def __call__(self, cmd, **kw):
+        import json as _j, pathlib as _p
+        body = None
+        if "--input" in cmd:
+            body = _j.loads(_p.Path(cmd[cmd.index("--input") + 1]).read_text())
+        self.calls.append((cmd[2], cmd[4], body))
+        class R: pass
+        r = R(); r.returncode, r.stdout, r.stderr = self.rc, self.out, self.err
+        return r
+
+
+def test_links_set_target_upserts_and_refuses_foreign_host():
+    from spine.publisher import links
+    grants = {"bio_link": {"public_url": "https://rosa.surf/ig", "edge_config_id": "ecfg_x", "team_id": "team_y", "key": "rosa_ig"}}
+    run = FakeRun()
+    links.set_target(grants, "https://rosa.surf/?utm_campaign=s1", runner=run)
+    path, method, body = run.calls[0]
+    assert path == "/v1/edge-config/ecfg_x/items?teamId=team_y" and method == "PATCH"
+    assert body == {"items": [{"operation": "upsert", "key": "rosa_ig", "value": "https://rosa.surf/?utm_campaign=s1"}]}
+    with pytest.raises(links.LinkError, match="foreign host"):
+        links.set_target(grants, "https://evil.example/", runner=run)
+    with pytest.raises(links.LinkError, match="vercel api"):
+        links.set_target(grants, "https://rosa.surf/x", runner=FakeRun(rc=1, err="not logged in"))
+
+
+def test_publish_moves_bio_link_after_publish(client):
+    d = C.client_dir(client)
+    g = C.load_grants(client)
+    g["bio_link"] = {"public_url": "https://rosa.surf/ig", "edge_config_id": "ecfg_x", "team_id": "team_y", "key": "rosa_ig"}
+    C.save_grants(client, g)
+    meta = json.loads((d / "posts" / SLOT / "meta.json").read_text())
+    meta["bio_link_while_live"] = "https://rosa.surf/?utm_campaign=" + SLOT
+    (d / "posts" / SLOT / "meta.json").write_text(json.dumps(meta))
+    run = FakeRun()
+    publish.publish_slot(client, SLOT, graph=FakeGraph(), sleep=lambda s: None, link_runner=run)
+    assert run.calls and run.calls[0][2]["items"][0]["value"].endswith(SLOT)
+    db = DB.for_client(d)
+    acts = [r["action"] for r in db.conn.execute("SELECT action FROM journal WHERE target=?", (SLOT,))]
+    assert "bio_link.set" in acts
+    db.close()

@@ -19,8 +19,9 @@ Vercel Web Analytics is not enabled on the project; GA4 is the only visitor sour
 
 `https://rosa.surf/<path>?utm_source=instagram&utm_medium=social&utm_campaign=<slot_id>&utm_content=<bio|screen|reply_dm>`
 
-- Bio link: `utm_campaign=<slot_id>` of the newest live reel, changed by the operator at each
-  publish (`meta.json.bio_link_while_live` holds the exact URL). Path is the reel's landing page.
+- Bio link is fixed: `https://rosa.surf/ig` (edge redirect, Rosa PR "web: /ig edge redirect"). Its
+  target is `meta.json.bio_link_while_live` of the newest live reel, moved by `publish.py` via
+  `spine/publisher/links.py` (Vercel Edge Config `tachyon-links`, item `rosa_ig`). Nobody edits the profile.
 - No links in comments (not clickable). A question in the comments is answered "link in bio"; a DM reply may carry the link with `utm_content=reply_dm`. Never a keyword funnel.
 - Per-post attribution therefore comes from the bio link's `utm_campaign`, changed each time a reel goes live, and from the URL on screen (`utm_content=screen` is not typeable; count it as direct).
 - `ga4.py` groups sessions and events by `utm_campaign`, so one slot maps to one row.
@@ -36,7 +37,7 @@ Vercel Web Analytics is not enabled on the project; GA4 is the only visitor sour
 
 ## Link in bio
 
-One link, to the newest reel's landing page with its slot UTM. No link-in-bio service in phase 1.
+One link, `https://rosa.surf/ig`, set once. It redirects to the newest reel's landing page with that slot's UTM.
 
 ## Product asks (not built in Rosa yet)
 

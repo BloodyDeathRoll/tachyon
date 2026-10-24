@@ -150,7 +150,9 @@ batch. `grants.yaml` can later auto-approve a named pillar after N clean weeks.
   or search), `trial_params {graduation_strategy: SS_PERFORMANCE}` when `trial: true`,
   `collaborators` for partner posts. Never `is_ai_generated`.
 - Poll `status_code` once a minute up to 5 min; `media_publish` at the slot; store
-  `ig_media_id`, permalink, timestamps. A first comment is optional and never carries a URL (comments are not clickable); text only
+  `ig_media_id`, permalink, timestamps. A first comment is optional and never carries a URL (comments are not clickable); text only.
+  Then `links.py` points the client's fixed bio redirect (Rosa `rosa.surf/ig`, Vercel Edge Config) at
+  this reel's landing page + UTM, so the single bio link is always the newest reel's and nobody edits the profile
   (`POST /{media}/comments`) when the slot asks for one. Read `content_publishing_limit` first
   (100 / 24 h).
 - Retry with backoff; on failure the item goes to `MANUAL_HANDOFF` with a ready-to-post

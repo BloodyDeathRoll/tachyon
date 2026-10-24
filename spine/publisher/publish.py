@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import sys
+import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,7 +32,7 @@ from pathlib import Path
 from spine import clients as C
 from spine.db import DB, now
 from spine.publisher.graph import Graph, GraphError
-from spine.publisher import spec_check
+from spine.publisher import spec_check, links
 
 POLL_SECONDS = 60
 POLL_MAX = 5
@@ -60,7 +61,8 @@ def _container_params(meta: dict, caption: str) -> dict:
 
 
 def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_run: bool = False,
-                 sleep=time.sleep) -> dict:
+                 sleep=time.sleep, link_runner=None) -> dict:
+    link_runner = link_runner or subprocess.run
     d = C.client_dir(client)
     g = C.load_grants(client)
     slot = d / "posts" / slot_id
@@ -123,6 +125,16 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
         except Exception as e:  # noqa: BLE001 — any failure is a FAILED state, reason kept
             _fail(db, slot, slot_id, caption, first_comment, str(e))
             raise
+
+        # the bio link follows the newest reel (links.py); failure is logged, never fatal
+        bio_target = meta.get("bio_link_while_live")
+        if bio_target and g.get("bio_link"):
+            j = db.journal("bio_link.set", slot_id, {"url": bio_target, "via": g["bio_link"]["public_url"]})
+            try:
+                db.journal_outcome(j, links.set_target(g, bio_target, runner=link_runner))
+            except links.LinkError as e:
+                db.journal_outcome(j, {"error": str(e)})
+                (slot / "handoff.md").write_text(f"# Bio link not updated\n\nSet {g['bio_link']['public_url']} target by hand:\n\n```\n{bio_target}\n```\n\n{e}\n")
 
         comment_id = None
         if first_comment:
