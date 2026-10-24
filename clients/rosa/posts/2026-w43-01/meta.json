@@ -1,0 +1,18 @@
+{
+  "slot_id": "2026-w43-01",
+  "source_asset": "rosa-favorites-9x16.mp4",
+  "pillar": "Free, and why",
+  "angle": "favorites: all your breaks on one screen, one tap each",
+  "hook_formula": "existing-clip (pre-Tachyon showreel, no hookscore)",
+  "length_target": 15,
+  "duration_s": 15.07,
+  "cta": "link in bio + first comment",
+  "audio_type": "original (baked-in bed from the 2026-10-04 render)",
+  "engine": "html-playwright v0 (2026-10-04 render, sources lost)",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 9500,
+  "experiment_id": null,
+  "landing": "https://rosa.surf/",
+  "utm_campaign": "2026-w43-01"
+}

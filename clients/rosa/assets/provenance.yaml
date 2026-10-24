@@ -1,8 +1,25 @@
 # One entry per asset file. QA fails any asset without an entry. generative must be false.
-# - file: showreel-v14-30s-blues-9x16.mp4
-#   source: rendered by the Rosa HTML motion-film pipeline, 2026-10-04 (sources lost, see PLAN §7)
-#   licence: ours
-#   allowed_use: any Rosa channel
-#   generative: false
-#   added: 2026-10-24
-assets: []
+assets:
+- file: rosa-favorites-9x16.mp4
+  source: rendered by the Rosa HTML motion-film pipeline, 2026-10-04; original at ~/Videos/rosa/ (sources
+    lost, PLAN §7)
+  licence: ours
+  allowed_use: any Rosa channel
+  generative: false
+  contains: real Rosa UI captures, Inter type, no stock footage, no numbers that go stale
+  added: '2026-10-24'
+- file: rosa-swim-9x16.mp4
+  source: rendered by the Rosa HTML motion-film pipeline, 2026-10-04; original at ~/Videos/rosa/
+  licence: ours
+  allowed_use: none until swim-mode claims are removed (brand.md off-limits)
+  generative: false
+  contains: swim-mode UI, 'Best swim 09:00' claim
+  added: '2026-10-24'
+- file: rosa-showreel-v14-30s-blues-9x16.mp4
+  source: rendered by the Rosa HTML motion-film pipeline, 2026-10-04; original at ~/Videos/rosa/
+  licence: ours for the UI; ocean footage credited 'Pixabay' on screen, licence of those clips unverified
+  allowed_use: 'none until re-rendered: shows 2,741 spots (now 3,056) and Pixabay footage (brand.md bans
+    stock surfer footage)'
+  generative: false
+  contains: stale spot count, stock ocean footage
+  added: '2026-10-24'
