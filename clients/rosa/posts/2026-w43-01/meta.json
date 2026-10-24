@@ -6,7 +6,7 @@
   "hook_formula": "existing-clip (pre-Tachyon showreel, no hookscore); on-screen hook 'Should I surf?'",
   "length_target": 30,
   "duration_s": 30.07,
-  "cta": "link in bio + first comment; 'Check the surf' end card",
+  "cta": "link in bio (URL on end card); 'Check the surf' end card",
   "audio_type": "original (baked-in bed from the 2026-10-04 render)",
   "engine": "html-playwright v0 (2026-10-04 render, sources lost)",
   "trial": false,
@@ -14,6 +14,10 @@
   "thumb_offset": 7000,
   "experiment_id": null,
   "landing": "https://rosa.surf/",
-  "utm_campaign": "2026-w43-01",
-  "operator_overrides": ["stale spot count 2,741 on screen (live 3,056): operator chose to post as-is 2026-10-24", "Pixabay ocean footage: operator chose to post as-is 2026-10-24"]
+  "utm_campaign": null,
+  "operator_overrides": [
+    "stale spot count 2,741 on screen (live 3,056): operator chose to post as-is 2026-10-24",
+    "Pixabay ocean footage: operator chose to post as-is 2026-10-24"
+  ],
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w43-01"
 }

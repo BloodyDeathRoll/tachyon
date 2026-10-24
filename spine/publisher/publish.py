@@ -10,7 +10,8 @@ Flow for one slot (state QUEUED, scheduled_at reached or --now):
      No video_url, no Blob bucket needed (deviation from PLAN §3 noted there).
   4. Poll status_code once a minute, up to 5 min. FINISHED -> media_publish.
   5. PUBLISHING -> PUBLISHED with ig_media_id, permalink, published_at.
-  6. If posts/<slot>/first_comment.txt exists, POST /{media}/comments with it.
+  6. If posts/<slot>/first_comment.txt exists, POST /{media}/comments with it. It must not
+     contain a URL: Instagram comments are not clickable (operator 2026-10-24); refused if it does.
   7. PUBLISHED -> MEASURING. Any failure -> FAILED with the reason; a second failure
      -> MANUAL_HANDOFF with a ready-to-post package in posts/<slot>/handoff.md.
 
@@ -73,6 +74,8 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
         caption = (slot / "caption.txt").read_text().strip()
         meta = json.loads((slot / "meta.json").read_text()) if (slot / "meta.json").exists() else {}
         first_comment = (slot / "first_comment.txt").read_text().strip() if (slot / "first_comment.txt").exists() else ""
+        if "http://" in first_comment or "https://" in first_comment or "rosa.surf/?" in first_comment:
+            raise PublishError("first_comment.txt contains a URL; comments are not clickable (decision 13)")
         video = slot / "video.mp4"
         issues = spec_check.check_file(video) + spec_check.check_provenance(client, meta.get("source_asset"))
         if issues:

@@ -47,7 +47,7 @@ Cadence: 3–5 reels a week (data: the biggest reach gain per post is going from
 ## Experiments, first four weeks
 
 1. Hook formula: claim vs number-first. 2. Length: 15 s vs 30 s. 3. Cover: UI frame
-vs text card. 4. CTA form: link in bio vs first comment vs URL on screen. One variable a week,
+vs text card. 4. CTA form: link in bio vs URL on screen. One variable a week,
 pre-registered in `calendar.yaml`.
 
 ## Kill criteria

@@ -43,7 +43,7 @@ def client(tmp_path, monkeypatch):
     make_clip(raw)
     spec_check.fix(raw, d / "posts" / SLOT / "video.mp4")
     (d / "posts" / SLOT / "caption.txt").write_text("Caption here. Link in bio.")
-    (d / "posts" / SLOT / "first_comment.txt").write_text("https://example.test/?utm_campaign=x")
+    (d / "posts" / SLOT / "first_comment.txt").write_text("Which spot should we feature next?")
     (d / "posts" / SLOT / "meta.json").write_text(json.dumps({"source_asset": "src.mp4", "duration_s": 16, "thumb_offset": 2000}))
     db = DB.for_client(d)
     db.create_post(SLOT, "t", pillar="p")
@@ -181,3 +181,9 @@ def test_insights_snapshots_and_due(client):
     db.close()
     assert insights.snapshot_account(client, graph=g, day="2099-01-02")["followers_count"] == 10
     assert insights.snapshot_account(client, graph=g, day="2099-01-02") is None
+
+
+def test_publish_refuses_url_in_first_comment(client):
+    (C.client_dir(client) / "posts" / SLOT / "first_comment.txt").write_text("link: https://example.test/")
+    with pytest.raises(publish.PublishError, match="not clickable"):
+        publish.publish_slot(client, SLOT, graph=FakeGraph(), sleep=lambda s: None)

@@ -15,7 +15,7 @@ next step. Copy this file to `clients/<name>/PLAYBOOK.md` and tick as you go.
 - [ ] **Assets** with `provenance.yaml` each; no generative-model output.
 - [ ] **CP1** (operator). Approve `strategy.md`, `funnel.md`, `profile.md`. Apply the
       profile rewrite by hand.
-- [ ] **Link in bio** with UTM. Conversion events confirmed firing in GA4.
+- [ ] **Link in bio** with UTM; `utm_campaign` set to the slot id of the newest live reel, changed at each publish. Conversion events confirmed firing in GA4. No links in comments (not clickable).
 - [ ] **Swipe file** from Business Discovery (`swipe.md`).
 - [ ] **First publish test**: one existing clip through QA (metadata stripped) and
       `publish.py`; insights pulled at 24 h; no "AI info" label on the post.

@@ -40,10 +40,10 @@ cams with owner credit; the data sources with their attribution line.
 
 **CTA (operator rule, 2026-10-24).** "Comment for the link" is **never allowed**, in any
 form. Every reel ends with one ask that lands on rosa.surf, using one of: "rosa.surf,
-link in bio"; the spot link in the first comment (we post it); the URL spoken and on the
+link in bio"; the URL spoken and on the
 end card ("rosa.surf, it's free"); a spot share link in the caption text. Questions in
 the comments get the link in the reply, always. Week-4 experiment compares link in bio
-vs first comment vs URL on screen, by sessions per UTM.
+vs URL on screen, by sessions per UTM. No link in a comment, ever: Instagram comments are not clickable (operator, 2026-10-24).
 
 ## Visual identity
 

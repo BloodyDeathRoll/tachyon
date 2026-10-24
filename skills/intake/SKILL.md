@@ -40,7 +40,7 @@ they approve `strategy.md`, `funnel.md` and `profile.md`.
 1. Which numbers may we show, and which are private?
 2. Who is the on-camera voice: founder, brand, nobody (text only)?
 3. Red lines: competitors we never name, data we never show, claims legal forbids.
-4. Which CTA forms you want: link in bio, first comment, URL on screen, spot share link. ("Comment for the link" is never offered.)
+4. Which CTA forms you want: link in bio, URL on screen, spot share link in a DM reply. (No links in comments: not clickable.) ("Comment for the link" is never offered.)
 5. Ten accounts you would like to be visible to.
 6. Posting window: the audience's timezone and the hours they are not at work.
 

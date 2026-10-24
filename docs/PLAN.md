@@ -25,7 +25,7 @@ fact marked verified / agent-reported / unverified).
 | 10 | Brain | Claude via `claude -p` and Claude Code sessions, skills in `skills/`. No local LLMs. | 2026-10-24 |
 | 11 | Old code | `~/Projects/tachion-old` mined for prompts and patterns only (§6). | 2026-10-24 |
 | 12 | Assumed | English only. No paid ads. No generative AI media. | 2026-10-24 |
-| 13 | CTA | **"Comment for the link" is never allowed**, for any client. Links travel by link in bio, a first comment the publisher posts, the URL spoken and on screen, or a spot share link. A question in the comments gets an answer with the link; nothing is withheld to farm comments. | 2026-10-24 |
+| 13 | CTA | **"Comment for the link" is never allowed**, for any client. Links travel by link in bio and the URL spoken and on screen (URLs are not clickable in Instagram comments, operator 2026-10-24; no link comments). Links travel by link in bio, the URL spoken and on screen, or a spot share link. A question in the comments gets an answer with the link; nothing is withheld to farm comments. | 2026-10-24 |
 
 ## 1. Principles
 
@@ -150,7 +150,7 @@ batch. `grants.yaml` can later auto-approve a named pillar after N clean weeks.
   or search), `trial_params {graduation_strategy: SS_PERFORMANCE}` when `trial: true`,
   `collaborators` for partner posts. Never `is_ai_generated`.
 - Poll `status_code` once a minute up to 5 min; `media_publish` at the slot; store
-  `ig_media_id`, permalink, timestamps. Then post the **first comment** with the UTM link
+  `ig_media_id`, permalink, timestamps. A first comment is optional and never carries a URL (comments are not clickable); text only
   (`POST /{media}/comments`) when the slot asks for one. Read `content_publishing_limit` first
   (100 / 24 h).
 - Retry with backoff; on failure the item goes to `MANUAL_HANDOFF` with a ready-to-post
@@ -275,7 +275,7 @@ tachyon/
 - Pillars: "why this rating", swell map (`/charts`), free with no paywall (never name a
   competitor without a measurement), spot spotlights by region, swell-alert moments,
   widget for shops and schools.
-- CTA forms: link in bio, first comment with the spot link (posted by `publish.py` right
+- CTA forms: link in bio, URL on screen and spoken (no link comments: not clickable, operator 2026-10-24; first comment text-only, posted by `publish.py` right
   after `media_publish`), "rosa.surf" spoken and on the end card.
 - Trial reels once the account is eligible (reported 200 followers, unverified); before
   that, experiments are sequential across weeks.

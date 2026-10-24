@@ -17,12 +17,12 @@ Vercel Web Analytics is not enabled on the project; GA4 is the only visitor sour
 
 ## UTM scheme
 
-`https://rosa.surf/<path>?utm_source=instagram&utm_medium=social&utm_campaign=<slot_id>&utm_content=<bio|comment|reply|screen>`
+`https://rosa.surf/<path>?utm_source=instagram&utm_medium=social&utm_campaign=<slot_id>&utm_content=<bio|screen|reply_dm>`
 
-- Bio link: `utm_campaign=bio`, updated weekly to the current week's featured spot or
-  `/charts`.
-- First-comment links: `utm_content=comment`, `utm_campaign=<slot_id>`. Reply links to a
-  question: `utm_content=reply`. Never a keyword funnel.
+- Bio link: `utm_campaign=<slot_id>` of the newest live reel, changed by the operator at each
+  publish (`meta.json.bio_link_while_live` holds the exact URL). Path is the reel's landing page.
+- No links in comments (not clickable). A question in the comments is answered "link in bio"; a DM reply may carry the link with `utm_content=reply_dm`. Never a keyword funnel.
+- Per-post attribution therefore comes from the bio link's `utm_campaign`, changed each time a reel goes live, and from the URL on screen (`utm_content=screen` is not typeable; count it as direct).
 - `ga4.py` groups sessions and events by `utm_campaign`, so one slot maps to one row.
 
 ## Landing pages
@@ -32,11 +32,11 @@ Vercel Web Analytics is not enabled on the project; GA4 is the only visitor sour
 | Why this rating, Spot spotlight, Swell alert | `/spot/<id>` of the spot in the reel |
 | Swell map | `/charts` |
 | Free, and why | `/` |
-| Shops and schools | `/widget/?spot=<id>&theme=dark` demo; the embed tag is on the page and in the first comment |
+| Shops and schools | `/widget/?spot=<id>&theme=dark` demo; the embed tag is on the page |
 
 ## Link in bio
 
-One link, to `rosa.surf` with the bio UTM. No link-in-bio service in phase 1.
+One link, to the newest reel's landing page with its slot UTM. No link-in-bio service in phase 1.
 
 ## Product asks (not built in Rosa yet)
 
