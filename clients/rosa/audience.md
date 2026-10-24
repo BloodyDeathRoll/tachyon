@@ -29,7 +29,7 @@ they want: one worldwide app that is free and does not nag. Language: "swell win
 site or screen without paying for an API. Trigger state: customers asking "how is it
 today". What they want: an embed that looks good and credits nobody but the data.
 Language: "widget", "embed", "today's conditions". This persona is a partner, not a
-viewer: `collaborators` posts and the `WIDGET` keyword serve them.
+viewer: `collaborators` posts and the widget demo link serve them.
 
 `[assumed]` Swimmers and open-water people are a later audience once swim weights are
 tuned; not a phase-1 persona.

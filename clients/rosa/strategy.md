@@ -1,7 +1,6 @@
 # Rosa — strategy
 
-Status: **draft for CP1**, 2026-10-24. Operator approves or edits this file before any
-calendar is written.
+Status: **approved at CP1, 2026-10-24.** Edits after this date are logged in CHANGELOG.md.
 
 ## The tension
 
@@ -48,7 +47,7 @@ Cadence: 3–5 reels a week (data: the biggest reach gain per post is going from
 ## Experiments, first four weeks
 
 1. Hook formula: claim vs number-first. 2. Length: 15 s vs 30 s. 3. Cover: UI frame
-vs text card. 4. CTA: `SWELL` keyword vs "install it". One variable a week,
+vs text card. 4. CTA form: link in bio vs first comment vs URL on screen. One variable a week,
 pre-registered in `calendar.yaml`.
 
 ## Kill criteria

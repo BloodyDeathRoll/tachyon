@@ -1,6 +1,6 @@
 # Rosa — Instagram profile
 
-Status: **draft for CP1**, 2026-10-24. The account does not exist yet, so there is no
+Status: **approved at CP1, 2026-10-24.** The account does not exist yet, so there is no
 score (ig-profile rubric needs a live profile). This is the proposal; the operator
 creates the account and applies it by hand.
 

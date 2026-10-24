@@ -21,11 +21,11 @@ DEFAULT_GRANTS = {
     "ga4_property": None,
     "blob_bucket": None,
     "auto_approve_pillars": [],  # pillars the batch gate may auto-approve
-    "auto_reply": {"comments": False, "keyword_dm": False, "dm": False},
+    "auto_reply": {"comments": False, "dm": False},
     "emergency_stop": False,
 }
 
-AUTONOMY_FLAGS = ["auto_reply.comments", "auto_reply.keyword_dm", "auto_reply.dm"]
+AUTONOMY_FLAGS = ["auto_reply.comments", "auto_reply.dm"]
 
 
 def list_clients() -> list[str]:

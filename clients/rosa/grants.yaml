@@ -7,6 +7,5 @@ blob_bucket: null
 auto_approve_pillars: []
 auto_reply:
   comments: false
-  keyword_dm: false
   dm: false
 emergency_stop: false

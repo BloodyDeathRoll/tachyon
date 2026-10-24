@@ -26,7 +26,7 @@ they approve `strategy.md`, `funnel.md` and `profile.md`.
 | File | Contents | Rule |
 |---|---|---|
 | `product.md` | the facts sheet: what it is, who for, price, the features that exist today, the numbers (counts, cadence, speed), the proof it may use | every number has a source and a date; this is the only thing the Factory may put on screen |
-| `brand.md` | voice (the `data/voice.template.md` sections: how they talk on camera, words never said, positions, off-limits, proof it may use, keyword CTA), visual identity (colours, fonts, logo paths), banned words | copy the voice section to `~/.claude/instagram/voice.md` so the `ig-*` skills read it |
+| `brand.md` | voice (the `data/voice.template.md` sections: how they talk on camera, words never said, positions, off-limits, proof it may use, allowed CTA forms), visual identity (colours, fonts, logo paths), banned words | copy the voice section to `~/.claude/instagram/voice.md` so the `ig-*` skills read it |
 | `audience.md` | 2–3 personas, trigger states, verbatim pains from reviews / comments / support, the language pack (their words, not ours) | quote sources |
 | `strategy.md` | the tension, the play, positioning, 4–6 pillars, cadence (3–5 reels/week), KPIs with targets, kill criteria, red lines from the client's own docs | one page |
 | `funnel.md` | conversion events (which count as lead / sale), UTM scheme, link in bio, landing pages, analytics source | events must already fire or be flagged as a product ask |
@@ -40,7 +40,7 @@ they approve `strategy.md`, `funnel.md` and `profile.md`.
 1. Which numbers may we show, and which are private?
 2. Who is the on-camera voice: founder, brand, nobody (text only)?
 3. Red lines: competitors we never name, data we never show, claims legal forbids.
-4. The keyword CTA you are willing to fulfil by DM (what do they get, how fast)?
+4. Which CTA forms you want: link in bio, first comment, URL on screen, spot share link. ("Comment for the link" is never offered.)
 5. Ten accounts you would like to be visible to.
 6. Posting window: the audience's timezone and the hours they are not at work.
 

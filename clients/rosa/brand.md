@@ -36,11 +36,12 @@ line does not cover.
 rating explanation in words; real screen captures of the live app; the 14 official
 cams with owner credit; the data sources with their attribution line.
 
-**CTA (decided 2026-10-24, Tachyon's call).** Every reel ends with one ask that lands
-on rosa.surf: either "rosa.surf, link in bio" (install / open the spot) or a keyword
-comment that earns a DM with the link: `SPOT` → the spot page of the reel, `SWELL` →
-how to turn on swell alerts, `WIDGET` → the embed tag. One ask per reel; week-4
-experiment compares link-in-bio vs keyword on sessions by UTM.
+**CTA (operator rule, 2026-10-24).** "Comment for the link" is **never allowed**, in any
+form. Every reel ends with one ask that lands on rosa.surf, using one of: "rosa.surf,
+link in bio"; the spot link in the first comment (we post it); the URL spoken and on the
+end card ("rosa.surf, it's free"); a spot share link in the caption text. Questions in
+the comments get the link in the reply, always. Week-4 experiment compares link in bio
+vs first comment vs URL on screen, by sessions per UTM.
 
 ## Visual identity
 

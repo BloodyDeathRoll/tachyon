@@ -39,7 +39,7 @@ next step. Copy this file to `clients/<name>/PLAYBOOK.md` and tick as you go.
 
 - [ ] **Measure** (cron, station 6). Snapshots at 24 h / 72 h / 7 d, account daily,
       GA4 by UTM.
-- [ ] **Listen** (station 5). Webhook events triaged; replies, keyword private replies,
+- [ ] **Listen** (station 5). Webhook events triaged; replies, link answers,
       mention replies and DM replies drafted; operator sends until the matching
       `auto_reply.*` grant is on. Lead-shaped DMs logged as conversions.
 - [ ] **Engagement round** (operator, 20 min). Open `engage/<date>.md`: for each of the

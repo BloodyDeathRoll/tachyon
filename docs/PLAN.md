@@ -25,6 +25,7 @@ fact marked verified / agent-reported / unverified).
 | 10 | Brain | Claude via `claude -p` and Claude Code sessions, skills in `skills/`. No local LLMs. | 2026-10-24 |
 | 11 | Old code | `~/Projects/tachion-old` mined for prompts and patterns only (§6). | 2026-10-24 |
 | 12 | Assumed | English only. No paid ads. No generative AI media. | 2026-10-24 |
+| 13 | CTA | **"Comment for the link" is never allowed**, for any client. Links travel by link in bio, a first comment the publisher posts, the URL spoken and on screen, or a spot share link. A question in the comments gets an answer with the link; nothing is withheld to farm comments. | 2026-10-24 |
 
 ## 1. Principles
 
@@ -67,7 +68,7 @@ Skills: `intake` (ours, propose-don't-interrogate, from tachion-old prompts 1, 3
 Outputs in `clients/<name>/`:
 - `product.md` facts sheet; every number measured from the live app or git, dated.
 - `brand.md` = voice (the skill repo's `voice.md` template: on-camera voice, words never
-  said, positions, off-limits, proof it may use, keyword CTA) + visual identity + banned
+  said, positions, off-limits, proof it may use, the CTA forms allowed) + visual identity + banned
   words. Also copied to `~/.claude/instagram/voice.md` so the `ig-*` skills read it.
 - `audience.md` personas, trigger states, verbatim pains, language pack.
 - `strategy.md` tension, play, positioning, pillars, cadence, KPIs, kill criteria.
@@ -149,7 +150,8 @@ batch. `grants.yaml` can later auto-approve a named pillar after N clean weeks.
   or search), `trial_params {graduation_strategy: SS_PERFORMANCE}` when `trial: true`,
   `collaborators` for partner posts. Never `is_ai_generated`.
 - Poll `status_code` once a minute up to 5 min; `media_publish` at the slot; store
-  `ig_media_id`, permalink, timestamps. Read `content_publishing_limit` first
+  `ig_media_id`, permalink, timestamps. Then post the **first comment** with the UTM link
+  (`POST /{media}/comments`) when the slot asks for one. Read `content_publishing_limit` first
   (100 / 24 h).
 - Retry with backoff; on failure the item goes to `MANUAL_HANDOFF` with a ready-to-post
   package and a notification. Published only when Meta returns the id.
@@ -158,18 +160,18 @@ batch. `grants.yaml` can later auto-approve a named pillar after N clean weeks.
 
 ### 5 · Listen — webhooks + daily `claude -p replies`
 `listen/` is a small Vercel function subscribed to `comments`, `mentions`, `messages`,
-`story_insights`. Daily, Claude triages with `/ig-reply`'s buckets (keyword / lead /
+`story_insights`. Daily, Claude triages with `/ig-reply`'s buckets (lead /
 substance / question / support / noise) and drafts:
 - **Comments on our media**: reply in voice; concede the true part to critics; nothing
   to haters; hide abuse.
-- **Keyword comments**: one private reply within 7 days, the promised thing first, no
-  gate (`/ig-dm`). This is the supported comment-to-DM funnel.
+- **Questions that ask for the link or the spot**: answer in the thread with the link,
+  within the day. Never a keyword funnel (decision 13).
 - **Mentions**: reply via `/mentions` or a thank-you comment.
 - **Inbound DMs**: reply inside the 24 h window; lead-shaped messages logged as
   conversions.
 - **Questions with demand** (liked comments) are queued to Plan as formula #16.
 Operator sends drafts until `grants.yaml` flips `auto_reply.comments`, then
-`auto_reply.keyword_dm`, then `auto_reply.dm`. Never outbound to strangers. Themes and
+`auto_reply.dm`. Never outbound to strangers. Themes and
 verbatim language are appended to `audience.md`.
 
 ### 6 · Measure — `insights.py`, `ga4.py`, `discovery.py`, no LLM
@@ -273,7 +275,8 @@ tachyon/
 - Pillars: "why this rating", swell map (`/charts`), free with no paywall (never name a
   competitor without a measurement), spot spotlights by region, swell-alert moments,
   widget for shops and schools.
-- Keyword CTA candidates: `SWELL` (push-alert how-to), `SPOT` (spot page link), `WIDGET`.
+- CTA forms: link in bio, first comment with the spot link (posted by `publish.py` right
+  after `media_publish`), "rosa.surf" spoken and on the end card.
 - Trial reels once the account is eligible (reported 200 followers, unverified); before
   that, experiments are sequential across weeks.
 - Conversions: `app_install`, `favorite_add` (= lead), `push_optin_start`, `share`.
@@ -290,7 +293,7 @@ tachyon/
    default; record in `CHANGELOG.md`.
 4. Produce + QA: first film in `clients/rosa/films/`, `script` / `film` / `package` /
    `qa` skills, `spec_check.py` with the provenance check.
-5. `listen/` webhook + `replies` skill; keyword private reply.
+5. `listen/` webhook + `replies` skill.
 6. Plan + Learn: `calendar.yaml`, `engage/`, `score.py`, first 4-week run.
 7. Business Discovery → `swipe.md`; monthly competitor refresh.
 8. Channel 2: YouTube Shorts, then TikTok after audit, after a cross-platform music
