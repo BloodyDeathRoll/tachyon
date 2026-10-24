@@ -9,3 +9,7 @@ clients/*/assets/*
 .env
 .env.local
 .env.*
+dashboard/ref/
+dashboard/data.json
+dashboard/mockups/*/shots/
+dashboard/**/shots/
