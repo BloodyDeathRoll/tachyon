@@ -17,9 +17,10 @@ assets:
   added: '2026-10-24'
 - file: rosa-showreel-v14-30s-blues-9x16.mp4
   source: rendered by the Rosa HTML motion-film pipeline, 2026-10-04; original at ~/Videos/rosa/
-  licence: ours for the UI; ocean footage credited 'Pixabay' on screen, licence of those clips unverified
-  allowed_use: 'none until re-rendered: shows 2,741 spots (now 3,056) and Pixabay footage (brand.md bans
-    stock surfer footage)'
+  licence: 'ours for the UI; ocean footage from Pixabay (Pixabay Content License: commercial use allowed,
+    no attribution required)'
+  allowed_use: Instagram, as-is, by operator decision 2026-10-24 (stale 2,741 count and Pixabay footage
+    accepted); re-render before any reuse
   generative: false
   contains: stale spot count, stock ocean footage
   added: '2026-10-24'
