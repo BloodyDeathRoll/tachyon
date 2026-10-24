@@ -34,9 +34,13 @@ viewer: `collaborators` posts and the `WIDGET` keyword serve them.
 `[assumed]` Swimmers and open-water people are a later audience once swim weights are
 tuned; not a phase-1 persona.
 
-## Verbatim pains (to collect)
+## Verbatim pains (collecting)
 
-Empty until Listen runs. Sources to mine first: comments under competitor reels in
+- 2026-10-24, @lineup.experience Brittany reel (instagram.com/p/DejJ7NjthK8): the
+  comment section turned on the account for "promoting already overcrowded surf spots".
+  Lesson: spot spotlights feature well-known breaks; never a quiet local spot.
+
+More once Listen runs. Sources to mine first: comments under competitor reels in
 `competitors.yaml`, r/surfing threads about forecast apps, Play Store reviews of
 competing apps. Quote, date, link.
 

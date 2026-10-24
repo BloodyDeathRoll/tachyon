@@ -26,9 +26,9 @@ only source the Factory may put on screen. Re-measure anything older than 14 day
 | Entry JS / CSS | 184 KB / 70 KB raw, 63 KB / 15 KB gzip | measured on live entry files |
 | Spot JSON | ~63 KB (carcavelos) | measured |
 
-On-screen wording: the site says "15-day"; the measured horizon is 16 days including
-today. **Pick one before any clip ships.** The existing clips were made 2026-10-04 and
-may carry old numbers (2,254 or 2,290 spots): re-measure before reuse.
+On-screen wording: **16 days** (operator decision 2026-10-24). The site copy still says
+"15-day" (`web/index.html`): product ask to align it. The existing clips were made
+2026-10-04 and may carry old numbers (2,254 or 2,290 spots): re-measure before reuse.
 
 ## The rating (what we may explain)
 
@@ -68,7 +68,7 @@ may carry old numbers (2,254 or 2,290 spots): re-measure before reuse.
 - No measured accuracy comparison with Surfline exists. **Never claim accuracy.**
   Buoy ground truth exists only for the US and Portugal.
 
-## Traction (private unless the operator says otherwise)
+## Traction (private: not for screen or caption)
 
 - 33 user accounts on 2026-10-23 after cleaning Tango sign-ins; real sign-ups "near zero".
 - GA4, 28 days to 2026-10-06: ~1,000 users, ~480 via the Tango app (not surfers).
@@ -95,7 +95,7 @@ may carry old numbers (2,254 or 2,290 spots): re-measure before reuse.
 
 ## Open items that touch marketing
 
-- `[assumed]` "15-day" vs "16-day" wording.
+- Site copy says "15-day"; we say 16 days. Product ask: change the site copy.
 - Numeric GA4 property id for `grants.yaml` (the measurement id is `G-NKQNM6YLQ1`).
 - Play Store listing not public. Search Console not set up, sitemap never submitted.
 - Local checkout `~/Projects/rosa` is 113 commits behind `origin/main`; pull before any

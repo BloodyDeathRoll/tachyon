@@ -4,6 +4,10 @@
 # "within ~10x our size" is meaningless at 0 followers; start with the niche's voices and
 # re-balance toward peers after week 4.
 candidates:
+  - handle: lineup.experience
+    role: peer
+    why: spot-guide app for surfers, reels sell a spot with local knowledge and a soft CTA; the operator's register reference (2026-10-24)
+    verified: true
   - handle: surfline
     role: reach
     why: the paywalled incumbent; its comment threads are where "why is it a 7" gets asked

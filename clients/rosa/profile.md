@@ -17,7 +17,7 @@ Must match the domain so the bio link and the handle read as one thing.
 
 ```
 Free surf forecast, worldwide. 3,056 spots · 16 days · 4 updates a day.
-Shows why a day rates. Install it ↓
+Shows you why a day rates. Check your spot ↓
 ```
 
 ## Link

@@ -10,14 +10,17 @@ The voice section is mirrored to `~/.claude/instagram/voice.md` once approved, s
 brand explaining to a market. Numbers over adjectives. One claim per card. The app's own
 copy sets the register: "free, lean, fast, shareable, minus the bloat and paywall."
 
-**Who speaks.** `[assumed]` No face in phase 1: the app is the actor, text and a calm
-voice-over carry the line. Founder on camera is an option for the "why we built it"
-pillar if the operator wants it.
+**Who speaks.** An avid surfer who loves Rosa (operator decision 2026-10-24): first
+person, checks the forecast every day, talks the way the comment section talks. The app
+is what the camera looks at; the surfer is the voice (voice-over, ElevenLabs or
+recorded). No founder-on-camera in phase 1.
 
 **Words we never say.** game-changer, revolutionary, seamless, unlock, elevate,
 powerful, next-level, "the only app you need", "best forecast", "most accurate",
-"AI-powered", any accuracy claim, any competitor's name in a comparison without a
-measurement.
+"exact", "precise", "AI-powered", any accuracy claim. **No competitor is ever named or
+alluded to** (operator decision 2026-10-24): we state our advantages and values, not
+anyone else's gaps. Reference for the register: @lineup.experience's Brittany reel,
+which sells with local knowledge and a soft CTA and never claims accuracy.
 
 **Words we use.** free, worldwide, 3,056 spots, 16 days, four times a day, why this
 rating, size · period · wind, swell alert, install it, your spots, share a spot.
@@ -33,9 +36,11 @@ line does not cover.
 rating explanation in words; real screen captures of the live app; the 14 official
 cams with owner credit; the data sources with their attribution line.
 
-**Keyword CTA.** `[assumed]` `SWELL` → DM a 30-second how-to for push alerts;
-`SPOT` → DM the spot page link for the spot in the reel; `WIDGET` → DM the embed tag.
-One keyword per reel.
+**CTA (decided 2026-10-24, Tachyon's call).** Every reel ends with one ask that lands
+on rosa.surf: either "rosa.surf, link in bio" (install / open the spot) or a keyword
+comment that earns a DM with the link: `SPOT` → the spot page of the reel, `SWELL` →
+how to turn on swell alerts, `WIDGET` → the embed tag. One ask per reel; week-4
+experiment compares link-in-bio vs keyword on sessions by UTM.
 
 ## Visual identity
 
