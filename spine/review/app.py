@@ -84,8 +84,9 @@ def render_client(name: str) -> bytes:
             meta_d = json.loads(meta) if meta else {}
         except json.JSONDecodeError:
             meta_d = {"error": "meta.json unreadable"}
-        vid = f"<video controls preload=metadata src='/{ESC(name)}/media/{ESC(p['slot_id'])}/video.mp4'></video>" if (slot / "video.mp4").exists() else "<div class=meta>no video.mp4</div>"
-        cover = f"<img class=cover src='/{ESC(name)}/media/{ESC(p['slot_id'])}/cover.jpg'>" if (slot / "cover.jpg").exists() else ""
+        bust = lambda f: int(f.stat().st_mtime)  # noqa: E731 — cache-buster per file version
+        vid = f"<video controls preload=metadata src='/{ESC(name)}/media/{ESC(p['slot_id'])}/video.mp4?v={bust(slot / 'video.mp4')}'></video>" if (slot / "video.mp4").exists() else "<div class=meta>no video.mp4</div>"
+        cover = f"<img class=cover src='/{ESC(name)}/media/{ESC(p['slot_id'])}/cover.jpg?v={bust(slot / 'cover.jpg')}'>" if (slot / "cover.jpg").exists() else ""
         pills = [f"<span class=pill>{ESC(str(p['pillar'] or '—'))}</span>",
                  f"<span class='pill y'>{ESC(str(p['hook_formula'] or '—'))}</span>",
                  f"<span class='pill y'>{ESC(str(p['scheduled_at'] or 'unscheduled'))}</span>"]
@@ -128,6 +129,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")   # slots get renamed; never serve a stale video
         self.end_headers()
         self.wfile.write(body)
 
