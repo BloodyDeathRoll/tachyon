@@ -10,8 +10,10 @@ The voice section is mirrored to `~/.claude/instagram/voice.md` once approved, s
 brand explaining to a market. Numbers over adjectives. One claim per card. The app's own
 copy sets the register: "free, lean, fast, shareable, minus the bloat and paywall."
 
-**Who speaks.** An avid surfer who loves Rosa (operator decision 2026-10-24): first
-person, checks the forecast every day, talks the way the comment section talks. The app
+**Who speaks.** With a voice-over: an avid surfer who loves Rosa (operator decision
+2026-10-24), first person, talks the way the comment section talks. Without a
+voice-over (operator rule 2026-10-24): the brand speaks, second person ("open it, your
+spots are there"), never "I" or "my". The app
 is what the camera looks at; the surfer is the voice (voice-over, ElevenLabs or
 recorded). No founder-on-camera in phase 1.
 
