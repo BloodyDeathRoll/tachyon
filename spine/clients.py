@@ -71,7 +71,15 @@ def stopped(name: str) -> bool:
 
 
 def token(name: str) -> str:
-    env = load_grants(name)["token_env"]
-    if not env or not os.environ.get(env):
-        raise RuntimeError(f"no token for {name}: set grants.token_env and export it")
-    return os.environ[env]
+    """Page-scoped token: process env first, then the operator's env file
+    ($TACHYON_ENV, default ~/Projects/tachyon/.env.local, written by publisher/auth.py)."""
+    key = load_grants(name)["token_env"]
+    if not key:
+        raise RuntimeError(f"no token for {name}: set grants.token_env")
+    if os.environ.get(key):
+        return os.environ[key]
+    from spine.publisher.auth import env_path, read_env  # local import: avoids a cycle
+    value = read_env(env_path()).get(key)
+    if not value:
+        raise RuntimeError(f"no token for {name}: {key} not in env or {env_path()}")
+    return value

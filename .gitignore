@@ -7,3 +7,5 @@ clients/*/posts/*/cover.jpg
 clients/*/assets/*
 !clients/*/assets/provenance.yaml
 .env
+.env.local
+.env.*
