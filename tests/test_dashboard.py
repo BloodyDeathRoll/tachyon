@@ -119,3 +119,67 @@ def test_media_supports_range(server, client_dir):
     c.request("GET", "/demo/media/w01-s1/video.mp4", headers={"Range": "bytes=2-5"})
     r = c.getresponse()
     assert r.status == 206 and r.read() == b"2345"
+
+
+def test_schedule_times_are_editable(server, client_dir):
+    status, _, _ = req(server, "POST", "/demo/schedule", {"t1": "19:00", "t2": "07:15"})
+    assert status == 303
+    assert C.load_grants("demo")["slots"] == ["07:15", "19:00"]
+    _, body, _ = req(server, "GET", "/demo")
+    assert "value='07:15'" in body and "value='19:00'" in body
+    status, _, _ = req(server, "POST", "/demo/schedule", {"t1": "7pm", "t2": "07:15"})
+    assert status == 400
+    status, _, _ = req(server, "POST", "/demo/schedule", {"t1": "07:15", "t2": "07:15"})
+    assert status == 400
+
+
+def test_prepare_next_week_and_auto_toggle(server, client_dir, monkeypatch):
+    from spine import week as W
+    started = []
+    monkeypatch.setattr(W, "start", lambda c, w: started.append((c, w)))
+    req(server, "POST", "/demo/week", {"action": "prepare"})
+    assert started == [("demo", W.next_week())]
+    req(server, "POST", "/demo/week", {"action": "auto", "value": "1"})
+    assert C.load_grants("demo")["week_prep"]["auto"] is True
+    _, body, _ = req(server, "GET", "/demo")
+    assert "Next week" in body and "Prepare automatically every Thursday" in body
+
+
+def test_planned_slot_is_kept_on_approval(server, client_dir):
+    db = DB.for_client(client_dir)
+    db.conn.execute("UPDATE posts SET scheduled_at='2099-01-05T18:30:00+00:00' WHERE slot_id='w01-s1'")
+    db.close()
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["scheduled_at"] == "2099-01-05T18:30:00+00:00"
+    db.close()
+
+
+def test_calendar_places_video_in_its_slot(server, client_dir):
+    db = DB.for_client(client_dir)
+    db.conn.execute("UPDATE posts SET scheduled_at='2026-11-03T18:30:00+00:00' WHERE slot_id='w01-s1'")
+    db.close()
+    status, body, _ = req(server, "GET", "/demo/calendar?w=2026-W45")
+    assert status == 200
+    assert "/demo/v/w01-s1" in body and "18:30" in body and "06:30" in body and "Open slot" in body
+
+
+def test_week_plan_slots_and_registry(client_dir, tmp_path, monkeypatch):
+    from spine import week as W
+    monkeypatch.setattr(W, "FILMS", tmp_path / "films")
+    (tmp_path / "films").mkdir()
+    (tmp_path / "films" / "index.ts").write_text("// @imports\nexport const FILMS = [\n  // @films\n];\n")
+    times = W.slot_times("demo", "2026-W45")
+    assert len(times) == 14 and times[0] == "2026-11-02T06:30:00+00:00"
+    items = [{"at": t, "title": f"T{i}", "brief": "b", "hook": "h", "caption": "c"} for i, t in enumerate(times[:2])]
+    slots = W.make_slots("demo", "2026-W45", items)
+    assert slots == ["2026-w45-01", "2026-w45-02"]
+    db = DB.for_client(client_dir)
+    row = db.post("2026-w45-02")
+    db.close()
+    assert row["state"] == "BRIEFED" and row["scheduled_at"] == times[1]
+    meta = json.loads((client_dir / "posts" / "2026-w45-01" / "meta.json").read_text())
+    assert meta["film"]["reel"] == "film-2026-w45-01" and meta["film"]["story"] == "film-2026-w45-01-story"
+    W.register("film-2026-w45-01"); W.register("film-2026-w45-01")
+    idx = (tmp_path / "films" / "index.ts").read_text()
+    assert idx.count('from "./film-2026-w45-01"') == 1 and 'id: "film-2026-w45-01"' in idx

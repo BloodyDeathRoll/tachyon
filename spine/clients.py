@@ -66,6 +66,18 @@ def set_flag(name: str, dotted: str, value: bool) -> dict:
     return g
 
 
+EDITABLE = {"slots", "week_prep"}   # dashboard-editable settings besides the switches
+
+
+def set_value(name: str, key: str, value) -> dict:
+    if key not in EDITABLE:
+        raise ValueError(f"not editable: {key}")
+    g = load_grants(name)
+    g[key] = value
+    save_grants(name, g)
+    return g
+
+
 def stopped(name: str) -> bool:
     return bool(load_grants(name)["emergency_stop"])
 
