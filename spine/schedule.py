@@ -31,8 +31,24 @@ def next_free(taken: set[str], grants: dict | None = None, at: datetime | None =
     raise RuntimeError("no free slot within a year")
 
 
-def taken_slots(db) -> set[str]:
-    rows = db.conn.execute(
-        "SELECT scheduled_at FROM posts WHERE state IN ('APPROVED','QUEUED','PUBLISHING') AND scheduled_at IS NOT NULL"
-    ).fetchall()
-    return {r["scheduled_at"] for r in rows}
+ACTIVE = ("IDEA", "BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL", "NEEDS_INPUT",
+          "APPROVED", "QUEUED", "PUBLISHING")
+
+
+def taken_slots(db, exclude: str | None = None) -> set[str]:
+    """Slots held by anything not yet published (planned videos hold theirs)."""
+    q = f"SELECT slot_id, scheduled_at FROM posts WHERE state IN ({','.join('?' * len(ACTIVE))}) AND scheduled_at IS NOT NULL"
+    return {r["scheduled_at"] for r in db.conn.execute(q, ACTIVE).fetchall() if r["slot_id"] != exclude}
+
+
+def slot_for_approval(db, row, grants: dict | None = None, at: datetime | None = None) -> str:
+    """Keep a planned slot if it is still ahead and free; otherwise the next free one."""
+    at = at or datetime.now(timezone.utc)
+    taken = taken_slots(db, exclude=row["slot_id"])
+    planned = row["scheduled_at"]
+    if planned:
+        dt = datetime.fromisoformat(planned.replace("Z", "+00:00"))
+        dt = dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        if dt >= at + LEAD and planned not in taken:
+            return planned
+    return next_free(taken, grants, at)

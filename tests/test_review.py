@@ -44,16 +44,22 @@ def req(port, method, path, form=None):
     return r.status, r.read().decode(), r.getheader("Location")
 
 
-def test_index_lists_clients(server):
-    status, body, _ = req(server, "GET", "/")
-    assert status == 200 and "demo" in body
+def test_index_redirects_to_first_client(server):
+    status, _, loc = req(server, "GET", "/")
+    assert status == 303 and loc == "/demo"
 
 
 def test_client_page_shows_waiting_post(server):
+    # overview: a card with its tag, no caption or QA on the main screen
     status, body, _ = req(server, "GET", "/demo")
     assert status == 200
-    assert "w01-s1" in body and "first caption" in body and "VERDICT: APPROVED" in body
-    assert "1 waiting for approval" in body
+    assert "/demo/v/w01-s1" in body and "Needs approval" in body and "1 to approve" in body
+    assert "first caption" not in body and "VERDICT: APPROVED" not in body
+    # the caption lives on the video page, the QA report one click further
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "first caption" in body
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1/qa")
+    assert "VERDICT: APPROVED" in body
 
 
 def test_approve_saves_edited_caption_and_moves_state(server, client_dir):
@@ -82,7 +88,7 @@ def test_switchboard_flips_flags_and_emergency_stop(server):
     req(server, "POST", "/demo/flag", {"flag": "emergency_stop", "value": "1"})
     assert C.stopped("demo") is True
     status, body, _ = req(server, "GET", "/demo")
-    assert "EMERGENCY STOP" in body
+    assert "Emergency stop is on" in body
     status, body, _ = req(server, "POST", "/demo/flag", {"flag": "page_id", "value": "1"})
     assert status == 400
 
