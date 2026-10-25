@@ -394,6 +394,14 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .rrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--rule)}
 .rrow b{display:block;font-size:14.5px;font-weight:600}.rrow small{color:var(--ink3);font-size:12.5px}
 .rrow.inh .toggle{opacity:.45;cursor:not-allowed}
+.rblock{margin-top:16px;border-top:1px solid var(--rule)}
+.rblock .rrow:first-child{border-top:0}
+.rhead b{font-size:14.5px}
+.rgm{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:50;display:grid;place-items:center;padding:24px}
+.rgm[hidden]{display:none}
+.rgbox{background:#fff;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px;min-width:300px;animation:pop .18s ease-out}
+.rgbox label{display:flex;flex-direction:column;gap:6px;font-size:13.5px;color:var(--ink3)}
+.rgbox input{border:1px solid var(--rule);border-radius:9px;padding:8px 10px;font-size:15px;color:var(--ink)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media (min-width:1700px){.ovgrid{grid-template-columns:minmax(0,2fr) minmax(400px,1fr)}}
 @media (max-width:1100px){.ovgrid{grid-template-columns:1fr}}
@@ -622,14 +630,17 @@ def views_block(client: str, db: DB, slot: str | None, q: dict, base: str) -> st
     eg, a, b = view_window(g, q.get("from"), q.get("to"))
     series = views_series(db, slot, eg, a, b)
     total = sum(v for _, v in series)
-    seg = "".join(f"<a href='{base}?g={x}#views' class='{'on' if g == x else ''}'>{x.capitalize()}</a>" for x in GRANS)
-    custom = ""
-    if g == "custom":
-        today = datetime.now(timezone.utc).date()
-        custom = (f"<form method=get action='{base}#views' class=range><input type=hidden name=g value=custom>"
-                  f"<input type=date name=from value='{ESC(q.get('from') or (today - timedelta(days=13)).isoformat())}' aria-label=From>"
-                  f"<span class=muted>to</span><input type=date name=to value='{ESC(q.get('to') or today.isoformat())}' aria-label=To>"
-                  f"<button class='btn dark small'>Show</button></form>")
+    seg = "".join(f"<a href='{base}?g={x}#views' class='{'on' if g == x else ''}'>{x.capitalize()}</a>" if x != "custom" else
+                  f"<a href='#' data-range class='{'on' if g == x else ''}'>Custom</a>" for x in GRANS)
+    today = datetime.now(timezone.utc).date()
+    custom = (f"<div class=rgm hidden><form method=get action='{base}#views' class=rgbox><input type=hidden name=g value=custom>"
+              f"<h2>Custom range</h2><label>From<input type=date name=from value='{ESC(q.get('from') or (today - timedelta(days=13)).isoformat())}'></label>"
+              f"<label>To<input type=date name=to value='{ESC(q.get('to') or today.isoformat())}'></label>"
+              f"<div class=btns><button class='btn dark small'>Show</button><button type=button class='btn sec small' data-rgclose>Cancel</button></div></form></div>"
+              "<script>(()=>{const v=document.currentScript.closest('.views'),m=v.querySelector('.rgm');"
+              "v.querySelector('[data-range]').addEventListener('click',e=>{e.preventDefault();m.hidden=false;m.querySelector('input[type=date]').focus();});"
+              "m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-rgclose]'))m.hidden=true;});"
+              "document.addEventListener('keydown',e=>{if(e.key==='Escape')m.hidden=true;});})();</script>")
     span = {"hour": "last 48 hours", "day": "last 30 days", "month": "last 12 months"}.get(g, f"{a:%-d %b} – {(b - timedelta(seconds=1)):%-d %b %Y}")
     body = (f"<div class=chart>{views_chart(series, eg)}</div>" if total else
             "<p class=muted style='margin:14px 0 4px'>No views in this period yet.</p>")
@@ -842,8 +853,11 @@ def replies_card(client: str, slot: str) -> str:
     custom = (f"<form method=post action='{base}'><input type=hidden name=custom value='{0 if r['custom'] else 1}'>"
               f"<button class='toggle {'on' if r['custom'] else ''}' aria-pressed={'true' if r['custom'] else 'false'} aria-label='Custom for this video'><i></i></button></form>")
     stop = "<p class=hint>Emergency stop is on: nothing replies.</p>" if g["emergency_stop"] else ""
-    return (f"<section class=card id=replies><div class=row><div><h2>Replies</h2><p class=muted style='margin:2px 0 0;font-size:13.5px'>"
-            f"Custom for this video</p></div>{custom}</div><div class=rrows>{''.join(rows)}</div>{stop}</section>")
+    head = (f"<div class='rrow rhead'><div><b>Custom replies for this video</b>"
+            + ("" if r["custom"] else f"<small>Off: Settings decide (comments {'on' if g['auto_reply']['comments'] else 'off'}, "
+                                      f"messages {'on' if g['auto_reply']['dm'] else 'off'})</small>")
+            + f"</div>{custom}</div>")
+    return f"<div id=replies class=rblock>{head}{''.join(rows) if r['custom'] else ''}{stop}</div>"
 
 
 # ── video page ────────────────────────────────────────────────────────────────
@@ -929,7 +943,7 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         sub_ = {"need": "Approving keeps this slot if it is still free.", "sched": "The bio link switches to it automatically."}.get(cls, "")
         right.append(f"<section class='card whencard'><div class=row><div><span class=muted style='font-size:13.5px'>{wtxt}</span>"
                      f"<p class=big style='font-size:19px;margin-top:2px'>{ESC(wh)}</p></div>{act}</div>"
-                     + (f"<p class=hint style='margin-top:8px'>{sub_}</p>" if sub_ else "") + "</section>")
+                     + (f"<p class=hint style='margin-top:8px'>{sub_}</p>" if sub_ else "") + replies_card(client, slot) + "</section>")
 
         # performance
         m, at = media_latest(db, slot)
@@ -951,7 +965,8 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         perf_card = f"<section class=card><h2>Performance</h2>{perf}</section>"
 
         blocks.append(music_card(client, slot, cls, music, q))
-        blocks.append(replies_card(client, slot))
+        if row["published_at"]:
+            blocks.insert(0, perf_card)   # published: performance leads the middle column
 
         # post text: two lines, then a clear way to read it all
         cap = read(sdir / "caption.txt").strip()
@@ -960,7 +975,6 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
                           f"<details class=full><summary><div class=cap>{ESC(' '.join(cap.split()))}</div><span class=more>Read the full text</span></summary>"
                           f"<div class=capfull>{ESC(cap)}</div></details></section>")
 
-        right.append(perf_card)
         links = []
         if (sdir / "qa.md").exists():
             links.append(f"<a href='/{ESC(quote(client))}/v/{ESC(quote(slot))}/qa'>QA report</a>")
