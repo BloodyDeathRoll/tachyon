@@ -22,7 +22,10 @@ SLOT = "2099-w01-01"
 def make_clip(path: Path, seconds: float = 16, size: str = "1080x1920", fps: int = 30) -> None:
     subprocess.run([
         "ffmpeg", "-v", "error", "-y",
-        "-f", "lavfi", "-i", f"testsrc2=size={size}:rate={fps}:duration={seconds}",
+        # a dark ground with a moving white card inside the safe box (decision 14), so the
+        # safe-zone guard passes; testsrc2 would put edges in every band
+        "-f", "lavfi", "-i", f"color=c=0x0b1220:size={size}:rate={fps}:duration={seconds},"
+                             f"drawbox=x=iw*0.15:y=ih*0.2+20*sin(t):w=iw*0.7:h=ih*0.35:c=white:t=fill",
         "-f", "lavfi", "-i", f"sine=frequency=440:duration={seconds}",
         "-metadata", "title=should be stripped",
         "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-ar", "48000",
@@ -44,7 +47,7 @@ def client(tmp_path, monkeypatch):
     spec_check.fix(raw, d / "posts" / SLOT / "video.mp4")
     (d / "posts" / SLOT / "caption.txt").write_text("Caption here. Link in bio.")
     (d / "posts" / SLOT / "first_comment.txt").write_text("Which spot should we feature next?")
-    (d / "posts" / SLOT / "meta.json").write_text(json.dumps({"source_asset": "src.mp4", "duration_s": 16, "thumb_offset": 2000}))
+    (d / "posts" / SLOT / "meta.json").write_text(json.dumps({"source_asset": "src.mp4", "duration_s": 16, "thumb_offset": 2000, "story": False, "story_reason": "test"}))
     db = DB.for_client(d)
     db.create_post(SLOT, "t", pillar="p")
     for s in ("BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL", "APPROVED", "QUEUED"):

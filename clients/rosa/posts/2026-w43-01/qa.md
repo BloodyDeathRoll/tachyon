@@ -1,6 +1,8 @@
 ## spec_check · 2026-w43-01
 
 PASS · 1080x1920 30fps yuv420p · 30.1s · 23.0 MB · metadata stripped · no provenance/AI markers · provenance entry ok
+- safezone reel: FAIL
+- safe zone override recorded in meta.json: FAIL: cards sit in the bottom 35 % and the feed crop (operator 2026-10-24); do not reuse
 
 ## claude QA · vision pass on 6 cards + 10 frames, 2026-10-24
 

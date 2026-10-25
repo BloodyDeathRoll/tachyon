@@ -26,6 +26,7 @@ fact marked verified / agent-reported / unverified).
 | 11 | Old code | `~/Projects/tachion-old` mined for prompts and patterns only (§6). | 2026-10-24 |
 | 12 | Assumed | English only. No paid ads. No generative AI media. | 2026-10-24 |
 | 13 | CTA | **"Comment for the link" is never allowed**, for any client. Links travel by link in bio and the URL spoken and on screen (URLs are not clickable in Instagram comments, operator 2026-10-24; no link comments). Links travel by link in bio, the URL spoken and on screen, or a spot share link. A question in the comments gets an answer with the link; nothing is withheld to farm comments. | 2026-10-24 |
+| 14 | Safe zones and formats | **Every reel ships in two files: reel and story.** Both 1080×1920. Meta's spec (verified 2026-10-25): top 14 %, bottom 35 %, 6 % each side free of text, logos and anything that matters. The reel also survives the 4:5 feed crop (centre 1080×1350). Reel-safe box x 65–1015, y 285–1248; story-safe box x 65–1015, y 269–1248 (`tools/safezone.py box`). Film templates take `?variant=reel\|story` and lay out inside the box; QA runs `safezone.py overlay` and `check`; FAIL blocks. The 2026-10-04 clips violate this (operator saw cards cut off in the feed, 2026-10-24) and are not reused. | 2026-10-25 |
 
 ## 1. Principles
 
@@ -108,13 +109,13 @@ Writes:
 ### 2 · Produce — per slot: `claude -p script` → render → `claude -p package`
 1. **Script** (`/ig-reel` + ours). Three hooks from `hooks.json`, different formulas;
    `hookscore.py` ranks them, reject <50; spoken script and separate on-screen text (≤6
-   words a card, inside the safe zone: y 230–1440, right 230 px clear); `beats.py
+   words a card, inside the safe box of decision 14: reel y 285–1248, story y 269–1248, x 65–1015); `beats.py
    --target N` until clean; `/ig-human` (`humanize.py` + `detect.py`, ≥70, no check <55),
    then `avoid-ai-writing` as a second opinion. Every claim cites a line of `product.md`.
 2. **Film** (Claude as motion designer). The brief that produced the Rosa reels is the
    model: one prompt, Claude writes the whole film. Film source lives in
    `clients/<name>/films/<slug>/` in git, driven by the script JSON, with `?ar=` /
-   `?theme=` switches (9:16 master, 1:1 and 16:9 by relayout, never crop). Inputs: real
+   `?theme=` and `?variant=reel|story` switches (9:16 master; the story variant may use the taller box and a sticker-friendly end card; 1:1 and 16:9 by relayout, never crop). Inputs: real
    app captures via Playwright, client footage from `assets/`, code animation, voice-over
    via ElevenLabs when the script calls for it, SFX/music from `assets/` or none. No
    generative video or images (decision 7).
@@ -122,7 +123,7 @@ Writes:
    virtual clock (Playwright, 120–240 fps, `tmix` → 60 fps), ffmpeg mux. Engine B:
    Remotion `renderMedia()`. Both end in the same ffmpeg pass: H.264 yuv420p 1080×1920
    30 or 60 fps, AAC 48 kHz, moov first, `-map_metadata -1`, ≤300 MB, 15–60 s, captions
-   burned in. Engine comparison (decision 2): same showreel brief to both, operator
+   burned in. Two outputs per slot: `video.mp4` (reel) and `video-story.mp4` (story). Engine comparison (decision 2): same showreel brief to both, operator
    judges, result recorded in `CHANGELOG.md`.
 4. **Package** (`/ig-caption`). `caption.py`-linted caption (the ask, not a second hook;
    ≤5 hashtags; search terms in prose; no link), cover frame or `thumb_offset`, UTM link
@@ -130,10 +131,10 @@ Writes:
    experiment id, engine).
 
 ### 3 · QA — `claude -p qa` with vision, plus `spec_check.py`
-Machine: dimensions, duration, fps, codec, loudness, blank or duplicate frames, text in
-the safe zone, no watermark or third-party logo (originality rules), provenance present
+Machine: dimensions, duration, fps, codec, loudness, blank or duplicate frames, both
+files present, `safezone.py check` not FAIL (edge density in the unsafe bands, decision 14), no watermark or third-party logo (originality rules), provenance present
 for every asset, **exiftool + c2patool report zero provenance or AI fields**.
-Claude: every number re-measured against the live app, brand review (marketing plugin
+Claude: reads `safezone.py overlay` sheets for reel and story (nothing that matters in the tinted bands), every number re-measured against the live app, brand review (marketing plugin
 `brand-review`), client red lines (Rosa: no competitor data, no scraped cams,
 attribution), humanizer score. `VERDICT: APPROVED | NEEDS_REVISION`, max 2 rounds, then
 `NEEDS_INPUT`.

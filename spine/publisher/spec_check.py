@@ -16,6 +16,7 @@ Reels spec (container): MP4/MOV, moov first, H.264 or HEVC, 4:2:0, 23–60 fps, 
 from __future__ import annotations
 
 import json
+import re
 import struct
 import subprocess
 import sys
@@ -164,11 +165,37 @@ def fix(src: Path, dst: Path) -> None:
     subprocess.run(cmd, check=True)
 
 
+def safezone_check(video: Path, variant: str) -> tuple[str, str]:
+    """Run tools/safezone.py check; returns (PASS|WARN|FAIL, output)."""
+    tool = Path(__file__).resolve().parent.parent.parent / "tools" / "safezone.py"
+    p = subprocess.run([sys.executable, str(tool), "check", str(video), "--variant", variant, "--every", "2"],
+                       capture_output=True, text=True)
+    m = re.search(r"VERDICT: (PASS|WARN|FAIL)", p.stdout)
+    return (m.group(1) if m else "FAIL"), p.stdout
+
+
+def safezone_overlay(video: Path, out: Path, variant: str) -> None:
+    tool = Path(__file__).resolve().parent.parent.parent / "tools" / "safezone.py"
+    subprocess.run([sys.executable, str(tool), "overlay", str(video), str(out), "--variant", variant],
+                   capture_output=True, text=True)
+
+
 def report(client: str, slot_id: str) -> tuple[bool, str]:
     slot = client_dir(client) / "posts" / slot_id
     video = slot / "video.mp4"
     meta = json.loads((slot / "meta.json").read_text()) if (slot / "meta.json").exists() else {}
     issues = check_file(video) + check_provenance(client, meta.get("source_asset"))
+    story = slot / "video-story.mp4"
+    if meta.get("story", True):
+        issues += check_file(story) if story.exists() else ["video-story.mp4 missing (decision 14: every slot ships reel + story)"]
+    sz_lines: list[str] = []
+    for variant, f in (("reel", video), ("story", story)):
+        if f.exists():
+            verdict, out = safezone_check(f, variant)
+            sz_lines.append(f"safezone {variant}: {verdict}")
+            if verdict == "FAIL" and not meta.get("safe_zone", "").startswith("FAIL"):
+                issues.append(f"{f.name}: text or UI inside the unsafe bands ({out.splitlines()[-1]})")
+            safezone_overlay(f, slot / f"safezone-{variant}.jpg", variant)
     ok = not issues
     lines = [f"## spec_check · {slot_id}", ""]
     if ok:
@@ -177,6 +204,9 @@ def report(client: str, slot_id: str) -> tuple[bool, str]:
         lines.append(f"PASS · {v['width']}x{v['height']} {_fps(v):g}fps {v['pix_fmt']} · "
                      f"{float(p['format']['duration']):.1f}s · {int(p['format']['size'])/1e6:.1f} MB · "
                      f"metadata stripped · no provenance/AI markers · provenance entry ok")
+    lines += [f"- {l}" for l in sz_lines]
+    if meta.get("safe_zone", "").startswith("FAIL"):
+        lines.append(f"- safe zone override recorded in meta.json: {meta['safe_zone']}")
     else:
         lines.append("FAIL")
         lines += [f"- {i}" for i in issues]

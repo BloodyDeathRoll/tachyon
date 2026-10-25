@@ -15,5 +15,8 @@
   "experiment_id": null,
   "landing": "https://rosa.surf/",
   "utm_campaign": null,
-  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w43-02"
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w43-02",
+  "story": false,
+  "story_reason": "pre-Tachyon clip from 2026-10-04; no story variant exists",
+  "safe_zone": "FAIL: cards sit in the bottom 35 % and the feed crop (operator 2026-10-24); do not reuse"
 }

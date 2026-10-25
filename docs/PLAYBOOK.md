@@ -26,7 +26,7 @@ next step. Copy this file to `clients/<name>/PLAYBOOK.md` and tick as you go.
       pre-registered experiment, trial flags; `engage/<date>.md` for each day.
 - [ ] **Per slot, Produce** (station 2). Script (`hookscore` ≥50, `beats` clean,
       humanizer ≥70) → film source in git → render (engine A or B) → package.
-- [ ] **Per slot, QA** (station 3). `spec_check.py` green including the provenance
+- [ ] **Per slot, QA** (station 3). `safezone.py overlay` read for both files, `check` not FAIL; `spec_check.py` green including the provenance
       check; `qa.md` with `VERDICT: APPROVED`. Max 2 rounds, then `NEEDS_INPUT`.
 - [ ] **CP2** (operator). Approve the batch in `review/`. First 2 weeks: per post.
 - [ ] **Publish** (cron, station 4). Containers created ≤24 h before each slot. Every
@@ -48,7 +48,7 @@ next step. Copy this file to `clients/<name>/PLAYBOOK.md` and tick as you go.
 ## Rules
 
 1. Nothing goes on screen that is not in `product.md`. Re-measure before reuse.
-2. 9:16 is the master. Other ratios by relayout, never crop.
+2. 9:16 is the master; every slot ships `video.mp4` (reel) and `video-story.mp4` (story), both inside Meta's safe box (top 14 %, bottom 35 %, sides 6 %; reel also inside the 4:5 feed crop). Other ratios by relayout, never crop.
 3. Film sources live in git under `clients/<name>/films/`. A render from a scratchpad
    does not count as done.
 4. One variable per experiment. Pre-register it in `calendar.yaml` before the render.

@@ -13,3 +13,5 @@ dashboard/ref/
 dashboard/data.json
 dashboard/mockups/*/shots/
 dashboard/**/shots/
+clients/*/posts/*/safezone-*.jpg
+clients/*/posts/*/video-story.mp4
