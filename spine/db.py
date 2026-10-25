@@ -197,6 +197,31 @@ class DB:
             raise
         return self.post(slot_id)
 
+    MOVABLE = ("IDEA", "BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL", "NEEDS_INPUT",
+               "APPROVED", "QUEUED", "REJECTED")
+
+    def move(self, slot_id: str, at: str, swap_with: str | None = None) -> None:
+        """Calendar drag and drop: set a post's scheduled_at (and give the other post the old
+        time when swapping). Live or publishing posts never move. Atomic, journaled."""
+        self.conn.execute("BEGIN IMMEDIATE")
+        try:
+            a = self.post(slot_id)
+            if a["state"] not in self.MOVABLE:
+                raise ValueError(f"{slot_id} is {a['state']} and cannot move")
+            if swap_with:
+                b = self.post(swap_with)
+                if b["state"] not in self.MOVABLE:
+                    raise ValueError(f"{swap_with} is {b['state']} and cannot move")
+                at = b["scheduled_at"]
+                self.conn.execute("UPDATE posts SET scheduled_at=?, updated_at=? WHERE slot_id=?",
+                                  (a["scheduled_at"], now(), swap_with))
+            self.conn.execute("UPDATE posts SET scheduled_at=?, updated_at=? WHERE slot_id=?", (at, now(), slot_id))
+            self.journal("post.move", slot_id, {"from": a["scheduled_at"], "to": at, "swap_with": swap_with})
+            self.conn.execute("COMMIT")
+        except Exception:
+            self.conn.execute("ROLLBACK")
+            raise
+
     # ── metrics, experiments, conversions, engagement, costs ─────────────────
     def add_snapshot(self, post_id: str | None, source: str, window: str, metrics: dict) -> None:
         self.conn.execute(

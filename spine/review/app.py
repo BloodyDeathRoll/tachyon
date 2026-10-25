@@ -19,6 +19,7 @@ from __future__ import annotations
 import html
 import json
 import mimetypes
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -33,7 +34,9 @@ from ..db import DB
 
 ESC = html.escape
 ROOT = Path(__file__).resolve().parent.parent.parent
-FONT = ROOT / "dashboard" / "fonts" / "manrope-latin-wght-normal.woff2"
+FONT = ROOT / "dashboard" / "fonts" / "inter-var.woff2"
+LOGO = ROOT / "dashboard" / "brand" / "tachyon-logo.svg"
+MAX_SLOTS = 6
 MEDIA_FILES = {"video.mp4", "video-story.mp4", "cover.jpg"}
 LIVE_TTL = timedelta(minutes=15)
 
@@ -132,6 +135,10 @@ def icon(name: str, size: int = 18) -> str:
         "cal": '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>',
         "next": '<path d="m9 18 6-6-6-6"/>',
         "prev": '<path d="m15 18-6-6 6-6"/>',
+        "plus": '<path d="M5 12h14"/><path d="M12 5v14"/>',
+        "x": '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+        "music": '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+        "pause": '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
     }
     return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
             f'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{paths[name]}</svg>')
@@ -139,143 +146,173 @@ def icon(name: str, size: int = 18) -> str:
 
 # ── page shell ────────────────────────────────────────────────────────────────
 CSS = """
-@font-face{font-family:Manrope;font-weight:200 800;font-display:swap;src:url(/static/manrope.woff2) format("woff2")}
-:root{--ground:#F5F7FB;--card:#fff;--ink:#0B1220;--ink2:#4B5563;--ink3:#6B7280;--rule:#E5E8EF;
---acc:#D1434F;--acc-h:#BF3A45;--acc-bg:#FCF2F3;--green:#1A7F37;--green-bg:#EDF7F0;--amber:#8A4B00;--amber-bg:#FFF4D6;
---blue:#1F4BFF;--blue-bg:#EEF2FF;--grey-bg:#EEF0F3;
---shadow:0 1px 2px rgba(11,18,32,.04),0 8px 24px rgba(11,18,32,.06);--r:20px}
+@font-face{font-family:Inter;font-weight:100 900;font-display:swap;src:url(/static/inter.woff2) format("woff2")}
+:root{--ground:#F8F8F8;--card:#fff;--ink:#111;--ink2:#4A4A4A;--ink3:#6B6B6B;--rule:#E8E8E8;
+--side:#131313;--side2:#1E1E1E;--sideink:#A3A3A3;
+--lime:#8DF000;--lime-h:#7ED800;--lime-bg:#F2FCE0;--lime-ink:#3D6B00;
+--acc:#111;--acc-h:#2A2A2A;--green:#22C55E;--amber:#E0A100;--blue:#3B82F6;--grey-bg:#EFEFEF;
+--shadow:0 1px 2px rgba(0,0,0,.04);--r:16px}
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.5 Manrope,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+html,body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
-button,textarea{font:inherit}
+button,textarea,input,select{font:inherit}
 .shell{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh}
-aside{background:#fff;border-right:1px solid var(--rule);padding:28px 20px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh}
-.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;padding:0 8px}
-.brand i{width:24px;height:24px;border-radius:7px;background:var(--acc);display:inline-grid;place-items:center}
-.brand i:after{content:"";width:9px;height:9px;border-radius:3px;background:#fff}
-.proj{position:relative}
-.proj summary{list-style:none;display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--rule);border-radius:14px;cursor:pointer}
+aside{background:var(--side);color:#fff;padding:28px 12px 16px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh}
+.brand{display:block;padding:0 16px;line-height:0}
+.brand img{height:26px;width:auto}
+.proj{position:relative;margin:0 4px}
+.proj summary{list-style:none;display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid #2C2C2C;background:var(--side2);border-radius:12px;cursor:pointer}
 .proj summary::-webkit-details-marker{display:none}
-.proj summary:hover{border-color:#cfd5e1}
-.av{width:34px;height:34px;border-radius:10px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;flex:none}
-.proj b{display:block;font-size:15px;line-height:1.2}.proj small{color:var(--ink3);font-size:12.5px}
-.proj .chev{margin-left:auto;color:var(--ink3)}
-.proj ul{position:absolute;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--rule);border-radius:14px;box-shadow:var(--shadow);list-style:none;margin:0;padding:6px;z-index:5}
-.proj li a{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:10px}
-.proj li a:hover{background:var(--ground)}
-nav{display:flex;flex-direction:column;gap:4px}
-nav a{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;color:var(--ink2);font-weight:500}
-nav a:hover{background:var(--ground);color:var(--ink)}
-nav a.on{background:var(--acc-bg);color:var(--acc);font-weight:600}
-.foot{margin-top:auto;font-size:12.5px;color:var(--ink3);border-top:1px solid var(--rule);padding-top:14px}
-.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:6px;vertical-align:1px}
-.dot.off{background:var(--acc)}
-main{padding:36px 40px 64px;max-width:1240px;width:100%}
-h1{font-size:32px;line-height:1.15;margin:0;font-weight:700;letter-spacing:-.02em}
-.sub{color:var(--ink2);margin:6px 0 28px;font-size:16px}
+.proj summary:hover{border-color:#444}
+.av{width:32px;height:32px;border-radius:9px;background:var(--lime);color:var(--ink);display:grid;place-items:center;font-weight:800;flex:none}
+.proj b{display:block;font-size:14.5px;line-height:1.2;color:#fff}.proj small{color:var(--sideink);font-size:12.5px}
+.proj .chev{margin-left:auto;color:var(--sideink)}
+.proj ul{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--side2);border:1px solid #2C2C2C;border-radius:12px;list-style:none;margin:0;padding:6px;z-index:5}
+.proj li a{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;color:#fff}
+.proj li a:hover{background:#2A2A2A}
+nav{display:flex;flex-direction:column;gap:2px}
+nav a{display:flex;align-items:center;gap:12px;padding:9px 14px;border-radius:9px;color:var(--sideink);font-weight:500;font-size:14.5px}
+nav a:hover{color:#fff;background:#1C1C1C}
+nav a.on{background:#fff;color:var(--ink);font-weight:600}
+.foot{margin-top:auto;font-size:12.5px;color:var(--sideink);padding:12px 6px 0;border-top:1px solid #262626}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--lime);margin-right:6px;vertical-align:1px}
+.dot.off{background:#EF4444}
+main{padding:28px 40px 64px;width:100%}
+h1{font-size:28px;line-height:1.15;margin:0;font-weight:700;letter-spacing:-.02em}
+.sub{color:var(--ink3);margin:6px 0 24px;font-size:14.5px}
 .sub b{color:var(--ink);font-weight:600}
-.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:28px}
-h2{font-size:19px;margin:0;font-weight:700;letter-spacing:-.01em}
+.card{background:var(--card);border-radius:var(--r);border:1px solid var(--rule);padding:24px}
+h2{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
 .row{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .muted{color:var(--ink3)}
+.count{display:inline-grid;place-items:center;min-width:22px;height:20px;padding:0 7px;border-radius:999px;background:var(--ink);color:#fff;font-size:12px;font-weight:700;margin-left:8px;vertical-align:2px}
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-bottom:1px solid var(--rule);margin:-4px 0 22px;padding-bottom:22px}
 .stat{padding:0 18px;border-left:1px solid var(--rule)}.stat:first-child{padding-left:0;border-left:0}
-.stat span{display:block;color:var(--ink2);font-size:14px}
-.stat strong{display:block;font-size:34px;font-weight:700;letter-spacing:-.03em;line-height:1.2;margin-top:4px}
-.stat small{color:var(--ink3);font-size:13px}
+.stat span{display:block;color:var(--ink3);font-size:13.5px}
+.stat strong{display:block;font-size:32px;font-weight:800;letter-spacing:-.03em;line-height:1.2;margin-top:2px}
+.stat small{color:var(--ink3);font-size:12.5px}
 .chart svg{display:block;width:100%;height:auto}
-.chart text{font:12px Manrope,system-ui;fill:var(--ink3)}
+.chart text{font:12px Inter,system-ui;fill:var(--ink3)}
 .legend{display:flex;gap:18px;font-size:13px;color:var(--ink2);margin-top:10px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
-.vhead{margin:40px 0 16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:24px}
+.vhead{margin:0 0 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:20px}
 .vid{display:block}
-.thumb{position:relative;aspect-ratio:9/16;border-radius:18px;overflow:hidden;background:#0b1220;box-shadow:var(--shadow);transition:transform .15s ease,box-shadow .15s ease}
-.vid:hover .thumb{transform:translateY(-2px);box-shadow:0 2px 4px rgba(11,18,32,.06),0 16px 32px rgba(11,18,32,.12)}
-.thumb img{width:100%;height:100%;object-fit:cover;display:block}
-.thumb .tag{position:absolute;left:12px;top:12px}
-.vid h3{font-size:16px;margin:12px 0 2px;font-weight:600}
-.vid p{margin:0;color:var(--ink3);font-size:13.5px}
-.tag{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;padding:5px 11px;border-radius:999px;background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.18)}
-.tag:before{content:"";width:8px;height:8px;border-radius:50%}
-.tag.need:before{background:var(--acc)}.tag.sched:before{background:var(--blue)}.tag.live:before{background:var(--green)}.tag.busy:before{background:#E0A100}
-.empty{border:1.5px dashed var(--rule);border-radius:18px;aspect-ratio:9/16;display:grid;place-items:center;text-align:center;color:var(--ink3);padding:20px;font-size:14px}
-.back{display:inline-flex;align-items:center;gap:8px;color:var(--ink2);font-weight:500;margin-bottom:18px}
+.thumb{position:relative;aspect-ratio:260/290;border-radius:16px;overflow:hidden;background:#111;transition:transform .15s ease,box-shadow .15s ease}
+.vid:hover .thumb{transform:translateY(-2px);box-shadow:0 12px 28px rgba(0,0,0,.14)}
+.thumb img{width:100%;height:100%;object-fit:cover;object-position:50% 30%;display:block}
+.thumb:after{content:"";position:absolute;inset:70% 0 0;background:linear-gradient(transparent,rgba(0,0,0,.78));pointer-events:none}
+.thumb .tt{position:absolute;left:16px;right:16px;bottom:40px;color:#fff;font-weight:800;font-size:19px;line-height:1.15;letter-spacing:-.01em;z-index:1}
+.thumb .tag{position:absolute;left:16px;bottom:12px;z-index:1}
+.vid h3{font-size:15px;margin:10px 2px 0;font-weight:600}
+.vid p{margin:1px 2px 0;color:var(--ink3);font-size:13px}
+.tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:#000;color:#fff;white-space:nowrap}
+.tag:before{content:"";width:6px;height:6px;border-radius:50%;background:#fff}
+.tag.need{background:var(--lime);color:var(--ink);font-weight:700;font-size:12.5px;padding:5px 12px}.tag.need:before{display:none}
+.tag.sched{background:#fff;color:var(--ink)}.tag.sched:before{background:var(--blue)}
+.tag.live:before{background:var(--lime)}
+.tag.busy{background:rgba(0,0,0,.6)}.tag.busy:before{background:var(--amber)}
+.empty{border:1.5px dashed var(--rule);border-radius:16px;aspect-ratio:260/290;display:grid;place-items:center;text-align:center;color:var(--ink3);padding:20px;font-size:14px}
+.back{display:inline-flex;align-items:center;gap:8px;color:var(--ink3);font-weight:500;margin-bottom:16px}
 .back:hover{color:var(--ink)}
-.vpage{display:grid;grid-template-columns:minmax(260px,380px) minmax(0,1fr);gap:32px;align-items:start}
+.vpage{display:grid;grid-template-columns:minmax(280px,420px) minmax(0,1fr);gap:32px;align-items:start;max-width:1500px}
 .player{position:sticky;top:24px}
-.player video{width:100%;aspect-ratio:9/16;border-radius:20px;background:#000;display:block;box-shadow:var(--shadow)}
-.seg{display:inline-flex;background:var(--grey-bg);border-radius:12px;padding:4px;margin-top:14px}
-.seg a{padding:7px 16px;border-radius:9px;font-size:14px;font-weight:600;color:var(--ink2)}
-.seg a.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
-.stack{display:flex;flex-direction:column;gap:24px}
-textarea{width:100%;min-height:110px;border:1px solid var(--rule);border-radius:14px;padding:14px 16px;resize:vertical;color:var(--ink);background:#fff;font-size:15px}
-textarea:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px rgba(11,18,32,.08)}
+.frame{position:relative;border-radius:18px;overflow:hidden;background:#000}
+.frame video{width:100%;aspect-ratio:9/16;display:block}
+.ui{position:absolute;inset:0;pointer-events:none;display:none}
+.showui .ui{display:block}
+.ui i{position:absolute;left:0;right:0;background:rgba(141,240,0,.22);border:1px dashed rgba(141,240,0,.9)}
+.ui b{position:absolute;border:2px dashed #fff;border-radius:4px}
+.ui span{position:absolute;right:8px;font:600 11px Inter;color:#fff;background:rgba(0,0,0,.6);padding:2px 6px;border-radius:6px}
+.pctl{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--grey-bg);border-radius:10px;padding:3px}
+.seg a{padding:6px 14px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--ink3)}
+.seg a.on{background:var(--ink);color:#fff}
+.chk{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink2);cursor:pointer}
+.chk input{accent-color:var(--ink);width:16px;height:16px}
+.stack{display:flex;flex-direction:column;gap:20px}
+textarea{width:100%;min-height:110px;border:1px solid var(--rule);border-radius:12px;padding:14px 16px;resize:vertical;color:var(--ink);background:#fff;font-size:15px}
+textarea:focus,select:focus,.tfield input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px rgba(0,0,0,.06)}
 .btns{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
-.btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:12px;padding:12px 20px;font-weight:600;cursor:pointer;font-size:15px}
-.btn.pri{background:var(--acc);color:#fff}.btn.pri:hover{background:var(--acc-h)}
-.btn.sec{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1px var(--rule)}.btn.sec:hover{box-shadow:inset 0 0 0 1px var(--ink3)}
-.btn:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid rgba(31,75,255,.35);outline-offset:2px}
-.hint{color:var(--ink3);font-size:13.5px;margin-top:10px}
-.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--rule);border-radius:16px;overflow:hidden;margin-top:18px}
-.tiles div{background:#fff;padding:16px 18px}
-.tiles span{display:block;font-size:13.5px;color:var(--ink2)}
-.tiles strong{display:block;font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:2px}
+.btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:10px;padding:11px 18px;font-weight:600;cursor:pointer;font-size:14.5px}
+.btn.pri{background:var(--lime);color:var(--ink)}.btn.pri:hover{background:var(--lime-h)}
+.btn.sec{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1px var(--rule)}.btn.sec:hover{box-shadow:inset 0 0 0 1px #BDBDBD}
+.btn.dark{background:var(--ink);color:#fff}.btn.dark:hover{background:var(--acc-h)}
+.btn:focus-visible,a:focus-visible,summary:focus-visible,.cell:focus-visible{outline:3px solid rgba(141,240,0,.8);outline-offset:2px}
+.hint{color:var(--ink3);font-size:13px;margin-top:10px}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--rule);border-radius:12px;overflow:hidden;margin-top:16px;border:1px solid var(--rule)}
+.tiles div{background:#fff;padding:14px 16px}
+.tiles span{display:block;font-size:13px;color:var(--ink3)}
+.tiles strong{display:block;font-size:24px;font-weight:800;letter-spacing:-.02em;margin-top:2px}
 .cap{margin-top:12px;color:var(--ink2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 details.full summary{list-style:none;cursor:pointer}
 details.full summary::-webkit-details-marker{display:none}
-details.full .more{display:inline-block;color:var(--blue);font-weight:600;font-size:14px;margin-top:8px}
+details.full .more{display:inline-block;color:var(--ink);text-decoration:underline;text-underline-offset:3px;font-weight:600;font-size:14px;margin-top:8px}
 details.full[open] summary{display:none}
 .capfull{white-space:pre-line;color:var(--ink2);margin-top:12px}
 .links{display:flex;gap:22px;flex-wrap:wrap;font-size:14px;font-weight:600}
-.links a{display:inline-flex;align-items:center;gap:6px;color:var(--ink2)}.links a:hover{color:var(--ink)}
-.banner{display:flex;gap:12px;align-items:center;padding:14px 18px;border-radius:14px;background:var(--amber-bg);color:var(--amber);font-weight:600;margin-bottom:24px}
-.banner.stop{background:var(--acc);color:#fff}
-.note{background:var(--ground);border-radius:14px;padding:14px 16px;margin-top:14px;white-space:pre-line;color:var(--ink2)}
+.links a{display:inline-flex;align-items:center;gap:6px;color:var(--ink3)}.links a:hover{color:var(--ink)}
+.banner{display:flex;gap:12px;align-items:center;padding:14px 18px;border-radius:12px;background:#FFF4D6;color:#8A4B00;font-weight:600;margin-bottom:24px}
+.banner.stop{background:#EF4444;color:#fff}
+.note{background:var(--ground);border-radius:12px;padding:14px 16px;margin-top:14px;white-space:pre-line;color:var(--ink2)}
 .prog{height:6px;background:var(--grey-bg);border-radius:6px;overflow:hidden;margin-top:16px}
-.prog i{display:block;height:100%;background:#E0A100;border-radius:6px;animation:pg 1.6s ease-in-out infinite;width:40%}
+.prog i{display:block;height:100%;background:var(--lime);border-radius:6px;animation:pg 1.6s ease-in-out infinite;width:40%}
 @keyframes pg{0%{margin-left:-40%}100%{margin-left:100%}}
 pre{white-space:pre-wrap;font:13px/1.55 ui-monospace,monospace;color:var(--ink2);margin:0}
 .switch{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-top:1px solid var(--rule)}
 .switch:first-of-type{border-top:0}
-.ovgrid{display:grid;grid-template-columns:minmax(0,2fr) minmax(300px,1fr);gap:32px;align-items:start}
-.ovgrid .vhead{margin:0 0 16px}
-.side{display:flex;flex-direction:column;gap:24px}
-.side .card{padding:24px}
-.side .stats{grid-template-columns:1fr 1fr;row-gap:18px;margin:18px 0 18px;padding-bottom:18px}
+.ovgrid{display:grid;grid-template-columns:minmax(0,2fr) minmax(320px,1fr);gap:28px;align-items:start}
+.side{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;align-items:start}
+.side .perf{grid-column:1/-1}
+.side .stats{grid-template-columns:1fr 1fr;row-gap:16px;margin:16px 0;padding-bottom:16px}
 .side .stat:nth-child(3){border-left:0;padding-left:0}
 .side .stat strong{font-size:28px}
-.btn.small{padding:9px 16px;font-size:14px;border-radius:10px}
-.big{font-size:17px;font-weight:600;margin:0}
-.times{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:14px}
-.tfield span{display:block;font-size:13px;color:var(--ink2);margin-bottom:6px}
-.tfield input{width:100%;min-width:0;font:inherit;font-size:20px;font-weight:600;border:1px solid var(--rule);border-radius:12px;padding:8px 12px;color:var(--ink);background:#fff}
-.tfield input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px rgba(11,18,32,.08)}
+.btn.small{padding:8px 14px;font-size:13.5px;border-radius:9px}
+.big{font-size:16px;font-weight:600;margin:0}
+.times{display:flex;flex-direction:column;gap:8px;margin:14px 0}
+.tfield{display:flex;align-items:center;gap:10px}
+.tfield span{font-size:13px;color:var(--ink3);width:52px;flex:none}
+.tfield input{flex:1;min-width:0;font-size:17px;font-weight:600;border:1px solid var(--rule);border-radius:10px;padding:7px 12px;color:var(--ink);background:#fff}
+.x{width:34px;height:34px;flex:none;border-radius:9px;border:0;background:transparent;color:var(--ink3);cursor:pointer;display:grid;place-items:center}
+.x:hover{background:var(--grey-bg);color:var(--ink)}
+.x:disabled{opacity:.3;cursor:default;background:transparent}
 .autorow{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--rule);margin-top:20px;padding-top:16px;font-size:14px;color:var(--ink2)}
-.toggle{width:44px;height:26px;border-radius:13px;border:0;background:#D5DAE3;position:relative;cursor:pointer;flex:none;padding:0}
+.toggle{width:44px;height:26px;border-radius:13px;border:0;background:#D4D4D4;position:relative;cursor:pointer;flex:none;padding:0}
 .toggle i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .15s}
-.toggle.on{background:var(--green)}.toggle.on i{left:21px}
-.ovgrid .grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
-.cal{display:grid;grid-template-columns:64px repeat(7,minmax(0,1fr));gap:10px}
-.cal .dh{font-size:13px;color:var(--ink2);text-align:center;padding-bottom:4px}
+.toggle.on{background:var(--lime)}.toggle.on i{left:21px}
+.cal{display:grid;gap:12px}
+.cal .dh{font-size:13px;color:var(--ink3);text-align:center;padding-bottom:4px}
 .cal .dh b{display:block;font-size:20px;color:var(--ink);font-weight:700}
-.cal .dh.today b{color:#fff;background:var(--acc);border-radius:10px;width:fit-content;margin:0 auto;padding:0 9px}
-.cal .th{font-size:13px;font-weight:600;color:var(--ink2);padding-top:8px}
-.cell{aspect-ratio:9/16;border-radius:12px;overflow:hidden;position:relative;background:#0b1220;display:block}
-.cell img{width:100%;height:100%;object-fit:cover;display:block}
-.cell .tag{position:absolute;left:6px;top:6px;font-size:11px;padding:3px 8px}
-.cell .ct{position:absolute;left:0;right:0;bottom:0;padding:22px 8px 8px;background:linear-gradient(transparent,rgba(0,0,0,.75));color:#fff;font-size:12.5px;font-weight:600;line-height:1.25}
-.cell.open{background:transparent;border:1.5px dashed var(--rule);display:grid;place-items:center;color:var(--ink3);font-size:12.5px;text-align:center}
-.cell.past{opacity:.55}
+.cal .dh.today b{color:var(--ink);background:var(--lime);border-radius:9px;width:fit-content;margin:0 auto;padding:0 9px}
+.cal .th{font-size:13px;font-weight:600;color:var(--ink3);padding-top:8px}
+.cell{aspect-ratio:260/290;border-radius:12px;overflow:hidden;position:relative;background:#111;display:block;transition:transform .12s,box-shadow .12s,outline-color .12s;outline:3px solid transparent;outline-offset:2px}
+.cell[draggable=true]{cursor:grab}
+.cell.dragging{opacity:.35}
+.cell.over{outline-color:var(--lime);transform:scale(1.03)}
+.cell img{width:100%;height:100%;object-fit:cover;object-position:50% 30%;display:block;pointer-events:none}
+.cell .tag{position:absolute;left:6px;top:6px;font-size:10.5px;padding:2px 7px}
+.cell .tag.need{font-size:10.5px;padding:3px 8px}
+.cell .ct{position:absolute;left:0;right:0;bottom:0;padding:24px 8px 8px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-size:12.5px;font-weight:700;line-height:1.2}
+.cell.open{background:transparent;border:1.5px dashed #D4D4D4;display:grid;place-items:center;color:var(--ink3);font-size:12.5px;text-align:center}
+.cell.past{opacity:.5}
 .calnav{display:flex;gap:8px;align-items:center}
-.calnav a{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:10px;background:#fff;box-shadow:inset 0 0 0 1px var(--rule)}
+.calnav a{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:9px;background:#fff;box-shadow:inset 0 0 0 1px var(--rule)}
 .calnav a.txt{width:auto;padding:0 14px;font-weight:600;font-size:14px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;font-weight:600;display:none;z-index:20}
+.tracks{display:flex;flex-direction:column;gap:6px;margin-top:14px;max-height:340px;overflow:auto}
+.trk{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:10px;border:1px solid var(--rule)}
+.trk.on{border-color:var(--ink);background:var(--lime-bg)}
+.trk .tn{flex:1;min-width:0}
+.trk .tn b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trk .tn small{color:var(--ink3);font-size:12.5px}
+.pl{width:32px;height:32px;border-radius:50%;border:0;background:var(--ink);color:#fff;cursor:pointer;display:grid;place-items:center;flex:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
-@media (max-width:900px){.shell{grid-template-columns:minmax(0,1fr)}nav{overflow-x:auto;max-width:100%}nav a{padding:9px 10px;white-space:nowrap}aside{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:14px 16px}
- .foot{display:none}nav{flex-direction:row}main{padding:24px 16px 48px}.vpage{grid-template-columns:1fr}.player{position:static}
- .chart text{font-size:30px}.perfsrc{display:none}
- .ovgrid{grid-template-columns:1fr}.cal{grid-template-columns:44px repeat(7,minmax(0,1fr));gap:4px}.cal .ct{display:none}.cell .tag{font-size:0;padding:4px}.cell .tag:before{margin:0}
- .stats{grid-template-columns:repeat(2,1fr);row-gap:18px}.stat:nth-child(3){border-left:0;padding-left:0}.grid{grid-template-columns:repeat(2,1fr);gap:16px}}
+@media (min-width:1700px){.ovgrid{grid-template-columns:minmax(0,2fr) minmax(400px,1fr)}}
+@media (max-width:1100px){.ovgrid{grid-template-columns:1fr}}
+@media (max-width:900px){.shell{grid-template-columns:minmax(0,1fr)}nav{overflow-x:auto;max-width:100%}nav a{padding:8px 10px;white-space:nowrap}aside{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:14px 16px}
+ .foot{display:none}nav{flex-direction:row}main{padding:20px 16px 48px}.vpage{grid-template-columns:1fr}.player{position:static}
+ .cal{gap:4px}.cal .ct{display:none}.cell .tag{font-size:0;padding:4px}.cell .tag:before{margin:0}
+ .stats{grid-template-columns:repeat(2,1fr);row-gap:18px}.stat:nth-child(3){border-left:0;padding-left:0}.grid{grid-template-columns:repeat(2,1fr);gap:12px}.thumb .tt{font-size:15px;left:10px;right:10px;bottom:36px}.thumb .tag{left:10px}}
 """
 
 
@@ -299,7 +336,7 @@ def shell(client: str, active: str, body: str, title: str, refresh: int | None =
     meta_refresh = f"<meta http-equiv=refresh content={refresh}>" if refresh else ""
     html_ = (f"<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>"
              f"{meta_refresh}<title>{ESC(title)} · {ESC(d['name'])} · Tachyon</title><style>{CSS}</style>"
-             f"<div class=shell><aside><div class=brand><i></i>Tachyon</div>"
+             f"<div class=shell><aside><a class=brand href='/'><img src='/static/logo.svg' alt='Tachyon'></a>"
              f"<details class=proj><summary><span class=av>{ESC(d['name'][:1])}</span><span><b>{ESC(d['name'])}</b>{handle}</span>"
              f"<span class=chev>{icon('chev', 16)}</span></summary><ul>{others}</ul></details>"
              f"<nav>{nav}</nav><div class=foot>{status}</div></aside><main>{body}</main></div></html>")
@@ -370,17 +407,17 @@ def bar_chart(days: list[dict], key: str, key2: str | None = None, W: int = 960,
     out = [f"<svg viewBox='0 0 {W} {H}' role=img aria-label='{ESC(key)} per day, last {n} days'>"]
     for i in range(3):
         y = T + (H - B - T) * i / 2
-        out.append(f"<line x1={L} x2={W} y1={y:.1f} y2={y:.1f} stroke='#E5E8EF'/>"
+        out.append(f"<line x1={L} x2={W} y1={y:.1f} y2={y:.1f} stroke='#E8E8E8'/>"
                    f"<text x=0 y={y + 4:.1f}>{num(top * (1 - i / 2))}</text>")
     for i, (d, v) in enumerate(zip(span, vals)):
         x = L + i * bw
         if v:
             h = (H - B - T) * v / top
-            out.append(f"<rect x={x + bw * .18:.1f} y={H - B - h:.1f} width={bw * .64:.1f} height={h:.1f} rx=4 fill='#D1434F'>"
+            out.append(f"<rect x={x + bw * .18:.1f} y={H - B - h:.1f} width={bw * .64:.1f} height={h:.1f} rx=4 fill='#8DF000'>"
                        f"<title>{d}: {num(v)} {key}</title></rect>")
         if key2 and vals2[i]:
             h2 = (H - B - T) * vals2[i] / top
-            out.append(f"<rect x={x + bw * .18:.1f} y={H - B - h2:.1f} width={bw * .64:.1f} height=3 rx=1.5 fill='#0B1220'/>")
+            out.append(f"<rect x={x + bw * .18:.1f} y={H - B - h2:.1f} width={bw * .64:.1f} height=3 rx=1.5 fill='#111'/>")
         if i % max(1, n // 4) == 0 or i == n - 1:
             dt = datetime.fromisoformat(d)
             out.append(f"<text x={x + bw / 2:.1f} y={H - 6} text-anchor=middle>{dt.strftime('%-d %b')}</text>")
@@ -404,21 +441,25 @@ def video_card(client: str, row, tag: tuple[str, str], db: DB) -> str:
     else:
         line = "Review and approve"
     return (f"<a class=vid href='/{ESC(quote(client))}/v/{ESC(quote(slot))}'><div class=thumb>{img}"
-            f"<span class='tag {cls}'>{ESC(label)}</span></div><h3>{ESC(title_of(client, row))}</h3><p>{ESC(line)}</p></a>")
+            f"<span class='tag {cls}'>{ESC(label)}</span></div>"
+            f"<h3>{ESC(title_of(client, row))}</h3>{'' if cls == 'need' else f'<p>{ESC(line)}</p>'}</a>")
 
 
 def schedule_card(client: str) -> str:
     times = [t.strftime("%H:%M") for t in SCH._slots(C.load_grants(client))]
-    while len(times) < 2:
-        times.append("")
-    inputs = "".join(
-        f"<label class=tfield><span>Post {i + 1}</span><input type=time name=t{i + 1} value='{ESC(t)}' required></label>"
-        for i, t in enumerate(times[:2]))
+    base = f"/{ESC(quote(client))}/schedule"
+    n = len(times)
+    rows = "".join(
+        f"<div class=tfield><span>Post {i + 1}</span><input type=time name=t value='{ESC(t)}' required aria-label='Post {i + 1} time'>"
+        f"<button class=x name=remove value={i} formnovalidate {'disabled' if n == 1 else ''} aria-label='Remove post {i + 1}' title='Remove'>{icon('x', 16)}</button></div>"
+        for i, t in enumerate(times))
+    per = {1: "Once a day", 2: "Twice a day", 3: "Three times a day"}.get(n, f"{n} times a day")
+    add = (f"<button class='btn sec small' name=add value=1 {'disabled' if n >= MAX_SLOTS else ''}>{icon('plus', 15)}Add a post</button>")
     return (f"<section class=card><div class=row><h2>Publishing schedule</h2><span class=muted>UTC</span></div>"
-            f"<p class=muted style='margin:6px 0 16px'>Twice a day, every day.</p>"
-            f"<form method=post action='/{ESC(quote(client))}/schedule'><div class=times>{inputs}</div>"
-            f"<button class='btn sec small'>Save times</button></form>"
-            f"<p class=hint>New times apply to videos approved from now on.</p></section>")
+            f"<p class=muted style='margin:4px 0 0;font-size:14px'>{per}, every day.</p>"
+            f"<form method=post action='{base}'><div class=times>{rows}</div>"
+            f"<div class=btns style='margin-top:0'><button class='btn dark small' name=save value=1>Save</button>{add}</div></form>"
+            f"<p class=hint>Changes apply to new plans and newly approved videos. The calendar follows.</p></section>")
 
 
 def week_card(client: str) -> str:
@@ -482,10 +523,10 @@ def render_overview(client: str) -> bytes:
                 ("Link taps", total("profile_links_taps"), "last 7 days"),
             ))
         chart = (f"<div class=chart>{bar_chart(days, 'views', 'reach', W=420, H=190)}</div>"
-                 f"<div class=legend><span><i style='background:#D1434F'></i>Views</span>"
-                 f"<span><i style='background:#0B1220;height:3px'></i>Reached</span></div>") if days else \
+                 f"<div class=legend><span><i style='background:#8DF000'></i>Views</span>"
+                 f"<span><i style='background:#111;height:3px'></i>Reached</span></div>") if days else \
                 "<p class=muted>The account's daily numbers start the day after the first post.</p>"
-        perf = f"<section class=card><h2>Performance</h2><div class=stats>{stats}</div>{chart}</section>"
+        perf = f"<section class='card perf'><h2>Performance</h2><div class=stats>{stats}</div>{chart}</section>"
 
         summary = []
         if count["need"]:
@@ -498,7 +539,7 @@ def render_overview(client: str) -> bytes:
             summary.append(f"{count['live']} live")
         cards = "".join(video_card(client, r, t, db) for r, t in rows) or \
             "<div class=empty>No videos yet. Prepare next week to fill this.</div>"
-        vids = (f"<div class='row vhead'><h2>Videos</h2><span class=muted>{' · '.join(summary)}</span></div>"
+        vids = (f"<div class='row vhead'><h2>Videos<span class=count>{len(rows)}</span></h2><span class=muted>{' · '.join(summary)}</span></div>"
                 f"<div class=grid>{cards}</div>")
         body = (header(client, "Overview") +
                 f"<div class=ovgrid><div class=maincol>{vids}</div>"
@@ -506,6 +547,44 @@ def render_overview(client: str) -> bytes:
         return shell(client, "overview", body, "Overview", refresh=30 if count["busy"] else None)
     finally:
         db.close()
+
+
+# ── music ─────────────────────────────────────────────────────────────────────
+def _tracks():
+    try:
+        from .. import tracks as T
+        return T
+    except Exception:
+        return None
+
+
+def music_card(client: str, slot: str, cls: str) -> str:
+    T = _tracks()
+    if not T or cls == "live":
+        return ""
+    try:
+        lib = T.list_tracks(client)
+        cur = T.current_track(client, slot)
+    except Exception as e:
+        return f"<section class=card><h2>Music</h2><p class=muted>Track library unavailable: {ESC(str(e))}</p></section>"
+    if not lib:
+        return ""
+    rows = []
+    for t in lib:
+        on = t["id"] == cur
+        prev = (f"<button type=button class=pl data-src='/{ESC(quote(client))}/track/{ESC(quote(t['id']))}' aria-label='Play {ESC(t['title'])}'>{icon('play', 14)}</button>"
+                if t.get("preview") or t.get("path") else f"<span class=pl style='background:#D4D4D4' title='Plays on Instagram only'>{icon('music', 14)}</span>")
+        src = "Instagram" if t.get("source") == "instagram" else ESC(t.get("artist") or "")
+        mood = f" · {ESC(t['mood'])}" if t.get("mood") else ""
+        btn = ("<span class='tag sched' style='font-size:12px'>In use</span>" if on else
+               f"<button class='btn sec small' name=track value='{ESC(t['id'])}'>Use</button>")
+        rows.append(f"<div class='trk{' on' if on else ''}'>{prev}<div class=tn><b>{ESC(t['title'])}</b><small>{src}{mood}</small></div>{btn}</div>")
+    js = ("<script>(()=>{let a=null,b=null;document.querySelectorAll('.pl[data-src]').forEach(x=>x.addEventListener('click',()=>{"
+          "if(b===x){a.pause();x.innerHTML=PL;b=null;return;}if(a){a.pause();b.innerHTML=PL;}a=new Audio(x.dataset.src);a.play();b=x;"
+          "x.innerHTML=PS;a.onended=()=>{x.innerHTML=PL;b=null;};}));})();"
+          f"</script><script>const PL=`{icon('play', 14)}`,PS=`{icon('pause', 14)}`;</script>")
+    return (f"<section class=card><div class=row><h2>Music</h2><span class=muted style='font-size:13px'>Swaps in seconds, no re-render</span></div>"
+            f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/track' class=tracks>{''.join(rows)}</form>{js}</section>")
 
 
 # ── video page ────────────────────────────────────────────────────────────────
@@ -522,13 +601,20 @@ def render_video(client: str, slot: str, variant: str = "reel") -> bytes:
         st = R.status(client, slot) or {}
         has_story = (sdir / "video-story.mp4").exists()
         vfile = "video-story.mp4" if variant == "story" and has_story else "video.mp4"
-        player = (f"<video controls playsinline preload=metadata poster='{media_url(client, slot, 'cover.jpg')}' "
-                  f"src='{media_url(client, slot, vfile)}'></video>") if (sdir / vfile).exists() else \
+        is_story = vfile != "video.mp4"
+        # what Instagram covers: Meta's safe zones (top 14 %, bottom 35 %, 6 % sides) and, for the
+        # reel, the 4:5 crop it gets in the profile grid / feed
+        ui = ("<div class=ui><i style='top:0;height:14%'></i><i style='bottom:0;height:35%'></i>"
+              + ("" if is_story else "<b style='left:0;right:0;top:14.84%;bottom:14.84%'></b><span style='top:15.4%'>Feed 4:5 crop</span>")
+              + f"<span style='top:1%'>{'Story' if is_story else 'Reel'} UI</span><span style='bottom:1%'>{'Reply bar' if is_story else 'Caption · buttons'}</span></div>")
+        player = (f"<div class=frame id=frame><video controls playsinline preload=metadata poster='{media_url(client, slot, 'cover.jpg')}' "
+                  f"src='{media_url(client, slot, vfile)}'></video>{ui}</div>") if (sdir / vfile).exists() else \
             "<div class=empty>No video file yet.</div>"
-        if has_story:
-            base = f"/{quote(client)}/v/{quote(slot)}"
-            player += (f"<div class=seg><a href='{base}' class='{'on' if vfile == 'video.mp4' else ''}'>Reel</a>"
-                       f"<a href='{base}?as=story' class='{'on' if vfile != 'video.mp4' else ''}'>Story</a></div>")
+        base = f"/{quote(client)}/v/{quote(slot)}"
+        seg = (f"<div class=seg><a href='{base}' class='{'on' if not is_story else ''}'>Reel</a>"
+               f"<a href='{base}?as=story' class='{'on' if is_story else ''}'>Story</a></div>") if has_story else "<span></span>"
+        player += (f"<div class=pctl>{seg}<label class=chk><input type=checkbox "
+                   f"onchange=\"document.getElementById('frame').classList.toggle('showui',this.checked)\">Show what Instagram covers</label></div>")
 
         # status line under the title
         if cls == "live":
@@ -584,6 +670,8 @@ def render_video(client: str, slot: str, variant: str = "reel") -> bytes:
             perf = "<p class=muted style='margin:8px 0 0'>Numbers appear once it is live.</p>"
         blocks.append(f"<section class=card><h2>Performance</h2>{perf}</section>")
 
+        blocks.append(music_card(client, slot, cls))
+
         # post text: two lines, then a clear way to read it all
         cap = read(sdir / "caption.txt").strip()
         if cap:
@@ -605,6 +693,23 @@ def render_video(client: str, slot: str, variant: str = "reel") -> bytes:
         return shell(client, "overview", body, title_of(client, row), refresh=15 if cls == "busy" else None)
     finally:
         db.close()
+
+
+CAL_JS = """
+(()=>{let src=null;const toast=document.getElementById('toast');
+const say=t=>{toast.textContent=t;toast.style.display='block';};
+document.querySelectorAll('.cell[draggable=true]').forEach(c=>{
+ c.addEventListener('dragstart',e=>{src=c.dataset.slot;c.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',src);});
+ c.addEventListener('dragend',()=>{c.classList.remove('dragging');document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'));});});
+document.querySelectorAll('.cell[draggable=true],.cell[data-at]').forEach(t=>{
+ t.addEventListener('dragover',e=>{if(src&&t.dataset.slot!==src){e.preventDefault();t.classList.add('over');}});
+ t.addEventListener('dragleave',()=>t.classList.remove('over'));
+ t.addEventListener('drop',async e=>{e.preventDefault();t.classList.remove('over');if(!src)return;
+  const b=new URLSearchParams({slot:src});if(t.dataset.slot)b.set('swap',t.dataset.slot);else b.set('at',t.dataset.at);
+  say('Moving…');const r=await fetch('/__C__/move',{method:'POST',body:b});
+  if(r.ok){location.reload();}else{say(await r.text());setTimeout(()=>toast.style.display='none',3000);}});});
+})();
+"""
 
 
 def render_calendar(client: str, week: str | None) -> bytes:
@@ -638,7 +743,7 @@ def render_calendar(client: str, week: str | None) -> bytes:
                 f"<a href='{base}?w={prev_w[0]}-W{prev_w[1]:02d}' aria-label='Previous week'>{icon('prev', 16)}</a>"
                 f"<a class=txt href='{base}'>This week</a>"
                 f"<a href='{base}?w={next_w[0]}-W{next_w[1]:02d}' aria-label='Next week'>{icon('next', 16)}</a></div></div>")
-        g = ["<div class=cal><div></div>"]
+        g = ["<div class=cal style='grid-template-columns:56px repeat(7,minmax(0,1fr))'><div></div>"]
         for day in days:
             g.append(f"<div class='dh{' today' if day == today else ''}'>{day.strftime('%a')}<b>{day.day}</b></div>")
         now_ = datetime.now(timezone.utc)
@@ -646,24 +751,30 @@ def render_calendar(client: str, week: str | None) -> bytes:
             g.append(f"<div class=th>{hm}</div>")
             for day in days:
                 items = cells.get((day.isoformat(), hm)) or []
+                slot_dt = datetime.combine(day, datetime.strptime(hm, "%H:%M").time(), tzinfo=timezone.utc)
+                iso = slot_dt.isoformat(timespec="seconds")
+                past = slot_dt < now_ + SCH.LEAD
                 if items:
                     row, (label, cls) = items[0]
                     slot = row["slot_id"]
                     cov = d / "posts" / slot / "cover.jpg"
                     img = f"<img src='{media_url(client, slot, 'cover.jpg')}' alt='' loading=lazy>" if cov.exists() else ""
-                    g.append(f"<a class=cell href='/{ESC(quote(client))}/v/{ESC(quote(slot))}' title='{ESC(title_of(client, row))}'>{img}"
+                    movable = row["state"] in DB.MOVABLE and not past
+                    dnd = f" draggable=true data-slot='{ESC(slot)}'" if movable else ""
+                    g.append(f"<a class=cell href='/{ESC(quote(client))}/v/{ESC(quote(slot))}' title='{ESC(title_of(client, row))}'{dnd}>{img}"
                              f"<span class='tag {cls}'>{ESC(label)}</span><span class=ct>{ESC(title_of(client, row))}</span></a>")
                 else:
-                    slot_dt = datetime.combine(day, datetime.strptime(hm, "%H:%M").time(), tzinfo=timezone.utc)
-                    past = slot_dt < now_
-                    g.append(f"<div class='cell open{' past' if past else ''}'>{'' if past else 'Open slot'}</div>")
+                    drop = "" if past else f" data-at='{iso}'"
+                    g.append(f"<div class='cell open{' past' if past else ''}'{drop}>{'' if past else 'Open slot'}</div>")
         g.append("</div>")
         st = W.status(client, week)
         note = ""
         if week == W.next_week() and not st:
             note = (f"<form method=post action='/{ESC(quote(client))}/week' style='margin-top:20px'><input type=hidden name=action value=prepare>"
                     f"<button class='btn pri small'>Prepare this week</button></form>")
-        body = header(client, "Calendar") + f"<section class=card>{head}{''.join(g)}{note}</section>"
+        hint = "<p class=hint style='margin:0 0 16px'>Drag a video onto another to swap them, or onto an open slot to move it. Live videos stay put.</p>"
+        body = (header(client, "Calendar") + f"<section class=card>{head}{hint}{''.join(g)}{note}</section>"
+                f"<div class=toast id=toast></div><script>{CAL_JS.replace('__C__', quote(client))}</script>")
         return shell(client, "calendar", body, "Calendar")
     finally:
         db.close()
@@ -701,6 +812,18 @@ def render_settings(client: str) -> bytes:
                 f"<button class='btn {'sec' if stop else 'pri'}'>{'Resume' if stop else 'Stop everything'}</button></form>")
     body = header(client, "Settings") + f"<section class=card>{''.join(rows)}</section>"
     return shell(client, "settings", body, "Settings")
+
+
+def _free_time(ts: list[str]) -> str:
+    """A sensible new slot: the middle of the longest gap in the day."""
+    mins = sorted(int(t[:2]) * 60 + int(t[3:]) for t in ts) or [390]
+    gaps = [((mins[(i + 1) % len(mins)] - m) % 1440 or 1440, m) for i, m in enumerate(mins)]
+    gap, start = max(gaps)
+    m = (start + gap // 2) % 1440
+    m -= m % 15
+    while f"{m // 60:02d}:{m % 60:02d}" in ts:
+        m = (m + 15) % 1440
+    return f"{m // 60:02d}:{m % 60:02d}"
 
 
 # ── http ──────────────────────────────────────────────────────────────────────
@@ -753,8 +876,10 @@ class Handler(BaseHTTPRequestHandler):
             if not parts:
                 cl = C.list_clients()
                 return self._redirect(f"/{quote(cl[0])}") if cl else self._send(200, b"No clients yet.", "text/plain")
-            if parts == ["static", "manrope.woff2"] and FONT.exists():
+            if parts == ["static", "inter.woff2"] and FONT.exists():
                 return self._file(FONT, "font/woff2")
+            if parts == ["static", "logo.svg"] and LOGO.exists():
+                return self._file(LOGO, "image/svg+xml")
             name = parts[0]
             C.client_dir(name)
             if len(parts) == 1:
@@ -767,6 +892,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, render_video(name, parts[2], "story" if q.get("as") == "story" else "reel"))
             if parts[1] == "v" and len(parts) == 4 and parts[3] == "qa":
                 return self._send(200, render_qa(name, parts[2]))
+            if len(parts) == 3 and parts[1] == "track":
+                T = _tracks()
+                t = next((t for t in (T.list_tracks(name) if T else []) if t["id"] == parts[2]), None)
+                f = ROOT / (t.get("preview") or t.get("path") or "") if t else None
+                if not f or not f.is_file():
+                    return self._send(404, b"not found", "text/plain")
+                return self._file(f, mimetypes.guess_type(f.name)[0] or "audio/mpeg")
             if len(parts) == 4 and parts[1] == "media":
                 f = C.client_dir(name) / "posts" / parts[2] / parts[3]
                 if parts[3] not in MEDIA_FILES or not f.exists():
@@ -781,7 +913,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         parts = [p for p in urlparse(self.path).path.split("/") if p]
         length = int(self.headers.get("Content-Length") or 0)
-        form = {k: v[0] for k, v in parse_qs(self.rfile.read(length).decode(), keep_blank_values=True).items()}
+        self._multi = parse_qs(self.rfile.read(length).decode(), keep_blank_values=True)
+        form = {k: v[0] for k, v in self._multi.items()}
         try:
             name = parts[0]
             d = C.client_dir(name)
@@ -789,13 +922,47 @@ class Handler(BaseHTTPRequestHandler):
                 C.set_flag(name, form["flag"], form["value"] == "1")
                 return self._redirect(f"/{quote(name)}/settings")
             if parts[1] == "schedule":
-                ts = [form.get("t1", ""), form.get("t2", "")]
+                ts = [t for t in self._multi.get("t", []) if t] or \
+                    [form[k] for k in sorted((k for k in form if re.fullmatch(r"t\d+", k)), key=lambda k: int(k[1:])) if form[k]]
+                if "remove" in form and len(ts) > 1:
+                    i = int(form["remove"])
+                    if 0 <= i < len(ts):
+                        ts.pop(i)
                 for t in ts:
                     datetime.strptime(t, "%H:%M")   # ValueError → 400
-                if ts[0] == ts[1]:
-                    return self._send(400, b"the two times must differ", "text/plain")
+                if "add" in form:
+                    if len(ts) >= MAX_SLOTS:
+                        return self._send(400, f"at most {MAX_SLOTS} posts a day".encode(), "text/plain")
+                    ts.append(_free_time(ts))
+                if not ts:
+                    return self._send(400, b"keep at least one post a day", "text/plain")
+                if len(set(ts)) != len(ts):
+                    return self._send(400, b"two posts cannot share a time", "text/plain")
                 C.set_value(name, "slots", sorted(ts))
                 return self._redirect(f"/{quote(name)}")
+            if parts[1] == "move":
+                db = DB.for_client(d)
+                try:
+                    slot = form["slot"]
+                    if form.get("swap"):
+                        db.move(slot, "", swap_with=form["swap"])
+                    else:
+                        at = form["at"]
+                        when_ = parse(at)
+                        if when_ < datetime.now(timezone.utc) + SCH.LEAD:
+                            return self._send(400, b"that slot is too close or already past", "text/plain")
+                        if at in SCH.taken_slots(db, exclude=slot):
+                            return self._send(400, b"that slot is taken", "text/plain")
+                        db.move(slot, at)
+                finally:
+                    db.close()
+                return self._send(200, b"ok", "text/plain")
+            if parts[1] == "v" and len(parts) == 4 and parts[3] == "track":
+                T = _tracks()
+                if not T:
+                    return self._send(400, b"no track library", "text/plain")
+                T.set_track(name, parts[2], form["track"])
+                return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}")
             if parts[1] == "week":
                 if form.get("action") == "prepare":
                     wk = form.get("week") or W.next_week()
