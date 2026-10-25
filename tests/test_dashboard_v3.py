@@ -78,3 +78,31 @@ def test_video_page_overlay_and_brand(server, client_dir):  # noqa: F811
     assert "/static/logo.svg" in body
     status, _, _ = req(server, "GET", "/static/logo.svg")
     assert status == 200
+
+
+def test_month_view_numbers_preview_and_day_drop(server, client_dir):  # noqa: F811
+    s = client_dir / "posts" / "w01-s1"
+    (s / "video.mp4").write_bytes(b"x")
+    db = DB.for_client(client_dir)
+    db.conn.execute("UPDATE posts SET scheduled_at='2099-01-05T06:30:00+00:00' WHERE slot_id='w01-s1'")
+    db.close()
+    status, body, _ = req(server, "GET", "/demo/calendar?view=month&m=2099-01")
+    assert status == 200 and "January 2099" in body and "cell mini" in body and "data-pv=" in body
+    assert "data-day='2099-01-06'" in body
+    status, _, _ = req(server, "POST", "/demo/move", {"slot": "w01-s1", "day": "2099-01-06"})
+    assert status == 200
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["scheduled_at"] == "2099-01-06T06:30:00+00:00"   # first free slot that day
+    db.close()
+    _, body, _ = req(server, "GET", "/demo/calendar?w=2099-W02&hl=w01-s1")
+    assert "class='cell hl'" in body and "class=grip" in body and "data-pv=" in body
+    _, body, _ = req(server, "GET", "/demo")
+    assert "class=no" in body and "id=pvm" in body
+
+
+def test_video_page_when_card_links_to_calendar(server, client_dir):  # noqa: F811
+    db = DB.for_client(client_dir)
+    db.conn.execute("UPDATE posts SET scheduled_at='2099-01-05T06:30:00+00:00' WHERE slot_id='w01-s1'")
+    db.close()
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "Planned for" in body and "/demo/calendar?w=2099-W02&amp;hl=w01-s1" in body.replace("&hl", "&amp;hl")
