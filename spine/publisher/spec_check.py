@@ -204,12 +204,12 @@ def report(client: str, slot_id: str) -> tuple[bool, str]:
         lines.append(f"PASS · {v['width']}x{v['height']} {_fps(v):g}fps {v['pix_fmt']} · "
                      f"{float(p['format']['duration']):.1f}s · {int(p['format']['size'])/1e6:.1f} MB · "
                      f"metadata stripped · no provenance/AI markers · provenance entry ok")
-    lines += [f"- {l}" for l in sz_lines]
-    if meta.get("safe_zone", "").startswith("FAIL"):
-        lines.append(f"- safe zone override recorded in meta.json: {meta['safe_zone']}")
     else:
         lines.append("FAIL")
         lines += [f"- {i}" for i in issues]
+    lines += [f"- {l}" for l in sz_lines]
+    if meta.get("safe_zone", "").startswith("FAIL"):
+        lines.append(f"- safe zone override recorded in meta.json: {meta['safe_zone']}")
     text = "\n".join(lines) + "\n"
     # qa.md holds one "## spec_check" section (ours) and any number of other sections
     # (Claude's vision pass). Replace ours, keep the rest.
