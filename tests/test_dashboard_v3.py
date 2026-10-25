@@ -106,3 +106,11 @@ def test_video_page_when_card_links_to_calendar(server, client_dir):  # noqa: F8
     db.close()
     _, body, _ = req(server, "GET", "/demo/v/w01-s1")
     assert "Planned for" in body and "/demo/calendar?w=2099-W02&amp;hl=w01-s1" in body.replace("&hl", "&amp;hl")
+
+
+def test_week_plan_skips_taken_slots(client_dir):  # noqa: F811
+    db = DB.for_client(client_dir)
+    db.conn.execute("UPDATE posts SET scheduled_at='2026-11-02T06:30:00+00:00' WHERE slot_id='w01-s1'")
+    db.close()
+    free = W.free_slot_times("demo", "2026-W45")
+    assert len(free) == 13 and "2026-11-02T06:30:00+00:00" not in free

@@ -64,6 +64,16 @@ def slot_times(client: str, week: str) -> list[str]:
     return [datetime.combine(d, t, tzinfo=timezone.utc).isoformat(timespec="seconds") for d in week_days(week) for t in ts]
 
 
+def free_slot_times(client: str, week: str) -> list[str]:
+    """The week's slots minus those already held by another video (moved or planned earlier)."""
+    db = DB.for_client(C.client_dir(client))
+    try:
+        taken = SCH.taken_slots(db)
+    finally:
+        db.close()
+    return [t for t in slot_times(client, week) if t not in taken]
+
+
 def plans_dir(client: str) -> Path:
     p = C.client_dir(client) / "plans"
     p.mkdir(exist_ok=True)
@@ -84,7 +94,7 @@ def _status(client: str, week: str, **kw) -> dict:
 
 def start(client: str, week: str) -> None:
     """Dashboard button: spawn prepare detached."""
-    _status(client, week, state="running", step="planning", done=0, total=len(slot_times(client, week)), error=None, started_at=now())
+    _status(client, week, state="running", step="planning", done=0, total=len(free_slot_times(client, week)), error=None, started_at=now())
     log = (plans_dir(client) / f"{week}.log").open("a")
     subprocess.Popen([sys.executable, "-m", "spine.week", "prepare", client, week], cwd=ROOT,
                      stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
@@ -137,7 +147,9 @@ the logo. Write the file and nothing else."""
 
 
 def plan(client: str, week: str) -> list[dict]:
-    times = slot_times(client, week)
+    times = free_slot_times(client, week)
+    if not times:
+        raise ValueError(f"every slot in {week} is already taken")
     out = plans_dir(client) / f"{week}.yaml"
     _claude(plan_prompt(client, week, times, out), ALLOWED_PLAN, PLAN_TIMEOUT)
     data = yaml.safe_load(out.read_text())
