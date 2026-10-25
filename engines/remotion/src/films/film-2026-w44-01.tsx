@@ -102,8 +102,7 @@ const Film: React.FC<{ variant: Variant }> = ({ variant }) => {
           ))}
           <div style={{ marginTop: 36, ...rise(t, T.polish, T.end - 0.3, 40) }}>
             <div style={{ padding: "26px 28px", borderRadius: 28, background: "rgba(14,17,24,.92)", boxShadow: `0 0 0 1.5px ${C.wind} inset, 0 30px 80px rgba(0,0,0,.6)`, transform: `scale(${lerp(0.85, 1, outBack(seg(t, T.polish, T.polish + 0.5)))})` }}>
-              <Eyebrow style={{ color: C.wind }}>So</Eyebrow>
-              <H1 size={52} style={{ marginTop: 10 }}>wind can only polish</H1>
+              <H1 size={52}><span style={{ color: C.wind }}>So </span>wind can only polish</H1>
             </div>
           </div>
         </div>

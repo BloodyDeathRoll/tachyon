@@ -1,4 +1,8 @@
-# QA · 2026-w44-13 · 2026-10-25T13:53:49+00:00
+# QA · 2026-w44-13 · 2026-10-25T20:14:09+00:00
+
+## Changes
+
+Small print removed (decision 16).
 
 ## Safe zones
 

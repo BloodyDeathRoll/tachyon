@@ -23,11 +23,12 @@
   "plan": "2026-W44",
   "duration_s": 13.06,
   "voiceover": {
-    "script": "No sign-up, no trial, no paywall. I open Rosa, my spot's right there, and I'm in the car before the coffee's cold.",
-    "voice": "am_michael",
+    "script": "No sign-up. No paywall. Nothing! I just open Rosa, my spot's right there, and I'm out the door before my coffee's cold.",
+    "voice": "dia:seed8",
+    "speed": 1.08,
     "start": 0.5,
     "file": "vo.wav",
-    "engine": "kokoro-82m (kokoro-onnx, Apache-2.0)"
+    "engine": "dia-1.6b (Nari Labs, Apache-2.0), local GPU"
   },
   "track": "upbeat-groove",
   "theme": "dark"

@@ -1,8 +1,8 @@
-# QA · 2026-w44-06 · 2026-10-25T19:22:02+00:00
+# QA · 2026-w44-06 · 2026-10-25T19:58:05+00:00
 
 ## Changes
 
-Switched to the light-theme app captures.
+Small print removed (decision 16).
 
 ## Safe zones
 

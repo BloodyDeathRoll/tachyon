@@ -45,15 +45,116 @@ def _rel(p: Path) -> str:
     return str(p.resolve().relative_to(ROOT))
 
 
-def list_tracks(client: str) -> list[dict]:
+def _file_tracks(client: str) -> list[dict]:
     d = C.client_dir(client) / "assets" / "music"
     out = []
     for t in _library(client):
+        if t.get("source", "file") != "file":
+            continue
         path = _rel(d / t["file"]) if t.get("file") else None
         out.append({"id": t["id"], "title": t["title"], "artist": t.get("artist"), "mood": t.get("mood"),
-                    "source": t.get("source", "file"), "path": path,
+                    "source": "file", "path": path, "cover": None, "duration": t.get("duration"),
                     "preview": path if path and path.endswith(".mp3") else t.get("preview")})
     return out
+
+
+# ── Instagram Audio API (Sound Collection, Facebook Login) ────────────────────
+# GET /ig_audio?audio_type=music&user_id=<ig-user-id>[&search_query=…]  (no query = trending)
+# fields: audio_id, title, display_artist, duration_in_ms, cover_artwork_thumbnail_uri,
+#         on_platform_audio_preview_link, download_url. Attach at publish with
+# audio_configuration {audio_id, audio_volume 1-100, video_volume 1-100}.
+IG_TTL = 6 * 3600
+IG_PREFIX = "ig:"
+
+
+def _ig_cache_path(client: str) -> Path:
+    return C.client_dir(client) / "assets" / "music" / "ig_cache.json"
+
+
+def _ig_cache(client: str) -> dict:
+    p = _ig_cache_path(client)
+    try:
+        return json.loads(p.read_text()) if p.exists() else {}
+    except json.JSONDecodeError:
+        return {}
+
+
+def _ig_save(client: str, cache: dict) -> None:
+    p = _ig_cache_path(client)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(cache, indent=1, ensure_ascii=False))
+
+
+def last_error(client: str) -> str | None:
+    return _ig_cache(client).get("_error")
+
+
+def _ig_parse(rows: list[dict]) -> list[dict]:
+    out = []
+    for r in rows:
+        aid = str(r.get("audio_id") or r.get("id") or "")
+        if not aid:
+            continue
+        ms = r.get("duration_in_ms")
+        out.append({"id": IG_PREFIX + aid, "audio_id": aid, "title": r.get("title") or "Untitled",
+                    "artist": r.get("display_artist") or r.get("ig_username"), "mood": None, "source": "instagram",
+                    "path": None, "cover": r.get("cover_artwork_thumbnail_uri") or r.get("profile_picture_url"),
+                    "duration": round(ms / 1000, 1) if ms else None,
+                    "preview": r.get("download_url") or None,
+                    "link": r.get("on_platform_audio_preview_link")})
+    return out
+
+
+def _ig_fetch(client: str, query: str | None, graph=None) -> list[dict]:
+    from .publisher.graph import Graph
+    g = graph or Graph(C.token(client))
+    params = {"audio_type": "music", "user_id": C.load_grants(client)["ig_user_id"]}
+    if query:
+        params["search_query"] = query
+    res = g.get("ig_audio", **params)
+    rows = res.get("data") if isinstance(res, dict) else res
+    return _ig_parse(rows or [])
+
+
+def ig_tracks(client: str, query: str | None = None, graph=None, now: float | None = None) -> list[dict]:
+    """Trending (no query) or search results, cached IG_TTL. Fails soft: [] + last_error()."""
+    import time
+    now = now or time.time()
+    key = (query or "").strip().lower() or "trending:"
+    cache = _ig_cache(client)
+    hit = cache.get(key)
+    if hit and now - hit["at"] < IG_TTL:
+        return hit["tracks"]
+    try:
+        tracks = _ig_fetch(client, query, graph)
+    except Exception as e:   # broken token, no network, API change: the picker shows the reason
+        cache["_error"] = str(e)[:300]
+        _ig_save(client, cache)
+        return hit["tracks"] if hit else []
+    cache[key] = {"at": now, "tracks": tracks}
+    cache.pop("_error", None)
+    _ig_save(client, cache)
+    return tracks
+
+
+def _ig_known(client: str) -> dict[str, dict]:
+    """Every Instagram track seen in any cached list, by id (for set_track after a search)."""
+    seen = {}
+    for k, v in _ig_cache(client).items():
+        if not k.startswith("_"):
+            for t in v.get("tracks", []):
+                seen[t["id"]] = t
+    return seen
+
+
+def list_tracks(client: str, source: str | None = None, query: str | None = None, graph=None) -> list[dict]:
+    """Picker contents. source "file" = our downloaded library, "instagram" = Sound Collection
+    via the Audio API, None = both (Instagram only from cache, never a network call)."""
+    if source == "file":
+        return _file_tracks(client)
+    if source == "instagram":
+        return ig_tracks(client, query, graph)
+    return _file_tracks(client) + list(_ig_known(client).values())
 
 
 def _meta(client: str, slot: str) -> tuple[Path, dict]:
@@ -131,14 +232,16 @@ def apply(client: str, slot: str) -> None:
 
 
 def set_track(client: str, slot: str, track_id: str) -> None:
-    track = next((t for t in _library(client) if t["id"] == track_id), None)
+    track = next((t for t in _library(client) if t["id"] == track_id), None) or _ig_known(client).get(track_id)
     if not track:
         raise KeyError(f"no track {track_id}")
     p, m = _meta(client, slot)
     m["track"] = track_id
     if track.get("source", "file") == "instagram":
-        m["audio_configuration"] = {"audio_id": track["audio_id"], "audio_volume": 1.0,
-                                    "video_volume": 1.0 if m.get("voiceover") else 0.0}
+        # Meta: volumes are integers 1-100. With a voice-over the music sits under it.
+        m["audio_configuration"] = {"audio_id": track["audio_id"], "audio_volume": 30 if m.get("voiceover") else 100,
+                                    "video_volume": 100 if m.get("voiceover") else 1}
+        m["track_info"] = {k: track.get(k) for k in ("title", "artist", "cover", "duration", "link")}
     else:
         m.pop("audio_configuration", None)
         m.setdefault("film", {})["music"] = _rel(C.client_dir(client) / "assets" / "music" / track["file"])

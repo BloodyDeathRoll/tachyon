@@ -1,12 +1,12 @@
-# QA · 2026-w44-10 · 2026-10-25T19:26:06+00:00
+# QA · 2026-w44-10 · 2026-10-25T20:24:25+00:00
 
 ## Changes
 
-Switched to the light-theme app captures.
+Small print removed (decision 16).
 
 ## Safe zones
 
-- reel: VERDICT: WARN (worst band 0.25x; text or UI in a band shows as > 0.6x)
-- story: VERDICT: WARN (worst band 0.25x; text or UI in a band shows as > 0.6x)
+- reel: VERDICT: WARN (worst band 0.26x; text or UI in a band shows as > 0.6x)
+- story: VERDICT: WARN (worst band 0.26x; text or UI in a band shows as > 0.6x)
 
 VERDICT: APPROVED
