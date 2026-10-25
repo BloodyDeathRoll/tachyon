@@ -1,0 +1,34 @@
+{
+  "slot_id": "2026-w44-01",
+  "title": "Pipeline: why Good",
+  "pillar": "Why this rating",
+  "angle": "Open on Pixabay surf footage (218670_large.mp4) with the hook, then the phone swings in showing spot-pipeline.png. Push in on the green Good badge. The Size, Period and Wind bars light up one at a time; Size and Period run long, the Wind bar stops short and a card reads \"wind can only polish\". End card: logo, \"rosa.surf, link in bio\", \"Footage: Pixabay\".",
+  "hook_formula": "Why Good and not Epic?",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Surf Rock Summer (BFCMUSIC), file",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w44-01",
+    "story": "film-2026-w44-01-story",
+    "source": "engines/remotion/src/films/film-2026-w44-01.tsx",
+    "music": "clients/rosa/assets/music/surf-rock-summer-325576.mp3"
+  },
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w44-01",
+  "plan": "2026-W44",
+  "duration_s": 12.05,
+  "voiceover": {
+    "script": "Pipeline said Good this morning, not Epic. I tapped it to see why. Size and period were pumping, but the wind wasn't there. Fair call.",
+    "voice": "am_michael",
+    "start": 0.5,
+    "file": "vo.wav",
+    "engine": "kokoro-82m (kokoro-onnx, Apache-2.0)"
+  },
+  "track": "surf-rock-summer",
+  "theme": "dark"
+}
