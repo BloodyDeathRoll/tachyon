@@ -1,8 +1,8 @@
 # One entry per asset file. QA fails any asset without an entry. generative must be false.
 assets:
 - file: rosa-favorites-9x16.mp4
-  source: rendered by the Rosa HTML motion-film pipeline, 2026-10-04; original at ~/Videos/rosa/ (sources
-    lost, PLAN §7)
+  source: rendered by the Rosa HTML motion-film pipeline, 2026-10-04; original at ~/Videos/rosa/ (sources lost,
+    PLAN §7)
   licence: ours
   allowed_use: any Rosa channel
   generative: false
@@ -17,16 +17,16 @@ assets:
   added: '2026-10-24'
 - file: rosa-showreel-v14-30s-blues-9x16.mp4
   source: rendered by the Rosa HTML motion-film pipeline, 2026-10-04; original at ~/Videos/rosa/
-  licence: 'ours for the UI; ocean footage from Pixabay (Pixabay Content License: commercial use allowed,
-    no attribution required)'
-  allowed_use: Instagram, as-is, by operator decision 2026-10-24 (stale 2,741 count and Pixabay footage
-    accepted); re-render before any reuse
+  licence: 'ours for the UI; ocean footage from Pixabay (Pixabay Content License: commercial use allowed, no attribution
+    required)'
+  allowed_use: Instagram, as-is, by operator decision 2026-10-24 (stale 2,741 count and Pixabay footage accepted);
+    re-render before any reuse
   generative: false
   contains: stale spot count, stock ocean footage
   added: '2026-10-24'
 - file: captures/2026-10-25/*.png
-  source: spine/capture.py on https://rosa.surf, 2026-10-25, 390×844@3x dark; captures.json has URL, title
-    and time per file
+  source: spine/capture.py on https://rosa.surf, 2026-10-25, 390×844@3x dark; captures.json has URL, title and time
+    per file
   licence: ours (our own product)
   allowed_use: any Rosa channel
   generative: false
@@ -45,4 +45,75 @@ assets:
   licence: SIL OFL 1.1
   allowed_use: embedded in films
   generative: false
+  added: '2026-10-25'
+- file: music/surf-rock-summer-325576.mp3
+  source: https://pixabay.com/music/rock-surf-rock-summer-325576/ by BFCMUSIC
+  licence: 'Pixabay Content License: commercial use allowed, no attribution required'
+  allowed_use: any Rosa channel, synced to video
+  generative: false
+  contains: music track (track picker library)
+  added: '2026-10-25'
+- file: music/energetic-surf-rock-music-350069.mp3
+  source: https://pixabay.com/music/rock-energetic-surf-rock-music-350069/ by Tunetank
+  licence: 'Pixabay Content License: commercial use allowed, no attribution required'
+  allowed_use: any Rosa channel, synced to video
+  generative: false
+  contains: music track (track picker library)
+  added: '2026-10-25'
+- file: music/retro-surf-rock-348237.mp3
+  source: https://pixabay.com/music/hard-rock-retro-surf-rock-348237/ by Tunetank
+  licence: 'Pixabay Content License: commercial use allowed, no attribution required'
+  allowed_use: any Rosa channel, synced to video
+  generative: false
+  contains: music track (track picker library)
+  added: '2026-10-25'
+- file: music/surf-rock-204622.mp3
+  source: https://pixabay.com/music/rock-surf-rock-204622/ by Abydos_Music
+  licence: 'Pixabay Content License: commercial use allowed, no attribution required'
+  allowed_use: any Rosa channel, synced to video
+  generative: false
+  contains: music track (track picker library)
+  added: '2026-10-25'
+- file: music/upbeat-summer-617557.mp3
+  source: https://pixabay.com/music/soft-house-upbeat-summer-617557/ by Caldena
+  licence: 'Pixabay Content License: commercial use allowed, no attribution required'
+  allowed_use: any Rosa channel, synced to video
+  generative: false
+  contains: music track (track picker library)
+  added: '2026-10-25'
+- file: music/upbeat-groove-620328.mp3
+  source: https://pixabay.com/music/funk-upbeat-groove-620328/ by Sub_Clair
+  licence: 'Pixabay Content License: commercial use allowed, no attribution required'
+  allowed_use: any Rosa channel, synced to video
+  generative: false
+  contains: music track (track picker library)
+  added: '2026-10-25'
+- file: music/upbeat-summer-background-music-368292.mp3
+  source: https://pixabay.com/music/upbeat-upbeat-summer-background-music-368292/ by DELOSound
+  licence: 'Pixabay Content License: commercial use allowed, no attribution required'
+  allowed_use: any Rosa channel, synced to video
+  generative: false
+  contains: music track (track picker library)
+  added: '2026-10-25'
+- file: music/upbeat-lounge-613342.mp3
+  source: https://pixabay.com/music/house-upbeat-lounge-613342/ by AtlasAudio
+  licence: 'Pixabay Content License: commercial use allowed, no attribution required'
+  allowed_use: any Rosa channel, synced to video
+  generative: false
+  contains: music track (track picker library)
+  added: '2026-10-25'
+- file: captures/2026-10-25-light/
+  source: https://rosa.surf live app, ?theme=light, manifest captures.json
+  licence: ours
+  allowed_use: any Rosa channel
+  generative: false
+  contains: real Rosa UI, light theme
+  added: '2026-10-25'
+- file: posts/*/vo.wav
+  source: 'local TTS: Kokoro-82M via kokoro-onnx, voice am_michael; script in each meta.json voiceover.script'
+  licence: model Apache-2.0; scripts ours
+  allowed_use: any Rosa channel
+  generative: true
+  contains: synthetic speech (TTS). Decision 7 forbids generative footage/images (the AI label); audio TTS writes
+    no provenance marker into the MP4, spec_check still scans for markers.
   added: '2026-10-25'

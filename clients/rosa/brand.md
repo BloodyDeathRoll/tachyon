@@ -14,8 +14,14 @@ copy sets the register: "free, lean, fast, shareable, minus the bloat and paywal
 2026-10-24), first person, talks the way the comment section talks. Without a
 voice-over (operator rule 2026-10-24): the brand speaks, second person ("open it, your
 spots are there"), never "I" or "my". The app
-is what the camera looks at; the surfer is the voice (voice-over, ElevenLabs or
-recorded). No founder-on-camera in phase 1.
+is what the camera looks at; the surfer is the voice. No founder-on-camera in phase 1.
+
+**Voice-over (2026-10-25).** About 1 reel in 4 carries one. An avid surfer who uses the app,
+first person, explains one feature from a real session: 2-3 short spoken lines, 6-9 s,
+contractions, plain words, no em dashes, no hype words. Generated locally (`spine/voice.py`,
+Kokoro TTS, voice `am_michael`), -16 LUFS, music ducked about 12 dB under it.
+
+**App theme (2026-10-25).** Mix light and dark app captures, about half each across a week.
 
 **Words we never say.** game-changer, revolutionary, seamless, unlock, elevate,
 powerful, next-level, "the only app you need", "best forecast", "most accurate",

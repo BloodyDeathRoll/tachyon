@@ -141,6 +141,10 @@ def render(client: str, slot: str) -> dict:
     shutil.move(out["reel"], slot_dir / "video.mp4")
     shutil.move(out["story"], slot_dir / "video-story.mp4")
     shutil.rmtree(tmp, ignore_errors=True)
+    (slot_dir / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n")
+    from . import tracks as T   # level the music, add the voice-over, honour the picked track
+    if T.current_track(client, slot) or meta.get("voiceover"):
+        T.apply(client, slot)
     at = (meta.get("thumb_offset") or 1500) / 1000
     _run(["ffmpeg", "-v", "error", "-y", "-ss", f"{min(at, meta['duration_s'] - 0.1):.2f}", "-i",
           str(slot_dir / "video.mp4"), "-frames:v", "1", "-q:v", "3", str(slot_dir / "cover.jpg")])
