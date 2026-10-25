@@ -370,6 +370,9 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .art{width:36px;height:36px;border-radius:6px;object-fit:cover;flex:none}
 .pl.off{background:#D4D4D4;cursor:default}
 @media (max-width:1400px){.vpage{grid-template-columns:minmax(260px,360px) minmax(0,1fr)}.vpage .c3{grid-column:2}}
+.ghost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;box-shadow:0 24px 48px rgba(0,0,0,.35);border-radius:12px;opacity:.95;transition:none}
+.cell[data-slot]{touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.grip{touch-action:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media (min-width:1700px){.ovgrid{grid-template-columns:minmax(0,2fr) minmax(400px,1fr)}}
 @media (max-width:1100px){.ovgrid{grid-template-columns:1fr}}
@@ -821,27 +824,49 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
 
 
 CAL_JS = """
-(()=>{let src=null,srcEl=null;const toast=document.getElementById('toast');
+(()=>{
+// remember this view (week/month + date) for the next visit to the calendar
+document.cookie='cal___C__='+encodeURIComponent(location.search.replace(/[?&]hl=[^&]*/,''))+';path=/;max-age=31536000;samesite=lax';
+const toast=document.getElementById('toast');
 const say=(t,ms)=>{toast.textContent=t;toast.style.display='block';if(ms)setTimeout(()=>toast.style.display='none',ms);};
-document.querySelectorAll('.cell[draggable=true]').forEach(c=>{
- c.addEventListener('dragstart',e=>{src=c.dataset.slot;srcEl=c;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',src);
-  requestAnimationFrame(()=>c.classList.add('dragging'));document.body.classList.add('dnd');});
- c.addEventListener('dragend',()=>{c.classList.remove('dragging');document.body.classList.remove('dnd');document.querySelectorAll('.over').forEach(x=>x.classList.remove('over'));});});
-document.querySelectorAll('.cell[draggable=true],.cell[data-at],[data-day]').forEach(t=>{
- t.addEventListener('dragover',e=>{if(src&&t!==srcEl&&!t.contains(srcEl)){e.preventDefault();e.stopPropagation();t.classList.add('over');}});
- t.addEventListener('dragleave',()=>t.classList.remove('over'));
- t.addEventListener('drop',async e=>{e.preventDefault();e.stopPropagation();t.classList.remove('over');if(!src)return;
-  const b=new URLSearchParams({slot:src});
-  if(t.dataset.slot)b.set('swap',t.dataset.slot);else if(t.dataset.at)b.set('at',t.dataset.at);else b.set('day',t.dataset.day);
-  const r=await fetch('/__C__/move',{method:'POST',body:b});
-  if(!r.ok){say(await r.text(),3000);return;}
-  const tgt=t.dataset.day?t.querySelector('.cell.open[data-at]')||t:t;
-  const A=srcEl.getBoundingClientRect(),B=tgt.getBoundingClientRect(),ease='transform .5s cubic-bezier(.2,.8,.2,1)';
-  [srcEl,tgt].forEach(x=>{x.style.position='relative';x.style.zIndex=3;x.style.transition=ease;});
-  srcEl.classList.remove('dragging');
-  requestAnimationFrame(()=>{srcEl.style.transform=`translate(${B.left-A.left}px,${B.top-A.top}px) scale(${B.width/A.width})`;
-   if(tgt!==t||t.dataset.slot||t.dataset.at)tgt.style.transform=`translate(${A.left-B.left}px,${A.top-B.top}px) scale(${A.width/B.width})`;});
-  setTimeout(()=>location.reload(),560);});});
+// press and hold (or grab the dots) to drag; a quick click still opens the video
+const HOLD=350,SLOP=8;let st=null;
+const targetAt=(x,y)=>{const e=document.elementFromPoint(x,y);if(!e)return null;
+ const t=e.closest('.cell[data-slot],.cell[data-at],[data-day]');return t&&t!==st.el&&!st.el.contains(t)?t:null;};
+document.querySelectorAll('.cell[data-slot]').forEach(c=>{
+ c.addEventListener('dragstart',e=>e.preventDefault());
+ c.addEventListener('pointerdown',e=>{if(e.button!==0||e.target.closest('.pvb'))return;
+  const grip=!!e.target.closest('.grip');
+  st={el:c,x:e.clientX,y:e.clientY,id:e.pointerId,on:false,over:null,timer:null};
+  const start=()=>{if(!st)return;st.on=true;c.setPointerCapture(st.id);const r=c.getBoundingClientRect();
+   const g=c.cloneNode(true);g.classList.add('ghost');g.style.width=r.width+'px';g.style.height=r.height+'px';
+   st.dx=st.x-r.left;st.dy=st.y-r.top;st.g=g;document.body.appendChild(g);move(st.x,st.y);
+   c.classList.add('dragging');document.body.classList.add('dnd');if(navigator.vibrate)navigator.vibrate(15);};
+  if(grip){e.preventDefault();start();}else st.timer=setTimeout(start,HOLD);});});
+const move=(x,y)=>{st.g.style.transform=`translate(${x-st.dx}px,${y-st.dy}px) rotate(-2deg) scale(1.04)`;
+ const t=targetAt(x,y);if(t!==st.over){if(st.over)st.over.classList.remove('over');st.over=t;if(t)t.classList.add('over');}};
+document.addEventListener('pointermove',e=>{if(!st||e.pointerId!==st.id)return;
+ if(!st.on){if(Math.hypot(e.clientX-st.x,e.clientY-st.y)>SLOP){clearTimeout(st.timer);st=null;}return;}
+ e.preventDefault();move(e.clientX,e.clientY);});
+const end=async e=>{if(!st||e.pointerId!==st.id)return;clearTimeout(st.timer);const s=st;st=null;if(!s.on)return;
+ // swallow the click that follows a drag so it does not open the page
+ const kill=ev=>{ev.preventDefault();ev.stopPropagation();};window.addEventListener('click',kill,{capture:true,once:true});setTimeout(()=>window.removeEventListener('click',kill,true),50);
+ document.body.classList.remove('dnd');if(s.over)s.over.classList.remove('over');
+ const t=e.type==='pointerup'?s.over:null;
+ if(!t){s.g.remove();s.el.classList.remove('dragging');return;}
+ const b=new URLSearchParams({slot:s.el.dataset.slot});
+ if(t.dataset.slot)b.set('swap',t.dataset.slot);else if(t.dataset.at)b.set('at',t.dataset.at);else b.set('day',t.dataset.day);
+ const r=await fetch('/__C__/move',{method:'POST',body:b});
+ s.g.remove();s.el.classList.remove('dragging');
+ if(!r.ok){say(await r.text(),3000);return;}
+ const tgt=t.dataset.day?t.querySelector('.cell.open[data-at]')||t:t;
+ const A=s.el.getBoundingClientRect(),B=tgt.getBoundingClientRect(),ease='transform .5s cubic-bezier(.2,.8,.2,1)';
+ [s.el,tgt].forEach(x=>{x.style.position='relative';x.style.zIndex=3;x.style.transition=ease;});
+ requestAnimationFrame(()=>{s.el.style.transform=`translate(${B.left-A.left}px,${B.top-A.top}px) scale(${B.width/A.width})`;
+  if(tgt!==t||t.dataset.slot||t.dataset.at)tgt.style.transform=`translate(${A.left-B.left}px,${A.top-B.top}px) scale(${A.width/B.width})`;});
+ setTimeout(()=>location.reload(),560);};
+document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&st&&st.on){st.g.remove();st.el.classList.remove('dragging');document.body.classList.remove('dnd');if(st.over)st.over.classList.remove('over');st=null;}});
 const hl=document.querySelector('.cell.hl');if(hl)hl.scrollIntoView({block:'center'});
 })();
 """
@@ -877,8 +902,10 @@ def _cell(client: str, row, tag, past: bool, hl: str | None, mini: bool = False,
 
 def _cal_head(client: str, view: str, title: str, prev: str, today_q: str, nxt: str) -> str:
     base = f"/{quote(client)}/calendar"
-    seg = (f"<div class=seg><a href='{base}' class='{'on' if view == 'week' else ''}'>Week</a>"
-           f"<a href='{base}?view=month' class='{'on' if view == 'month' else ''}'>Month</a></div>")
+    t = datetime.now(timezone.utc).date()
+    y, w, _ = t.isocalendar()
+    seg = (f"<div class=seg><a href='{base}?w={y}-W{w:02d}' class='{'on' if view == 'week' else ''}'>Week</a>"
+           f"<a href='{base}?view=month&m={t:%Y-%m}' class='{'on' if view == 'month' else ''}'>Month</a></div>")
     return ("<div class=row style='margin-bottom:12px;flex-wrap:wrap'>"
             f"<div class=row style='gap:16px'><h2>{title}</h2>{seg}</div><div class=calnav>"
             f"<a href='{base}?{prev}' aria-label='Previous'>{icon('prev', 16)}</a>"
@@ -921,7 +948,7 @@ def render_month(client: str, month: str | None, hl: str | None = None) -> bytes
             g.append(f"<div class='mday{out}{tod}'{drop}><b>{day.day}</b><div class=mcells>{''.join(cells)}</div></div>")
             day += timedelta(days=1)
         g.append("</div>")
-        head = _cal_head(client, "month", first.strftime("%B %Y"), f"view=month&m={prv_m:%Y-%m}", "view=month",
+        head = _cal_head(client, "month", first.strftime("%B %Y"), f"view=month&m={prv_m:%Y-%m}", f"view=month&m={today:%Y-%m}",
                          f"view=month&m={nxt_m:%Y-%m}")
         body = (header(client, "Calendar") + f"<section class=card>{head}{''.join(g)}</section>"
                 f"<div class=toast id=toast></div><script>{CAL_JS.replace('__C__', quote(client))}</script>")
@@ -955,8 +982,9 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
         rows_t = sorted(set(times) | extra_times)
         prev_w = (days[0] - timedelta(days=7)).isocalendar()
         next_w = (days[0] + timedelta(days=7)).isocalendar()
+        ty, tw, _ = today.isocalendar()
         head = _cal_head(client, "week", f"{days[0].strftime('%-d %b')} – {days[-1].strftime('%-d %b %Y')}",
-                         f"w={prev_w[0]}-W{prev_w[1]:02d}", "", f"w={next_w[0]}-W{next_w[1]:02d}")
+                         f"w={prev_w[0]}-W{prev_w[1]:02d}", f"w={ty}-W{tw:02d}", f"w={next_w[0]}-W{next_w[1]:02d}")
         g = ["<div class=cal style='grid-template-columns:56px repeat(7,minmax(0,1fr))'><div></div>"]
         for day in days:
             g.append(f"<div class='dh{' today' if day == today else ''}'>{day.strftime('%a')}<b>{day.day}</b></div>")
@@ -1104,6 +1132,13 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) == 1:
                 return self._send(200, render_overview(name))
             if parts[1] == "calendar" and len(parts) == 2:
+                if not u.query:
+                    from http.cookies import SimpleCookie
+                    from urllib.parse import unquote
+                    ck = SimpleCookie(self.headers.get("Cookie") or "")
+                    saved = unquote(ck[f"cal_{name}"].value) if f"cal_{name}" in ck else ""
+                    if saved.startswith("?") and len(saved) > 1:
+                        return self._redirect(f"/{quote(name)}/calendar{saved}")
                 if q.get("view") == "month":
                     return self._send(200, render_month(name, q.get("m"), q.get("hl")))
                 return self._send(200, render_calendar(name, q.get("w"), q.get("hl")))
