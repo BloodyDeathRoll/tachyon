@@ -171,6 +171,10 @@ def _fail(db: DB, slot: Path, slot_id: str, caption: str, first_comment: str, re
 def run_queue(client: str, *, dry_run: bool = False) -> list[dict]:
     d = C.client_dir(client)
     db = DB.for_client(d)
+    # approved in the dashboard with a slot → into the queue (spine/schedule.py)
+    for p in db.posts("APPROVED"):
+        if p["scheduled_at"]:
+            db.set_state(p["slot_id"], "QUEUED")
     due = [p["slot_id"] for p in db.posts("QUEUED")
            if p["scheduled_at"] and p["scheduled_at"] <= datetime.now(timezone.utc).isoformat()]
     db.close()

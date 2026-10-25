@@ -1,0 +1,11 @@
+Should I surf? One tap says yes or no, and why. Free at rosa.surf, link in bio.
+
+That's the whole app. Open it, your spots are there with size, period and wind, and the rating tells you why the day's Epic or Fair.
+
+Spots worldwide, 16 days out, updated four times a day. It's free and it runs in your browser, so there's nothing to install.
+
+A surf forecast app that shows its reasoning.
+
+Waves: NOAA GFS-Wave + ECMWF open data (CC-BY 4.0) · Peak periods: DWD GWAM (CC-BY 4.0) · Weather by Open-Meteo.com (CC-BY 4.0) · Sea temp: NOAA OISST · Tides: EOT20 (CC-BY 4.0)
+
+#surfforecast #surfing #surfreport

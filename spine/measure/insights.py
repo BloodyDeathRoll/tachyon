@@ -26,9 +26,10 @@ from spine.publisher.graph import Graph, GraphError
 
 WINDOWS = {"24h": timedelta(hours=24), "72h": timedelta(hours=72), "7d": timedelta(days=7)}
 MEDIA_METRICS = ["views", "reach", "likes", "comments", "shares", "saved", "reposts",
-                 "total_interactions", "ig_reels_avg_watch_time", "ig_reels_video_view_total_time",
-                 "profile_visits", "follows"]
-OPTIONAL_METRICS = ["reels_skip_rate"]
+                 "total_interactions", "ig_reels_avg_watch_time", "ig_reels_video_view_total_time"]
+# Asked one by one; a refusal is recorded as None. Meta refuses profile_visits and follows for
+# REELS ("not supported for this media product type", verified 2026-10-25).
+OPTIONAL_METRICS = ["reels_skip_rate", "profile_visits", "follows"]
 ACCOUNT_METRICS = ["views", "reach", "accounts_engaged", "total_interactions",
                    "follows_and_unfollows", "profile_links_taps"]
 
