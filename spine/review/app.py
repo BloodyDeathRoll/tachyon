@@ -116,6 +116,10 @@ def title_of(client: str, row) -> str:
     return m.get("title") or (row["pillar"] or "Untitled video")
 
 
+def vo_pill(client: str, slot: str) -> str:
+    return "<span class=vo title='Has a voice-over'>VO</span>" if meta_of(client, slot).get("voiceover") else ""
+
+
 def slot_no(slot: str) -> tuple[str, str]:
     """('W44', '03') for 2026-w44-03; ('', slot) for anything else."""
     m = re.fullmatch(r"\d{4}-w(\d+)-(\d+)", slot)
@@ -402,6 +406,16 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .rgbox{background:#fff;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px;min-width:300px;animation:pop .18s ease-out}
 .rgbox label{display:flex;flex-direction:column;gap:6px;font-size:13.5px;color:var(--ink3)}
 .rgbox input{border:1px solid var(--rule);border-radius:9px;padding:8px 10px;font-size:15px;color:var(--ink)}
+.chips{position:absolute;left:10px;top:10px;z-index:2;display:flex;gap:4px;align-items:center}
+.chips .no{position:static}
+.cell .chips{left:6px;top:6px}.cell.mini .chips{left:3px;top:3px}
+.vo{font:700 10.5px Inter;color:#fff;background:#5c2f93;padding:3px 7px;border-radius:999px;letter-spacing:.04em}
+.cell .vo{font-size:9.5px;padding:2px 6px}
+.filt button{border:0;background:transparent;padding:6px 12px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--ink3);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.filt button i{font-style:normal;font-size:11.5px;background:#E2E2E2;color:var(--ink2);border-radius:999px;padding:0 6px;min-width:18px;text-align:center}
+.filt button.on{background:var(--ink);color:#fff}.filt button.on i{background:var(--lime);color:var(--ink)}
+.vid[hidden]{display:none}
+.tdo{font-size:14px;font-weight:600;color:var(--ink3);margin-left:6px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media (min-width:1700px){.ovgrid{grid-template-columns:minmax(0,2fr) minmax(400px,1fr)}}
 @media (max-width:1100px){.ovgrid{grid-template-columns:1fr}}
@@ -664,8 +678,9 @@ def video_card(client: str, row, tag: tuple[str, str], db: DB) -> str:
     else:
         line = "Review and approve"
     wk, no = slot_no(slot)
-    return (f"<a class=vid href='/{ESC(quote(client))}/v/{ESC(quote(slot))}'><div class=thumb>{img}"
-            f"<span class=no title='{ESC(wk)} video {ESC(no)}'>{ESC(wk + ' · ' if wk else '')}#{ESC(no)}</span>{pv_button(client, slot)}{dl_button(client, slot)}"
+    return (f"<a class=vid data-cls='{cls}' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}'><div class=thumb>{img}"
+            f"<span class=chips><span class=no title='{ESC(wk)} video {ESC(no)}'>{ESC(wk + ' · ' if wk else '')}#{ESC(no)}</span>{vo_pill(client, slot)}</span>"
+            f"{pv_button(client, slot)}{dl_button(client, slot)}"
             f"<span class='tag {cls}'>{ESC(label)}</span></div>"
             f"<h3>{ESC(title_of(client, row))}</h3>{'' if cls == 'need' else f'<p>{ESC(line)}</p>'}</a>")
 
@@ -750,19 +765,21 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
         chart = views_block(client, db, None, q or {}, f"/{quote(client)}")
         perf = f"<section class='card perf'><h2>Performance</h2><div class=stats>{stats}</div>{chart}</section>"
 
-        summary = []
-        if count["need"]:
-            summary.append(f"<b>{count['need']} to approve</b>")
-        if count["busy"]:
-            summary.append(f"{count['busy']} in production")
-        if count["sched"]:
-            summary.append(f"{count['sched']} scheduled")
-        if count["live"]:
-            summary.append(f"{count['live']} live")
+        shown = {c: sum(1 for _, t in rows if t[1] == c) for c in ORDER}
+        filt = "".join(
+            f"<button type=button data-f='{k}' class='{'on' if k == 'all' else ''}'>{lab}<i>{n}</i></button>"
+            for k, lab, n in (("all", "All", len(rows)), ("need", "Needs approval", shown["need"]), ("busy", "In production", shown["busy"]),
+                              ("sched", "Scheduled", shown["sched"]), ("live", "Live", shown["live"])) if k == "all" or n)
         cards = "".join(video_card(client, r, t, db) for r, t in rows) or \
             "<div class=empty>No videos yet. Prepare next week to fill this.</div>"
-        vids = (f"<div class='row vhead'><h2>Videos<span class=count>{len(rows)}</span></h2><span class=muted>{' · '.join(summary)}</span></div>"
-                f"<div class=grid>{cards}</div>")
+        vids = (f"<div class='row vhead' style='flex-wrap:wrap'><h2>Videos{f' <span class=tdo>{shown["need"]} to approve</span>' if shown['need'] else ''}</h2><div class='seg filt' role=group aria-label='Show'>{filt}</div></div>"
+                f"<div class=grid id=vgrid>{cards}</div><p class='muted fempty' hidden>Nothing here right now.</p>"
+                "<script>(()=>{const K='tachyon.ovfilter',g=document.getElementById('vgrid'),e=document.querySelector('.fempty');"
+                "const set=f=>{let n=0;g.querySelectorAll('.vid').forEach(v=>{const s=f==='all'||v.dataset.cls===f;v.hidden=!s;n+=s;});"
+                "document.querySelectorAll('.filt button').forEach(b=>b.classList.toggle('on',b.dataset.f===f));e.hidden=n>0;"
+                "try{localStorage.setItem(K,f)}catch(_){}};"
+                "document.querySelectorAll('.filt button').forEach(b=>b.addEventListener('click',()=>set(b.dataset.f)));"
+                "let f='all';try{f=localStorage.getItem(K)||'all'}catch(_){}if(!document.querySelector(`.filt [data-f='${f}']`))f='all';set(f);})();</script>")
         body = (header(client, "Overview") +
                 f"<div class=ovgrid><div class=maincol>{vids}</div>"
                 f"<div class=side>{perf}{schedule_card(client)}{week_card(client)}</div></div>")
@@ -1061,9 +1078,9 @@ def _cell(client: str, row, tag, past: bool, hl: str | None, mini: bool = False,
     t = ESC(title_of(client, row))
     if mini:
         return (f"<a class='cell mini{' hl' if slot == hl else ''}' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}' title='{hm} · {t}'{dnd}>{img}"
-                f"<span class=no>#{ESC(no)}</span><span class='mdot {cls}'></span><span class=mt>{hm}</span>{pv_button(client, slot)}</a>")
+                f"<span class=chips><span class=no>#{ESC(no)}</span></span><span class='mdot {cls}'></span><span class=mt>{hm}</span>{pv_button(client, slot)}</a>")
     return (f"<a class='cell{' hl' if slot == hl else ''}' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}' title='{t}'{dnd}>{img}"
-            f"<span class=no>#{ESC(no)}</span><span class=tools>{grip}{pv_button(client, slot)}</span>"
+            f"<span class=chips><span class=no>#{ESC(no)}</span>{vo_pill(client, slot)}</span><span class=tools>{grip}{pv_button(client, slot)}</span>"
             f"<span class=cb><span class='tag {cls}'>{ESC(label)}</span><span class=ct>{t}</span></span></a>")
 
 
