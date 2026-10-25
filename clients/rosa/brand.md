@@ -53,12 +53,16 @@ vs URL on screen, by sessions per UTM. No link in a comment, ever: Instagram com
 - Font Inter Variable everywhere, including burned-in captions.
 - Logo files in `web/public/` (`icon.svg`, `icon-maskable.svg`). Logo appears only on
   the end card, never as an intro sting.
-- Motion language: the showreel clips of 2026-10-04 (`~/Videos/rosa/`) are the
-  reference: dark background, the real UI moving, blues from the rating palette, no
-  stock footage of surfers we do not own.
+- Motion language: the showreel clips of 2026-10-04 (`~/Videos/rosa/`) are the bar
+  (operator, 2026-10-25: "a million times better"): the phone moving in 3D space, Pixabay
+  ocean footage behind it, fast and fun, every feature shown; sources recovered into
+  `films/showreel-v14`, `films/favorites-v1`, `films/swim-v1`.
 
 ## Banned on screen
 
-- Stock surfer footage from any library (originality rules; also not ours).
+- Stock footage presented as the product or as Rosa's own. Atmosphere footage (ocean, waves,
+  surfers) from Pixabay under the Pixabay Content License is allowed behind the UI (operator,
+  2026-10-25: the 2026-10-04 reels used it and that is the bar); credit "Footage: Pixabay" on
+  the end card; every clip listed in `assets/footage/SOURCES.md`.
 - Watermarks, third-party logos, other apps' UI.
 - Numbers not in `product.md`.
