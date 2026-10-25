@@ -119,12 +119,46 @@ def due(client: str, at: datetime | None = None) -> list[tuple[str, str]]:
         db.close()
 
 
+HOURLY_DAYS = 30   # keep an hourly views history for videos published in the last 30 days
+
+
+def hour_key(at: datetime | None = None) -> str:
+    return "h:" + (at or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H")
+
+
+def snapshot_hourly(client: str, *, graph: Graph | None = None, at: datetime | None = None) -> list[str]:
+    """One cumulative snapshot per live video per hour (window "h:<UTC hour>"): the dashboard's
+    views-per-hour/day/month charts are the differences between consecutive snapshots."""
+    at = at or datetime.now(timezone.utc)
+    d = C.client_dir(client)
+    db = DB.for_client(d)
+    done = []
+    try:
+        key = hour_key(at)
+        for p in db.posts():
+            if not p["ig_media_id"] or not p["published_at"]:
+                continue
+            pub = datetime.fromisoformat(p["published_at"].replace("Z", "+00:00"))
+            if at - pub > timedelta(days=HOURLY_DAYS):
+                continue
+            if any(s["window"] == key for s in db.snapshots(p["slot_id"])):
+                continue
+            graph = graph or Graph(C.token(client))
+            m = fetch_media(graph, p["ig_media_id"])
+            db.add_snapshot(p["slot_id"], "ig_media", key, m)
+            done.append(p["slot_id"])
+        return done
+    finally:
+        db.close()
+
+
 def run(client: str) -> dict:
     graph = Graph(C.token(client))
-    done = {"media": [], "account": None}
+    done = {"media": [], "account": None, "hourly": []}
     for slot_id, w in due(client):
         snapshot_media(client, slot_id, w, graph=graph)
         done["media"].append((slot_id, w))
+    done["hourly"] = snapshot_hourly(client, graph=graph)
     done["account"] = snapshot_account(client, graph=graph) is not None
     return done
 

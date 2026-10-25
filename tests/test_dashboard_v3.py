@@ -114,3 +114,70 @@ def test_week_plan_skips_taken_slots(client_dir):  # noqa: F811
     db.close()
     free = W.free_slot_times("demo", "2026-W45")
     assert len(free) == 13 and "2026-11-02T06:30:00+00:00" not in free
+
+
+def test_download_button_and_attachment(server, client_dir):  # noqa: F811
+    (client_dir / "posts" / "w01-s1" / "video.mp4").write_bytes(b"abc")
+    _, body, _ = req(server, "GET", "/demo")
+    assert "data-dl=" in body
+    import http.client
+    c = http.client.HTTPConnection("127.0.0.1", server)
+    c.request("GET", "/demo/media/w01-s1/video.mp4?v=1&dl=1")
+    r = c.getresponse()
+    assert r.status == 200 and 'filename="demo-w01-s1.mp4"' in (r.getheader("Content-Disposition") or "")
+
+
+def test_video_replies_override_settings(server, client_dir):  # noqa: F811
+    assert C.reply_allowed("demo", "comments", "w01-s1") is False            # settings: off
+    status, _, _ = req(server, "POST", "/demo/v/w01-s1/replies", {"comments": "1"})
+    assert status == 400                                                       # custom must be on first
+    req(server, "POST", "/demo/v/w01-s1/replies", {"custom": "1"})
+    req(server, "POST", "/demo/v/w01-s1/replies", {"comments": "1"})
+    assert C.reply_allowed("demo", "comments", "w01-s1") is True             # video wins
+    assert C.reply_allowed("demo", "comments") is False                      # project unchanged
+    req(server, "POST", "/demo/v/w01-s1/replies", {"custom": "0"})
+    assert C.reply_allowed("demo", "comments", "w01-s1") is False            # back to settings
+    C.set_flag("demo", "emergency_stop", True)
+    req(server, "POST", "/demo/v/w01-s1/replies", {"custom": "1"})
+    req(server, "POST", "/demo/v/w01-s1/replies", {"comments": "1"})
+    assert C.reply_allowed("demo", "comments", "w01-s1") is False            # stop always wins
+
+
+def test_views_series_and_chart(server, client_dir):  # noqa: F811
+    from datetime import datetime, timedelta, timezone
+    from spine.review import app as A
+    now = datetime.now(timezone.utc).replace(minute=30, second=0, microsecond=0)
+    db = DB.for_client(client_dir)
+    for st in ["APPROVED", "QUEUED", "PUBLISHING"]:
+        db.set_state("w01-s1", st)
+    db.set_state("w01-s1", "PUBLISHED", ig_media_id="m1", published_at=(now - timedelta(hours=3)).isoformat())
+    for h, v in ((2, 10), (1, 25)):            # two hourly snapshots, as insights.snapshot_hourly writes them
+        db.add_snapshot("w01-s1", "ig_media", f"h{h}", {"views": v})
+        db.conn.execute("UPDATE metric_snapshots SET collected_at=? WHERE window=?", ((now - timedelta(hours=h)).isoformat(), f"h{h}"))
+    db.conn.commit()
+    g, a, b = A.view_window("hour", None, None)
+    s = A.views_series(db, "w01-s1", g, a, b)
+    assert sum(v for _, v in s) == 25 and sorted(v for _, v in s if v) == [10, 15]
+    g, a, b = A.view_window("custom", "2026-01-01", "2026-01-02")
+    assert g == "hour"
+    g, a, b = A.view_window("custom", "2026-01-01", "2026-03-01")
+    assert g == "day"
+    db.close()
+    for path in ("/demo?g=hour", "/demo?g=month", "/demo?g=custom&from=2026-01-01&to=2026-12-31", "/demo/v/w01-s1?g=day"):
+        status, body, _ = req(server, "GET", path)
+        assert status == 200 and "id=views" in body
+
+
+def test_hourly_snapshot_once_per_hour(client_dir, monkeypatch):  # noqa: F811
+    from datetime import datetime, timezone
+    from spine.measure import insights as I
+    db = DB.for_client(client_dir)
+    for st in ["APPROVED", "QUEUED", "PUBLISHING"]:
+        db.set_state("w01-s1", st)
+    db.set_state("w01-s1", "PUBLISHED", ig_media_id="m1", published_at=datetime.now(timezone.utc).isoformat())
+    db.close()
+    calls = []
+    monkeypatch.setattr(I, "fetch_media", lambda g, mid: calls.append(mid) or {"views": 7})
+    assert I.snapshot_hourly("demo", graph=object()) == ["w01-s1"]
+    assert I.snapshot_hourly("demo", graph=object()) == []                  # same hour: no second pull
+    assert calls == ["m1"]
