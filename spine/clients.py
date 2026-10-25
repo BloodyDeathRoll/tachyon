@@ -78,6 +78,44 @@ def set_value(name: str, key: str, value) -> dict:
     return g
 
 
+REPLY_FLAGS = {"comments": "auto_reply.comments", "dm": "auto_reply.dm"}
+
+
+def video_replies(name: str, slot: str) -> dict:
+    """Per-video reply override from posts/<slot>/meta.json: {"custom": bool, "comments": bool, "dm": bool}."""
+    import json
+    p = client_dir(name) / "posts" / slot / "meta.json"
+    try:
+        m = json.loads(p.read_text()) if p.exists() else {}
+    except json.JSONDecodeError:
+        m = {}
+    r = m.get("replies") or {}
+    return {"custom": bool(r.get("custom")), "comments": bool(r.get("comments")), "dm": bool(r.get("dm"))}
+
+
+def set_video_replies(name: str, slot: str, **kw) -> dict:
+    import json
+    p = client_dir(name) / "posts" / slot / "meta.json"
+    m = json.loads(p.read_text()) if p.exists() else {}
+    r = {**video_replies(name, slot), **{k: bool(v) for k, v in kw.items() if k in ("custom", "comments", "dm")}}
+    m["replies"] = r
+    p.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
+    return r
+
+
+def reply_allowed(name: str, kind: str, slot: str | None = None) -> bool:
+    """May the listener auto-reply? kind = "comments" | "dm". Emergency stop always wins; a video with
+    custom replies on decides for itself; otherwise the project setting decides."""
+    if stopped(name):
+        return False
+    if slot:
+        r = video_replies(name, slot)
+        if r["custom"]:
+            return r[kind]
+    a, b = REPLY_FLAGS[kind].split(".")
+    return bool(load_grants(name)[a][b])
+
+
 def stopped(name: str) -> bool:
     return bool(load_grants(name)["emergency_stop"])
 

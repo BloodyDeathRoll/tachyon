@@ -131,6 +131,14 @@ def pv_button(client: str, slot: str) -> str:
             f"data-href='/{ESC(quote(client))}/v/{ESC(quote(slot))}' aria-label='Quick preview'>{icon('play', 14)}</button>")
 
 
+def dl_button(client: str, slot: str, cls: str = "dlb") -> str:
+    f = C.client_dir(client) / "posts" / slot / "video.mp4"
+    if not f.exists():
+        return ""
+    return (f"<button type=button class={cls} data-dl='{media_url(client, slot, 'video.mp4')}&dl=1' "
+            f"aria-label='Download the video' title='Download'>{icon('download', 15)}</button>")
+
+
 def media_url(client: str, slot: str, f: str) -> str:
     p = C.client_dir(client) / "posts" / slot / f
     v = int(p.stat().st_mtime) if p.exists() else 0
@@ -153,6 +161,7 @@ def icon(name: str, size: int = 18) -> str:
         "prev": '<path d="m15 18-6-6 6-6"/>',
         "grip": '<circle cx="9" cy="5" r="1.4"/><circle cx="15" cy="5" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="19" r="1.4"/><circle cx="15" cy="19" r="1.4"/>',
         "search": '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+        "download": '<path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>',
         "plus": '<path d="M5 12h14"/><path d="M12 5v14"/>',
         "x": '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
         "music": '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
@@ -373,6 +382,18 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .ghost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;box-shadow:0 24px 48px rgba(0,0,0,.35);border-radius:12px;opacity:.95;transition:none}
 .cell[data-slot]{touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .grip{touch-action:none}
+.dlb{position:absolute;right:10px;bottom:10px;z-index:2;width:34px;height:34px;border-radius:50%;border:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);color:#fff;display:grid;place-items:center;cursor:pointer;transition:background .15s,transform .15s}
+.dlb:hover{background:#fff;color:var(--ink);transform:scale(1.08)}
+.dl{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:600;color:var(--ink2)}.dl:hover{color:var(--ink)}
+.seg.sm a{padding:5px 10px;font-size:12.5px}
+.views{margin-top:6px}
+.views .chart{margin-top:12px}
+.range{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.range input{border:1px solid var(--rule);border-radius:9px;padding:6px 10px;font-size:14px;color:var(--ink)}
+.rrows{margin-top:10px}
+.rrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--rule)}
+.rrow b{display:block;font-size:14.5px;font-weight:600}.rrow small{color:var(--ink3);font-size:12.5px}
+.rrow.inh .toggle{opacity:.45;cursor:not-allowed}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media (min-width:1700px){.ovgrid{grid-template-columns:minmax(0,2fr) minmax(400px,1fr)}}
 @media (max-width:1100px){.ovgrid{grid-template-columns:1fr}}
@@ -392,7 +413,9 @@ def display(client: str) -> dict:
 PV_JS = """
 (()=>{const m=document.getElementById('pvm'),v=m.querySelector('video'),o=document.getElementById('pvopen');
 const close=()=>{v.pause();v.removeAttribute('src');v.load();m.hidden=true;};
-document.addEventListener('click',e=>{const b=e.target.closest('[data-pv]');
+document.addEventListener('click',e=>{const d=e.target.closest('[data-dl]');
+ if(d){e.preventDefault();e.stopPropagation();const a=document.createElement('a');a.href=d.dataset.dl;a.download='';document.body.appendChild(a);a.click();a.remove();return;}
+ const b=e.target.closest('[data-pv]');
  if(b){e.preventDefault();e.stopPropagation();v.src=b.dataset.pv;o.href=b.dataset.href;m.hidden=false;v.play().catch(()=>{});return;}
  if(e.target===m||e.target.closest('#pvx'))close();},true);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!m.hidden)close();});})();
@@ -466,6 +489,8 @@ def refresh_live(client: str, db: DB, row) -> None:
         m = fetch_media(Graph(C.token(client)), row["ig_media_id"])
         m["_derived"] = derived(m, meta_of(client, row["slot_id"]).get("duration_s"))
         db.add_snapshot(row["slot_id"], "ig_media", "live", m)
+        from ..measure.insights import hour_key
+        db.add_snapshot(row["slot_id"], "ig_media", hour_key(), m)   # also feeds the views-per-hour chart
     except Exception:   # no token, no network: show what we have
         pass
 
@@ -505,6 +530,113 @@ def bar_chart(days: list[dict], key: str, key2: str | None = None, W: int = 960,
     return "".join(out)
 
 
+# ── views over time ───────────────────────────────────────────────────────────
+GRANS = ("hour", "day", "month", "custom")
+
+
+def _bucket(dt: datetime, g: str) -> datetime:
+    if g == "hour":
+        return dt.replace(minute=0, second=0, microsecond=0)
+    if g == "day":
+        return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    return dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+
+def _next(dt: datetime, g: str) -> datetime:
+    if g == "hour":
+        return dt + timedelta(hours=1)
+    if g == "day":
+        return dt + timedelta(days=1)
+    return (dt.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+
+def view_window(g: str, frm: str | None, to: str | None) -> tuple[str, datetime, datetime]:
+    """(granularity, start, end) for the chart. Custom picks hour/day/month from the span."""
+    now = datetime.now(timezone.utc)
+    if g == "custom" and frm and to:
+        a = datetime.fromisoformat(frm).replace(tzinfo=timezone.utc)
+        b = datetime.fromisoformat(to).replace(tzinfo=timezone.utc) + timedelta(days=1)
+        if b <= a:
+            a, b = b - timedelta(days=1), a + timedelta(days=1)
+        span = (b - a).days
+        return ("hour" if span <= 3 else "day" if span <= 120 else "month"), a, min(b, now + timedelta(hours=1))
+    if g == "hour":
+        return "hour", _bucket(now - timedelta(hours=47), "hour"), now
+    if g == "month":
+        s = now.replace(day=1)
+        for _ in range(11):
+            s = (s - timedelta(days=1)).replace(day=1)
+        return "month", _bucket(s, "month"), now
+    return "day", _bucket(now - timedelta(days=29), "day"), now
+
+
+def views_series(db: DB, slot: str | None, g: str, start: datetime, end: datetime) -> list[tuple[datetime, int]]:
+    """Views gained per bucket, from the cumulative per-video snapshots (publish time counts as 0).
+    slot=None sums every video."""
+    posts = [db.post(slot)] if slot else [r for r in db.posts() if r["published_at"]]
+    gains: dict[datetime, int] = {}
+    for r in posts:
+        if not r["published_at"]:
+            continue
+        pts = [(parse(r["published_at"]), 0)]
+        pts += sorted((parse(s["collected_at"]), int(s["metrics"].get("views") or 0))
+                      for s in db.snapshots(r["slot_id"]) if s["source"] == "ig_media")
+        for (t0, v0), (t1, v1) in zip(pts, pts[1:]):
+            if v1 > v0:
+                k = _bucket(t1, g)
+                gains[k] = gains.get(k, 0) + (v1 - v0)
+    out, t = [], _bucket(start, g)
+    while t < end:
+        out.append((t, gains.get(t, 0)))
+        t = _next(t, g)
+    return out
+
+
+def views_chart(series: list[tuple[datetime, int]], g: str, W: int = 600, H: int = 200) -> str:
+    n = len(series) or 1
+    top = max([v for _, v in series] + [1])
+    step = 10 ** max(0, len(str(int(top))) - 1)
+    top = ((int(top) // step) + 1) * step
+    L, B, T = 34, 22, 8
+    bw = (W - L) / n
+    fmt = {"hour": "%H:%M", "day": "%-d %b", "month": "%b %y"}[g]
+    out = [f"<svg viewBox='0 0 {W} {H}' role=img aria-label='Views per {g}'>"]
+    for i in range(3):
+        y = T + (H - B - T) * i / 2
+        out.append(f"<line x1={L} x2={W} y1={y:.1f} y2={y:.1f} stroke='#E8E8E8'/><text x=0 y={y + 4:.1f}>{num(top * (1 - i / 2))}</text>")
+    every = max(1, n // 5)
+    for i, (t, v) in enumerate(series):
+        x = L + i * bw
+        if v:
+            h = (H - B - T) * v / top
+            out.append(f"<rect x={x + bw * .15:.1f} y={H - B - h:.1f} width={max(bw * .7, 1):.1f} height={h:.1f} rx={min(3, bw * .3):.1f} fill='#8DF000'>"
+                       f"<title>{t.strftime(fmt if g != 'hour' else '%-d %b %H:%M')}: {num(v)} views</title></rect>")
+        if i % every == 0:
+            out.append(f"<text x={x + bw / 2:.1f} y={H - 5} text-anchor=middle>{t.strftime(fmt)}</text>")
+    out.append("</svg>")
+    return "".join(out)
+
+
+def views_block(client: str, db: DB, slot: str | None, q: dict, base: str) -> str:
+    g = q.get("g") if q.get("g") in GRANS else "day"
+    eg, a, b = view_window(g, q.get("from"), q.get("to"))
+    series = views_series(db, slot, eg, a, b)
+    total = sum(v for _, v in series)
+    seg = "".join(f"<a href='{base}?g={x}#views' class='{'on' if g == x else ''}'>{x.capitalize()}</a>" for x in GRANS)
+    custom = ""
+    if g == "custom":
+        today = datetime.now(timezone.utc).date()
+        custom = (f"<form method=get action='{base}#views' class=range><input type=hidden name=g value=custom>"
+                  f"<input type=date name=from value='{ESC(q.get('from') or (today - timedelta(days=13)).isoformat())}' aria-label=From>"
+                  f"<span class=muted>to</span><input type=date name=to value='{ESC(q.get('to') or today.isoformat())}' aria-label=To>"
+                  f"<button class='btn dark small'>Show</button></form>")
+    span = {"hour": "last 48 hours", "day": "last 30 days", "month": "last 12 months"}.get(g, f"{a:%-d %b} – {(b - timedelta(seconds=1)):%-d %b %Y}")
+    body = (f"<div class=chart>{views_chart(series, eg)}</div>" if total else
+            "<p class=muted style='margin:14px 0 4px'>No views in this period yet.</p>")
+    return (f"<div id=views class=views><div class=row style='flex-wrap:wrap;gap:10px'><div><span class=muted style='font-size:13.5px'>Views, {span}</span>"
+            f"<p class=big style='font-size:22px;font-weight:800;margin:0'>{num(total)}</p></div><div class='seg sm'>{seg}</div></div>{custom}{body}</div>")
+
+
 # ── overview ──────────────────────────────────────────────────────────────────
 def video_card(client: str, row, tag: tuple[str, str], db: DB) -> str:
     slot = row["slot_id"]
@@ -522,7 +654,7 @@ def video_card(client: str, row, tag: tuple[str, str], db: DB) -> str:
         line = "Review and approve"
     wk, no = slot_no(slot)
     return (f"<a class=vid href='/{ESC(quote(client))}/v/{ESC(quote(slot))}'><div class=thumb>{img}"
-            f"<span class=no title='{ESC(wk)} video {ESC(no)}'>{ESC(wk + ' · ' if wk else '')}#{ESC(no)}</span>{pv_button(client, slot)}"
+            f"<span class=no title='{ESC(wk)} video {ESC(no)}'>{ESC(wk + ' · ' if wk else '')}#{ESC(no)}</span>{pv_button(client, slot)}{dl_button(client, slot)}"
             f"<span class='tag {cls}'>{ESC(label)}</span></div>"
             f"<h3>{ESC(title_of(client, row))}</h3>{'' if cls == 'need' else f'<p>{ESC(line)}</p>'}</a>")
 
@@ -577,7 +709,7 @@ def week_card(client: str) -> str:
             f"<div style='margin-top:14px'>{body}</div>{auto}</section>")
 
 
-def render_overview(client: str) -> bytes:
+def render_overview(client: str, q: dict | None = None) -> bytes:
     d = C.client_dir(client)
     db = DB.for_client(d)
     try:
@@ -604,10 +736,7 @@ def render_overview(client: str) -> bytes:
                 ("Followers", followers, f"as of {datetime.fromisoformat(days[-1]['date']).strftime('%-d %b')}" if days else "no data yet"),
                 ("Link taps", total("profile_links_taps"), "last 7 days"),
             ))
-        chart = (f"<div class=chart>{bar_chart(days, 'views', 'reach', W=420, H=190)}</div>"
-                 f"<div class=legend><span><i style='background:#8DF000'></i>Views</span>"
-                 f"<span><i style='background:#111;height:3px'></i>Reached</span></div>") if days else \
-                "<p class=muted>The account's daily numbers start the day after the first post.</p>"
+        chart = views_block(client, db, None, q or {}, f"/{quote(client)}")
         perf = f"<section class='card perf'><h2>Performance</h2><div class=stats>{stats}</div>{chart}</section>"
 
         summary = []
@@ -698,8 +827,27 @@ def music_card(client: str, slot: str, cls: str, src: str = "file", q: str = "")
             f"{icons_}<script>{AUDIO_JS}</script></section>")
 
 
+def replies_card(client: str, slot: str) -> str:
+    r = C.video_replies(client, slot)
+    g = C.load_grants(client)
+    base = f"/{ESC(quote(client))}/v/{ESC(quote(slot))}/replies"
+    rows = []
+    for kind, lab in (("comments", "Reply to comments"), ("dm", "Reply to messages")):
+        proj = bool(g["auto_reply"][kind])
+        on = r[kind] if r["custom"] else proj
+        note = "Set for this video" if r["custom"] else f"From Settings: {'on' if proj else 'off'}"
+        btn = (f"<form method=post action='{base}'><input type=hidden name={kind} value='{0 if on else 1}'>"
+               f"<button class='toggle {'on' if on else ''}' {'' if r['custom'] else 'disabled'} aria-pressed={'true' if on else 'false'} aria-label='{lab}'><i></i></button></form>")
+        rows.append(f"<div class='rrow{'' if r['custom'] else ' inh'}'><div><b>{lab}</b><small>{note}</small></div>{btn}</div>")
+    custom = (f"<form method=post action='{base}'><input type=hidden name=custom value='{0 if r['custom'] else 1}'>"
+              f"<button class='toggle {'on' if r['custom'] else ''}' aria-pressed={'true' if r['custom'] else 'false'} aria-label='Custom for this video'><i></i></button></form>")
+    stop = "<p class=hint>Emergency stop is on: nothing replies.</p>" if g["emergency_stop"] else ""
+    return (f"<section class=card id=replies><div class=row><div><h2>Replies</h2><p class=muted style='margin:2px 0 0;font-size:13.5px'>"
+            f"Custom for this video</p></div>{custom}</div><div class=rrows>{''.join(rows)}</div>{stop}</section>")
+
+
 # ── video page ────────────────────────────────────────────────────────────────
-def render_video(client: str, slot: str, variant: str = "reel", music: str = "file", q: str = "") -> bytes:
+def render_video(client: str, slot: str, variant: str = "reel", music: str = "file", q: str = "", qs: dict | None = None) -> bytes:
     d = C.client_dir(client)
     db = DB.for_client(d)
     try:
@@ -724,7 +872,9 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         base = f"/{quote(client)}/v/{quote(slot)}"
         seg = (f"<div class=seg><a href='{base}' class='{'on' if not is_story else ''}'>Reel</a>"
                f"<a href='{base}?as=story' class='{'on' if is_story else ''}'>Story</a></div>") if has_story else "<span></span>"
-        player += (f"<div class=pctl>{seg}<label class=chk><input type=checkbox "
+        dls = (f"<a class=dl href='{media_url(client, slot, vfile)}&dl=1' download>{icon('download', 15)}Download {'story' if is_story else 'reel'}</a>"
+               if (sdir / vfile).exists() else "")
+        player += (f"<div class=pctl>{seg}{dls}<label class=chk><input type=checkbox "
                    f"onchange=\"document.getElementById('frame').classList.toggle('showui',this.checked)\">Show what Instagram covers</label></div>")
 
         # status line under the title
@@ -796,9 +946,12 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
             perf = "<p class=muted style='margin:8px 0 0'>First numbers arrive within the hour.</p>"
         else:
             perf = "<p class=muted style='margin:8px 0 0'>Numbers appear once it is live.</p>"
+        if row["published_at"]:
+            perf += views_block(client, db, slot, qs or {}, f"/{quote(client)}/v/{quote(slot)}")
         perf_card = f"<section class=card><h2>Performance</h2>{perf}</section>"
 
         blocks.append(music_card(client, slot, cls, music, q))
+        blocks.append(replies_card(client, slot))
 
         # post text: two lines, then a clear way to read it all
         cap = read(sdir / "caption.txt").strip()
@@ -1044,7 +1197,8 @@ def render_settings(client: str) -> bytes:
                 f"<div class=muted style='font-size:14px'>Stops every publish and reply for this project.</div></div>"
                 f"<input type=hidden name=flag value=emergency_stop><input type=hidden name=value value='{0 if stop else 1}'>"
                 f"<button class='btn {'sec' if stop else 'pri'}'>{'Resume' if stop else 'Stop everything'}</button></form>")
-    body = header(client, "Settings") + f"<section class=card>{''.join(rows)}</section>"
+    body = (header(client, "Settings") + f"<section class=card>{''.join(rows)}"
+            "<p class=hint>Any video can override the two reply switches on its own page (Replies, Custom for this video).</p></section>")
     return shell(client, "settings", body, "Settings")
 
 
@@ -1084,7 +1238,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def _file(self, f: Path, ctype: str) -> None:
+    def _file(self, f: Path, ctype: str, download: str | None = None) -> None:
         """Serve a file with Range support so the video can seek."""
         size = f.stat().st_size
         rng = self.headers.get("Range")
@@ -1102,6 +1256,8 @@ class Handler(BaseHTTPRequestHandler):
             data = f.read_bytes()
             self.send_response(200)
         self.send_header("Content-Type", ctype)
+        if download:
+            self.send_header("Content-Disposition", f'attachment; filename="{download}"')
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
@@ -1130,7 +1286,7 @@ class Handler(BaseHTTPRequestHandler):
             name = parts[0]
             C.client_dir(name)
             if len(parts) == 1:
-                return self._send(200, render_overview(name))
+                return self._send(200, render_overview(name, q))
             if parts[1] == "calendar" and len(parts) == 2:
                 if not u.query:
                     from http.cookies import SimpleCookie
@@ -1146,7 +1302,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, render_settings(name))
             if parts[1] == "v" and len(parts) == 3:
                 return self._send(200, render_video(name, parts[2], "story" if q.get("as") == "story" else "reel",
-                                                    q.get("music") or "file", q.get("q") or ""))
+                                                    q.get("music") or "file", q.get("q") or "", q))
             if parts[1] == "v" and len(parts) == 4 and parts[3] == "qa":
                 return self._send(200, render_qa(name, parts[2]))
             if len(parts) == 3 and parts[1] == "track":
@@ -1160,7 +1316,8 @@ class Handler(BaseHTTPRequestHandler):
                 f = C.client_dir(name) / "posts" / parts[2] / parts[3]
                 if parts[3] not in MEDIA_FILES or not f.exists():
                     return self._send(404, b"not found", "text/plain")
-                return self._file(f, mimetypes.guess_type(f.name)[0] or "application/octet-stream")
+                fname = f"{name}-{parts[2]}{'-story' if 'story' in parts[3] else ''}{f.suffix}" if q.get("dl") else None
+                return self._file(f, mimetypes.guess_type(f.name)[0] or "application/octet-stream", fname)
             return self._send(404, b"not found", "text/plain")
         except KeyError as e:
             return self._send(404, f"not found: {e}".encode(), "text/plain")
@@ -1216,6 +1373,17 @@ class Handler(BaseHTTPRequestHandler):
                 finally:
                     db.close()
                 return self._send(200, b"ok", "text/plain")
+            if parts[1] == "v" and len(parts) == 4 and parts[3] == "replies":
+                kw = {k: form[k] == "1" for k in ("custom", "comments", "dm") if k in form}
+                if not kw:
+                    return self._send(400, b"nothing to change", "text/plain")
+                if ("comments" in kw or "dm" in kw) and not C.video_replies(name, parts[2])["custom"]:
+                    return self._send(400, b"turn on custom for this video first", "text/plain")
+                if kw.get("custom") and not C.video_replies(name, parts[2])["custom"]:
+                    g = C.load_grants(name)   # start from the project's current setting
+                    kw = {"custom": True, "comments": bool(g["auto_reply"]["comments"]), "dm": bool(g["auto_reply"]["dm"])}
+                C.set_video_replies(name, parts[2], **kw)
+                return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}#replies")
             if parts[1] == "v" and len(parts) == 4 and parts[3] == "track":
                 T = _tracks()
                 if not T:
