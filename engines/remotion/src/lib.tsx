@@ -16,9 +16,21 @@ export const C = {
 };
 
 // ── time helpers: everything in seconds ───────────────────────────────────────
+// A film is authored in "story time". TimeMap maps real seconds → story seconds, so a cut can be
+// compressed or sped up without re-timing every beat (piecewise-linear knots, real → story).
+export type Knots = [number, number][];
+export const TimeMap = React.createContext<Knots | null>(null);
+export const remap = (x: number, k: Knots | null) => {
+  if (!k || k.length < 2) return x;
+  for (let i = 1; i < k.length; i++) if (x <= k[i][0] || i === k.length - 1) {
+    const [a0, b0] = k[i - 1], [a1, b1] = k[i];
+    return b0 + (b1 - b0) * (x - a0) / (a1 - a0);
+  }
+  return x;
+};
 export const useT = () => {
   const f = useCurrentFrame(); const { fps } = useVideoConfig();
-  return f / fps;
+  return remap(f / fps, React.useContext(TimeMap));
 };
 export const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 export const seg = (t: number, a: number, b: number) => clamp01((t - a) / (b - a));

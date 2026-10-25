@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Img, staticFile } from "remotion";
-import { C, Credit, Eyebrow, Footage, H1, Phone, Pill, SAFE, Screen, Sub, Variant, countUp, font, inOut, lerp, outBack, outExpo, rise, seg, useInter, useT, win } from "./lib";
+import { C, Credit, TimeMap, Eyebrow, Footage, H1, Phone, Pill, SAFE, Screen, Sub, Variant, countUp, font, inOut, lerp, outBack, outExpo, rise, seg, useInter, useT, win } from "./lib";
 
 /*
   Showreel, 30 s. The brief that produced the originals: "a dynamic motion graphics video that
@@ -12,7 +12,11 @@ import { C, Credit, Eyebrow, Footage, H1, Phone, Pill, SAFE, Screen, Sub, Varian
 
 const CH = { hook: 0, fast: 3.0, free: 8.0, clear: 12.5, noads: 19.0, better: 22.5, end: 27.0, out: 30 };
 
-export const Showreel: React.FC<{ variant: Variant }> = ({ variant }) => {
+export const SHOWREEL_SECONDS = 18;   // rev 2026-10-25: "way too long, too slow" → 30 s of story in 18 s
+export const Showreel: React.FC<{ variant: Variant }> = ({ variant }) => (
+  <TimeMap.Provider value={[[0, 0], [SHOWREEL_SECONDS, CH.out]]}><ShowreelBody variant={variant} /></TimeMap.Provider>
+);
+const ShowreelBody: React.FC<{ variant: Variant }> = ({ variant }) => {
   useInter();
   const t = useT();
   const B = SAFE[variant];
@@ -76,7 +80,7 @@ export const Showreel: React.FC<{ variant: Variant }> = ({ variant }) => {
       </Phone>
 
       {/* ── 01 FAST ── */}
-      <Chapter t={t} B={B} from={CH.fast} to={CH.free} n="01" title="Fast" big="78" unit="KB" sub="The whole app. Nothing else rides along." align="left" />
+      <Chapter t={t} B={B} from={CH.fast} to={CH.free} n="01" title="Fast" big="Fast." unit="" sub="Opens in a blink. The whole app is 78 KB." align="left" />
       {/* ── 02 FREE ── */}
       <Chapter t={t} B={B} from={CH.free} to={CH.clear} n="02" title="Free" big="$0" unit="" sub="No paywall. No sign-in to check the surf." align="left"
         extra={<div style={{ display: "flex", alignItems: "center", gap: 20, marginTop: 18, ...rise(t, CH.free + 1.0, CH.clear - 0.1) }}><Pill bg={C.epic} fg="#dff7e6">Epic</Pill><span style={{ ...font, fontWeight: 800, fontSize: 56, letterSpacing: "-.03em" }}>1.3–2.0 m</span></div>} />
@@ -130,7 +134,7 @@ const Chapter: React.FC<{ t: number; B: { x: number; y: number; w: number; h: nu
           <H1 size={92} style={{ marginTop: 20, ...rise(t, from + 0.15, to - 0.1) }}>{title}</H1>
         ) : (
           <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginTop: 14, ...rise(t, from + 0.15, to - 0.1) }}>
-            <span style={{ ...font, fontWeight: 800, fontSize: 170, letterSpacing: "-.05em", lineHeight: 0.9, color: C.acc }}>{big}</span>
+            <span style={{ ...font, fontWeight: 800, fontSize: big.length > 3 ? 136 : 170, letterSpacing: "-.05em", lineHeight: 0.9, color: C.acc }}>{big}</span>
             {unit && <span style={{ ...font, fontWeight: 700, fontSize: 48, color: C.muted }}>{unit}</span>}
           </div>
         )}

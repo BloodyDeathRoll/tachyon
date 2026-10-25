@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Img, staticFile } from "remotion";
-import { C, Credit, Eyebrow, Footage, H1, Phone, SAFE, Screen, Sub, Variant, font, inOut, lerp, outBack, outExpo, rise, seg, useInter, useT, win } from "./lib";
+import { C, Credit, TimeMap, Eyebrow, Footage, H1, Phone, SAFE, Screen, Sub, Variant, font, inOut, lerp, outBack, outExpo, rise, seg, useInter, useT, win } from "./lib";
 
 /*
   Favorites, 15 s: star a break once and it waits on Home, grouped by country. Same idea as the
@@ -19,7 +19,11 @@ const FAVS = [
 ] as const;
 const bucketColor = (b: string) => (b === "Firing" || b === "Epic" ? C.epic : b === "Good" ? C.good : b === "Fair" ? C.fair : "#6f7590");
 
-export const Favorites: React.FC<{ variant: Variant }> = ({ variant }) => {
+export const FAVORITES_SECONDS = 10;   // rev 2026-10-25: keep open + close, compress the middle
+export const Favorites: React.FC<{ variant: Variant }> = ({ variant }) => (
+  <TimeMap.Provider value={[[0, 0], [2.2, 2.2], [7.4, 12.4], [10, 15]]}><FavoritesBody variant={variant} /></TimeMap.Provider>
+);
+const FavoritesBody: React.FC<{ variant: Variant }> = ({ variant }) => {
   useInter();
   const t = useT();
   const B = SAFE[variant];
