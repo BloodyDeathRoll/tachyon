@@ -36,6 +36,7 @@ ESC = html.escape
 ROOT = Path(__file__).resolve().parent.parent.parent
 FONT = ROOT / "dashboard" / "fonts" / "inter-var.woff2"
 LOGO = ROOT / "dashboard" / "brand" / "tachyon-logo.svg"
+ICON = ROOT / "dashboard" / "brand" / "tachyon-icon.svg"
 MAX_SLOTS = 6
 MEDIA_FILES = {"video.mp4", "video-story.mp4", "cover.jpg"}
 LIVE_TTL = timedelta(minutes=15)
@@ -176,7 +177,7 @@ button,textarea,input,select{font:inherit}
 .shell{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh}
 aside{background:var(--side);color:#fff;padding:28px 12px 16px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh}
 .brand{display:block;padding:0 16px;line-height:0}
-.brand img{height:26px;width:auto}
+.brand img{height:36px;width:auto;margin:-4px 0 -2px -6px}
 .proj{position:relative;margin:0 4px}
 .proj summary{list-style:none;display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid #2C2C2C;background:var(--side2);border-radius:12px;cursor:pointer}
 .proj summary::-webkit-details-marker{display:none}
@@ -408,7 +409,7 @@ def shell(client: str, active: str, body: str, title: str, refresh: int | None =
     status = ("<span class='dot off'></span>Emergency stop is on" if d["stop"] else "<span class=dot></span>Running")
     meta_refresh = f"<meta http-equiv=refresh content={refresh}>" if refresh else ""
     html_ = (f"<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>"
-             f"{meta_refresh}<title>{ESC(title)} · {ESC(d['name'])} · Tachyon</title><style>{CSS}</style>"
+             f"{meta_refresh}<title>{ESC(title)} · {ESC(d['name'])} · Tachyon</title><link rel=icon href='/static/icon.svg'><style>{CSS}</style>"
              f"<div class=shell><aside><a class=brand href='/'><img src='/static/logo.svg' alt='Tachyon'></a>"
              f"<details class=proj><summary><span class=av>{ESC(d['name'][:1])}</span><span><b>{ESC(d['name'])}</b>{handle}</span>"
              f"<span class=chev>{icon('chev', 16)}</span></summary><ul>{others}</ul></details>"
@@ -1096,6 +1097,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._file(FONT, "font/woff2")
             if parts == ["static", "logo.svg"] and LOGO.exists():
                 return self._file(LOGO, "image/svg+xml")
+            if parts == ["static", "icon.svg"] and ICON.exists():
+                return self._file(ICON, "image/svg+xml")
             name = parts[0]
             C.client_dir(name)
             if len(parts) == 1:
