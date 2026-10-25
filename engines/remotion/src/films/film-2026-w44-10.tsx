@@ -65,7 +65,7 @@ const Film: React.FC<{ variant: Variant }> = ({ variant }) => {
       {/* hook: the number, big */}
       <div style={{ position: "absolute", left: B.x, top: B.y + 110, width: B.w }}>
         <Eyebrow style={rise(t, 0.05, T.phone - 0.15)}>Rosa · spot search</Eyebrow>
-        <H1 size={300} style={{ marginTop: 20, letterSpacing: "-.05em", ...rise(t, 0.1, T.phone - 0.15, 60) }}>{countUp(t, 0.1, 1.1, 3056).toLocaleString("en-US")}</H1>
+        <H1 size={300} style={{ marginTop: 20, letterSpacing: "-.05em", ...rise(t, 0.1, T.phone - 0.15, 60) }}>{countUp(t, 0.05, 0.8, 3056).toLocaleString("en-US")}</H1>
         <H1 size={130} style={{ marginTop: 6, ...rise(t, 0.35, T.phone - 0.15) }}>spots.</H1>
         <H1 size={130} style={{ color: C.acc, ...rise(t, 0.9, T.phone - 0.15) }}>Type one.</H1>
       </div>

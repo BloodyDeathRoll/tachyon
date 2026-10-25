@@ -120,9 +120,10 @@ items:
     brief: <3-5 sentences: what the 8-15 s video shows, beat by beat, using the real app>
     hook: <the first on-screen line, max 6 words>
     theme: <light or dark: which app theme the captures use; alternate so about half are light>
-    voiceover: <optional, on about 1 item in 4: 2-3 short spoken lines, 6-9 s, an avid surfer who
-      uses the app, first person, explaining this item's one feature; contractions, plain words,
-      no em dashes. Omit the key on the others.>
+    voiceover: <optional, on about 1 item in 4: 2-3 short spoken lines, 6-9 s. A surfer friend
+      telling you about one feature: easygoing, likeable, a smile in it, laid back or stoked,
+      never a newsreader. Talk like speech: "okay so", "honestly", "dude" at most once; short
+      bits, contractions, plain words, no em dashes. Omit the key on the others.>
     caption: |
       <the full post text in the brand voice>
 
@@ -163,6 +164,7 @@ def make_slots(client: str, week: str, items: list[dict]) -> list[str]:
     db = DB.for_client(d)
     prefix = week.lower()
     slots = []
+    n_vo = 0
     from . import tracks as T
     lib = [t for t in T.list_tracks(client) if t["source"] == "file"]
     start = int(week.split("-W")[1]) if lib else 0   # shift the rotation week to week
@@ -187,7 +189,10 @@ def make_slots(client: str, week: str, items: list[dict]) -> list[str]:
                     "bio_link_while_live": f"https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign={slot}",
                     "plan": week, "theme": it.get("theme") if it.get("theme") in ("light", "dark") else ("light" if i % 2 == 0 else "dark")}
             if str(it.get("voiceover") or "").strip():
+                from . import voice as V
                 meta["voiceover_script"] = " ".join(str(it["voiceover"]).split())
+                meta["voiceover_voice"] = V.rotate(client, n_vo)   # different voices across the week
+                n_vo += 1
             (sd / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n")
             try:
                 db.post(slot)
@@ -218,11 +223,13 @@ App theme: {theme}. Use staticFile("{cdir}/<name>.png") for every app screen.{vo
 Create engines/remotion/src/films/{fid}.tsx that exports `export const SECONDS = <8..15>;` and
 `export default` a React component `({{ variant }}: {{ variant: Variant }}) => ...`.
 Study engines/remotion/src/Showreel.tsx, Favorites.tsx and lib.tsx first and use the same
-language: footage beds, the 3D floating Phone with real app Screens, Eyebrow/H1/Sub type, rise
+language: footage beds, the 3D floating Phone with real app Screens, H1/Sub type, rise
 animations, an end card with the logo and "rosa.surf →", fast and fun pacing. Assets you may
 use: staticFile("{cdir}/<name>.png") for the files in engines/remotion/public/{cdir},
 staticFile("footage/<name>.mp4") for engines/remotion/public/footage, staticFile("fonts/rosa-icon.svg").
-Every text and UI element stays inside SAFE[variant]. Numbers only from clients/{client}/product.md.
+Every text and UI element stays inside SAFE[variant]. Only our messages, large: no on-screen text
+under 38 px (lib MIN_TYPE), no small-caps eyebrow labels, no data attribution, no "Footage" credit
+(attribution lives in the caption). Numbers only from clients/{client}/product.md.
 Never "comment for the link". Do not edit any other file. Run `npx tsc --noEmit -p .` in
 engines/remotion until it passes (you may temporarily add nothing to Root; it is registered for
 you afterwards). You may check frames with a scratch entry only if needed. Do not render, do not commit."""
@@ -260,7 +267,7 @@ def produce(client: str, slot: str) -> None:
         meta = json.loads((sd / "meta.json").read_text())
         if meta.get("voiceover_script") and not (sd / "vo.wav").exists():
             from . import voice as V
-            V.make_vo(client, slot, meta["voiceover_script"])
+            V.make_vo(client, slot, meta["voiceover_script"], voice=meta.get("voiceover_voice"))
         verdicts = R.render(client, slot)   # render mixes track + voice-over (spine/tracks.apply)
         db.set_state(slot, "RENDERED")
         qa = R._qa_md(slot, verdicts, None, None)

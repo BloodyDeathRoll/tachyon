@@ -18,15 +18,25 @@ from pathlib import Path
 
 from . import clients as C
 
+ROOT = Path(__file__).resolve().parent.parent
+
 MODEL_DIR = Path.home() / ".cache" / "kokoro"
 RELEASE = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/"
 FILES = ("kokoro-v1.0.onnx", "voices-v1.0.bin")
-DEFAULT_VOICE = "am_michael"
+# Voices: "<engine>:<name>[@speed]". The roster is the operator's pick from the auditions in
+# clients/<c>/assets/voice-auditions/ (grants.yaml `voices` overrides it); the week rotates it.
+ROSTER = ["dia:seed5", "dia:seed8", "dia:seed9", "dia:seed3"]
+DIA_PY = Path.home() / ".cache" / "tachyon-tts" / "venv" / "bin" / "python"   # Python 3.12 + torch + dia
+DEFAULT_VOICE = ROSTER[0]
 SPEED = 1.08
 START = 0.5          # seconds into the video the voice starts
 TARGET_LUFS = -15   # one-pass loudnorm lands ~1 dB low on short clips → about -16
 
 _k = None
+ENGINES = {"kokoro": "kokoro-82m (kokoro-onnx, Apache-2.0)",
+           "dia": "dia-1.6b (Nari Labs, Apache-2.0), local GPU"}
+# Not used: Chatterbox (embeds a Perth neural watermark in every output; no-AI-label rule),
+# ElevenLabs (no key). Dia and Kokoro write plain audio with no watermark.
 
 
 def _kokoro():
@@ -41,6 +51,19 @@ def _kokoro():
     return _k
 
 
+# How brand words are said. Spelled phonetically in the TTS input only; captions and meta keep
+# the real spelling. grants.yaml `pronounce: {word: spoken}` adds or overrides per client.
+PRONOUNCE = {"rosa": {"Rosa": "Roza", "rosa.surf": "Roza dot surf", "ROSA": "Roza"}}
+
+
+def spoken(client: str, text: str) -> str:
+    import re
+    rules = {**PRONOUNCE.get(client, {}), **(C.load_grants(client).get("pronounce") or {})}
+    for word in sorted(rules, key=len, reverse=True):   # "rosa.surf" before "Rosa"
+        text = re.sub(rf"(?<![\w.]){re.escape(word)}(?![\w])", rules[word], text, flags=re.I)
+    return text
+
+
 def clean(script: str) -> str:
     """ig-human basics for speech: no em/en dashes, no invisible characters."""
     s = script.replace("—", ", ").replace("–", ", ")
@@ -48,22 +71,67 @@ def clean(script: str) -> str:
     return " ".join(s.split())
 
 
-def make_vo(client: str, slot: str, script: str, voice: str | None = None, start: float = START) -> Path:
+def roster(client: str) -> list[str]:
+    return list(C.load_grants(client).get("voices") or ROSTER)
+
+
+def rotate(client: str, i: int) -> str:
+    r = roster(client)
+    return r[i % len(r)]
+
+
+def parse(spec: str) -> tuple[str, str, float]:
+    """"kokoro:am_puck@1.1" → ("kokoro", "am_puck", 1.1); a bare name is a Kokoro voice."""
+    engine, _, rest = spec.partition(":") if ":" in spec else ("kokoro", "", spec)
+    name, _, sp = rest.partition("@")
+    return engine, name, float(sp) if sp else SPEED
+
+
+def _dia(client: str, name: str, text: str, out: Path) -> None:
+    """Dia-1.6B (Nari Labs, Apache-2.0, no watermark) in its own venv. The voice is a reference
+    clip + transcript in clients/<c>/assets/voices/dia-<name>.wav/.txt, so it stays the same voice."""
+    import tempfile
+    ref = C.client_dir(client) / "assets" / "voices" / f"dia-{name}"
+    job = {"text": "[S1] " + text, "out": str(out), "seed": int("".join(ch for ch in name if ch.isdigit()) or 7),
+           "max_tokens": 2800}
+    if ref.with_suffix(".wav").exists():
+        job |= {"prompt": str(ref.with_suffix(".wav")), "prompt_text": ref.with_suffix(".txt").read_text().strip()}
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+        json.dump([job], f)
+    subprocess.run([str(DIA_PY), str(ROOT / "tools" / "dia_tts.py"), f.name], check=True, capture_output=True)
+
+
+def synth(spec: str, text: str, out: Path, client: str = "rosa") -> None:
+    """Raw speech for `text` in voice `spec` → out (wav, any rate)."""
     import soundfile as sf
+    engine, name, speed = parse(spec)
+    if engine == "dia":
+        _dia(client, name, text, out)
+    elif engine == "kokoro":
+        samples, sr = _kokoro().create(text, voice=name, speed=speed, lang="en-us")
+        sf.write(out, samples, sr)
+    else:
+        raise ValueError(f"unknown voice engine {engine}")
+
+
+def make_vo(client: str, slot: str, script: str, voice: str | None = None, start: float = START) -> Path:
     sd = C.client_dir(client) / "posts" / slot
     meta_p = sd / "meta.json"
     meta = json.loads(meta_p.read_text())
-    voice = voice or (C.load_grants(client).get("voice") or DEFAULT_VOICE)
+    voice = voice or (meta.get("voiceover") or {}).get("voice") or DEFAULT_VOICE
+    if ":" not in voice:
+        voice = f"kokoro:{voice}"
     text = clean(script)
-    samples, sr = _kokoro().create(text, voice=voice, speed=SPEED, lang="en-us")
     raw = sd / ".vo-raw.wav"
-    sf.write(raw, samples, sr)
+    synth(voice, spoken(client, text), raw, client)
     out = sd / "vo.wav"
+    trim = "silenceremove=start_periods=1:start_threshold=-45dB,areverse,silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-af",
-                    f"highpass=f=80,loudnorm=I={TARGET_LUFS}:TP=-1.5:LRA=7", "-ar", "48000", "-ac", "1", str(out)], check=True)
+                    f"{trim}highpass=f=80,loudnorm=I={TARGET_LUFS}:TP=-1.5:LRA=7", "-ar", "48000", "-ac", "1", str(out)], check=True)
     raw.unlink()
-    meta["voiceover"] = {"script": text, "voice": voice, "start": start, "file": "vo.wav",
-                         "engine": "kokoro-82m (kokoro-onnx, Apache-2.0)"}
+    engine, name, speed = parse(voice)
+    meta["voiceover"] = {"script": text, "voice": voice, "speed": speed, "start": start, "file": "vo.wav",
+                         "engine": ENGINES[engine]}
     meta_p.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n")
     return out
 

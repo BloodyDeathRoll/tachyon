@@ -92,10 +92,10 @@ const ShowreelBody: React.FC<{ variant: Variant }> = ({ variant }) => {
           return (
             <div key={k} style={{ marginTop: i === 0 ? 24 : 30, ...rise(t, a, CH.noads - 0.1, 30) }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
-                <span style={{ ...font, fontSize: 22, fontWeight: 700, color: C.acc, letterSpacing: ".1em" }}>{k}</span>
+                
                 <span style={{ ...font, fontSize: 44, fontWeight: 800, letterSpacing: "-.03em", lineHeight: 1.05 }}>{h}</span>
               </div>
-              <Sub size={26} style={{ marginTop: 4, marginLeft: 36 }}>{s}</Sub>
+              <Sub size={26} style={{ marginTop: 4 }}>{s}</Sub>
             </div>
           );
         })}

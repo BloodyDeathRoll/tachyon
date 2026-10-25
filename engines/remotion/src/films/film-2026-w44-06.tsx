@@ -101,13 +101,13 @@ const Film: React.FC<{ variant: Variant }> = ({ variant }) => {
       {/* callouts on the right */}
       <div style={{ position: "absolute", left: B.x + 530, top: B.y + 90, width: 420 }}>
         <div style={{ position: "absolute", left: 0, top: 0, width: 420 }}>
-          <Eyebrow style={rise(t, T.c0 - 0.1, T.flip - 0.05)}>Midnight → 06:00</Eyebrow>
+          <Sub size={44} style={{ fontWeight: 700, ...rise(t, T.c0 - 0.1, T.flip - 0.05) }}>Midnight → 06:00</Sub>
           <H1 size={76} style={{ marginTop: 18, color: C.wind, ...rise(t, T.c0, T.flip - 0.05) }}>Cross.</H1>
           <Sub size={30} style={{ marginTop: 18, ...rise(t, T.c3, T.flip - 0.05) }}>Cross. Cross.</Sub>
           <Sub size={30} style={{ marginTop: 10, ...rise(t, T.c6 + 0.35, T.flip - 0.05) }}>Period holds all night.</Sub>
         </div>
         <div style={{ position: "absolute", left: 0, top: 0, width: 420 }}>
-          <Eyebrow style={{ ...rise(t, T.flip + 0.3, T.back + 0.2), color: C.bad }}>09:00</Eyebrow>
+          <Sub size={44} style={{ fontWeight: 700, ...rise(t, T.flip + 0.3, T.back + 0.2), color: C.bad }}>09:00</Sub>
           <H1 size={76} style={{ marginTop: 18, color: C.bad, ...rise(t, T.flip + 0.4, T.back + 0.2) }}>Onshore.</H1>
           <Sub size={30} style={{ marginTop: 18, ...rise(t, T.flip + 0.6, T.back + 0.2) }}>Go early or go home.</Sub>
         </div>
@@ -135,10 +135,6 @@ const Film: React.FC<{ variant: Variant }> = ({ variant }) => {
         <Sub size={40} style={rise(t, T.end + 0.3, T.out + 1)}>Know the wind before you paddle out.</Sub>
         <div style={{ ...font, display: "inline-flex", alignItems: "center", gap: 18, padding: "22px 44px", borderRadius: 999, background: C.acc, color: "#02131c", fontWeight: 800, fontSize: 40, ...rise(t, T.end + 0.45, T.out + 1) }}>rosa.surf <span>→</span></div>
         <Sub size={30} style={rise(t, T.end + 0.6, T.out + 1)}>link in bio</Sub>
-      </div>
-      {/* forecast attribution (clients/rosa/product.md) */}
-      <div style={{ ...font, position: "absolute", left: B.x, top: 1110, width: B.w, fontSize: 17, lineHeight: 1.35, color: "rgba(245,240,232,.45)", opacity: seg(t, T.end + 0.8, T.end + 1.4) }}>
-        Waves: NOAA GFS-Wave + ECMWF open data (CC-BY 4.0) · Peak periods: DWD GWAM (CC-BY 4.0) · Weather by Open-Meteo.com (CC-BY 4.0) · Sea temp: NOAA OISST · Tides: EOT20 (CC-BY 4.0)
       </div>
       <Credit t={t} from={T.end + 0.8} />
     </AbsoluteFill>

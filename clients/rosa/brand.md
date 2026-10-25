@@ -68,7 +68,20 @@ vs URL on screen, by sessions per UTM. No link in a comment, ever: Instagram com
 
 - Stock footage presented as the product or as Rosa's own. Atmosphere footage (ocean, waves,
   surfers) from Pixabay under the Pixabay Content License is allowed behind the UI (operator,
-  2026-10-25: the 2026-10-04 reels used it and that is the bar); credit "Footage: Pixabay" on
-  the end card; every clip listed in `assets/footage/SOURCES.md`.
+  2026-10-25: the 2026-10-04 reels used it and that is the bar); no on-screen credit (the
+  licence needs none); every clip listed in `assets/footage/SOURCES.md`.
+- Small print on screen (operator, 2026-10-25): no text under 34 px at 1080×1920, no small-caps
+  labels, no data attribution or footage credit in the video. Only our messages, large and
+  readable. The data attribution line lives in the caption, on every post.
 - Watermarks, third-party logos, other apps' UI.
 - Numbers not in `product.md`.
+
+## Voice-over
+
+- Who: a surfer friend telling you about one feature. Easygoing, likeable, approachable,
+  relatable; laid back or stoked, never a newsreader (operator, 2026-10-25). Voices vary
+  across clips (`spine/voice.py` ROSTER, rotated per week).
+- How it sounds: speech, not copy. Short bits, contractions, "okay so", "honestly", "dude" at
+  most once. No em dashes.
+- **"Rosa" is said "Roza", always** (operator, 2026-10-25). `spine/voice.py` PRONOUNCE spells
+  it phonetically in the speech input only; "rosa.surf" is said "Roza dot surf".

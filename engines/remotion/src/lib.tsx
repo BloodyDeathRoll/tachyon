@@ -99,14 +99,16 @@ export const Screen: React.FC<{ src: string; scroll?: number; o?: number; x?: nu
 );
 
 // ── type ─────────────────────────────────────────────────────────────────────
-export const Eyebrow: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({ children, style }) => (
-  <div style={{ ...font, fontWeight: 600, fontSize: 26, letterSpacing: ".22em", textTransform: "uppercase", color: C.acc, ...style }}>{children}</div>
-);
+/** Small-caps labels are gone (decision 16: no on-screen text under 34 px at 1080 wide).
+ *  Kept as a no-op so older films still compile; use Sub/H1 for anything worth saying. */
+export const Eyebrow: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = () => null;
+/** smallest on-screen type allowed at 1080×1920 */
+export const MIN_TYPE = 38;
 export const H1: React.FC<{ children: React.ReactNode; size?: number; style?: React.CSSProperties }> = ({ children, size = 128, style }) => (
   <div style={{ ...font, fontWeight: 800, fontSize: size, lineHeight: 0.98, letterSpacing: "-.035em", ...style }}>{children}</div>
 );
-export const Sub: React.FC<{ children: React.ReactNode; size?: number; style?: React.CSSProperties }> = ({ children, size = 34, style }) => (
-  <div style={{ ...font, fontWeight: 500, fontSize: size, lineHeight: 1.25, color: C.muted, ...style }}>{children}</div>
+export const Sub: React.FC<{ children: React.ReactNode; size?: number; style?: React.CSSProperties }> = ({ children, size = 38, style }) => (
+  <div style={{ ...font, fontWeight: 500, fontSize: Math.max(size, MIN_TYPE), lineHeight: 1.25, color: C.muted, ...style }}>{children}</div>
 );
 export const Pill: React.FC<{ children: React.ReactNode; bg: string; fg?: string; size?: number }> = ({ children, bg, fg = "#fff", size = 34 }) => (
   <span style={{ ...font, display: "inline-block", padding: "10px 22px", borderRadius: 999, fontWeight: 800, fontSize: size, background: bg, color: fg }}>{children}</span>
@@ -128,8 +130,5 @@ export const SafeDebug: React.FC<{ variant: Variant }> = ({ variant }) => {
   return <div style={{ position: "absolute", left: b.x, top: b.y, width: b.w, height: b.h, border: "2px dashed rgba(0,255,120,.5)" }} />;
 };
 
-export const Credit: React.FC<{ t: number; from: number }> = ({ t, from }) => (
-  <div style={{ ...font, position: "absolute", left: 65, bottom: 700, fontSize: 22, letterSpacing: ".16em", textTransform: "uppercase", color: "rgba(245,240,232,.45)", opacity: seg(t, from, from + 0.6) }}>
-    Footage: Pixabay
-  </div>
-);
+/** no on-screen footage credit (decision 16); Pixabay licence needs none, the caption carries attribution */
+export const Credit: React.FC<{ t: number; from: number }> = () => null;

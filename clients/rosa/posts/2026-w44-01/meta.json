@@ -23,11 +23,12 @@
   "plan": "2026-W44",
   "duration_s": 12.05,
   "voiceover": {
-    "script": "Pipeline said Good this morning, not Epic. I tapped it to see why. Size and period were pumping, but the wind wasn't there. Fair call.",
-    "voice": "am_michael",
+    "script": "Okay so, Pipeline says Good today. Not Epic. Why? Tap it. Swell's pumping, but the wind's just not playing along. Fair call, honestly!",
+    "voice": "dia:seed5",
+    "speed": 1.08,
     "start": 0.5,
     "file": "vo.wav",
-    "engine": "kokoro-82m (kokoro-onnx, Apache-2.0)"
+    "engine": "dia-1.6b (Nari Labs, Apache-2.0), local GPU"
   },
   "track": "surf-rock-summer",
   "theme": "dark"
