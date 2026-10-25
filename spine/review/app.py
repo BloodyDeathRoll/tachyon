@@ -550,7 +550,7 @@ def week_card(client: str) -> str:
     span = f"{days[0].strftime('%-d %b')} – {days[-1].strftime('%-d %b')}"
     st = W.status(client, wk) or {}
     ws = W.settings(client)
-    total = len(W.slot_times(client, wk))
+    total = len(W.free_slot_times(client, wk))
     base = f"/{ESC(quote(client))}"
     if st.get("state") == "running":
         if st.get("step") == "planning":
