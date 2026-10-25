@@ -6,9 +6,28 @@
   "height": 1920,
   "fps": 60,
   "audio": "audio.wav",
-  "music": {"bpm": 96, "key_hz": 110, "beats": [0.0, 2.2, 5.5, 8.5, 11.0, 13.0], "end": 15.0,
-            "whoosh": [2.2, 5.5, 8.5, 11.0, 13.0], "hits": [13.0]},
-  "variants": ["reel", "story"],
+  "music": {
+    "bpm": 122,
+    "key_hz": 146.83,
+    "mode": "major",
+    "beats": [
+      0.0,
+      2.2,
+      5.5,
+      8.5,
+      11.0,
+      13.0
+    ],
+    "end": 15.0,
+    "hits": [
+      13.0
+    ],
+    "drop": 2.2
+  },
+  "variants": [
+    "reel",
+    "story"
+  ],
   "captures": "../../assets/captures/2026-10-25",
   "claims": {
     "Should I surf?": "hook; question, no claim",
