@@ -1,0 +1,74 @@
+[
+ {
+  "file": "home.png",
+  "url": "https://rosa.surf/?theme=light",
+  "title": "Rosa - free surf forecast, worldwide",
+  "at": "2026-10-25T19:14:44+00:00",
+  "viewport": "390x844@3x",
+  "theme": "light"
+ },
+ {
+  "file": "spots.png",
+  "url": "https://rosa.surf/spots?theme=light",
+  "title": "Your spots | Rosa",
+  "at": "2026-10-25T19:14:48+00:00",
+  "viewport": "390x844@3x",
+  "theme": "light"
+ },
+ {
+  "file": "spot-uluwatu.png",
+  "url": "https://rosa.surf/spot/uluwatu?theme=light",
+  "title": "Uluwatu surf forecast - Bali | Rosa",
+  "at": "2026-10-25T19:14:51+00:00",
+  "viewport": "390x844@3x",
+  "theme": "light"
+ },
+ {
+  "file": "spot-uluwatu-full.png",
+  "url": "https://rosa.surf/spot/uluwatu?theme=light",
+  "title": "Uluwatu surf forecast - Bali | Rosa",
+  "at": "2026-10-25T19:14:55+00:00",
+  "viewport": "390x844@3x",
+  "theme": "light"
+ },
+ {
+  "file": "spot-supertubos.png",
+  "url": "https://rosa.surf/spot/supertubos?theme=light",
+  "title": "Supertubos (Peniche) surf forecast - Casal da Vala, Portugal | Rosa",
+  "at": "2026-10-25T19:14:59+00:00",
+  "viewport": "390x844@3x",
+  "theme": "light"
+ },
+ {
+  "file": "spot-pipeline.png",
+  "url": "https://rosa.surf/spot/pipeline?theme=light",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-10-25T19:15:10+00:00",
+  "viewport": "390x844@3x",
+  "theme": "light"
+ },
+ {
+  "file": "map.png",
+  "url": "https://rosa.surf/map?theme=light",
+  "title": "Surf map - every spot, rated right now | Rosa",
+  "at": "2026-10-25T19:15:15+00:00",
+  "viewport": "390x844@3x",
+  "theme": "light"
+ },
+ {
+  "file": "charts.png",
+  "url": "https://rosa.surf/charts?theme=light",
+  "title": "Swell charts - animated wave height and period | Rosa",
+  "at": "2026-10-25T19:15:19+00:00",
+  "viewport": "390x844@3x",
+  "theme": "light"
+ },
+ {
+  "file": "search.png",
+  "url": "https://rosa.surf/search?theme=light",
+  "title": "Search spots | Rosa",
+  "at": "2026-10-25T19:15:23+00:00",
+  "viewport": "390x844@3x",
+  "theme": "light"
+ }
+]

@@ -50,8 +50,9 @@ def _container_params(meta: dict, caption: str) -> dict:
         p["thumb_offset"] = str(int(meta["thumb_offset"]))
     if meta.get("trial"):
         p["trial_params"] = json.dumps({"graduation_strategy": "SS_PERFORMANCE"})
-    if meta.get("audio"):
-        p["audio_configuration"] = json.dumps(meta["audio"])
+    audio = meta.get("audio_configuration") or meta.get("audio")   # spine/tracks.py writes audio_configuration
+    if audio:
+        p["audio_configuration"] = json.dumps(audio)
     if meta.get("collaborators"):
         p["collaborators"] = json.dumps(meta["collaborators"])
     if meta.get("location_id"):

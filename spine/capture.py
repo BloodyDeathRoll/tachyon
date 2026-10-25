@@ -51,7 +51,7 @@ def capture(client: str, theme: str = "dark", out: Path | None = None, full: boo
         # first-run sheets: the sign-in screen and the install prompt hold for a launch once
         # answered "Not now"; answer them before the app boots so we capture the product
         ctx.add_init_script("""try{sessionStorage.setItem('rosa.signin.seen','1');sessionStorage.setItem('rosa.install.seen','1');
-          localStorage.setItem('rosa.duplicate.seen','1');localStorage.setItem('rosa.theme','dark');}catch(e){}""")
+          localStorage.setItem('rosa.duplicate.seen','1');localStorage.setItem('rosa.theme','THEME');}catch(e){}""".replace("THEME", theme))
         page = ctx.new_page()
         only = ONLY
         for entry in SCREENS[client]:

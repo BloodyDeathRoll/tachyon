@@ -1,0 +1,99 @@
+tracks:
+- id: old-steel
+  title: Old Steel
+  artist: AlexGrohl
+  mood: blues rock
+  gritty: null
+  source: file
+  file: old-steel-449645.mp3
+  page: https://pixabay.com/music/blues-old-steel-blues-rock-promo-449645/
+  licence: Pixabay Content License
+  start: 0.0
+  lufs: -8.7
+- id: surf-rock-summer
+  title: Surf Rock Summer
+  artist: BFCMUSIC
+  mood: surf rock
+  sunny: null
+  source: file
+  file: surf-rock-summer-325576.mp3
+  page: https://pixabay.com/music/rock-surf-rock-summer-325576/
+  licence: Pixabay Content License
+  start: 0.0
+  lufs: -15.0
+- id: energetic-surf-rock
+  title: Energetic Surf Rock
+  artist: Tunetank
+  mood: surf rock
+  fast: null
+  source: file
+  file: energetic-surf-rock-music-350069.mp3
+  page: https://pixabay.com/music/rock-energetic-surf-rock-music-350069/
+  licence: Pixabay Content License
+  start: 0.5
+  lufs: -8.8
+- id: retro-surf-rock
+  title: Retro Surf Rock
+  artist: Tunetank
+  mood: retro twang
+  driving: null
+  source: file
+  file: retro-surf-rock-348237.mp3
+  page: https://pixabay.com/music/hard-rock-retro-surf-rock-348237/
+  licence: Pixabay Content License
+  start: 5.0
+  lufs: -8.4
+- id: surf-rock-abydos
+  title: Surf Rock
+  artist: Abydos_Music
+  mood: classic surf guitar
+  source: file
+  file: surf-rock-204622.mp3
+  page: https://pixabay.com/music/rock-surf-rock-204622/
+  licence: Pixabay Content License
+  start: 0.5
+  lufs: -15.5
+- id: upbeat-summer
+  title: Upbeat Summer
+  artist: Caldena
+  mood: soft house
+  bright: null
+  source: file
+  file: upbeat-summer-617557.mp3
+  page: https://pixabay.com/music/soft-house-upbeat-summer-617557/
+  licence: Pixabay Content License
+  start: 15.5
+  lufs: -14.7
+- id: upbeat-groove
+  title: Upbeat Groove
+  artist: Sub_Clair
+  mood: funk
+  bouncy: null
+  source: file
+  file: upbeat-groove-620328.mp3
+  page: https://pixabay.com/music/funk-upbeat-groove-620328/
+  licence: Pixabay Content License
+  start: 0.5
+  lufs: -11.8
+- id: summer-background
+  title: Upbeat Summer Background
+  artist: DELOSound
+  mood: pop
+  feel-good: null
+  source: file
+  file: upbeat-summer-background-music-368292.mp3
+  page: https://pixabay.com/music/upbeat-upbeat-summer-background-music-368292/
+  licence: Pixabay Content License
+  start: 7.5
+  lufs: -12.1
+- id: upbeat-lounge
+  title: Upbeat Lounge
+  artist: AtlasAudio
+  mood: lounge house
+  chill: null
+  source: file
+  file: upbeat-lounge-613342.mp3
+  page: https://pixabay.com/music/house-upbeat-lounge-613342/
+  licence: Pixabay Content License
+  start: 16.0
+  lufs: -10.6
