@@ -30,3 +30,16 @@ clients/*/films/**/*.wav
 clients/*/posts/*/versions/**/*.mp4
 clients/*/posts/*/versions/**/*.jpg
 clients/*/posts/*/versions/**/*.wav
+
+# media: never pushed (videos, images, audio)
+*.mp4
+*.mov
+*.webm
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+*.wav
+*.mp3
+*.m4a

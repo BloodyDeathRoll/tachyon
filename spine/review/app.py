@@ -415,6 +415,7 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .filt button i{font-style:normal;font-size:11.5px;background:#E2E2E2;color:var(--ink2);border-radius:999px;padding:0 6px;min-width:18px;text-align:center}
 .filt button.on{background:var(--ink);color:#fff}.filt button.on i{background:var(--lime);color:var(--ink)}
 .vid[hidden]{display:none}
+.cell.dim{opacity:.18;filter:grayscale(1);transition:opacity .2s}
 .tdo{font-size:14px;font-weight:600;color:var(--ink3);margin-left:6px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media (min-width:1700px){.ovgrid{grid-template-columns:minmax(0,2fr) minmax(400px,1fr)}}
@@ -1052,6 +1053,11 @@ const end=async e=>{if(!st||e.pointerId!==st.id)return;clearTimeout(st.timer);co
 document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&st&&st.on){st.g.remove();st.el.classList.remove('dragging');document.body.classList.remove('dnd');if(st.over)st.over.classList.remove('over');st=null;}});
 const hl=document.querySelector('.cell.hl');if(hl)hl.scrollIntoView({block:'center'});
+// status filter: non-matching videos fade out, the grid keeps its shape (remembered)
+const FK='tachyon.calfilter',setF=f=>{document.querySelectorAll('.cell[data-cls]').forEach(c=>c.classList.toggle('dim',f!=='all'&&c.dataset.cls!==f));
+ document.querySelectorAll('.calfilt button').forEach(b=>b.classList.toggle('on',b.dataset.f===f));try{localStorage.setItem(FK,f)}catch(_){}};
+document.querySelectorAll('.calfilt button').forEach(b=>b.addEventListener('click',()=>setF(b.dataset.f)));
+let f0='all';try{f0=localStorage.getItem(FK)||'all'}catch(_){}setF(f0);
 })();
 """
 
@@ -1077,9 +1083,9 @@ def _cell(client: str, row, tag, past: bool, hl: str | None, mini: bool = False,
     _, no = slot_no(slot)
     t = ESC(title_of(client, row))
     if mini:
-        return (f"<a class='cell mini{' hl' if slot == hl else ''}' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}' title='{hm} · {t}'{dnd}>{img}"
+        return (f"<a class='cell mini{' hl' if slot == hl else ''}' data-cls='{cls}' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}' title='{hm} · {t}'{dnd}>{img}"
                 f"<span class=chips><span class=no>#{ESC(no)}</span></span><span class='mdot {cls}'></span><span class=mt>{hm}</span>{pv_button(client, slot)}</a>")
-    return (f"<a class='cell{' hl' if slot == hl else ''}' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}' title='{t}'{dnd}>{img}"
+    return (f"<a class='cell{' hl' if slot == hl else ''}' data-cls='{cls}' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}' title='{t}'{dnd}>{img}"
             f"<span class=chips><span class=no>#{ESC(no)}</span>{vo_pill(client, slot)}</span><span class=tools>{grip}{pv_button(client, slot)}</span>"
             f"<span class=cb><span class='tag {cls}'>{ESC(label)}</span><span class=ct>{t}</span></span></a>")
 
@@ -1090,8 +1096,10 @@ def _cal_head(client: str, view: str, title: str, prev: str, today_q: str, nxt: 
     y, w, _ = t.isocalendar()
     seg = (f"<div class=seg><a href='{base}?w={y}-W{w:02d}' class='{'on' if view == 'week' else ''}'>Week</a>"
            f"<a href='{base}?view=month&m={t:%Y-%m}' class='{'on' if view == 'month' else ''}'>Month</a></div>")
+    filt = "".join(f"<button type=button data-f='{k}' class='{'on' if k == 'all' else ''}'>{lab}</button>"
+                   for k, lab in (("all", "All"), ("need", "Needs approval"), ("busy", "In production"), ("sched", "Scheduled"), ("live", "Live")))
     return ("<div class=row style='margin-bottom:12px;flex-wrap:wrap'>"
-            f"<div class=row style='gap:16px'><h2>{title}</h2>{seg}</div><div class=calnav>"
+            f"<div class=row style='gap:16px;flex-wrap:wrap'><h2>{title}</h2>{seg}<div class='seg filt calfilt' role=group aria-label='Show'>{filt}</div></div><div class=calnav>"
             f"<a href='{base}?{prev}' aria-label='Previous'>{icon('prev', 16)}</a>"
             f"<a class=txt href='{base}?{today_q}'>Today</a>"
             f"<a href='{base}?{nxt}' aria-label='Next'>{icon('next', 16)}</a></div></div>"
