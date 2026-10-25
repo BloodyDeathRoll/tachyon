@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rosa · All your breaks · favorites v2 (engine A)</title>
+<!--
+  Engine A film (HTML + spine/render.py). Deterministic: window.__film.seek(t) lays everything
+  out for time t and returns a promise that resolves once the footage <video>s have seeked.
+  Same storyboard as engines/remotion/src/Favorites.tsx, for the engine comparison (decision 2).
+  ?variant=reel|story picks the safe box (decision 14). Footage: Pixabay (assets/footage/SOURCES.md).
+-->
+<style>
+@font-face{font-family:"Inter";font-weight:100 900;src:url("../_shared/inter-latin-wght-normal.woff2") format("woff2");font-display:block}
+:root{--ink:#f5f0e8;--muted:#9aa3b2;--acc:#11b7f2;--epic:#0c6733;--good:#24b161;--fair:#11b7f2;--sx:65px;--sy:285px;--sw:950px;--sh:963px}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;overflow:hidden;background:#060607;color:var(--ink);font-family:Inter,system-ui,sans-serif;font-feature-settings:"tnum" 1;-webkit-font-smoothing:antialiased}
+#stage{position:relative;width:1080px;height:1920px;overflow:hidden;background:#060607}
+.fill{position:absolute;inset:0}
+video.ft{position:absolute;left:50%;top:50%;min-width:100%;min-height:100%;width:auto;height:auto;transform:translate(-50%,-50%) scale(1);object-fit:cover}
+.shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.65),rgba(0,0,0,.5) 45%,rgba(0,0,0,.8))}
+#panel{position:absolute;inset:0;background:radial-gradient(900px 1100px at 50% 35%,#07203a 0%,#03101f 50%,#000 100%)}
+#safe{position:absolute;left:var(--sx);top:var(--sy);width:var(--sw);height:var(--sh)}
+.eyebrow{font-weight:600;font-size:26px;letter-spacing:.22em;text-transform:uppercase;color:var(--acc)}
+.h1{font-weight:800;font-size:128px;line-height:.98;letter-spacing:-.035em}
+.h2{font-weight:800;font-size:64px;line-height:1.02;letter-spacing:-.03em}
+.sub{font-weight:500;font-size:34px;line-height:1.25;color:var(--muted)}
+.a{position:absolute;will-change:transform,opacity}
+/* phone in 3D */
+#pw{position:absolute;left:0;top:0;width:1080px;height:1920px;perspective:2400px;perspective-origin:540px 760px}
+#phone{position:absolute;left:330px;top:320px;width:420px;height:880px;border-radius:64px;background:linear-gradient(145deg,#1b2230,#05070c 40%,#0d1320 70%,#20283a);box-shadow:0 60px 140px rgba(0,0,0,.75),0 0 0 1.5px #2a3345 inset,0 0 120px rgba(17,183,242,.14);transform-style:preserve-3d}
+#screen{position:absolute;left:10px;top:10px;right:10px;bottom:10px;border-radius:54px;overflow:hidden;background:#000}
+#screen img{position:absolute;left:0;top:0;width:400px;display:block}
+#notch{position:absolute;left:50%;top:18px;width:120px;height:34px;margin-left:-60px;border-radius:20px;background:#000;z-index:3}
+.finger{position:absolute;width:44px;height:44px;border-radius:22px;background:rgba(17,183,242,.18);border:2px solid rgba(255,255,255,.9)}
+/* favorites list in the app's style */
+#list{position:absolute;left:0;top:0;width:400px;height:860px;background:#060607}
+#list .hd{display:flex;align-items:center;gap:8px;padding:58px 18px 10px;font-size:19px;font-weight:700}
+#list .hd img{width:22px;height:22px}
+#list .days{display:flex;gap:6px;padding:6px 18px 10px}
+#list .day{padding:7px 9px;border-radius:10px;font-size:12px;font-weight:700;border:1px solid #1b2432}
+#list .day.on{background:#1b2432}
+#list .grp{padding:6px 18px 0}
+#list .cty{font-size:11px;font-weight:700;letter-spacing:.14em;color:#8a92a6;margin:8px 0 6px}
+#list .row{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:14px;background:#0e1118;margin-bottom:8px;box-shadow:0 0 0 1px #171b25 inset}
+#list .n{font-size:17px;font-weight:700}#list .m{font-size:13px;color:#9aa3b2;margin-top:2px}
+#list .bars{display:flex;gap:2px}#list .bars i{width:6px;height:18px;border-radius:2px;background:#1b2432;display:block}
+#list .pill{font-size:12px;font-weight:800;padding:4px 9px;border-radius:999px;color:#fff}
+#list .r{display:flex;align-items:center;gap:10px}
+#end .mark{width:168px;height:168px}
+#end .word{font-weight:800;font-size:150px;letter-spacing:-.05em;line-height:1}
+#end .word i{font-style:normal;color:var(--acc)}
+#end .cta{display:inline-flex;align-items:center;gap:18px;padding:22px 44px;border-radius:999px;background:var(--acc);color:#02131c;font-weight:800;font-size:40px}
+#credit{position:absolute;left:65px;bottom:700px;font-size:22px;letter-spacing:.16em;text-transform:uppercase;color:rgba(245,240,232,.45)}
+#scrub{position:fixed;left:0;right:0;bottom:0;padding:12px 16px;background:rgba(0,0,0,.7);display:flex;gap:12px;align-items:center;font:600 16px/1 Inter,system-ui;color:#fff;z-index:99}
+#scrub input{flex:1}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="fill" id="ft1"><video class="ft" src="../../assets/footage/218670_large.mp4" muted preload="auto" playsinline></video><div class="shade"></div></div>
+  <div class="fill" id="ft2"><video class="ft" src="../../assets/footage/310248_large.mp4" muted preload="auto" playsinline></video><div class="shade"></div></div>
+  <div id="panel"></div>
+
+  <div id="safe">
+    <div class="a" id="hook" style="left:0;top:130px">
+      <div class="eyebrow" id="h0">Your spots</div>
+      <div class="h1" id="h1" style="margin-top:26px">All your</div>
+      <div class="h1" id="h2">breaks.</div>
+      <div class="sub" id="h3" style="margin-top:34px;max-width:760px">Star a spot once. It waits on Home.</div>
+    </div>
+    <div class="a" id="co" style="left:530px;top:90px;width:420px">
+      <div class="a" id="c1" style="left:0;top:0"><div class="eyebrow">One tap</div><div class="h2" style="margin-top:12px">Starred.</div><div class="sub" style="font-size:28px;margin-top:10px">Uluwatu waits on Home now.</div></div>
+      <div class="a" id="c2" style="left:0;top:0"><div class="eyebrow">Grouped</div><div class="h2" style="margin-top:12px">By country.</div><div class="sub" style="font-size:28px;margin-top:10px">Every break you follow, one screen.</div></div>
+      <div class="a" id="c3" style="left:0;top:0"><div class="eyebrow">Tomorrow?</div><div class="h2" style="margin-top:12px">One tap.</div><div class="sub" style="font-size:28px;margin-top:10px">16 days out, every spot at once.</div></div>
+    </div>
+    <div class="a" id="end" style="left:0;top:120px;width:950px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:34px">
+      <img class="mark" id="e0" src="../_shared/rosa-icon.svg" alt="">
+      <div class="word" id="e1">rosa<i>.</i></div>
+      <div class="sub" id="e2" style="font-size:40px">All your breaks. One tap each.</div>
+      <div class="cta" id="e3">rosa.surf <span>→</span></div>
+      <div class="sub" id="e4" style="font-size:30px">free · link in bio</div>
+    </div>
+  </div>
+
+  <div id="pw"><div id="phone"><div id="notch"></div><div id="screen">
+    <img id="spot" src="../../assets/captures/2026-10-25/spot-uluwatu-full.png" alt="">
+    <div class="finger" id="f1" style="left:300px;top:14px"></div>
+    <svg id="star" style="position:absolute;left:306px;top:20px" width="32" height="32" viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.5 7L12 17.6 5.7 21.2l1.5-7L2 9.4l7-.8z" fill="#11b7f2" style="transform-origin:12px 12px"/></svg>
+    <div id="burst"></div>
+    <div id="list">
+      <div class="hd"><img src="../_shared/rosa-icon.svg" alt=""> rosa<span style="color:#11b7f2">.</span> <span style="font-weight:500;color:#cfd4df">Your spots</span></div>
+      <div class="days" id="days"></div>
+      <div id="groups"></div>
+      <div class="finger" id="f2" style="left:84px;top:108px"></div>
+    </div>
+  </div></div></div>
+  <div id="credit">Footage: Pixabay</div>
+</div>
+<div id="scrub"><span id="tl">0.00</span><input type="range" min="0" max="15" step="0.0167" value="0"></div>
+<script>
+(() => {
+  const q = new URLSearchParams(location.search), variant = q.get('variant') === 'story' ? 'story' : 'reel', render = q.get('render') === '1';
+  const box = variant === 'reel' ? {x:65,y:285,w:950,h:963} : {x:65,y:269,w:950,h:979};
+  const rs = document.documentElement.style; rs.setProperty('--sx', box.x+'px'); rs.setProperty('--sy', box.y+'px'); rs.setProperty('--sw', box.w+'px'); rs.setProperty('--sh', box.h+'px');
+  const $ = id => document.getElementById(id);
+  const clamp = (v,a=0,b=1) => Math.min(b, Math.max(a, v)), lerp = (a,b,t) => a+(b-a)*t, seg = (t,a,b) => clamp((t-a)/(b-a));
+  const outExpo = x => x>=1?1:1-Math.pow(2,-10*x), inOut = x => x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2, outBack = x => {const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2)};
+  const win = (t,a,b,fi=.4,fo=.3) => t<a||t>b?0:Math.min(outExpo(seg(t,a,a+fi)),1-inOut(seg(t,b-fo,b)));
+  const rise = (el,t,a,b,dy=40,fi=.6,fo=.3) => { const e=outExpo(seg(t,a,a+fi)), o=win(t,a,b,fi,fo), out=inOut(seg(t,b-fo,b)); el.style.opacity=o; el.style.visibility=o<=.001?'hidden':'visible'; el.style.transform=`translateY(${lerp(dy,0,e)-50*out}px)`; };
+  const T = {hook:0, star:2.2, list:5.2, tap:9.0, end:12.4, out:15};
+
+  const FAVS = [["Indonesia",[["Uluwatu",95,"Firing","1.3–2.0 m"]]],["Portugal",[["Supertubos",90,"Firing","0.7–1.0 m"],["Carcavelos",39,"Fair","0.5–0.8 m"]]],["Hawaii",[["Banzai Pipeline",67,"Good","1.1–1.7 m"]]],["Australia",[["Snapper Rocks",54,"Good","0.8–1.2 m"]]],["French Polynesia",[["Teahupoo",63,"Good","1.2–1.8 m"]]]];
+  const col = b => b==="Firing"||b==="Epic"?"#0c6733":b==="Good"?"#24b161":b==="Fair"?"#11b7f2":"#6f7590";
+  $('days').innerHTML = ["Today 25","Sun 26","Mon 27","Tue 28","Wed 29"].map((d,i)=>`<div class="day" data-i="${i}">${d}</div>`).join('');
+  $('groups').innerHTML = FAVS.map(([c,sp],gi)=>`<div class="grp" id="g${gi}"><div class="cty">${c.toUpperCase()}</div>${sp.map(([n,r,b,h])=>`<div class="row"><div><div class="n">${n}</div><div class="m"><span class="dayw">today</span> · ${h}</div></div><div class="r"><div class="bars">${[0,1,2,3,4].map(k=>`<i style="background:${k<Math.round(r/20)?col(b):'#1b2432'}"></i>`).join('')}</div><span class="pill" style="background:${col(b)}">${b}</span><svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 2l3 6.6 7 .8-5.2 4.8 1.5 7L12 17.6 5.7 21.2l1.5-7L2 9.4l7-.8z" fill="#11b7f2"/></svg></div></div>`).join('')}</div>`).join('');
+  $('burst').innerHTML = [...Array(8)].map(()=>'<div style="position:absolute;left:320px;top:34px;width:6px;height:6px;border-radius:3px;background:#11b7f2"></div>').join('');
+  const burstDots = [...$('burst').children], dayEls = [...$('days').children], dayWords = [...document.querySelectorAll('.dayw')];
+
+  const v1 = $('ft1').querySelector('video'), v2 = $('ft2').querySelector('video');
+  const seekVideo = (v, time) => new Promise(res => { if (Math.abs(v.currentTime - time) < 0.004 && v.readyState >= 2) return res(); const done = () => { v.removeEventListener('seeked', done); res(); }; v.addEventListener('seeked', done); v.currentTime = time; setTimeout(done, 1500); });
+
+  async function seek(t) {
+    t = clamp(t, 0, 15);
+    // footage: clip 1 under the hook, clip 2 under the end card; each pushed in slowly
+    const o1 = win(t, 0, T.star+1.2, .6, .6), o2 = win(t, T.end-.6, T.out, 1.0, .01);
+    $('ft1').style.opacity = o1; $('ft2').style.opacity = o2;
+    v1.style.transform = `translate(-50%,-50%) scale(${1+.1*seg(t,0,T.star+1.2)})`; v2.style.transform = `translate(-50%,-50%) scale(${1+.1*seg(t,T.end-.6,T.out)})`;
+    $('panel').style.opacity = win(t, T.star+.4, T.end-.2, .9, .7);
+    const waits = []; if (o1 > 0) waits.push(seekVideo(v1, 4 + t)); if (o2 > 0) waits.push(seekVideo(v2, 6 + (t - (T.end-.6))));
+
+    // hook
+    rise($('h0'), t, .1, T.star-.1); rise($('h1'), t, .25, T.star-.1); rise($('h2'), t, .4, T.star-.1); rise($('h3'), t, .6, T.star-.1);
+
+    // phone pose
+    const fl = {ry:12*Math.sin(t*.5+.6), rx:4*Math.sin(t*.37+1.3), rz:-1.5+Math.sin(t*.3+2.1)};
+    const en = outExpo(seg(t, T.star-.5, T.star+.4)), ex = inOut(seg(t, T.end-.5, T.end+.2));
+    const ph = $('phone'); const o = t < T.star-.5 ? 0 : 1-ex; ph.style.opacity = o; ph.style.visibility = o<=.001?'hidden':'visible';
+    ph.style.transform = `translate(-205px, ${lerp(760,-30,en)+6*Math.sin(t*.6)+900*ex}px) rotateX(${fl.rx+lerp(12,0,en)}deg) rotateY(${fl.ry+lerp(20,0,en)}deg) rotateZ(${fl.rz}deg) scale(${lerp(.85,.98,en)})`;
+    $('spot').style.transform = 'translateY(-48px)';
+    // star tap
+    const tapK = seg(t, T.star+.9, T.star+1.25), fill = outBack(seg(t, T.star+1.1, T.star+1.5)), bu = seg(t, T.star+1.1, T.star+1.7);
+    $('f1').style.opacity = tapK>0&&tapK<1?1:0; $('f1').style.transform = `scale(${1-.3*Math.sin(Math.PI*tapK)})`;
+    const sp = $('star').querySelector('path'); sp.style.opacity = fill; sp.style.transform = `scale(${lerp(.4,1,fill)})`;
+    burstDots.forEach((d,i)=>{const a=i/8*Math.PI*2; d.style.opacity = bu>0&&bu<1?1-bu:0; d.style.transform=`translate(${Math.cos(a)*34*outExpo(bu)}px,${Math.sin(a)*34*outExpo(bu)}px)`;});
+    // list swipe + groups cascade + day tap
+    $('list').style.transform = `translateX(${400*(1-outExpo(seg(t, T.list-.3, T.list+.3)))}px)`;
+    FAVS.forEach((_,gi)=>rise($('g'+gi), t, T.list+.15+gi*.18, T.end+1, 24, .5, .01));
+    const dk = seg(t, T.tap, T.tap+.25);
+    dayEls.forEach((d,i)=>d.classList.toggle('on', (i===0&&dk<.5)||(i===1&&dk>=.5)));
+    dayWords.forEach(w=>w.textContent = dk>=.5?'tomorrow':'today');
+    $('f2').style.opacity = dk>0&&dk<1?1:0; $('f2').style.transform = `scale(${1-.3*Math.sin(Math.PI*dk)})`;
+    // callouts
+    rise($('c1'), t, T.star+1.3, T.list+1.2); rise($('c2'), t, T.list+1.4, T.tap+1.6); rise($('c3'), t, T.tap+1.8, T.end-.1);
+    // end
+    const e0 = $('e0'); const eo = win(t, T.end, T.out+1, .7, .01); e0.style.opacity = eo; e0.style.visibility = eo<=.001?'hidden':'visible'; e0.style.transform = `scale(${lerp(.6,1,outBack(seg(t,T.end,T.end+.8)))})`;
+    rise($('e1'), t, T.end+.15, T.out+1); rise($('e2'), t, T.end+.3, T.out+1); rise($('e3'), t, T.end+.45, T.out+1); rise($('e4'), t, T.end+.6, T.out+1);
+    $('credit').style.opacity = seg(t, T.end+.8, T.end+1.4);
+    $('tl').textContent = t.toFixed(2);
+    await Promise.all(waits);
+  }
+  window.__film = { seek, duration: 15, variant };
+  if (render) $('scrub').style.display = 'none';
+  const inp = document.querySelector('#scrub input'); inp.addEventListener('input', () => seek(parseFloat(inp.value)));
+  Promise.all([v1, v2].map(v => new Promise(r => { if (v.readyState >= 1) r(); else v.addEventListener('loadedmetadata', r, { once: true }); }))).then(() => seek(parseFloat(q.get('t') || '0')));
+})();
+</script>
+</body>
+</html>

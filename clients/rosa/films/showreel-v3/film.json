@@ -1,0 +1,20 @@
+{
+  "slug": "showreel-v3",
+  "title": "Should I surf? showreel, engine A (30 s, footage + 3D phone)",
+  "duration": 30.0,
+  "width": 1080,
+  "height": 1920,
+  "fps": 60,
+  "audio": null,
+  "variants": ["reel", "story"],
+  "footage": "../../assets/footage",
+  "captures": "../../assets/captures/2026-10-25",
+  "claims": {
+    "78 KB": "product.md Numbers: entry JS 63 KB + CSS 15 KB gzip",
+    "$0, no paywall, no sign-in to check the surf": "product.md What it is; favorites need sign-in, the forecast never does",
+    "Uluwatu Epic 1.3–2.0 m": "capture spot-uluwatu-full.png 2026-10-25",
+    "Your favorites / 16 days at a glance / Why this rating / Hour by hour": "product.md Features and The rating",
+    "3,056 spots · 16 days · 4× a day": "product.md Numbers",
+    "Footage: Pixabay": "assets/footage/SOURCES.md"
+  }
+}

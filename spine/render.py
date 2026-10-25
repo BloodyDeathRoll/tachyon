@@ -6,7 +6,8 @@ The film is `<film_dir>/index.html` plus `film.json`:
     {"duration": 15.0, "width": 1080, "height": 1920,
      "audio": "audio.wav"}                       # optional, mixed in by ffmpeg
 The page must expose `window.__film.seek(t)` that puts every element where it is at time
-`t` seconds (no real clocks, no rAF-driven state), and may read `?variant=` from the URL.
+`t` seconds (no real clocks, no rAF-driven state) and may return a promise (it resolves once
+any <video> footage has seeked to its frame), and may read `?variant=` from the URL.
 We open it at the film's size, call seek() per frame, screenshot, and pipe PNGs to ffmpeg,
 which encodes straight into the spec_check profile (H.264 yuv420p, AAC 128k, faststart,
 all metadata stripped). `--preview` renders every 4th frame at 15 fps for a quick look.
@@ -61,7 +62,7 @@ def render(film_dir: Path, out: Path, variant: str = "reel", fps: int = 60, prev
         frames = 0
         for i in range(0, n, step):
             t = i / fps
-            page.evaluate("t => window.__film.seek(t)", t)
+            page.evaluate("async t => { await window.__film.seek(t); }", t)   # seek may return a promise (footage frames)
             png = page.screenshot(type="png", animations="disabled", caret="hide")
             ff.stdin.write(png)
             frames += 1
