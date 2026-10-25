@@ -1,0 +1,544 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Rosa Swim Film</title>
+<style>
+@font-face{font-family:Inter;src:url(inter.woff2) format('woff2');font-weight:100 900}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;background:#f4f3f3;overflow:hidden}
+body{font-family:Inter,sans-serif;font-feature-settings:"ss01" 1,"cv01" 1,"tnum" 1;color:#0d1225;-webkit-font-smoothing:antialiased}
+#stage{position:absolute;inset:0;overflow:hidden;background:#f4f3f3}
+#cam{position:absolute;inset:0;transform-origin:540px 960px}
+canvas{position:absolute;left:0;top:0}
+.a{position:absolute}
+.mask{display:inline-block;overflow:hidden;vertical-align:top;padding:0 .04em .1em}
+.mask>span{display:inline-block}
+.hud{font-size:15px;font-weight:650;letter-spacing:.22em;text-transform:uppercase;color:#0d1225a0}
+.big{font-weight:800;letter-spacing:-.045em;line-height:.98}
+.muted{color:#17171c80}
+.cap{font-size:11px;font-weight:750;letter-spacing:.08em;text-transform:uppercase}
+/* phone */
+#phone{position:absolute;left:-209px;top:-436px;width:418px;height:872px;transform-style:preserve-3d}
+#body{position:absolute;inset:0;border-radius:68px;background:linear-gradient(145deg,#f3f4f6,#c9ccd3 40%,#e8e9ec 70%,#b9bcc4);
+  box-shadow:0 50px 110px rgba(13,18,37,.26),0 12px 30px rgba(13,18,37,.12),0 0 0 1.5px #ffffff inset,0 0 0 9px #0b0c10 inset}
+.btn{position:absolute;width:4px;border-radius:2px;background:#b7bac2}
+#screen{position:absolute;left:14px;top:14px;width:390px;height:844px;border-radius:54px;overflow:hidden;background:#f4f3f3;isolation:isolate}
+#island{position:absolute;left:135px;top:11px;width:120px;height:35px;border-radius:20px;background:#000;z-index:60}
+#glare{position:absolute;inset:0;z-index:70;pointer-events:none;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.35) 48%,rgba(255,255,255,.08) 55%,transparent 65%);background-size:300% 100%;mix-blend-mode:soft-light}
+.scr{position:absolute;inset:0;overflow:hidden;background:#f4f3f3}
+.status{position:absolute;left:0;right:0;top:0;height:54px;z-index:40;font-size:16px;font-weight:650}
+.status .t{position:absolute;left:44px;top:18px}
+.status .r{position:absolute;right:30px;top:19px;display:flex;gap:6px;align-items:center}
+.card{position:absolute;background:#fff;border-radius:22px;overflow:hidden;box-shadow:0 2px 5px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04)}
+.pill{display:inline-block;border-radius:20px;font-weight:650;color:#fff}
+.tabbar{position:absolute;left:16px;top:764px;width:358px;height:64px;border-radius:32px;background:#fff;box-shadow:0 8px 26px rgba(0,0,0,.16);z-index:30}
+.rib{display:flex;gap:1px;width:44px;height:12px;border-radius:6px;overflow:hidden}
+.rib.wide{width:64px}
+.rib i{flex:1;display:block}
+.seg{position:relative;width:172px;height:36px;border-radius:8px;background:#ebebef}
+.seg .k{position:absolute;left:3px;top:3px;width:82px;height:30px;border-radius:6px;background:#fff;box-shadow:0 1px 3px rgba(13,18,37,.14),0 1px 1px rgba(13,18,37,.06)}
+.seg .l{position:absolute;top:0;height:36px;width:86px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:15.2px;font-weight:500}
+.srow{position:absolute;left:0;width:358px;height:58px;border-top:1px solid #3e3e4314}
+.srow .lb{position:absolute;left:18px;top:19px;font-size:16px;font-weight:550}
+.hrow{position:absolute;left:0;width:390px;height:72px;border-top:1px solid #3e3e4319}
+.wbox{position:absolute;left:222px;top:9px;width:92px;height:54px;border-radius:10px;background:#0a0b0f0a}
+.chip{position:absolute;left:334px;top:12px;width:44px;height:22px;border-radius:6px;background:#fff;box-shadow:0 0 0 1px #3e3e4322;font-size:10.5px;font-weight:750;letter-spacing:.06em;display:flex;align-items:center;justify-content:center}
+.bstag{position:absolute;right:8px;top:-11px;background:#24b161;color:#fff;font-size:11px;font-weight:800;letter-spacing:.08em;padding:4px 8px;border-radius:5px;white-space:nowrap}
+.swl{position:absolute;left:0;width:358px;height:36px}
+.swl .l{position:absolute;left:18px;top:8px;font-size:16px;color:#17171c88}
+.swl .v{position:absolute;left:128px;top:8px;font-size:16px;font-weight:600}
+.swl .w{position:absolute;right:18px;top:10px;font-size:13px;font-weight:750;letter-spacing:.06em}
+#touch,#touchS{position:absolute;border-radius:50%;background:rgba(13,18,37,.2);border:2px solid rgba(255,255,255,.95);box-shadow:0 4px 18px rgba(13,18,37,.25)}
+#touch{left:-27px;top:-27px;width:54px;height:54px;z-index:80}
+#ripple{position:absolute;left:-27px;top:-27px;width:54px;height:54px;border-radius:50%;border:2px solid #11b7f2;z-index:79}
+.li{position:absolute;left:600px;width:440px}
+.li .h{font-size:15px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:#0d122590}
+.li .w{font-size:74px;font-weight:800;letter-spacing:-.045em;line-height:1;margin-top:6px}
+.li .v{font-size:26px;font-weight:600;color:#0d122580;margin-top:4px}
+.tl{position:absolute;text-align:center;width:200px;margin-left:-100px}
+.tl b{display:block;font-size:44px;font-weight:800;letter-spacing:-.03em}
+.tl span{font-size:16px;font-weight:700;letter-spacing:.2em;color:#0d122590}
+</style></head>
+<body>
+<div id="stage">
+ <div id="cam">
+  <canvas id="bg" width="1080" height="1920"></canvas>
+  <canvas id="fx" width="1080" height="1920"></canvas>
+
+  <!-- S1 scale bands -> ribbon -> toggle -->
+  <div id="rib" class="a" style="overflow:hidden"></div>
+  <div id="h1" class="a big" style="left:0;width:1080px;text-align:center;top:520px;font-size:124px"></div>
+  <div id="h2" class="a big" style="left:0;width:1080px;text-align:center;top:560px;font-size:168px"><span class="mask"><span>Swim</span></span> <span class="mask"><span style="color:#11b7f2">mode.</span></span></div>
+  <div id="pth" class="a hud" style="left:0;width:1080px;top:1110px;text-align:center;font-size:20px;letter-spacing:.3em">Profile &nbsp;&#8250;&nbsp; Preferences &nbsp;&#8250;&nbsp; Mode</div>
+
+  <!-- S3 -->
+  <div id="h3" class="a big" style="left:80px;top:130px;font-size:104px"><span class="mask"><span>The sea,</span></span><br><span class="mask"><span>read for a <span style="color:#11b7f2">swim.</span></span></span></div>
+  <div id="bigRib" class="a" style="left:0;top:0"></div>
+  <!-- S4 -->
+  <div id="h4" class="a big" style="left:80px;top:150px;font-size:104px"><span class="mask"><span>One word</span></span><br><span class="mask"><span>per <span style="color:#24b161">factor.</span></span></span></div>
+  <svg id="con" class="a" width="1080" height="1920" style="left:0;top:0;overflow:visible" fill="none"></svg>
+  <div id="flist"></div>
+  <div id="h5" class="a big" style="left:0;width:1080px;text-align:center;top:150px;font-size:96px"><span class="mask"><span>Best swim</span></span><br><span class="mask"><span id="h5t" style="color:#24b161;font-size:190px;letter-spacing:-.05em">09:00</span></span></div>
+  <div id="h5n" class="a hud" style="left:0;width:1080px;top:1560px;text-align:center;font-size:18px;letter-spacing:.24em">Highest swim score in daylight<br><span style="opacity:.6;line-height:2.2">a slacker tide breaks ties</span></div>
+  <!-- S5 -->
+  <div id="h6" class="a big" style="left:80px;top:150px;font-size:104px"><span class="mask"><span>Swim at</span></span><br><span class="mask"><span style="color:#11b7f2">slack water.</span></span></div>
+  <div id="tlab"></div>
+  <div id="swmr" class="a" style="left:-40px;top:-40px;width:80px;height:80px;color:#0d1225"></div>
+  <div id="tcap" class="a hud" style="left:0;width:1080px;top:1000px;text-align:center;font-size:19px;letter-spacing:.2em;color:#0d1225b0">Dots mark slack water &middot; the easier swim</div>
+
+  <!-- phone -->
+  <div id="phone">
+   <div id="body"></div>
+   <div class="btn" style="left:-3px;top:180px;height:34px"></div>
+   <div class="btn" style="left:-3px;top:240px;height:64px"></div>
+   <div class="btn" style="left:-3px;top:316px;height:64px"></div>
+   <div class="btn" style="right:-3px;top:260px;height:100px"></div>
+   <div id="screen">
+    <div id="island"></div>
+    <div id="prof" class="scr"></div>
+    <div id="home" class="scr"></div>
+    <div id="spot" class="scr"><div id="spIn" class="a" style="left:0;top:0;width:390px;height:1900px"></div></div>
+    <div id="flood" class="a" style="left:0;top:0;width:390px;height:1000px;z-index:50"></div>
+    <div id="statusbar" class="status"></div>
+    <div id="tabs" class="tabbar"></div>
+    <div id="ripple"></div>
+    <div id="touch"></div>
+    <div id="glare"></div>
+   </div>
+  </div>
+
+  <div id="tog" class="a" style="left:-86px;top:-18px"></div>
+  <div id="touchS" class="a" style="left:-60px;top:-60px;width:120px;height:120px"></div>
+  <div id="rippleS" class="a" style="left:-60px;top:-60px;width:120px;height:120px;border-radius:50%;border:3px solid #11b7f2"></div>
+  <div id="stamp" class="a" style="left:0;top:0"><div class="bstag" style="position:static;display:inline-block;font-size:11px">BEST SWIM</div></div>
+
+  <!-- end -->
+  <div id="end" class="a" style="left:0;top:0;width:1080px;height:1920px">
+   <div id="endMark" class="a" style="left:178px;top:772px;width:200px;height:216px;color:#0d1225"></div>
+   <div id="endWord" class="a big" style="left:404px;top:770px;font-size:210px;letter-spacing:-.05em"></div>
+   <div id="endRib" class="a" style="left:280px;top:1072px;width:520px;height:18px;display:flex;border-radius:9px;overflow:hidden"></div>
+   <div id="endK" class="a hud" style="left:0;width:1080px;top:1140px;text-align:center;font-size:20px;letter-spacing:.42em;color:#11b7f2">Swim mode</div>
+   <div id="endUrl" class="a hud" style="left:0;width:1080px;top:1192px;text-align:center;font-size:24px;letter-spacing:.5em;color:#0d1225">rosa.surf</div>
+  </div>
+ </div>
+
+ <div id="flash" class="a" style="inset:0;background:#fff;opacity:0"></div>
+ <div id="vig" class="a" style="inset:0;background:radial-gradient(ellipse at center,transparent 60%,rgba(13,18,37,.12) 100%)"></div>
+ <canvas id="grain" width="270" height="480" style="width:1080px;height:1920px;opacity:.07;mix-blend-mode:overlay;image-rendering:pixelated"></canvas>
+
+ <div id="hud">
+  <div class="a hud" style="left:56px;top:46px"><span style="color:#11b7f2">&#9679;</span>&nbsp; ROSA &nbsp;<span style="opacity:.45">/</span>&nbsp; <span id="scene"></span></div>
+  <div class="a hud" id="tc" style="right:56px;top:46px"></div>
+  <div class="a hud" style="left:56px;bottom:44px">rosa.surf</div>
+  <div class="a hud" style="right:56px;bottom:44px;opacity:.6">Swim mode &middot; worldwide</div>
+  <svg class="a" width="1080" height="1920" style="left:0;top:0" fill="none" stroke="#0d122540" stroke-width="2">
+   <path d="M30 60V30h30M1050 60V30h-30M30 1860v30h30M1050 1860v30h-30"/>
+  </svg>
+ </div>
+</div>
+
+<script>
+const W=1080,H=1920,$=id=>document.getElementById(id);
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const P=(t,a,b)=>clamp((t-a)/(b-a));
+const lerp=(a,b,x)=>a+(b-a)*x;
+</script>
+<script src="lib.js"></script>
+<script>
+// ---------- tokens (web/src/styles.css, light)
+const SW={c:'#24b161',e:'#11b7f2',h:'#e48022',r:'#d0574a',o:'#6e2320'};
+const WORD={c:'Calm',e:'Easy',h:'Choppy',r:'Rough',o:'Stay out'};
+const MARK=`<svg viewBox="0 0 762.6 828.1" width="100%" height="100%"><path fill="currentColor" d="M0,490.5c0,147,129,315.9,297.3,331.5,45.6,4.3,119.4-4.9,158.5-7.3,45.3,10.4,94.6,19.9,139.4,7.4l19-4.6c16.1-4,31.9-3.1,48,.2,14.5,2.9,28.8,4.6,43.6,3.9,7.8-.3,21.6-1.8,23.7-5.8.5-.9,0-3.6-.7-4.6l-6.5-11,19.4.7c7.3.3,14.3-2.2,20.8-5.4l-34-115.7-25.1-89.5c-4.3-15-7.1-29.5-9-45-2.9-23.5-.1-46.1,7.6-68.3,3.3-9.4,4.6-19,5.4-28.9,1.7-18.3-1.6-35.6-8.3-52.5-1-2.5,0-7.1.6-9.7,2.9-13.4-4.1-25.6-17.1-30.1-16.1-5.7-31.1-3-43.6-17-5.4-6-10.5-12.1-15.5-18.7-10.9-31.5-29.3-57.9-49.4-84-3.3-4.3-7-7.4-12.1-9.4-8.9-3.5-17.9-5.6-27.5-7.3l-60-10.6c-5.8-1-10.7-1.9-16.4.9l-17.4,8.3c-5.8,2.8-10.9,5.3-16.3,8.9-6.8,4.4-14.7,5.4-22.6,7.6,4.7,4.6,9.7,3.4,16.2,1.9-3.4,4.2-6.8,7.3-11.1,11.1,8.6,4.5,12.9-6.8,22.7-13.1,3.3-2.1,14.1-3.9,15-.3.9,3.5-7.3,6.7-8.4,15.3-.4,2.7,0,5.4,2.5,7.3,6-17.9,22.6-19.3,28.5-33.3,4.6.4,8.6,1.2,13,2.7,19.1,6.2,37.2,14,55.4,22.6,5.7,2.6,11.5,5,16.3,8.8,9.3,13.4,17.7,26.9,25.7,41,2.8,4.9,5.2,10.2,6.5,15.5l4.2,17.4c-15-4.1-27.8-11.4-28.3-28,0-2.9-1.2-7-4.1-8.1-4.5-1.7-9.6,3.9-10.1,3.1l-.9-1.3c-.5-.8-2.2-2.8-2.8-2.3l-3.3,2.6-4.1-2.2-3.3,5.2-3.6-4.6c-.6-.8-3.1-1.3-3.6-.4l-4.9,8.3c-2,3.3-5.4,5.5-9.2,6-11.3,1.4-20.2,8.1-24.7,18.7-6.8,15.8-3.8,33.3,6.2,47.6-3.4,7.4-4,15.8.1,23.1,7.6,13.4,25.9,16.5,37.3,6.4,6.3-5.5,9.2-13.1,7.4-21.3,12.8-3.2,21.9-16.9,31-15.8,8.4,1,15.4,7.3,19,14.9,13.1,27.5,29.7,31,49.3,47.9,6.4,5.5,11.5,12,14.2,20.3,6.9,20.7-12.6,29.6-28.8,38.4-18,9.8-30.9,25.4-37.2,44.8-5,15.4-36.6,17.7-49.6,29-42,36.3-118.6,67.3-198.9,12.4C155,452.4,429.4.5,599.8,173.5c-59.1-112.4-175.7-80.5-298.5,26C466.8-1.2,683.5,100.8,702,114.7c14.3,13.7,22.5,34.5,7.3,48.9,10.6-2.4,18.5-10.2,22.6-20,5.5-13.4,2.5-27.7-4.6-40.5,1.9,2.8,3.6,5.8,5.2,8.9,5.9,12.1,7.5,24.9,4.1,37.8-4.1,13.4-14.1,24.2-28.1,27.5-11.2,2.7-20.8-.7-30.9-5.2,12.1,10.6,29.1,12.4,44.2,7.7,27.2-8.6,41.8-38.7,27.5-63.2C620.3-104.4,0-28,0,490.5Z"/></svg>`;
+const ic={
+ home:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20h-5v-6h-6v6H4z"/></svg>',
+ star:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg>',
+ map:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg>',
+ wav:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 9c3-2 6 2 9 0s6-2 9 0M3 15c3-2 6 2 9 0s6-2 9 0"/></svg>',
+ user:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>',
+ search:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>',
+ share:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4"/></svg>',
+ therm:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.8V4a2 2 0 1 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>',
+ wave:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 10c3-2 6 2 9 0s6-2 9 0M3 15c3-2 6 2 9 0s6-2 9 0"/></svg>',
+ shirt:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M8 3 3 6l2 5 2-1v11h10V10l2 1 2-5-5-3c0 2-2 3-4 3S8 5 8 3z"/></svg>',
+ map14:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg>',
+ flag:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 21V4h11l-2 4 2 4H5"/></svg>',
+ info:'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>',
+ surfI:s=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16c3 0 4.5-2 5.5-4.5S10.5 5 15 5c3 0 5 2 5 4.5 0 1.9-1.4 3-3 3-1.4 0-2.5-1-2.5-2.3"/><path d="M2 20c1.5 0 2.5-1 4-1s2.5 1 4 1 2.5-1 4-1 2.5 1 4 1 2.5-1 4-1"/></svg>`,
+ swimI:(s,w=2)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"><circle cx="17" cy="7" r="2"/><path d="M3 13.5 8 10l4 3 5-2.5"/><path d="M2 18c1.5 0 2.5-1 4-1s2.5 1 4 1 2.5-1 4-1 2.5 1 4 1 2.5-1 4-1"/></svg>`,
+};
+const ribHTML=(k,cls='')=>`<span class="rib ${cls}">${k.split('').map(c=>`<i style="background:${SW[c]}"></i>`).join('')}</span>`;
+const arrow=(deg,s=12,c='#0d1225b0')=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" style="transform:rotate(${deg}deg)"><path d="M12 3v18M5 14l7 7 7-7" fill="none" stroke="${c}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const navA=(deg,s=15)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" style="transform:rotate(${deg}deg)"><path d="M12 2 20 21l-8-4-8 4z" fill="#0d122599"/></svg>`;
+
+// ---------- status + tabs
+$('statusbar').innerHTML=`<div class="t">7:12</div><div class="r">
+<svg width="18" height="12"><rect x="0" y="8" width="3" height="4" rx="1" fill="#0d1225"/><rect x="5" y="5" width="3" height="7" rx="1" fill="#0d1225"/><rect x="10" y="2.5" width="3" height="9.5" rx="1" fill="#0d1225"/><rect x="15" y="0" width="3" height="12" rx="1" fill="#0d1225"/></svg>
+<svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 11.5 5.6 9a3.4 3.4 0 0 1 4.8 0zM3.3 6.8a6.6 6.6 0 0 1 9.4 0l-1.4 1.4a4.6 4.6 0 0 0-6.6 0zM1 4.5a9.9 9.9 0 0 1 14 0l-1.4 1.4a7.9 7.9 0 0 0-11.2 0z" fill="#0d1225"/></svg>
+<svg width="27" height="13"><rect x=".5" y=".5" width="23" height="12" rx="3.5" fill="none" stroke="#0d122588"/><rect x="2.5" y="2.5" width="16" height="8" rx="2" fill="#0d1225"/><rect x="25" y="4.5" width="2" height="4" rx="1" fill="#0d122588"/></svg></div>`;
+$('tabs').innerHTML=['home','star','map','wav','user'].map((k,i)=>`<div id="tab${i}" style="position:absolute;left:${358*(i+.5)/5-12}px;top:20px">${ic[k]}</div>`).join('');
+
+// ---------- toggle (web/src/pages/SettingsPage.tsx .segmented)
+const togHTML=id=>`<div class="seg" id="${id}"><div class="k"></div>
+ <div class="l" style="left:0">${ic.surfI(12)}Surf</div><div class="l" style="left:86px">${ic.swimI(12)}Swim</div></div>`;
+$('tog').innerHTML=togHTML('togB');
+const segRow=(lb,a,b,ia,ib)=>`<div class="lb">${lb}</div><div style="position:absolute;right:14px;top:11px"><div class="seg"><div class="k"></div><div class="l" style="left:0;color:#0d1225">${ia}${a}</div><div class="l" style="left:86px;color:#17171c80">${ib}${b}</div></div></div>`;
+$('prof').innerHTML=`<div style="position:absolute;left:22px;top:64px;font-size:30px;font-weight:800;letter-spacing:-.03em">Profile</div>
+<div class="muted cap" style="position:absolute;left:24px;top:128px;letter-spacing:.14em">Preferences</div>
+<div class="card" style="left:16px;top:150px;width:358px;height:174px">
+ <div class="srow" style="top:0;border-top:0">${segRow('Units','Metric','Imperial','','')}</div>
+ <div class="srow" style="top:58px"><div class="lb">Mode</div><div id="togP" style="position:absolute;right:14px;top:11px">${togHTML('togI')}</div></div>
+ <div class="srow" style="top:116px">${segRow('Theme','Light','Dark','','')}</div>
+</div>
+<div class="muted cap" style="position:absolute;left:24px;top:352px;letter-spacing:.14em">Notifications</div>
+<div class="card" style="left:16px;top:374px;width:358px;height:116px">
+ <div class="srow" style="top:0;border-top:0"><div class="lb">Swell alerts</div><div style="position:absolute;right:16px;top:15px;width:50px;height:30px;border-radius:15px;background:#11b7f2"><div style="position:absolute;right:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#fff"></div></div></div>
+ <div class="srow" style="top:58px"><div class="lb">Install Rosa</div><div style="position:absolute;right:18px;top:18px;color:#11b7f2;font-weight:650;font-size:15px">Add</div></div>
+</div>
+<div class="muted cap" style="position:absolute;left:24px;top:518px;letter-spacing:.14em">About</div>
+<div class="card" style="left:16px;top:540px;width:358px;height:116px">
+ <div class="srow" style="top:0;border-top:0"><div class="lb">How ratings work</div></div>
+ <div class="srow" style="top:58px"><div class="lb">Contact</div></div>
+</div>`;
+const togI=$('togI'), togB=$('togB');
+function setTog(el,x){ // x: 0 surf .. 1 swim
+ el.querySelector('.k').style.transform=`translateX(${84*x}px)`;
+ const ls=el.querySelectorAll('.l');
+ ls[0].style.color=x<.5?'#0d1225':'#17171c80';ls[1].style.color=x>=.5?'#0d1225':'#17171c80';
+}
+
+// ---------- home (swim mode, live rosa.surf 2026-10-04, Hilton Beach)
+const sat=`<div style="position:absolute;inset:0;background:linear-gradient(160deg,#0d3238,#0f2f35 50%,#123a3b)"></div>
+<div style="position:absolute;inset:0;clip-path:polygon(58% 0,54% 18%,57% 34%,52% 52%,55% 70%,49% 86%,47% 100%,100% 100%,100% 0);background:#2f6e5e"></div>
+<div style="position:absolute;inset:0;clip-path:polygon(62% 0,58% 18%,61% 34%,56% 52%,59% 70%,53% 86%,51% 100%,100% 100%,100% 0);background:#cfc6a8"></div>
+<div style="position:absolute;inset:0;clip-path:polygon(66% 0,62% 18%,65% 34%,60% 52%,63% 70%,57% 86%,55% 100%,100% 100%,100% 0);background:#8d918a;
+ background-image:repeating-linear-gradient(8deg,#ffffff30 0 1px,transparent 1px 11px),repeating-linear-gradient(98deg,#ffffff26 0 1px,transparent 1px 13px),radial-gradient(circle at 80% 30%,#6f8f6a 0 14px,transparent 15px),radial-gradient(circle at 74% 78%,#76946e 0 10px,transparent 11px)"></div>
+<div style="position:absolute;left:150px;top:30px;width:26px;height:34px"><svg width="26" height="34" viewBox="0 0 26 34"><path d="M13 33C5 22 1 17 1 12a12 12 0 0 1 24 0c0 5-4 10-12 21z" fill="#11b7f2" stroke="#fff" stroke-width="2"/><circle cx="13" cy="12" r="4.5" fill="#fff"/></svg></div>`;
+const coast=(name,ribs,cms,top)=>`<div class="card cst" style="left:16px;top:${top}px;width:358px;height:150px">
+ <div style="position:absolute;left:18px;top:14px;font-size:18px;font-weight:700">${name}</div>
+ ${[0,1,2].map(d=>`<div style="position:absolute;left:${69+d*101-40}px;top:46px;width:80px;text-align:center">
+  <div style="height:16px">${arrow([135,135,45][d],12,'#0d122590')}</div>
+  <div style="margin-top:8px;display:flex;justify-content:center">${ribHTML(ribs[d])}</div>
+  <div class="muted" style="font-size:12px;margin-top:8px">${['09:00','09:00','15:00'][d]}</div>
+  <div style="font-size:19px;font-weight:750;margin-top:4px">${cms[d]}cm</div></div>`).join('')}</div>`;
+$('home').innerHTML=`<div style="position:absolute;left:18px;top:62px;width:26px;height:28px;color:#11b7f2">${MARK}</div>
+<div style="position:absolute;left:52px;top:60px;font-size:25px;font-weight:800;letter-spacing:-.025em">Good morning</div>
+<div style="position:absolute;right:62px;top:64px">${ic.share}</div><div style="position:absolute;right:22px;top:64px">${ic.search}</div>
+<div id="hcard" class="card" style="left:16px;top:108px;width:302px;height:300px">
+ <div style="position:absolute;left:0;top:0;width:302px;height:140px;overflow:hidden">${sat}</div>
+ <div style="position:absolute;left:18px;top:158px;font-size:19px;font-weight:700">Hilton Beach <span class="muted" style="font-size:13px;font-weight:600">TLV</span></div>
+ <div id="hpill" class="pill" style="position:absolute;right:16px;top:153px;background:#24b161;padding:3px 14px;font-size:16px">Calm</div>
+ <div style="position:absolute;left:18px;top:190px;font-size:36px;font-weight:800;letter-spacing:-.03em"><span id="hcm">25</span> cm</div>
+ <div id="hrib" style="position:absolute;right:16px;top:192px">${ribHTML('cehc','wide')}</div>
+ <div class="muted" style="position:absolute;right:16px;top:210px;font-size:12.5px">best 09:00</div>
+ <div id="hwind" class="muted" style="position:absolute;left:18px;top:240px;font-size:14px">NNW 6 km/h pushes in &middot; sets 6 s</div>
+ <div id="htemp" style="position:absolute;left:18px;right:16px;top:268px;display:flex;justify-content:space-between;font-size:14px">
+  <span><span class="muted">${ic.therm}</span> 27&#176;C</span><span><span class="muted">${ic.wave}</span> 28&#176;C</span><span><span class="muted">${ic.shirt}</span> skins</span></div>
+</div>
+<div class="card" style="left:330px;top:108px;width:302px;height:300px"><div style="position:absolute;left:0;top:0;width:302px;height:140px;overflow:hidden">${sat}</div>
+ <div style="position:absolute;left:18px;top:158px;font-size:19px;font-weight:700">Gordon</div><div style="position:absolute;left:18px;top:190px;font-size:36px;font-weight:800">15 cm</div></div>
+<div style="position:absolute;left:16px;top:432px;width:358px;display:flex">${[['Today',4],['Mon',5],['Tue',6]].map(([d,n])=>`<div style="width:101px;margin-left:${d=='Today'?18:0}px;text-align:center"><div class="muted" style="font-size:14px;font-weight:600">${d}</div><div style="font-size:21px;font-weight:750">${n}</div></div>`).join('')}</div>
+${coast('Hilton Beach',['cehc','ccee','eccc'],[25,15,15],494)}
+${coast('Gordon',['cehc','ccee','eccc'],[15,15,15],656)}
+${coast('Reading',['ceec','ccee','eecc'],[25,15,15],818)}`;
+
+// ---------- spot page
+const DAYS=[['Today',4,135,'cehc','09:00',25],['Mon',5,135,'ccee','09:00',15],['Tue',6,45,'eccc','15:00',15],['Wed',7,180,'cehe','09:00',15],['Thu',8,180,'ehee','09:00',15],['Fri',9,180,'eeee','09:00',15],['Sat',10,180,'ccee','09:00',15]];
+const LINES=[['Shore break','25 cm','TINY','c','Tiny'],['Chop','3 s wind sea','LIGHT','e','Light'],['Surge','sets 6 s','LOW','c','Low'],['Wind','6 km/h NNW','PUSHES IN','c','Pushes in'],['Clarity','9.1 m','CLEAR','c','Clear']];
+const ROWS=[['00:00','c',11,'NE',225,'DRIFT'],['03:00','c',10,'NNW',157,'DRIFT'],['06:00','c',8,'NNW',157,'DRIFT'],['09:00','c',6,'NNW',157,'PUSHES IN',1],['12:00','e',19,'NW',135,'PUSHES IN'],['15:00','h',23,'NW',135,'PUSHES IN'],['18:00','c',18,'NW',135,'PUSHES IN',1],['21:00','e',14,'NNW',157,'PUSHES IN']];
+const RT=668, TT=1270;
+$('spIn').innerHTML=`<div style="position:absolute;left:18px;top:58px;font-size:28px;color:#17171c80;line-height:1">&#8249;</div>
+<div style="position:absolute;left:44px;top:62px;display:flex;gap:10px;align-items:center"><span style="font-size:21px;font-weight:750">Hilton Beach</span><span class="muted" style="font-size:14px;font-weight:600">TLV</span><span class="muted">${ic.star}</span></div>
+<div style="position:absolute;right:62px;top:64px">${ic.share}</div><div style="position:absolute;right:22px;top:64px">${ic.search}</div>
+<div style="position:absolute;left:5px;top:104px;display:flex">${DAYS.map(([d,n,ar,rb,tm,cm],k)=>`<div class="dcol" style="width:54.5px;text-align:center">
+ <div style="margin:0 3px;border-radius:12px;padding:6px 0 7px;${k==0?'background:#1c2137;color:#faf9f7':''}"><div style="font-size:12px;font-weight:600;${k==0?'':'color:#17171c80'}">${d}</div><div style="font-size:19px;font-weight:750">${n}</div></div>
+ <div style="height:16px;margin-top:10px">${arrow(ar,12,'#0d122590')}</div>
+ <div style="margin-top:8px;display:flex;justify-content:center">${ribHTML(rb)}</div>
+ <div class="muted" style="font-size:12px;margin-top:8px">${tm}</div><div style="font-size:14px;font-weight:750;margin-top:3px">${cm}cm</div></div>`).join('')}</div>
+<div style="position:absolute;left:16px;top:252px;display:flex;gap:11px;font-size:12px" class="muted">${'cehro'.split('').map(c=>`<span style="display:flex;align-items:center;gap:4px"><i style="display:block;width:8px;height:8px;border-radius:50%;background:${SW[c]}"></i>${WORD[c]}</span>`).join('')}</div>
+<div id="swc" class="card" style="left:16px;top:282px;width:358px;height:266px">
+ <div style="position:absolute;left:18px;top:14px;display:flex;gap:12px;align-items:center"><span id="spill" class="pill" style="background:#24b161;padding:3px 14px;font-size:16px">Calm</span><span style="color:#11b7f2;font-weight:650;font-size:15px;display:flex;gap:5px;align-items:center">${ic.map14}Map</span></div>
+ <div class="muted" style="position:absolute;right:18px;top:19px;font-size:14px">best 09:00 &middot; rip risk low</div>
+ ${LINES.map(([l,v,w,c],k)=>`<div class="swl" id="swl${k}" style="top:${50+k*34}px"><div class="hl" style="position:absolute;inset:0 8px;border-radius:8px;background:${SW[c]}"></div><div class="l">${l}</div><div class="v">${v}</div><div class="w" style="color:${SW[c]}">${w}</div></div>`).join('')}
+ <div style="position:absolute;left:18px;right:18px;top:224px;height:1px;background:#3e3e4314"></div>
+ <div style="position:absolute;left:0;right:0;top:236px;display:flex;justify-content:center;gap:26px;font-size:15px"><span><span class="muted">${ic.therm}</span> air 27&#176;C</span><span><span class="muted">${ic.wave}</span> water 28&#176;C</span><span><span class="muted">${ic.shirt}</span> skins</span></div>
+</div>
+<div style="position:absolute;left:22px;top:572px"><div style="font-size:19px;font-weight:700">Today &middot; Oct 4</div><div class="muted" style="font-size:14px;margin-top:4px">Glassy - go any time</div></div>
+<div style="position:absolute;right:20px;top:574px;background:#1c2137;color:#faf9f7;border-radius:22px;padding:9px 18px;font-weight:700;font-size:15px;display:flex;gap:7px;align-items:center">${ic.flag}Report</div>
+<div class="muted cap" style="position:absolute;left:0;top:${RT-34}px;width:390px">
+ <span style="position:absolute;left:62px;width:72px;text-align:center;line-height:1.25">Shore<br>break cm</span><span style="position:absolute;left:160px">Surge</span><span style="position:absolute;left:228px">Wind km/h</span><span style="position:absolute;left:334px;width:44px;text-align:center;line-height:1.25">Rip<br>water</span></div>
+${ROWS.map(([tm,c,kt,dir,deg,push,best],k)=>`<div class="hrow" id="hr${k}" style="top:${RT+k*72}px;${best?'background:#24b16118':''}">
+ <div class="muted" style="position:absolute;left:2px;top:28px;width:40px;font-size:11px;font-weight:600;transform:rotate(-90deg)">${tm}</div>
+ <div style="position:absolute;left:38px;top:10px;width:5px;height:52px;border-radius:3px;background:${SW[c]}"></div>
+ <div style="position:absolute;left:62px;width:72px;text-align:center;top:22px;font-size:23px;font-weight:750">20</div>
+ <div style="position:absolute;left:150px;width:66px;text-align:center;top:10px;font-size:22px;font-weight:750">6s</div><div class="muted" style="position:absolute;left:146px;width:74px;text-align:center;top:40px;font-size:12px">sets &middot; <b style="font-weight:700">LOW</b></div>
+ <div class="wbox"><div style="position:absolute;left:10px;top:7px;display:flex;align-items:center;gap:5px">${navA(deg,14)}<b style="font-size:17px;font-weight:750">${kt}</b><span class="muted" style="font-size:12px">${dir}</span></div><div class="cap muted" style="position:absolute;left:0;width:92px;text-align:center;top:33px;font-size:10.5px">${push}</div></div>
+ <div class="chip">LOW</div><div class="muted" style="position:absolute;left:334px;width:44px;text-align:center;top:42px;font-size:13px">28&#176;C</div>
+ ${best?`<div class="bstag" id="bt${k}">BEST SWIM</div>`:''}</div>`).join('')}
+<div style="position:absolute;left:0;top:${TT}px;width:390px;height:250px;border-top:1px solid #3e3e4319">
+ <div class="muted cap" style="position:absolute;left:18px;top:20px;letter-spacing:.12em">Tide</div>
+ <div class="muted" style="position:absolute;right:18px;top:18px;font-size:13px">~0.2 m range - barely matters here</div>
+ ${[['05:10','0.1 m',.255],['12:41','-0.1 m',.5],['19:53','0.1 m',.8]].map(([a,b,x])=>`<div style="position:absolute;left:${16+358*x-40}px;width:80px;text-align:center;top:44px"><div style="font-size:15px;font-weight:700">${a}</div><div class="muted" style="font-size:13px">${b}</div></div>`).join('')}
+ <svg id="tsvg" style="position:absolute;left:16px;top:84px" width="358" height="110"></svg>
+ <div class="muted" style="position:absolute;left:18px;top:206px;font-size:14px">Dots mark slack water - the easier swim.</div>
+</div>
+<div style="position:absolute;left:0;top:${TT+250}px;width:390px;border-top:1px solid #3e3e4319;display:flex;justify-content:space-between;padding:18px 18px">
+ ${[['First light','06:13'],['Sunrise','06:37'],['Sunset','18:24'],['Last light','18:48']].map(([a,b])=>`<div><div class="muted cap" style="letter-spacing:.1em">${a}</div><div style="font-size:16px;font-weight:700;margin-top:4px">${b}</div></div>`).join('')}</div>`;
+
+// tide: extrema 05:10 +0.1, 12:41 -0.1, 19:53 +0.1 (live page)
+const EX=[[-2.3,-.1],[5.17,.1],[12.68,-.1],[19.88,.1],[27.2,-.1]];
+function tide(h){for(let i=1;i<EX.length;i++){const[a,va]=EX[i-1],[b,vb]=EX[i];if(h<=b){const x=(h-a)/(b-a);return lerp(va,vb,(1-Math.cos(Math.PI*x))/2)}}return 0}
+const SLK=[5.17,12.68,19.88], NOWH=14.92;
+{const pts=[];for(let i=0;i<=96;i++){const h=i/4;pts.push(`${(h/24*358).toFixed(1)},${(55-tide(h)*400).toFixed(1)}`)}
+ $('tsvg').innerHTML=`<path d="M${pts.join('L')}L358,110L0,110Z" fill="#11b7f214"/><path id="tcur" d="M${pts.join('L')}" fill="none" stroke="#11b7f2" stroke-width="2"/>
+ ${SLK.map(h=>`<line x1="${h/24*358}" x2="${h/24*358}" y1="${55-tide(h)*400}" y2="110" stroke="#3e3e4322"/><circle cx="${h/24*358}" cy="${55-tide(h)*400}" r="4" fill="#fff" stroke="#11b7f2" stroke-width="2"/>`).join('')}
+ <line x1="${NOWH/24*358}" x2="${NOWH/24*358}" y1="0" y2="110" stroke="#0d1225" stroke-dasharray="3 3" stroke-width="1.2"/>`;}
+
+// ---------- stage pieces
+$('h1').innerHTML=`<span class="mask"><span>Not surfing</span></span><br><span class="mask"><span>today?</span></span>`;
+$('rib').innerHTML='cehro'.split('').map((c,k)=>`<div class="a band" style="background:${SW[c]}">
+ <div class="a bw big" style="left:70px;font-size:176px;line-height:1.1;color:#fff;white-space:nowrap"><span class="mask" style="padding-bottom:.12em"><span>${WORD[c]}</span></span></div>
+ <div class="a bl hud" style="right:72px;color:#ffffffd0;font-size:22px">${['80-100','60-79','40-59','20-39','0-19'][k]}</div></div>`).join('')+`<div id="ribG" class="a" style="inset:0;background:#ebebef"></div>`;
+const bands=[...document.querySelectorAll('.band')];
+const BR=[...'cehc'];const BT=['09:00','12:00','15:00','18:00'];
+$('bigRib').innerHTML=BR.map((c,k)=>`<div class="a brs" style="background:${SW[c]}"></div><div class="a brt hud" style="width:200px;text-align:center;font-size:20px;color:#0d1225">${BT[k]}</div><div class="a brw" style="width:220px;text-align:center;font-size:40px;font-weight:800;letter-spacing:-.03em;color:${SW[c]}">${WORD[c]}</div>`).join('')+
+ `<div id="brBest" class="a" style="width:300px;text-align:center"><svg width="22" height="14" viewBox="0 0 22 14"><path d="M11 0 22 14H0z" fill="#0d1225"/></svg><div class="hud" style="color:#0d1225;font-size:18px;margin-top:6px">Best 09:00</div></div>`;
+const brs=[...document.querySelectorAll('.brs')],brt=[...document.querySelectorAll('.brt')],brw=[...document.querySelectorAll('.brw')];
+$('flist').innerHTML=LINES.map(([l,v,w,c,ww],k)=>`<div class="li a" id="li${k}" style="top:${560+k*176}px"><div class="h">${l}</div><div class="w" style="color:${SW[c]}">${ww}</div><div class="v">${v}</div></div>`).join('');
+$('con').innerHTML=LINES.map((_,k)=>`<path id="cp${k}" stroke="${SW[LINES[k][3]]}" stroke-width="2.5" stroke-linecap="round"/><circle id="cd${k}" r="6" fill="${SW[LINES[k][3]]}"/>`).join('');
+$('tlab').innerHTML=SLK.map((h,k)=>`<div class="tl a" id="tl${k}"><span>${['HIGH','LOW','HIGH'][k]} &middot; ${['0.1','-0.1','0.1'][k]} m</span><b>${['05:10','12:41','19:53'][k]}</b></div>`).join('')+
+ `<div class="a hud" id="nowL" style="width:120px;margin-left:-60px;text-align:center;color:#0d1225;font-size:16px">Now</div>`;
+$('swmr').innerHTML=ic.swimI(80,1.8);
+$('endMark').innerHTML=MARK;
+$('endWord').innerHTML='rosa'.split('').map(c=>`<span class="mask"><span>${c}</span></span>`).join('')+`<span class="mask"><span style="color:#11b7f2">.</span></span>`;
+$('endRib').innerHTML='cehro'.split('').map(c=>`<i class="er" style="display:block;flex:1;background:${SW[c]}"></i>`).join('');
+
+// ---------- canvases
+const bg=$('bg'),g=bg.getContext('2d'),fx=$('fx'),f=fx.getContext('2d');
+const gr=$('grain'),gg=gr.getContext('2d'),gimg=gg.createImageData(270,480);
+function drawBg(t,amt,yoff){
+ g.fillStyle='#f4f3f3';g.fillRect(0,0,W,H);
+ const gl=(x,y,r,c)=>{const q=g.createRadialGradient(x,y,0,x,y,r);q.addColorStop(0,c);q.addColorStop(1,'rgba(244,243,243,0)');g.fillStyle=q;g.fillRect(x-r,y-r,2*r,2*r)};
+ gl(200+Math.sin(t*.4)*60,520+yoff*.3,700,'rgba(17,183,242,.10)');
+ gl(900+Math.cos(t*.3)*60,1450+yoff*.3,760,'rgba(36,177,97,.07)');
+ if(amt<=0)return;
+ for(let i=0;i<30;i++){const yy=((i*72+yoff*.5+t*14)%2200)-140;const amp=5+(i%5)*2;const k=.006+(i%7)*.0008;
+  g.beginPath();for(let x=-20;x<=W+20;x+=18){const y=yy+Math.sin(x*k+t*(1.1+(i%4)*.18)+i*1.7)*amp+Math.sin(x*k*2.6-t*.8+i)*amp*.35;x<0?g.moveTo(x,y):g.lineTo(x,y)}
+  g.strokeStyle=`rgba(17,140,210,${amt*.11})`;g.lineWidth=1.3;g.stroke()}
+}
+function grain(fr){const r=rng(fr*7+3);const d=gimg.data;for(let i=0;i<d.length;i+=4){const v=r()*255;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255}gg.putImageData(gimg,0,0)}
+// flood (in-phone water wipe)
+function flood(t){
+ const pts=a=>{let s='';for(let x=0;x<=390;x+=10)s+=`L${x},${(a+Math.sin(x*.035+t*9)*9+Math.sin(x*.09-t*13)*4).toFixed(1)}`;return s};
+ let top=pts(30),bot=pts(970);
+ const back=[];for(let x=390;x>=0;x-=10)back.push(`L${x},${(970+Math.sin(x*.035+t*9+1)*9+Math.sin(x*.09-t*13)*4).toFixed(1)}`);
+ const R=rng(9);let bub='';for(let i=0;i<26;i++){const bx=R()*390,by=(R()*900+60-((t*260*(.5+R()))%900)+900)%900+50,br=2+R()*7;bub+=`<circle cx="${bx}" cy="${by}" r="${br}" fill="none" stroke="#ffffff90" stroke-width="1.5"/>`}
+ $('flood').innerHTML=`<svg width="390" height="1000" style="overflow:visible"><defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fd3fb"/><stop offset=".12" stop-color="#11b7f2"/><stop offset=".7" stop-color="#0b8fd6"/><stop offset="1" stop-color="#24b161"/></linearGradient></defs>
+ <path d="M0,40${top.slice(0)}L390,960${back.join('')}Z" fill="url(#fg)"/>
+ <path d="M0,40${top}" fill="none" stroke="#ffffffb0" stroke-width="3"/>${bub}</svg>`;
+}
+
+// ---------- phone helpers
+const phone=$('phone');let PH={x:540,y:2600,s:1,rx:0,ry:0,rz:0};
+function setPhone(x,y,s,rx=0,ry=0,rz=0){PH={x,y,s,rx,ry,rz};tf(phone,`translate(${x}px,${y}px) perspective(2400px) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) scale(${s})`)}
+const S2=(x,y)=>[PH.x+(14+x-209)*PH.s,PH.y+(14+y-436)*PH.s];
+function tabOn(i){for(let k=0;k<5;k++)$('tab'+k).style.color=k==i?'#11b7f2':'#0d1225'}
+const masks=el=>[...el.querySelectorAll('.mask>span')];
+function maskIn(el,t,a,step=.07,d=.5,out=null,ostep=.04){masks(el).forEach((s,i)=>{let y=125*(1-E.oX(P(t,a+i*step,a+i*step+d)));if(out!==null)y-=105*E.iX(P(t,out+i*ostep,out+i*ostep+.35));tf(s,`translateY(${y}%)`)})}
+const swl=[0,1,2,3,4].map(k=>$('swl'+k)), lis=[0,1,2,3,4].map(k=>$('li'+k));
+const roll=(n)=>n;
+
+window.READY=true;
+const SC=[[0,'The scale'],[2.3,'Mode'],[4.6,'Today'],[7.2,'The spot'],[8.95,'Best swim'],[10.3,'Tide'],[12.8,'Rosa']];
+
+function render(t){
+ const fr=Math.round(t*120);
+ $('tc').textContent=`00:${String(Math.floor(t)).padStart(2,'0')}:${String(Math.floor((t%1)*60)).padStart(2,'0')}`;
+ $('scene').textContent=SC.filter(s=>t>=s[0]).pop()[1];
+ // camera: slow drift + punches
+ const punch=(at,amt)=>amt*Math.exp(-Math.max(0,t-at)*9)*(t>=at?1:0);
+ const shake=(at,amt)=>t>=at?amt*Math.exp(-(t-at)*10)*Math.sin((t-at)*70):0;
+ const z=1+.012*Math.sin(t*.5)+punch(1.86,.03)+punch(9.52,.035)+punch(12.95,.025)+.035*E.io3(P(t,13,15));
+ tf($('cam'),`translate(${shake(9.52,10)}px,${shake(1.86,7)+shake(9.52,6)}px) scale(${z})`);
+ // bg
+ const yoff=track([[0,0],[4.6,-200],[7.2,-420],[10.3,-700],[15,-1000]],t,E.io3);
+ drawBg(t,P(t,1.5,2.2)*(1-.6*P(t,12.6,13.2)),yoff);
+ grain(fr);
+ op($('flash'),.55*Math.exp(-Math.max(0,t-1.86)*14)*(t>=1.86?1:0)+.4*Math.exp(-Math.max(0,t-12.95)*10)*(t>=12.95?1:0));
+
+ // ===== S1 bands -> ribbon -> toggle
+ const rib=$('rib');
+ const c1=E.ioX(P(t,1.36,1.84)), c2=E.io3(P(t,2.32,2.6));
+ const RA={x:0,y:0,w:1080,h:1920,r:0}, RB={x:220,y:912,w:640,h:96,r:48}, RC={x:540-378.4,y:960-79.2,w:756.8,h:158.4,r:35.2};
+ const lr=(A,B,c)=>({x:lerp(A.x,B.x,c),y:lerp(A.y,B.y,c),w:lerp(A.w,B.w,c),h:lerp(A.h,B.h,c),r:lerp(A.r,B.r,c)});
+ const RR=lr(lr(RA,RB,c1),RC,c2);
+ const showRib=t<2.62;rib.style.display=showRib?'block':'none';
+ if(showRib){Object.assign(rib.style,{left:RR.x+'px',top:RR.y+'px',width:RR.w+'px',height:RR.h+'px',borderRadius:RR.r+'px'});
+  bands.forEach((b,k)=>{const ck=c1*(1-c2)+c2;const ww=(RR.w-(4*8)*ck)/5;
+   const x0=0,y0=k*384,w0=1080,h0=384;const x1=k*(ww+8*ck),y1=0,w1=ww,h1=RR.h;
+   const wi=E.o5(P(t,.1+k*.2,.5+k*.2));// wipe in
+   Object.assign(b.style,{left:lerp(x0,x1,ck)+'px',top:lerp(y0,y1,ck)+'px',width:lerp(w0,w1,ck)+'px',height:lerp(h0,h1,ck)+'px',transformOrigin:k%2?'100% 50%':'0 50%'});
+   tf(b,`scaleX(${wi})`);
+   const bw=b.querySelector('.bw'),bl=b.querySelector('.bl');
+   bw.style.top=(lerp(h0,h1,ck)/2-100)+'px';bl.style.top=(lerp(h0,h1,ck)/2-12)+'px';
+   const ms=bw.querySelector('.mask>span');tf(ms,`translateY(${125*(1-E.oX(P(t,.2+k*.2,.65+k*.2)))-110*E.iX(P(t,1.12+k*.03,1.38+k*.03))}%) translateX(${(k%2?-1:1)*18*P(t,.2+k*.2,1.4)}px)`);
+   op(bl,E.o3(P(t,.35+k*.2,.6+k*.2))*(1-P(t,1.3,1.45)));
+  });
+  op($('ribG'),c2);
+ }
+ // headline 1 + 2
+ maskIn($('h1'),t,1.88,.09,.5,2.8,.05);op($('h1'),t<3.6?1:0);
+ maskIn($('h2'),t,3.22,.08,.5,3.62,.05);op($('h2'),t>3.15&&t<4.1?1:0);
+ op($('pth'),E.o3(P(t,3.25,3.6))*(1-P(t,3.55,3.75)));tf($('pth'),`translateY(${20*(1-E.o3(P(t,3.25,3.6)))}px)`);
+ // big toggle
+ const tg=$('tog');const tkn=E.spring(P(t,2.97,3.6),1.6,6.5);setTog(togB,clamp(tkn,0,1.15));
+ const fl=E.io3(P(t,3.4,3.92));
+ if(t>=2.5&&t<3.93){tg.style.display='block';op(tg,E.o3(P(t,2.5,2.62)));
+  const [tx,ty]=[630.9,804.2];// in-phone toggle centre at handoff phone pose (540,1010,1.15)
+  const sx=lerp(540,tx,fl),sy=lerp(960,ty,fl),ss=lerp(4.4,1.15,fl);
+  tf(tg,`translate(${sx}px,${sy}px) scale(${ss}) rotate(${-3*Math.sin(Math.PI*fl)}deg)`);}else tg.style.display='none';
+ // stage touch
+ const ts=$('touchS'),rs=$('rippleS');
+ if(t>2.62&&t<3.4){const tx=track([[2.62,880],[2.92,728]],t,E.o3),ty=track([[2.62,1250],[2.92,975]],t,E.o3);
+  const press=1-.22*Math.sin(Math.PI*P(t,2.9,3.06));op(ts,E.o3(P(t,2.62,2.75))*(1-P(t,3.15,3.35)));tf(ts,`translate(${tx}px,${ty}px) scale(${press})`);
+  const rp=P(t,2.97,3.4);op(rs,rp>0?(1-rp):0);tf(rs,`translate(728px,975px) scale(${1+rp*2.2})`);}else{op(ts,0);op(rs,0)}
+
+ // ===== phone pose
+ let px,py,ps,prx=0,pry=0,prz=0;
+ if(t<4.6){const k=E.o5(P(t,3.35,3.95));px=540;py=lerp(2700,1010,k);ps=1.15;prx=lerp(38,0,k);prz=lerp(-6,0,k);
+  if(t>=3.95){const k2=E.io3(P(t,4.2,4.75));py=lerp(1010,890,k2);ps=lerp(1.15,1.1,k2)}}
+ else if(t<7.2){px=540;py=track([[4.6,890],[7.0,890],[7.25,960]],t);ps=track([[4.6,1.1],[7.0,1.1],[7.25,1.12]],t);prz=0}
+ else if(t<8.95){const k=E.io3(P(t,7.2,7.65));px=lerp(540,300,k);py=lerp(960,1000,k);ps=lerp(1.12,1.0,k);}
+ else if(t<10.3){const k=E.io3(P(t,8.95,9.4));px=lerp(300,540,k);py=lerp(1000,1010,k);ps=lerp(1.0,1.15,k);}
+ else if(t<12.4){const k=E.io3(P(t,10.75,11.3));px=540;py=lerp(1010,1420,k);ps=lerp(1.15,.74,k);}
+ else{const k=E.i3(P(t,12.4,12.9));px=540;py=lerp(1420,2800,k);ps=.74;prx=lerp(0,40,k);}
+ if(t<3.3){py=3000}
+ setPhone(px,py,ps,prx,pry,prz);
+ $('glare').style.backgroundPosition=`${100-t*9}% 0`;
+
+ // screens
+ const onHome=t>=4.3&&t<7.4, onProf=t<4.3, onSpot=t>=6.8;
+ $('prof').style.display=onProf?'block':'none';$('home').style.display=onHome?'block':'none';$('spot').style.display=onSpot?'block':'none';
+ tabOn(t<4.3?4:0);
+ // in-phone toggle shows from handoff
+ op($('togP'),t>=3.92?1:0);setTog(togI,t>=3.92?1:0);
+ // flood
+ const fd=$('flood');
+ if(t>=3.93&&t<4.75){fd.style.display='block';const fy=t<4.3?lerp(860,-80,E.io3(P(t,3.93,4.3))):lerp(-80,-1100,E.i3(P(t,4.3,4.75)));tf(fd,`translateY(${fy}px)`);flood(t)}else fd.style.display='none';
+
+ // home stagger
+ if(onHome){
+  const hk=x=>E.oB(P(t,x,x+.4));
+  tf($('hcard'),`translateY(${30*(1-E.o5(P(t,4.3,4.8)))}px)`);
+  tf($('hpill'),`scale(${hk(4.62)})`);
+  $('hcm').textContent=Math.round(25*E.o3(P(t,4.6,5.1)));
+  [...$('hrib').querySelectorAll('i')].forEach((s,k)=>{tf(s,`scaleY(${E.oB(P(t,4.75+k*.07,5.1+k*.07))})`)});
+  op($('hwind'),E.o3(P(t,4.85,5.2)));op($('htemp'),E.o3(P(t,4.95,5.3)));
+  [...document.querySelectorAll('.cst')].forEach((c,k)=>tf(c,`translateY(${80*(1-E.o5(P(t,4.45+k*.08,5.0+k*.08)))}px)`));
+  // transition to spot: zoom home away
+  const tz=E.io3(P(t,6.82,7.25));tf($('home'),`scale(${1+tz*.12})`);$('home').style.transformOrigin='167px 258px';op($('home'),1-tz*.6);
+ }
+ if(onSpot){
+  const cr=E.io3(P(t,6.82,7.25));
+  $('spot').style.clipPath=`inset(${lerp(108,0,cr)}px ${lerp(72,0,cr)}px ${lerp(436,0,cr)}px ${lerp(16,0,cr)}px round ${lerp(22,54,cr)}px)`;
+  op($('spot'),E.o3(P(t,6.82,6.95)));
+  const scroll=track([[8.95,0],[9.45,598],[10.3,598],[10.75,1060]],t,E.io3);
+  tf($('spIn'),`translateY(${-scroll}px)`);
+  // card lines highlight
+  swl.forEach((l,k)=>{const a=7.65+k*.2;const hk=P(t,a,a+.12)*(1-P(t,a+.3,a+.8));op(l.querySelector('.hl'),.16*hk);
+   tf(l,`translateX(${-14*(1-E.o5(P(t,7.05+k*.04,7.5+k*.04)))}px)`)});
+  [...document.querySelectorAll('.dcol')].forEach((d,k)=>tf(d,`translateY(${24*(1-E.o5(P(t,6.95+k*.03,7.4+k*.03)))}px)`));
+  // best swim tag in row
+  op($('bt3'),t<10.18?0:1);op($('bt6'),E.o3(P(t,10.05,10.25)));
+  // in-phone tide curve hides as it lifts out
+  op($('tsvg'),1-P(t,10.8,10.9));
+ }
+ // touch in phone (tap the card)
+ const tch=$('touch'),rp=$('ripple');
+ if(t>6.3&&t<7.0){const x=track([[6.3,300],[6.62,170]],t,E.o3),y=track([[6.3,700],[6.62,270]],t,E.o3);const pr=1-.25*Math.sin(Math.PI*P(t,6.62,6.78));
+  op(tch,E.o3(P(t,6.3,6.4))*(1-P(t,6.82,6.95)));tf(tch,`translate(${x}px,${y}px) scale(${pr})`);
+  const q=P(t,6.7,7.0);op(rp,q>0?1-q:0);tf(rp,`translate(170px,270px) scale(${1+q*2})`)}else{op(tch,0);op(rp,0)}
+
+ // ===== S3 headline + big ribbon
+ maskIn($('h3'),t,4.85,.1,.55,6.75,.05);op($('h3'),t>4.7&&t<7.2?1:0);
+ const bR=$('bigRib');
+ if(t>5.2&&t<7.2){bR.style.display='block';
+  const [cx0,cy0]=S2(16+302-16-64,108+192);const b=E.io3(P(t,5.25,5.75));
+  const X=lerp(cx0,120,b),Y=lerp(cy0,1530,b),Wd=lerp(64*PH.s,840,b),Hh=lerp(12*PH.s,60,b),gap=lerp(1,14,b);
+  const sw=(Wd-3*gap)/4;const ex=E.i3(P(t,6.65,7.0));
+  brs.forEach((s,k)=>{const L=X+k*(sw+gap);Object.assign(s.style,{left:L+'px',top:(Y+ex*60*(k+1)*.4)+'px',width:sw+'px',height:Hh+'px',borderRadius:(k==0?`${Hh/2}px 6px 6px ${Hh/2}px`:k==3?`6px ${Hh/2}px ${Hh/2}px 6px`:'6px')});op(s,1-ex);
+   brt[k].style.left=(L+sw/2-100)+'px';brt[k].style.top=(Y-46)+'px';op(brt[k],E.o3(P(t,5.6+k*.08,5.9+k*.08))*(1-ex));
+   brw[k].style.left=(L+sw/2-110)+'px';brw[k].style.top=(Y+Hh+18+18*(1-E.o5(P(t,5.65+k*.08,6.0+k*.08))))+'px';op(brw[k],E.o3(P(t,5.65+k*.08,5.95+k*.08))*(1-ex))});
+  const bb=$('brBest');bb.style.left=(X+sw/2-150)+'px';bb.style.top=(Y+Hh+90+16*(1-E.oB(P(t,6.05,6.4))))+'px';op(bb,E.o3(P(t,6.05,6.25))*(1-ex));
+ }else bR.style.display='none';
+
+ // ===== S4 list + connectors
+ maskIn($('h4'),t,7.4,.1,.55,8.85,.05);op($('h4'),t>7.3&&t<9.3?1:0);
+ const showL=t>7.5&&t<9.4;$('flist').style.display=showL?'block':'none';$('con').style.display=showL?'block':'none';
+ if(showL){lis.forEach((li,k)=>{const a=7.65+k*.2;const e=E.o5(P(t,a,a+.5));const ex=E.i3(P(t,8.9+k*.04,9.25+k*.04));
+   tf(li,`translateX(${60*(1-e)+300*ex}px)`);op(li,e*(1-ex));
+   const [lx,ly]=S2(374,282+50+k*34+18);const tx=588,ty=560+k*176+56;const d=E.io3(P(t,a-.05,a+.35));
+   const mx=lerp(lx,tx,.5);const pth=`M${lx},${ly} C${mx},${ly} ${mx},${ty} ${tx},${ty}`;
+   const p=$('cp'+k);p.setAttribute('d',pth);const L=p.getTotalLength();p.style.strokeDasharray=L;p.style.strokeDashoffset=L*(1-d)+(-L)*ex;
+   const cd=$('cd'+k);cd.setAttribute('cx',lx);cd.setAttribute('cy',ly);op(cd,E.o3(P(t,a-.05,a+.1))*(1-ex));op(p,1-ex)})}
+
+ // ===== S4b best swim stamp
+ maskIn($('h5'),t,9.3,.12,.55,10.25,.05);op($('h5'),t>9.2&&t<10.75?1:0);
+ op($('h5n'),E.o3(P(t,9.7,10))*(1-P(t,10.2,10.4)));
+ const st=$('stamp');
+ if(t>=9.45&&t<10.2){st.style.display='block';const sl=E.o5(P(t,9.45,9.6));const fl2=E.io3(P(t,9.88,10.18));
+  const [tx2,ty2]=S2(390-8-37,RT+3*72-598+0);
+  const sx=lerp(540,tx2,fl2),sy=lerp(1000,ty2,fl2),ss=lerp(lerp(14,6.5,sl),PH.s,fl2),rr=lerp(lerp(-14,-6,sl),0,fl2);
+  tf(st,`translate(${sx}px,${sy}px) translate(-50%,-50%) scale(${ss}) rotate(${rr}deg)`);op(st,P(t,9.45,9.5));}else st.style.display='none';
+
+ // ===== S5 tide breakout (fx canvas)
+ f.clearRect(0,0,W,H);
+ maskIn($('h6'),t,11.0,.1,.55,12.35,.05);op($('h6'),t>10.9&&t<12.8?1:0);
+ if(t>=10.8&&t<13.3){
+  const b=E.io3(P(t,10.8,11.35));
+  const [ax,ay]=S2(16,TT+84-1060);const pr={x:ax,y:ay,w:358*PH.s,h:110*PH.s};
+  const big={x:60,y:560,w:960,h:330};
+  const R={x:lerp(pr.x,big.x,b),y:lerp(pr.y,big.y,b),w:lerp(pr.w,big.w,b),h:lerp(pr.h,big.h,b)};
+  const ex=E.io3(P(t,12.4,12.9)); // flatten to end line
+  const ampK=1-ex;const lineY=1081;const ER={x:280,w:520};
+  const RX=lerp(R.x,ER.x,ex),RW=lerp(R.w,ER.w,ex);
+  const yAt=h=>{const base=lerp(R.y+R.h*.5,lineY,ex);return base-tide(h)*R.h*3.64*ampK+(b*ampK)*Math.sin(h*1.9+t*5)*2.2};
+  const xAt=h=>RX+h/24*RW;
+  // water body
+  f.beginPath();for(let i=0;i<=192;i++){const h=i/8;const x=xAt(h),y=yAt(h);i?f.lineTo(x,y):f.moveTo(x,y)}
+  const bottom=lerp(R.y+R.h,lineY,ex)+lerp(0,260,b)*ampK;
+  f.lineTo(xAt(24),bottom);f.lineTo(xAt(0),bottom);f.closePath();
+  const wg=f.createLinearGradient(0,R.y,0,bottom);wg.addColorStop(0,`rgba(17,183,242,${.28*ampK})`);wg.addColorStop(1,'rgba(17,183,242,0)');f.fillStyle=wg;f.fill();
+  // caustic strokes inside water
+  if(b>0&&ampK>0){f.save();f.clip();for(let j=0;j<9;j++){f.beginPath();for(let x=RX;x<=RX+RW;x+=14){const y=R.y+R.h*.55+j*28+Math.sin(x*.012+t*2+j)*6;x==RX?f.moveTo(x,y):f.lineTo(x,y)}f.strokeStyle=`rgba(255,255,255,${.35*b*ampK})`;f.lineWidth=1.5;f.stroke()}f.restore()}
+  // curve
+  f.beginPath();const drawn=1;for(let i=0;i<=192*drawn;i++){const h=i/8;const x=xAt(h),y=yAt(h);i?f.lineTo(x,y):f.moveTo(x,y)}
+  f.strokeStyle='#11b7f2';f.lineWidth=lerp(2*PH.s,6,b)*lerp(1,3,ex);f.lineCap='round';f.stroke();
+  // now line
+  if(ampK>0){const nx=xAt(NOWH);f.setLineDash([6,7]);f.beginPath();f.moveTo(nx,R.y-10*b);f.lineTo(nx,R.y+R.h+40*b);f.strokeStyle=`rgba(13,18,37,${.7*ampK})`;f.lineWidth=2;f.stroke();f.setLineDash([])}
+  // slack dots
+  SLK.forEach((h,k)=>{const a=11.3+k*.12;const p=E.oB(P(t,a,a+.35))*ampK;op($('tl'+k),0);if(p<=0)return;const x=xAt(h),y=yAt(h);
+   f.beginPath();f.moveTo(x,y);f.lineTo(x,lerp(y,R.y+R.h+60,E.o3(P(t,a,a+.4))));f.strokeStyle=`rgba(13,18,37,${.18*ampK})`;f.lineWidth=2;f.stroke();
+   const pul=P(t,a,a+.8);f.beginPath();f.arc(x,y,14+40*pul,0,7);f.strokeStyle=`rgba(17,183,242,${.6*(1-pul)})`;f.lineWidth=3;f.stroke();
+   f.beginPath();f.arc(x,y,13*p,0,7);f.fillStyle='#fff';f.fill();f.lineWidth=5*p;f.strokeStyle='#11b7f2';f.stroke();
+   const el=$('tl'+k);el.style.left=x+'px';el.style.top=(k==1?y+34:y-112)+'px';op(el,E.o3(P(t,a+.05,a+.35))*ampK);tf(el,`translateY(${(k==1?1:-1)*-16*(1-E.o3(P(t,a+.05,a+.4)))}px)`)});
+  const nl=$('nowL');nl.style.left=xAt(NOWH)+'px';nl.style.top=(R.y+R.h+50*b)+'px';op(nl,E.o3(P(t,11.5,11.7))*ampK);
+  // swimmer rides from now to the 19:53 slack
+  const sv=$('swmr');const sp=E.io3(P(t,11.55,12.3));const hh=lerp(NOWH,SLK[2],sp);
+  const sxp=xAt(hh),syp=yAt(hh)-30;tf(sv,`translate(${sxp}px,${syp+Math.sin(t*9)*3}px) rotate(${Math.sin(t*9)*4}deg)`);op(sv,E.o3(P(t,11.45,11.6))*ampK);
+  op($('tcap'),E.o3(P(t,11.7,12))*ampK);$('tcap').style.top=(big.y+big.h+150)+'px';
+ }else{op($('swmr'),0);op($('tcap'),0);SLK.forEach((_,k)=>op($('tl'+k),0));op($('nowL'),0)}
+
+ // ===== end
+ const en=$('end');op(en,t>12.8?1:0);
+ if(t>12.8){
+  const er=[...document.querySelectorAll('.er')];er.forEach((e,k)=>{const c=E.o3(P(t,12.9+k*.05,13.15+k*.05));e.style.background=SW['cehro'[k]];op(e,1);e.style.marginLeft=k?(lerp(0,6,E.io3(P(t,12.95,13.3))))+'px':'0';tf(e,`scaleY(${lerp(.4,1,c)})`);
+   e.style.filter=`saturate(${c}) brightness(${lerp(1.3,1,c)})`});
+  $('endRib').style.background='transparent';
+  masks($('endWord')).forEach((s,i)=>tf(s,`translateY(${125*(1-E.oX(P(t,12.98+i*.06,13.5+i*.06)))}%)`));
+  const mk=E.oB(P(t,12.95,13.45));tf($('endMark'),`translateY(${40*(1-mk)}px) scale(${lerp(.6,1,mk)}) rotate(${-14*(1-mk)}deg)`);op($('endMark'),P(t,12.95,13.1));
+  op($('endK'),E.o3(P(t,13.35,13.7)));tf($('endK'),`translateY(${18*(1-E.o3(P(t,13.35,13.7)))}px)`);
+  op($('endUrl'),E.o3(P(t,13.5,13.85)));tf($('endUrl'),`translateY(${18*(1-E.o3(P(t,13.5,13.85)))}px)`);
+ }
+ op($('vig'),1);
+}
+render(0);
+</script>
+</body></html>

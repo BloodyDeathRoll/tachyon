@@ -1,0 +1,26 @@
+{
+  "slot_id": "2026-w44-07",
+  "title": "Costa Rica classics",
+  "pillar": "Spot spotlight",
+  "angle": "Open on Pixabay surfer footage (218670_large.mp4) with the hook. The phone flies in showing home.png: the Ollie's Point card with its Epic badge and offshore wind line. Scroll down to the Costa Rica group, Ollie's Point and Witch's Rock side by side with their next three days. End card: logo, \"rosa.surf, link in bio\", \"Footage: Pixabay\".",
+  "hook_formula": "Costa Rica's two famous rights.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Old Steel (AlexGrohl), file",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w44-07",
+    "story": "film-2026-w44-07-story",
+    "source": "engines/remotion/src/films/film-2026-w44-07.tsx",
+    "music": "clients/rosa/assets/music/old-steel-449645.mp3"
+  },
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w44-07",
+  "plan": "2026-W44",
+  "track": "old-steel",
+  "theme": "dark"
+}

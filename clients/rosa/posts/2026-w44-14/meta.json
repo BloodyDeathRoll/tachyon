@@ -1,0 +1,27 @@
+{
+  "slot_id": "2026-w44-14",
+  "title": "16 days out",
+  "pillar": "Swell map",
+  "angle": "Hook in big Inter numerals over Pixabay surfer footage (218670_large.mp4). The phone shows charts.png and the timeline scrubber slides from Sun across to Sat. Cut to spot-uluwatu-full.png and swipe the day strip sideways, day after day. Card: \"Pick your swell window.\" End card: logo, \"rosa.surf/charts\", \"Footage: Pixabay\".",
+  "hook_formula": "Plan the trip 16 days out.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Surf Rock Summer (BFCMUSIC), file",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w44-14",
+    "story": "film-2026-w44-14-story",
+    "source": "engines/remotion/src/films/film-2026-w44-14.tsx",
+    "music": "clients/rosa/assets/music/surf-rock-summer-325576.mp3"
+  },
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w44-14",
+  "plan": "2026-W44",
+  "duration_s": 12.05,
+  "theme": "light",
+  "track": "surf-rock-summer"
+}

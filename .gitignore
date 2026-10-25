@@ -22,3 +22,11 @@ engines/remotion/public/footage/
 compare/*.mp4
 clients/*/films/*/audio*.wav
 compare/**/*.mp4
+clients/*/posts/*/*.wav
+clients/*/posts/*/*.mp4
+clients/*/films/*/fr*/
+clients/*/films/**/*.mp4
+clients/*/films/**/*.wav
+clients/*/posts/*/versions/**/*.mp4
+clients/*/posts/*/versions/**/*.jpg
+clients/*/posts/*/versions/**/*.wav
