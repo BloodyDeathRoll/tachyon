@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Engine comparison · Rosa reels</title>
+<style>
+body{margin:0;background:#0b1220;color:#f5f0e8;font:15px/1.45 Inter,system-ui,sans-serif;padding:24px}
+h1{font-size:22px;margin:0 0 6px}p{color:#9aa3b2;margin:0 0 20px;max-width:900px}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+.card{background:#111827;border-radius:16px;padding:14px}
+.card h2{font-size:15px;margin:0 0 10px}.card small{display:block;color:#9aa3b2;margin-top:8px}
+video{width:100%;aspect-ratio:9/16;background:#000;border-radius:10px}
+</style></head><body>
+<h1>Engine comparison · same storyboard, two engines, Old Steel (Pixabay) under all four</h1>
+<p>A = HTML film + spine/render.py (ours). B = Remotion. Reel variants, 1080×1920, 60 fps, inside Meta's safe box. Numbers from product.md and the 2026-10-25 live captures. Decision 2: you pick the default engine.</p>
+<div class="grid">
+  <div class="card"><h2>A · Showreel (30 s)</h2><video controls preload="metadata" src="A-showreel+music.mp4"></video><small>clients/rosa/films/showreel-v3</small></div>
+  <div class="card"><h2>B · Showreel (30 s)</h2><video controls preload="metadata" src="B-showreel+music.mp4"></video><small>engines/remotion/src/Showreel.tsx</small></div>
+  <div class="card"><h2>A · Favorites (15 s)</h2><video controls preload="metadata" src="A-favorites+music.mp4"></video><small>clients/rosa/films/favorites-v2</small></div>
+  <div class="card"><h2>B · Favorites (15 s)</h2><video controls preload="metadata" src="B-favorites+music.mp4"></video><small>engines/remotion/src/Favorites.tsx</small></div>
+</div>
+</body></html>
