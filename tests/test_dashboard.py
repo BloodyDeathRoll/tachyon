@@ -493,3 +493,8 @@ def test_prepare_popup_prefills_last_instructions(server, client_dir, monkeypatc
     W.plans_dir("demo").joinpath("2099-W02.json").write_text(json.dumps({"state": "done", "instructions": "light and airy", "started_at": "2099"}))
     _, body, _ = req(server, "GET", "/demo")
     assert "Instructions for this batch" in body and "light and airy</textarea>" in body
+
+def test_failure_before_start_has_a_readable_step(server, client_dir):
+    _fail(client_dir, step="queued")
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "Failed before it started" in body and "still the previous cut" in body
