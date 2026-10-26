@@ -129,6 +129,11 @@ class DB:
         )
         return cur.lastrowid
 
+    def set_permalink(self, slot_id: str, permalink: str) -> None:
+        """Backfill only: a published post whose permalink lookup failed at publish time."""
+        self.conn.execute("UPDATE posts SET permalink=? WHERE slot_id=? AND ig_media_id IS NOT NULL AND permalink IS NULL",
+                          (permalink, slot_id))
+
     def journal_outcome(self, journal_id: int, outcome: dict) -> None:
         self.conn.execute("UPDATE journal SET outcome=? WHERE id=?", (json.dumps(outcome), journal_id))
 

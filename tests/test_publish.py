@@ -333,3 +333,55 @@ def test_first_comment_url_guard(text, bad):
 def test_now_on_unknown_slot_says_so(client, capsys):
     assert publish.main([client, "nope", "--now", "--dry-run"]) == 1
     assert "no such slot" in capsys.readouterr().out
+
+
+def test_media_publish_without_answer_hands_off_never_retries(client):
+    """A timeout on media_publish may still have posted the reel: hand off, never back to the queue."""
+    class NoAnswer(FakeGraph):
+        def write(self, path, **p):
+            if path.endswith("/media_publish"):
+                raise TimeoutError("read timed out")
+            return super().write(path, **p)
+    with pytest.raises(publish.PublishError, match="may be live"):
+        publish.publish_slot(client, SLOT, graph=NoAnswer(), sleep=lambda s: None)
+    db = DB.for_client(C.client_dir(client))
+    assert db.post(SLOT)["state"] == "MANUAL_HANDOFF"
+    db.close()
+    assert publish.run_queue(client) == []   # nothing to retry
+
+
+def test_first_comment_with_bare_domain_is_refused(client):
+    (C.client_dir(client) / "posts" / SLOT / "first_comment.txt").write_text("Free at rosa.surf")
+    with pytest.raises(publish.PublishError, match="URL"):
+        publish.publish_slot(client, SLOT, graph=FakeGraph(), sleep=lambda s: None)
+
+
+def test_queue_survives_illegal_transition(client, monkeypatch):
+    from spine import state as S
+    db = DB.for_client(C.client_dir(client))
+    db.create_post("2099-w01-02", "t", pillar="p")
+    for st in ("BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL", "APPROVED"):
+        db.set_state("2099-w01-02", st)
+    db.conn.execute("UPDATE posts SET scheduled_at='2099-01-01T00:00:00+00:00' WHERE slot_id='2099-w01-02'")
+    db.close()
+    real = DB.set_state
+
+    def refuse(self, slot_id, to, *a, **kw):
+        if slot_id == "2099-w01-02" and to == "QUEUED":
+            raise S.IllegalTransition("refused")
+        return real(self, slot_id, to, *a, **kw)
+    monkeypatch.setattr(DB, "set_state", refuse)
+    out = publish.run_queue(client, dry_run=True)
+    assert {"slot_id": "2099-w01-02", "error": "refused"} in out
+
+
+def test_permalink_backfilled_on_measure(client):
+    from spine.measure import insights
+    db = DB.for_client(C.client_dir(client))
+    db.set_state(SLOT, "MANUAL_HANDOFF")
+    db.set_state(SLOT, "PUBLISHED", ig_media_id="M1", published_at="2099-01-01T00:00:00+00:00")
+    db.close()
+    assert insights.backfill_permalinks(client, graph=FakeGraph()) == [SLOT]
+    db = DB.for_client(C.client_dir(client))
+    assert db.post(SLOT)["permalink"] == "https://www.instagram.com/reel/x/"
+    db.close()

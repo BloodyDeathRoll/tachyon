@@ -170,9 +170,29 @@ def snapshot_account_7d(client: str, *, graph: Graph | None = None, at: datetime
     return metrics
 
 
+def backfill_permalinks(client: str, *, graph: Graph) -> list[str]:
+    """A post whose permalink lookup failed at publish time gets it on the next run."""
+    db = DB.for_client(C.client_dir(client))
+    done = []
+    try:
+        for p in db.posts():
+            if p["ig_media_id"] and not p["permalink"]:
+                try:
+                    link = graph.media(p["ig_media_id"]).get("permalink")
+                except Exception:  # noqa: BLE001 — try again next run
+                    continue
+                if link:
+                    db.set_permalink(p["slot_id"], link)
+                    done.append(p["slot_id"])
+    finally:
+        db.close()
+    return done
+
+
 def run(client: str) -> dict:
     graph = Graph(C.token(client))
     done = {"media": [], "account": None, "hourly": []}
+    backfill_permalinks(client, graph=graph)
     for slot_id, w in due(client):
         snapshot_media(client, slot_id, w, graph=graph)
         done["media"].append((slot_id, w))
