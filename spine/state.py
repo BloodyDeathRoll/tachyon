@@ -23,8 +23,8 @@ TRANSITIONS: dict[str, set[str]] = {
     "RENDERED": {"QA"},
     "QA": {"NEEDS_APPROVAL", "SCRIPTED", "NEEDS_INPUT"},   # approved / revision / 2 rounds failed
     "NEEDS_APPROVAL": {"APPROVED", "REJECTED", "MANUAL_HANDOFF"},
-    "APPROVED": {"QUEUED", "REJECTED", "MANUAL_HANDOFF"},
-    "QUEUED": {"PUBLISHING", "REJECTED", "MANUAL_HANDOFF"},   # posted by hand (music only the app has)
+    "APPROVED": {"QUEUED", "REJECTED", "MANUAL_HANDOFF", "NEEDS_APPROVAL"},   # operator revokes to keep editing
+    "QUEUED": {"PUBLISHING", "REJECTED", "MANUAL_HANDOFF", "NEEDS_APPROVAL"},   # posted by hand (music only the app has)
     "PUBLISHING": {"PUBLISHED", "FAILED", "MANUAL_HANDOFF"},   # media_publish unclear: maybe live, never retried
     "PUBLISHED": {"MEASURING"},
     "MEASURING": {"ANALYZED"},

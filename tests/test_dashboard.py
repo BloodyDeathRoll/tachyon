@@ -185,6 +185,27 @@ def test_week_plan_slots_and_registry(client_dir, tmp_path, monkeypatch):
     assert idx.count('from "./film-2026-w45-01"') == 1 and 'id: "film-2026-w45-01"' in idx
 
 
+def test_edit_takes_approval_back(server, client_dir):
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})
+    status, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "value=revoke" in body and "Edit</button>" in body
+    status, _, loc = req(server, "POST", "/demo/v/w01-s1/decide", {"action": "revoke"})
+    assert status == 303 and loc == "/demo/v/w01-s1"
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["state"] == "NEEDS_APPROVAL"
+    db.close()
+    status, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "Approve and schedule" in body
+
+
+def test_edit_refused_once_publishing(server, client_dir):
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})
+    db = DB.for_client(client_dir)
+    db.set_state("w01-s1", "QUEUED")
+    db.set_state("w01-s1", "PUBLISHING")
+    db.close()
+    status, _, _ = req(server, "POST", "/demo/v/w01-s1/decide", {"action": "revoke"})
+    assert status == 409
 def test_instagram_track_plays_with_the_video(server, client_dir):
     import json
     sd = client_dir / "posts" / "w01-s1"
@@ -268,3 +289,15 @@ def test_set_track_marks_and_clears_preview(client_dir, monkeypatch):
     (sd / T.IG_PREVIEW).write_bytes(b"abc")
     T.set_track("demo", "w01-s1", "f:1")
     assert not (sd / T.IG_PREVIEW).exists()
+
+
+def test_edit_twice_and_from_queued(server, client_dir):
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})
+    db = DB.for_client(client_dir)
+    db.set_state("w01-s1", "QUEUED")
+    db.close()
+    assert req(server, "POST", "/demo/v/w01-s1/decide", {"action": "revoke"})[0] == 303
+    assert req(server, "POST", "/demo/v/w01-s1/decide", {"action": "revoke"})[0] == 303   # double click
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["state"] == "NEEDS_APPROVAL"
+    db.close()
