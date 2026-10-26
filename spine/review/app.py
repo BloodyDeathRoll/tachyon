@@ -1218,7 +1218,7 @@ def _cell(client: str, row, tag, past: bool, hl: str | None, mini: bool = False,
             f"<span class=cb><span class='tag {cls}'>{ESC(label)}</span><span class=ct>{t}</span></span></a>")
 
 
-def _cal_head(client: str, view: str, title: str, prev: str, today_q: str, nxt: str) -> str:
+def _cal_head(client: str, view: str, title: str, prev: str, today_q: str, nxt: str, label: str = "Today") -> str:
     base = f"/{quote(client)}/calendar"
     t = datetime.now(timezone.utc).date()
     y, w, _ = t.isocalendar()
@@ -1229,7 +1229,7 @@ def _cal_head(client: str, view: str, title: str, prev: str, today_q: str, nxt: 
     return ("<div class=row style='margin-bottom:12px;flex-wrap:wrap'>"
             f"<div class=row style='gap:16px;flex-wrap:wrap'><h2>{title}</h2>{seg}<div class='seg filt calfilt' role=group aria-label='Show'>{filt}</div></div><div class=calnav>"
             f"<a href='{base}?{prev}' aria-label='Previous'>{icon('prev', 16)}</a>"
-            f"<a class=txt href='{base}?{today_q}'>Today</a>"
+            f"<a class=txt href='{base}?{today_q}' title='Back to today'>{ESC(label)}</a>"
             f"<a href='{base}?{nxt}' aria-label='Next'>{icon('next', 16)}</a></div></div>"
             "<p class=hint style='margin:0 0 16px'>Grab a video by its dots and drop it on another to swap them, or on an open slot to move it. "
             "Press play for a quick look. Live videos stay put.</p>")
@@ -1269,7 +1269,7 @@ def render_month(client: str, month: str | None, hl: str | None = None) -> bytes
             day += timedelta(days=1)
         g.append("</div>")
         head = _cal_head(client, "month", first.strftime("%B %Y"), f"view=month&m={prv_m:%Y-%m}", f"view=month&m={today:%Y-%m}",
-                         f"view=month&m={nxt_m:%Y-%m}")
+                         f"view=month&m={nxt_m:%Y-%m}", label=first.strftime("%b %Y"))
         body = (header(client, "Calendar") + f"<section class=card>{head}{''.join(g)}</section>"
                 f"<div class=toast id=toast></div><script>{CAL_JS.replace('__C__', quote(client))}</script>")
         return shell(client, "calendar", body, "Calendar")
@@ -1355,7 +1355,8 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
         next_w = (days[0] + timedelta(days=7)).isocalendar()
         ty, tw, _ = today.isocalendar()
         head = _cal_head(client, "week", f"{days[0].strftime('%-d %b')} – {days[-1].strftime('%-d %b %Y')}",
-                         f"w={prev_w[0]}-W{prev_w[1]:02d}", f"w={ty}-W{tw:02d}", f"w={next_w[0]}-W{next_w[1]:02d}")
+                         f"w={prev_w[0]}-W{prev_w[1]:02d}", f"w={ty}-W{tw:02d}", f"w={next_w[0]}-W{next_w[1]:02d}",
+                         label=days[0].strftime("%a %-d %b"))
         g = ["<div class=cal style='grid-template-columns:56px repeat(7,minmax(0,1fr))'><div></div>"]
         for day in days:
             g.append(f"<div class='dh{' today' if day == today else ''}'>{day.strftime('%a')}<b>{day.day}</b></div>")

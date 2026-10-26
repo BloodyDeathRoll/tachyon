@@ -535,3 +535,10 @@ def test_approving_an_unslotted_video_takes_the_slot_the_calendar_showed(server,
     db = DB.for_client(client_dir)
     assert db.post("w01-s1")["scheduled_at"] == shown
     db.close()
+
+
+def test_calendar_nav_shows_the_shown_weeks_start(server):
+    _, body, _ = req(server, "GET", "/demo/calendar?w=2099-W02")
+    assert "title='Back to today'>Mon 5 Jan</a>" in body
+    _, body, _ = req(server, "GET", "/demo/calendar?view=month&m=2099-03")
+    assert "title='Back to today'>Mar 2099</a>" in body
