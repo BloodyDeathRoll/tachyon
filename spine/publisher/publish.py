@@ -157,9 +157,15 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
             info = graph.media(media_id)
         except Exception as e:  # noqa: BLE001 — permalink is cosmetic; the id is what matters
             info = {}
-            db.journal_outcome(db.journal("meta.media.lookup", slot_id, {"media": media_id}), {"error": str(e)})
-        db.set_state(slot_id, "PUBLISHED", ig_media_id=media_id, permalink=info.get("permalink"),
-                     published_at=info.get("timestamp") or now())
+            _best_effort(lambda: db.journal_outcome(db.journal("meta.media.lookup", slot_id, {"media": media_id}), {"error": str(e)}))
+        try:
+            db.set_state(slot_id, "PUBLISHED", ig_media_id=media_id, permalink=info.get("permalink"),
+                         published_at=info.get("timestamp") or now())
+        except Exception as e:  # noqa: BLE001 — live but not recorded: park it where nothing retries it
+            reason = f"live as {media_id} but could not be recorded ({e}); link it on the video page"
+            _best_effort(lambda: db.set_state(slot_id, "MANUAL_HANDOFF", note=reason))
+            raise PublishError(reason) from e
+        where = info.get("permalink") or f"media id {media_id}"
 
         # the bio link follows the newest reel (links.py); failure is logged, never fatal
         bio_target = meta.get("bio_link_while_live")
@@ -168,8 +174,8 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
             try:
                 db.journal_outcome(j, links.set_target(g, bio_target, runner=link_runner))
             except Exception as e:  # noqa: BLE001 — bio link failure is logged, never fatal
-                db.journal_outcome(j, {"error": str(e)})
-                (slot / "bio_link_handoff.md").write_text(f"# Bio link not updated\n\nSet {g['bio_link']['public_url']} target by hand:\n\n```\n{bio_target}\n```\n\n{e}\n")
+                _best_effort(lambda: db.journal_outcome(j, {"error": str(e)}))
+                _best_effort(lambda: (slot / "bio_link_handoff.md").write_text(f"# Bio link not updated\n\nSet {g['bio_link']['public_url']} target by hand:\n\n```\n{bio_target}\n```\n\n{e}\n"))
 
         comment_id = None
         if first_comment:
@@ -179,13 +185,22 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
                 comment_id = c.get("id")
                 db.journal_outcome(j, c)
             except Exception as e:  # noqa: BLE001 — the reel is live; a missing comment is never fatal
-                db.journal_outcome(j, {"error": str(e)})
-                (slot / "handoff.md").write_text(f"# Post the first comment by hand\n\n{info.get('permalink')}\n\n```\n{first_comment}\n```\n")
+                _best_effort(lambda: db.journal_outcome(j, {"error": str(e)}))
+                _best_effort(lambda: (slot / "handoff.md").write_text(
+                    f"# Post the first comment by hand\n\n{where}\n\n```\n{first_comment}\n```\n"))
         db.set_state(slot_id, "MEASURING")
         return {"slot_id": slot_id, "ig_media_id": media_id, "permalink": info.get("permalink"),
                 "first_comment_id": comment_id}
     finally:
         db.close()
+
+
+def _best_effort(fn) -> None:
+    """For bookkeeping after the reel is live: it must never turn a live post into an error."""
+    try:
+        fn()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 HAND_FROM = {"NEEDS_APPROVAL", "APPROVED", "QUEUED", "FAILED", "MANUAL_HANDOFF"}

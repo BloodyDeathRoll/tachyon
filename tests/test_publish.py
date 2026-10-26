@@ -457,3 +457,34 @@ def test_first_comment_timeout_still_measures(client):
     db = DB.for_client(C.client_dir(client))
     assert db.post(SLOT)["state"] == "MEASURING"
     db.close()
+
+
+def test_comment_graph_error_writes_handoff_even_if_journal_fails(client, monkeypatch):
+    class CommentRefused(FakeGraph):
+        def write(self, path, **p):
+            if path.endswith("/comments"):
+                raise GraphError(10, None, "comments off")
+            return super().write(path, **p)
+    real = DB.journal_outcome
+
+    def flaky(self, j, outcome):
+        if isinstance(outcome, dict) and outcome.get("error") and "comments off" in outcome["error"]:
+            raise RuntimeError("db locked")
+        return real(self, j, outcome)
+    monkeypatch.setattr(DB, "journal_outcome", flaky)
+    publish.publish_slot(client, SLOT, graph=CommentRefused(), sleep=lambda s: None)
+    d = C.client_dir(client)
+    assert "instagram.com/reel" in (d / "posts" / SLOT / "handoff.md").read_text()
+    db = DB.for_client(d)
+    assert db.post(SLOT)["state"] == "MEASURING"
+    db.close()
+
+
+def test_unclear_publish_never_passes_through_failed(client):
+    with pytest.raises(publish.PublishError):
+        publish.publish_slot(client, SLOT, graph=PublishRaises(TimeoutError("t")), sleep=lambda s: None)
+    db = DB.for_client(C.client_dir(client))
+    tos = [json.loads(r["intent"])["to"] for r in db.conn.execute(
+        "SELECT intent FROM journal WHERE target=? AND action='post.state'", (SLOT,))]
+    db.close()
+    assert tos[-2:] == ["PUBLISHING", "MANUAL_HANDOFF"] and "FAILED" not in tos
