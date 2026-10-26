@@ -173,6 +173,7 @@ def _make_one(client: str, slot: str, ratio: str) -> Path:
     fid = film["reel"]
     base = REMOTION / film["source"].removeprefix("engines/remotion/") if film.get("source") else FILMS / f"{fid}.tsx"
     ffile = FILMS / f"{fid}-{ratio}.tsx"
+    _status(client, slot, step="checking")
     if not ffile.exists() or (base.exists() and base.stat().st_mtime > ffile.stat().st_mtime):
         ffile.unlink(missing_ok=True)
         _status(client, slot, step="writing")
@@ -186,9 +187,13 @@ def _make_one(client: str, slot: str, ratio: str) -> Path:
             _drop(fid, ratio)
             raise RuntimeError(f"no {LABEL[ratio]} layout was written")
     _register(fid, ratio)
-    r = subprocess.run(["npx", "tsc", "--noEmit", "-p", "."], cwd=REMOTION, capture_output=True, text=True, timeout=300)
+    try:
+        r = subprocess.run(["npx", "tsc", "--noEmit", "-p", "."], cwd=REMOTION, capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        _unregister(fid, ratio)   # unchecked: keep it out of every render
+        raise RuntimeError("the type check timed out")
     if r.returncode != 0:
-        if f"{fid}-{ratio}" in r.stdout:
+        if f"src/films/{fid}-{ratio}.tsx" in r.stdout:
             _drop(fid, ratio)   # its own error: never leave it registered; the next run writes it afresh
         else:
             _unregister(fid, ratio)   # someone else's error: keep the layout, just don't register it now
