@@ -444,3 +444,16 @@ def test_handoff_state_holds_even_if_file_write_fails(client, monkeypatch):
     assert db.post(SLOT)["state"] == "MANUAL_HANDOFF"
     db.close()
     assert publish.run_queue(client) == []   # never picked up again
+
+
+def test_first_comment_timeout_still_measures(client):
+    class CommentTimesOut(FakeGraph):
+        def write(self, path, **p):
+            if path.endswith("/comments"):
+                raise TimeoutError("t")
+            return super().write(path, **p)
+    out = publish.publish_slot(client, SLOT, graph=CommentTimesOut(), sleep=lambda s: None)
+    assert out["first_comment_id"] is None
+    db = DB.for_client(C.client_dir(client))
+    assert db.post(SLOT)["state"] == "MEASURING"
+    db.close()
