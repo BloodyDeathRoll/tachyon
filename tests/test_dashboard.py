@@ -614,11 +614,35 @@ def test_formats_job_that_died_reads_as_failed(server, client_dir):
 def test_formats_start_runs_once(client_dir, monkeypatch):
     from spine import formats as F
     calls = []
-
-    class P:
-        pid = 4242
-    monkeypatch.setattr(F.subprocess, "Popen", lambda *a, **k: calls.append(a) or P())
-    monkeypatch.setattr(F, "_alive", lambda pid: True)
+    monkeypatch.setattr(F.subprocess, "Popen", lambda *a, **k: calls.append(a))
     F.start("demo", "w01-s1", ["1x1"])
     F.start("demo", "w01-s1", ["1x1"])   # second click while running
-    assert len(calls) == 1 and F.status("demo", "w01-s1")["pid"] == 4242
+    assert len(calls) == 1 and F.status("demo", "w01-s1")["state"] == "running"
+
+
+def test_formats_start_that_cannot_spawn_reads_failed(client_dir, monkeypatch):
+    from spine import formats as F
+    def nope(*a, **k):
+        raise OSError("no python")
+    monkeypatch.setattr(F.subprocess, "Popen", nope)
+    F.start("demo", "w01-s1", ["1x1"])
+    st = F.status("demo", "w01-s1")
+    assert st["state"] == "failed" and "could not start" in st["error"]
+
+
+def test_formats_job_that_never_registered_reads_failed_after_a_minute(client_dir):
+    from spine import formats as F
+    F.status_path("demo", "w01-s1").write_text(json.dumps({"state": "running", "pid": None, "updated_at": "2020-01-01T00:00:00+00:00"}))
+    assert F.status("demo", "w01-s1")["state"] == "failed"
+
+
+def test_formats_stale_lock_is_taken_over(client_dir, monkeypatch):
+    import os
+    from spine import formats as F
+    calls = []
+    monkeypatch.setattr(F.subprocess, "Popen", lambda *a, **k: calls.append(a))
+    lock = client_dir / "posts" / "w01-s1" / "formats.lock"
+    lock.write_text("")
+    os.utime(lock, (1, 1))
+    F.start("demo", "w01-s1", ["1x1"])
+    assert len(calls) == 1 and not lock.exists()

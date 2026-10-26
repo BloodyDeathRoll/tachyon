@@ -62,15 +62,19 @@ def status(client: str, slot: str) -> dict:
     """formats.json; a job whose process is gone (restart, crash) reads as failed, not running."""
     p = status_path(client, slot)
     st = json.loads(p.read_text()) if p.exists() else {}
-    if st.get("state") == "running" and st.get("pid") and not _alive(st["pid"]):
-        st.update(state="failed", error=st.get("error") or "stopped before it finished (restart or crash)")
+    if st.get("state") == "running":
+        no_pid_for = (datetime.now(timezone.utc) - datetime.fromisoformat(st.get("updated_at") or now())).total_seconds()
+        if (st.get("pid") and not _alive(st["pid"])) or (not st.get("pid") and no_pid_for > 60):
+            st.update(state="failed", error=st.get("error") or "stopped before it finished (restart or crash)")
     return st
 
 
 def _status(client: str, slot: str, **kw) -> None:
     cur = status(client, slot)
     cur.update(kw, updated_at=now())
-    status_path(client, slot).write_text(json.dumps(cur, indent=1))
+    tmp = status_path(client, slot).with_suffix(f".{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(cur, indent=1))
+    tmp.replace(status_path(client, slot))   # atomic: the page reads it while the job writes
 
 
 def filter_for(ratio: str) -> str:
@@ -104,6 +108,7 @@ def make_one(client: str, slot: str, ratio: str) -> Path:
 
 
 def make(client: str, slot: str, ratios: list[str]) -> int:
+    _status(client, slot, pid=os.getpid())   # the job registers itself; status() checks it is alive
     try:
         for r in ratios:
             _status(client, slot, state="running", current=r)
@@ -124,15 +129,23 @@ def start(client: str, slot: str, ratios: list[str]) -> None:
     try:   # one start at a time, even for two fast clicks
         fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     except FileExistsError:
-        return
+        try:
+            if datetime.now().timestamp() - lock.stat().st_mtime < 60:
+                return
+        except FileNotFoundError:
+            return
+        lock.unlink(missing_ok=True)   # left by a killed request: take it over
+        fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     try:
         if status(client, slot).get("state") == "running":
             return
         _status(client, slot, state="running", current=ratios[0], wanted=ratios, error=None, pid=None)
-        with (C.client_dir(client) / "posts" / slot / "formats.log").open("a") as log:
-            proc = subprocess.Popen([sys.executable, "-m", "spine.formats", "make", client, slot, *ratios], cwd=ROOT,
-                                    stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
-        _status(client, slot, pid=proc.pid)
+        try:
+            with (C.client_dir(client) / "posts" / slot / "formats.log").open("a") as log:
+                subprocess.Popen([sys.executable, "-m", "spine.formats", "make", client, slot, *ratios], cwd=ROOT,
+                                 stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        except OSError as e:
+            _status(client, slot, state="failed", error=f"could not start: {e}")
     finally:
         os.close(fd)
         lock.unlink(missing_ok=True)
