@@ -267,7 +267,9 @@ h2{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
 .pctl{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap}
 .seg{display:inline-flex;background:var(--grey-bg);border-radius:999px;padding:3px}
 .seg a{padding:6px 14px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--ink3)}
-.seg a.on{background:#297cff;color:#fff}
+.seg a.on{background:#fff;color:var(--ink)}
+.seg a,.filt button{position:relative;padding-bottom:10px!important}
+.seg a.on::after,.filt button.on::after{content:"";position:absolute;left:12px;right:12px;bottom:2px;height:4px;border-radius:2px;background:var(--lime)}
 .chk{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink2);cursor:pointer}
 .chk input{accent-color:var(--ink);width:16px;height:16px}
 .stack{display:flex;flex-direction:column;gap:20px}
@@ -431,7 +433,7 @@ body.dnd .addnew{display:none}
 .cell .vo{font-size:9.5px;padding:2px 6px}
 .filt button{border:0;background:transparent;padding:6px 12px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--ink3);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
 .filt button i{font-style:normal;font-size:11.5px;background:#E2E2E2;color:var(--ink2);border-radius:999px;padding:0 6px;min-width:18px;text-align:center}
-.filt button.on{background:#297cff;color:#fff}.filt button.on i{background:var(--lime);color:var(--ink)}
+.filt button.on{background:#fff;color:var(--ink)}.filt button.on i{background:var(--lime);color:var(--ink)}
 .vid[hidden]{display:none}
 .cell.dim{opacity:.18;filter:grayscale(1);transition:opacity .2s}
 .tdo{font-size:14px;font-weight:600;color:var(--ink3);margin-left:6px}
