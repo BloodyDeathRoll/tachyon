@@ -277,3 +277,23 @@ def test_queue_skips_slot_linked_by_hand(client):
     with pytest.raises(publish.PublishError):
         publish.publish_slot(client, SLOT, graph=g, sleep=lambda s: None)
     assert not g.calls
+
+
+def test_link_by_hand_moves_bio_link_and_is_idempotent(client, monkeypatch):
+    d = C.client_dir(client)
+    meta = json.loads((d / "posts" / SLOT / "meta.json").read_text())
+    (d / "posts" / SLOT / "meta.json").write_text(json.dumps({**meta, "bio_link_while_live": "https://rosa.test/?c=1"}))
+    g = yaml.safe_load((d / "grants.yaml").read_text())
+    g["bio_link"] = {"edge_config_id": "e", "team_id": "t", "key": "k", "public_url": "https://rosa.test/ig"}
+    (d / "grants.yaml").write_text(yaml.safe_dump(g))
+    ran = []
+
+    class R:
+        returncode, stdout, stderr = 0, "{}", ""
+    monkeypatch.setattr(publish.subprocess, "run", lambda cmd, **kw: ran.append(cmd) or R())
+    publish.link_by_hand(client, SLOT, "M9", graph=HandGraph())   # no runner passed: default is used
+    assert ran and ran[0][0] == "vercel"
+    db = DB.for_client(d)
+    assert db.post(SLOT)["state"] == "MEASURING"
+    db.close()
+    assert publish.link_by_hand(client, SLOT, "M9", graph=HandGraph())["ig_media_id"] == "M9"   # second click
