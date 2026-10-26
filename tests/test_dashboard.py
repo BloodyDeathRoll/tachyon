@@ -206,3 +206,86 @@ def test_edit_refused_once_publishing(server, client_dir):
     db.close()
     status, _, _ = req(server, "POST", "/demo/v/w01-s1/decide", {"action": "revoke"})
     assert status == 409
+def test_instagram_track_plays_with_the_video(server, client_dir):
+    import json
+    sd = client_dir / "posts" / "w01-s1"
+    m = json.loads((sd / "meta.json").read_text()) if (sd / "meta.json").exists() else {}
+    m["audio_configuration"] = {"audio_id": "1", "audio_volume": 100, "video_volume": 1}
+    m.update(track="ig:1", track_info={"preview_of": "ig:1"})
+    (sd / "meta.json").write_text(json.dumps(m))
+    (sd / "ig-track.m4a").write_bytes(b"\0" * 64)
+    status, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "id=igtrack" in body and "ig-track.m4a" in body
+    status, _, _ = req(server, "GET", "/demo/media/w01-s1/ig-track.m4a")
+    assert status == 200
+
+
+def test_no_track_element_without_instagram_track(server):
+    status, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "id=igtrack" not in body
+
+
+def test_ig_preview_fetch_cache_and_failure(client_dir, monkeypatch):
+    import io, json
+    from spine import tracks as T
+    sd = client_dir / "posts" / "w01-s1"
+
+    class Resp(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    assert T.fetch_ig_preview("demo", "w01-s1", "https://x/a.m4a", opener=lambda u, timeout: Resp(b"abc")).read_bytes() == b"abc"
+    m = json.loads((sd / "meta.json").read_text()) if (sd / "meta.json").exists() else {}
+    m.update(track="ig:1", track_info={"preview_of": "ig:1"})
+    (sd / "meta.json").write_text(json.dumps(m))
+    assert T.ig_preview("demo", "w01-s1") is not None
+    m["track"] = "ig:2"                                 # pick changed elsewhere: stale copy not played
+    (sd / "meta.json").write_text(json.dumps(m))
+    assert T.ig_preview("demo", "w01-s1") is None
+
+    def boom(u, timeout):
+        raise OSError("expired")
+    assert T.fetch_ig_preview("demo", "w01-s1", "https://x/b.m4a", opener=boom) is None
+    assert not (sd / T.IG_PREVIEW).exists()             # old copy removed, nothing half-written
+
+
+def test_ig_preview_respects_size_cap(client_dir):
+    import io
+    from spine import tracks as T
+
+    class Resp(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    big = lambda u, timeout: Resp(b"\0" * (T.IG_PREVIEW_MAX + 1))  # noqa: E731
+    assert T.fetch_ig_preview("demo", "w01-s1", "https://x/big.m4a", opener=big) is None
+    assert not (client_dir / "posts" / "w01-s1" / T.IG_PREVIEW).exists()
+
+
+def test_set_track_marks_and_clears_preview(client_dir, monkeypatch):
+    import json
+    from spine import tracks as T
+    sd = client_dir / "posts" / "w01-s1"
+    if not (sd / "meta.json").exists():
+        (sd / "meta.json").write_text("{}")
+    ig = {"id": "ig:7", "audio_id": "7", "title": "T", "artist": "A", "source": "instagram", "preview": "https://x/t.m4a"}
+    lib = [{"id": "f:1", "title": "F", "artist": "B", "source": "file", "file": "f.mp3"}]
+    monkeypatch.setattr(T, "_ig_known", lambda c: {"ig:7": ig})
+    monkeypatch.setattr(T, "_library", lambda c: lib)
+    monkeypatch.setattr(T, "apply", lambda c, s: None)
+    monkeypatch.setattr(T, "_rel", str)   # tmp client dir is outside the repo
+
+    def ok(c, s, url):
+        f = sd / T.IG_PREVIEW
+        f.write_bytes(b"abc")
+        return f
+    monkeypatch.setattr(T, "fetch_ig_preview", ok)
+    T.set_track("demo", "w01-s1", "ig:7")
+    assert json.loads((sd / "meta.json").read_text())["track_info"]["preview_of"] == "ig:7"
+    assert T.ig_preview("demo", "w01-s1") is not None
+
+    monkeypatch.setattr(T, "fetch_ig_preview", lambda c, s, url: None)
+    T.set_track("demo", "w01-s1", "ig:7")
+    assert "preview_of" not in json.loads((sd / "meta.json").read_text())["track_info"]
+
+    (sd / T.IG_PREVIEW).write_bytes(b"abc")
+    T.set_track("demo", "w01-s1", "f:1")
+    assert not (sd / T.IG_PREVIEW).exists()
