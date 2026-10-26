@@ -382,3 +382,31 @@ def test_failed_run_puts_the_previous_cut_back_to_approval(client_dir, monkeypat
     db = DB.for_client(client_dir)
     assert db.post("w01-s1")["state"] == "NEEDS_APPROVAL"
     db.close()
+
+
+def test_failure_after_render_still_lands_in_approval(client_dir, monkeypatch):
+    db = DB.for_client(client_dir)
+    db.set_state("w01-s1", "REJECTED", note="faster")
+    db.close()
+    (client_dir / "posts" / "w01-s1" / "revise.json").write_text(json.dumps(
+        {"state": "running", "step": "queued", "notes": "faster", "skip_edit": True, "changes": "x"}))
+    monkeypatch.setattr(R, "render", lambda c, s: {"reel": "VERDICT: PASS"})
+    monkeypatch.setattr(R, "_qa_md", lambda *a: (_ for _ in ()).throw(RuntimeError("qa broke")))
+    assert R.run("demo", "w01-s1") == 1
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["state"] == "NEEDS_APPROVAL"
+    db.close()
+
+
+def test_rerun_that_cannot_start_shows_the_failure_again(client_dir, monkeypatch):
+    def nope(c, s):
+        raise OSError("no python")
+    monkeypatch.setattr(R, "_spawn", nope)
+    _fail(client_dir)
+    db = DB.for_client(client_dir)
+    with pytest.raises(OSError):
+        R.retry("demo", "w01-s1", db)
+    assert db.post("w01-s1")["state"] == "NEEDS_APPROVAL"
+    db.close()
+    st = R.status("demo", "w01-s1")
+    assert st["state"] == "failed" and "could not start" in st["error"]

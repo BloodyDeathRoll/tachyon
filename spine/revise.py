@@ -95,7 +95,12 @@ def retry(client: str, slot: str, db: DB) -> bool:
         db.set_state(slot, "REJECTED", note="re-run after a failed render")
     _write_status(client, slot, state="running", step="queued", error=None,
                   skip_edit=st.get("step") == "rendering")
-    _spawn(client, slot)
+    try:
+        _spawn(client, slot)
+    except Exception as e:   # nothing is running: show the failure again, back to approval
+        _write_status(client, slot, state="failed", step=st.get("step"), error=f"could not start: {e}", failed_at=now())
+        settle(db, client, slot)
+        raise
     return True
 
 
@@ -232,8 +237,13 @@ def run(client: str, slot: str) -> int:
     except Exception as e:  # surface it on the video page
         _write_status(client, slot, state="failed", error=str(e)[-1500:], failed_at=now())
         try:   # the previous cut is untouched (files move only on success): back to approval
-            if db.post(slot)["state"] == "SCRIPTED":
+            cur = db.post(slot)["state"]
+            if cur == "SCRIPTED":
                 db.set_state(slot, "REJECTED", note=f"revision failed: {str(e)[:200]}")
+            elif cur == "RENDERED":   # failed after the new cut was in place: it still needs a look
+                db.set_state(slot, "QA", note=f"after-render step failed: {str(e)[:200]}")
+            if db.post(slot)["state"] == "QA":
+                db.set_state(slot, "NEEDS_APPROVAL")
             settle(db, client, slot)
         except Exception:
             pass

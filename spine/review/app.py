@@ -1589,7 +1589,10 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 R.settle(db, name, slot)   # a failed re-render must not block approve / new notes
                 if form.get("action") == "retry":
-                    R.retry(name, slot, db)
+                    try:
+                        R.retry(name, slot, db)
+                    except OSError:
+                        pass   # retry() put the failure back on the page
                 elif form.get("action") == "approve":
                     if "caption" in form:
                         (d / "posts" / slot).mkdir(parents=True, exist_ok=True)
