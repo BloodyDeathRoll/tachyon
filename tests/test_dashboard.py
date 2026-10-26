@@ -542,3 +542,55 @@ def test_calendar_nav_shows_the_shown_weeks_start(server):
     assert "title='Back to today'>Mon 5 Jan</a>" in body
     _, body, _ = req(server, "GET", "/demo/calendar?view=month&m=2099-03")
     assert "title='Back to today'>Mar 2099</a>" in body
+
+
+def _real_reel(client_dir, seconds=1):
+    import subprocess
+    out = client_dir / "posts" / "w01-s1" / "video.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc=size=1080x1920:rate=30:duration={seconds}",
+                    "-f", "lavfi", "-i", f"sine=duration={seconds}", "-shortest", "-pix_fmt", "yuv420p", str(out)], check=True)
+    return out
+
+
+def test_formats_crop_to_the_right_sizes(client_dir):
+    import subprocess
+    from spine import formats as F
+    _real_reel(client_dir)
+    assert F.make("demo", "w01-s1", list(F.RATIOS)) == 0
+    for r, (w, h) in F.RATIOS.items():
+        got = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v", "-show_entries", "stream=width,height",
+                              "-of", "csv=p=0", str(F.path("demo", "w01-s1", r))], capture_output=True, text=True).stdout.strip()
+        assert got == f"{w},{h}", r
+    assert sorted(F.ready("demo", "w01-s1")) == sorted(F.RATIOS)
+
+
+def test_formats_go_stale_after_a_rerender(client_dir):
+    import os
+    from spine import formats as F
+    reel = _real_reel(client_dir)
+    F.make("demo", "w01-s1", ["1x1"])
+    later = F.path("demo", "w01-s1", "1x1").stat().st_mtime + 10
+    os.utime(reel, (later, later))
+    assert F.ready("demo", "w01-s1") == []
+
+
+def test_video_page_switches_formats_and_downloads(server, client_dir):
+    from spine import formats as F
+    _real_reel(client_dir)
+    F.make("demo", "w01-s1", ["4x5"])
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "Generate new version" in body and "?as=4x5'" in body
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1?as=4x5")
+    assert "video-4x5.mp4" in body and "aspect-ratio:4/5" in body and "Download 4:5" in body
+    c = http.client.HTTPConnection("127.0.0.1", server)
+    c.request("GET", "/demo/media/w01-s1/video-4x5.mp4?dl=1")
+    r = c.getresponse()
+    assert r.status == 200 and "demo-w01-s1-4x5.mp4" in (r.getheader("Content-Disposition") or "")
+
+
+def test_generate_formats_post_starts_the_job(server, client_dir, monkeypatch):
+    from spine import formats as F
+    got = []
+    monkeypatch.setattr(F, "start", lambda c, s, r: got.append(r))
+    status, _, _ = req(server, "POST", "/demo/v/w01-s1/formats", {"r": "16x9"})
+    assert status == 303 and got == [["16x9"]]

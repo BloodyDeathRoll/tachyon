@@ -27,6 +27,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
 from .. import clients as C
+from .. import formats as F
 from .. import revise as R
 from .. import schedule as SCH
 from .. import week as W
@@ -40,7 +41,8 @@ FONT = ROOT / "dashboard" / "fonts" / "inter-var.woff2"
 LOGO = ROOT / "dashboard" / "brand" / "tachyon-logo.svg"
 ICON = ROOT / "dashboard" / "brand" / "tachyon-icon.svg"
 MAX_SLOTS = 6
-MEDIA_FILES = {"video.mp4", "video-story.mp4", "cover.jpg", "ig-track.m4a"}
+MEDIA_FILES = {"video.mp4", "video-story.mp4", "cover.jpg", "ig-track.m4a",
+               "video-1x1.mp4", "video-4x5.mp4", "video-2x3.mp4", "video-16x9.mp4"}
 LIVE_TTL = timedelta(minutes=15)
 
 # ── tags ──────────────────────────────────────────────────────────────────────
@@ -411,7 +413,7 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .rgm{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:50;display:grid;place-items:center;padding:24px}
 .rgm[hidden]{display:none}
 .rgbox{background:#fff;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px;min-width:300px;animation:pop .18s ease-out}
-.pop{display:inline-block}.rgbox.wide{width:min(560px,100%)}.rgbox textarea{min-height:130px}
+.pop{display:inline-block}.fmtseg{margin-bottom:12px;flex-wrap:wrap}.rgbox.wide{width:min(560px,100%)}.rgbox textarea{min-height:130px}
 .rgbox label{display:flex;flex-direction:column;gap:6px;font-size:13.5px;color:var(--ink3)}
 .rgbox input{border:1px solid var(--rule);border-radius:9px;padding:8px 10px;font-size:15px;color:var(--ink)}
 .chips{position:absolute;left:10px;top:10px;z-index:2;display:flex;gap:4px;align-items:center}
@@ -578,7 +580,9 @@ def ig_sync(client: str, slot: str) -> str:
             "<script>(()=>{const v=document.querySelector('#frame video'),a=document.getElementById('igtrack');if(!v||!a)return;"
             f"const MV={vol};"
             "const sync=()=>{if(a.duration)a.currentTime=v.currentTime%a.duration};"
-            "const vol=()=>{a.volume=v.muted?0:Math.min(1,v.volume*MV)};"
+            "const fade=()=>v.duration?Math.max(0,Math.min(1,(v.duration-v.currentTime)/1.2)):1;"   # same 1.2 s fade as baked tracks
+            "const vol=()=>{a.volume=v.muted?0:Math.min(1,v.volume*MV*fade())};"
+            "const tick=()=>{if(!v.paused){vol();requestAnimationFrame(tick)}};v.addEventListener('play',()=>requestAnimationFrame(tick));"
             "v.addEventListener('play',()=>{sync();vol();a.play().catch(()=>{})});"
             "v.addEventListener('pause',()=>a.pause());v.addEventListener('seeked',sync);"
             "v.addEventListener('volumechange',vol);v.addEventListener('ended',()=>a.pause());"
@@ -971,6 +975,24 @@ def replies_card(client: str, slot: str) -> str:
     return f"<div id=replies class=rblock>{head}{''.join(rows) if r['custom'] else ''}{stop}</div>"
 
 
+def formats_button(client: str, slot: str, have: list[str]) -> str:
+    st = F.status(client, slot)
+    if st.get("state") == "running":
+        return f"<span class=muted style='font-size:13.5px'>Making {ESC(F.LABEL.get(st.get('current'), ''))}…</span>"
+    err = (f"<p class=hint style='color:#b42318;margin:0'>Last run failed: {ESC(st.get('error') or '')}</p>"
+           if st.get("state") == "failed" else "")
+    act = f"/{ESC(quote(client))}/v/{ESC(quote(slot))}/formats"
+    boxes = "".join(f"<label class=chk style='flex-direction:row;gap:8px;color:var(--ink)'><input type=checkbox name=r value={r} "
+                    f"{'' if r in have else 'checked'}>{F.LABEL[r]}{' <span class=muted>(remake)</span>' if r in have else ''}</label>"
+                    for r in F.RATIOS)
+    box = (f"<form method=post action='{act}' class=rgbox><h2>Generate other formats</h2>"
+           f"<p class=muted style='margin:0;max-width:380px'>For posting by hand on other platforms. Made from the reel: "
+           f"1:1, 4:5 and 2:3 crop around the text, 16:9 sets it on a blurred background. "
+           f"A video with an Instagram track comes out without that music.</p>{err}{boxes}"
+           f"<div class=btns><button class='btn pri small'>Generate</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>")
+    return popup(f"<button type=button class='btn sec small' data-open>Generate new version</button>", box)
+
+
 # ── video page ────────────────────────────────────────────────────────────────
 def render_video(client: str, slot: str, variant: str = "reel", music: str = "file", q: str = "", qs: dict | None = None) -> bytes:
     d = C.client_dir(client)
@@ -984,24 +1006,37 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
             refresh_live(client, db, row)
         st = R.status(client, slot) or {}
         has_story = (sdir / "video-story.mp4").exists()
-        vfile = "video-story.mp4" if variant == "story" and has_story else "video.mp4"
-        is_story = vfile != "video.mp4"
+        fmts = F.ready(client, slot)
+        vfile = ("video-story.mp4" if variant == "story" and has_story else
+                 f"video-{variant}.mp4" if variant in fmts else "video.mp4")
+        is_story = vfile == "video-story.mp4"
+        is_fmt = vfile not in ("video.mp4", "video-story.mp4")
         # what Instagram covers: Meta's safe zones (top 14 %, bottom 35 %, 6 % sides) and, for the
         # reel, the 4:5 crop it gets in the profile grid / feed
         ui = ("<div class=ui><i style='top:0;height:14%'></i><i style='bottom:0;height:35%'></i>"
               + ("" if is_story else "<b style='left:0;right:0;top:14.84%;bottom:14.84%'></b><span style='top:15.4%'>Feed 4:5 crop</span>")
               + f"<span style='top:1%'>{'Story' if is_story else 'Reel'} UI</span><span style='bottom:1%'>{'Reply bar' if is_story else 'Caption · buttons'}</span></div>")
-        player = (f"<div class=frame id=frame><video controls playsinline preload=metadata poster='{media_url(client, slot, 'cover.jpg')}' "
-                  f"src='{media_url(client, slot, vfile)}'></video>{ui}</div>") if (sdir / vfile).exists() else \
+        ar = "9/16" if not is_fmt else F.LABEL[variant].replace(":", "/")
+        poster = "" if is_fmt else f" poster='{media_url(client, slot, 'cover.jpg')}'"
+        player = (f"<div class=frame id=frame><video controls playsinline preload=metadata{poster} style='aspect-ratio:{ar}' "
+                  f"src='{media_url(client, slot, vfile)}'></video>{'' if is_fmt else ui}</div>") if (sdir / vfile).exists() else \
             "<div class=empty>No video file yet.</div>"
         base = f"/{quote(client)}/v/{quote(slot)}"
-        seg = (f"<div class=seg><a href='{base}' class='{'on' if not is_story else ''}'>Reel</a>"
-               f"<a href='{base}?as=story' class='{'on' if is_story else ''}'>Story</a></div>") if has_story else "<span></span>"
-        dls = (f"<a class=dl href='{media_url(client, slot, vfile)}&dl=1' download>{icon('download', 15)}Download {'story' if is_story else 'reel'}</a>"
+        opts = [("reel", "Reel", base)] + ([("story", "Story", f"{base}?as=story")] if has_story else []) \
+            + [(r, F.LABEL[r], f"{base}?as={r}") for r in fmts]
+        cur = "story" if is_story else variant if is_fmt else "reel"
+        seg = ("<div class='seg sm fmtseg'>" + "".join(f"<a href='{h}' class='{'on' if k == cur else ''}'>{lab}</a>" for k, lab, h in opts)
+               + "</div>") if len(opts) > 1 else ""
+        what = "story" if is_story else F.LABEL[variant] if is_fmt else "reel"
+        dls = (f"<a class=dl href='{media_url(client, slot, vfile)}&dl=1' download>{icon('download', 15)}Download {what}</a>"
                if (sdir / vfile).exists() else "")
-        player += ig_sync(client, slot)
-        player += (f"<div class=pctl>{seg}{dls}<label class=chk><input type=checkbox "
-                   f"onchange=\"document.getElementById('frame').classList.toggle('showui',this.checked)\">Show what Instagram covers</label></div>")
+        player = seg + player
+        if not is_fmt:
+            player += ig_sync(client, slot)
+        player += (f"<div class=pctl><span>{formats_button(client, slot, fmts)}</span>{dls}"
+                   + ("" if is_fmt else "<label class=chk><input type=checkbox "
+                      "onchange=\"document.getElementById('frame').classList.toggle('showui',this.checked)\">Show what Instagram covers</label>")
+                   + "</div>")
 
         # status line under the title
         if cls == "live":
@@ -1130,7 +1165,8 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
                 f"<h1>{ESC(title_of(client, row))} <span class=hno>{ESC(' · '.join(x for x in slot_no(slot) if x))}</span></h1><p class=sub>{when_line}</p>"
                 f"<div class=vpage><div class=player>{player}</div><div class='stack c2'>{''.join(blocks)}</div>"
                 f"<div class='stack c3'>{''.join(right)}</div></div>")
-        return shell(client, "overview", body, title_of(client, row), refresh=15 if cls == "busy" else None)
+        making = F.status(client, slot).get("state") == "running"
+        return shell(client, "overview", body, title_of(client, row), refresh=15 if cls == "busy" else 5 if making else None)
     finally:
         db.close()
 
@@ -1557,7 +1593,7 @@ class Handler(BaseHTTPRequestHandler):
             if parts[1] == "settings" and len(parts) == 2:
                 return self._send(200, render_settings(name))
             if parts[1] == "v" and len(parts) == 3:
-                return self._send(200, render_video(name, parts[2], "story" if q.get("as") == "story" else "reel",
+                return self._send(200, render_video(name, parts[2], q.get("as") if q.get("as") in ("story", *F.RATIOS) else "reel",
                                                     q.get("music") or "file", q.get("q") or "", q))
             if parts[1] == "v" and len(parts) == 4 and parts[3] == "byhand":
                 return self._send(200, render_byhand(name, parts[2]))
@@ -1574,7 +1610,8 @@ class Handler(BaseHTTPRequestHandler):
                 f = C.client_dir(name) / "posts" / parts[2] / parts[3]
                 if parts[3] not in MEDIA_FILES or not f.exists():
                     return self._send(404, b"not found", "text/plain")
-                fname = f"{name}-{parts[2]}{'-story' if 'story' in parts[3] else ''}{f.suffix}" if q.get("dl") else None
+                tail = parts[3][len("video"):-len(f.suffix)] if parts[3].startswith("video") else ""
+                fname = f"{name}-{parts[2]}{tail}{f.suffix}" if q.get("dl") else None
                 return self._file(f, mimetypes.guess_type(f.name)[0] or "application/octet-stream", fname)
             return self._send(404, b"not found", "text/plain")
         except KeyError as e:
@@ -1666,6 +1703,14 @@ class Handler(BaseHTTPRequestHandler):
                     C.set_value(name, "week_prep", {"auto": form.get("value") == "1", "day": ws["day"]})
                 return self._redirect(f"/{quote(name)}")
             # /<c>/v/<slot>/decide (dashboard) or /<c>/decide with slot= (older form)
+            if parts[1] == "v" and len(parts) == 4 and parts[3] == "formats":
+                db = DB.for_client(d)
+                try:
+                    db.post(parts[2])
+                finally:
+                    db.close()
+                F.start(name, parts[2], self._multi.get("r") or [])
+                return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}")
             if parts[1] == "v" and len(parts) == 4 and parts[3] == "delete":
                 try:
                     delete_video(name, parts[2])
