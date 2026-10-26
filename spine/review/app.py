@@ -31,6 +31,7 @@ from .. import revise as R
 from .. import schedule as SCH
 from .. import week as W
 from ..db import DB
+from ..state import IllegalTransition
 from ..publisher.publish import HAND_FROM
 
 ESC = html.escape
@@ -1579,11 +1580,11 @@ class Handler(BaseHTTPRequestHandler):
                     at = SCH.slot_for_approval(db, db.post(slot), C.load_grants(name))
                     db.set_state(slot, "APPROVED", note=notes or None, scheduled_at=at)
                 elif form.get("action") == "revoke":
-                    from ..state import IllegalTransition
-                    try:
-                        db.set_state(slot, "NEEDS_APPROVAL", note="approval taken back to keep editing")
-                    except IllegalTransition:
-                        return self._send(409, b"too late: it is already publishing or live", "text/plain")
+                    if db.post(slot)["state"] != "NEEDS_APPROVAL":   # a second click is a no-op
+                        try:
+                            db.set_state(slot, "NEEDS_APPROVAL", note="approval taken back to keep editing")
+                        except IllegalTransition:
+                            return self._send(409, b"too late: it is already publishing or live", "text/plain")
                 elif form.get("action") == "reject":
                     if not notes:
                         return self._send(400, b"a rejection needs a note: say what should change", "text/plain")

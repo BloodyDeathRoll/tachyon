@@ -289,3 +289,15 @@ def test_set_track_marks_and_clears_preview(client_dir, monkeypatch):
     (sd / T.IG_PREVIEW).write_bytes(b"abc")
     T.set_track("demo", "w01-s1", "f:1")
     assert not (sd / T.IG_PREVIEW).exists()
+
+
+def test_edit_twice_and_from_queued(server, client_dir):
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})
+    db = DB.for_client(client_dir)
+    db.set_state("w01-s1", "QUEUED")
+    db.close()
+    assert req(server, "POST", "/demo/v/w01-s1/decide", {"action": "revoke"})[0] == 303
+    assert req(server, "POST", "/demo/v/w01-s1/decide", {"action": "revoke"})[0] == 303   # double click
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["state"] == "NEEDS_APPROVAL"
+    db.close()
