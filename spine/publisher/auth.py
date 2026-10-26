@@ -50,7 +50,8 @@ def read_env(path: Path) -> dict[str, str]:
         if not line or line.startswith("#") or "=" not in line:
             continue
         k, v = line.split("=", 1)
-        out[k.strip()] = v.strip().strip('"').strip("'")
+        k = k.strip().removeprefix("export ").strip()
+        out[k] = v.strip().strip('"').strip("'")
     return out
 
 
@@ -137,6 +138,9 @@ def check(client: str) -> None:
     tok = env.get(grants["token_env"])
     if not tok:
         raise SystemExit(f"{grants['token_env']} not set in {env_path()}")
+    for k in ("META_APP_ID", "META_APP_SECRET"):
+        if not env.get(k):
+            raise SystemExit(f"{env_path()}: missing {k}")
     app_token = f"{env['META_APP_ID']}|{env['META_APP_SECRET']}"
     print(describe(debug(tok, app_token)))
     me = get(grants["ig_user_id"], fields="username,followers_count,media_count", access_token=tok)

@@ -23,6 +23,7 @@ is used), collaborators (list). `is_ai_generated` is never sent (decision 7).
 from __future__ import annotations
 
 import json
+import re
 import sys
 import subprocess
 import time
@@ -37,6 +38,10 @@ from spine.publisher import spec_check, links
 POLL_SECONDS = 60
 POLL_MAX = 5
 QUOTA = 100
+
+
+# a URL or bare domain in a comment (rosa.surf, www.x.com, https://…): never clickable there
+URLISH = re.compile(r"https?://|www\.|\b[a-z0-9-]+\.(?:surf|com|app|io|co|net|org|me|ly|link)\b", re.I)
 
 
 class PublishError(RuntimeError):
@@ -57,8 +62,7 @@ def _container_params(meta: dict, caption: str) -> dict:
         p["collaborators"] = json.dumps(meta["collaborators"])
     if meta.get("location_id"):
         p["location_id"] = str(meta["location_id"])
-    assert "is_ai_generated" not in p
-    return p
+    return p   # never is_ai_generated: decision on AI labels (docs/PLAN.md)
 
 
 def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_run: bool = False,
@@ -77,7 +81,7 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
         caption = (slot / "caption.txt").read_text().strip()
         meta = json.loads((slot / "meta.json").read_text()) if (slot / "meta.json").exists() else {}
         first_comment = (slot / "first_comment.txt").read_text().strip() if (slot / "first_comment.txt").exists() else ""
-        if "http://" in first_comment or "https://" in first_comment or "rosa.surf/?" in first_comment:
+        if URLISH.search(first_comment):
             raise PublishError("first_comment.txt contains a URL; comments are not clickable (decision 13)")
         video = slot / "video.mp4"
         issues = spec_check.check_file(video) + spec_check.check_provenance(client, meta.get("source_asset"))
@@ -120,12 +124,17 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
             pub = graph.write(f"{g['ig_user_id']}/media_publish", creation_id=cid)
             db.journal_outcome(j, pub)
             media_id = pub["id"]
-            info = graph.media(media_id)
-            db.set_state(slot_id, "PUBLISHED", ig_media_id=media_id, permalink=info.get("permalink"),
-                         published_at=info.get("timestamp") or now())
-        except Exception as e:  # noqa: BLE001 — any failure is a FAILED state, reason kept
+        except Exception as e:  # noqa: BLE001 — nothing is live yet: a FAILED state, reason kept
             _fail(db, slot, slot_id, caption, first_comment, str(e))
             raise
+        # live on Instagram from here: never FAILED (FAILED -> QUEUED would post it twice)
+        try:
+            info = graph.media(media_id)
+        except Exception as e:  # noqa: BLE001 — permalink is cosmetic; the id is what matters
+            info = {}
+            db.journal_outcome(db.journal("meta.media.lookup", slot_id, {"media": media_id}), {"error": str(e)})
+        db.set_state(slot_id, "PUBLISHED", ig_media_id=media_id, permalink=info.get("permalink"),
+                     published_at=info.get("timestamp") or now())
 
         # the bio link follows the newest reel (links.py); failure is logged, never fatal
         bio_target = meta.get("bio_link_while_live")
@@ -133,7 +142,7 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
             j = db.journal("bio_link.set", slot_id, {"url": bio_target, "via": g["bio_link"]["public_url"]})
             try:
                 db.journal_outcome(j, links.set_target(g, bio_target, runner=link_runner))
-            except links.LinkError as e:
+            except Exception as e:  # noqa: BLE001 — bio link failure is logged, never fatal
                 db.journal_outcome(j, {"error": str(e)})
                 (slot / "handoff.md").write_text(f"# Bio link not updated\n\nSet {g['bio_link']['public_url']} target by hand:\n\n```\n{bio_target}\n```\n\n{e}\n")
 
@@ -232,18 +241,23 @@ def _fail(db: DB, slot: Path, slot_id: str, caption: str, first_comment: str, re
 def run_queue(client: str, *, dry_run: bool = False) -> list[dict]:
     d = C.client_dir(client)
     db = DB.for_client(d)
-    # approved in the dashboard with a slot → into the queue (spine/schedule.py)
-    for p in db.posts("APPROVED"):
-        if p["scheduled_at"]:
-            db.set_state(p["slot_id"], "QUEUED")
-    due = [p["slot_id"] for p in db.posts("QUEUED")
-           if p["scheduled_at"] and p["scheduled_at"] <= datetime.now(timezone.utc).isoformat()]
-    db.close()
     out = []
+    try:
+        # approved in the dashboard with a slot → into the queue (spine/schedule.py)
+        for p in db.posts("APPROVED"):
+            if p["scheduled_at"]:
+                try:
+                    db.set_state(p["slot_id"], "QUEUED")
+                except Exception as e:  # noqa: BLE001 — one bad row must not stop the others
+                    out.append({"slot_id": p["slot_id"], "error": str(e)})
+        due = [p["slot_id"] for p in db.posts("QUEUED")
+               if p["scheduled_at"] and p["scheduled_at"] <= datetime.now(timezone.utc).isoformat()]
+    finally:
+        db.close()
     for s in due:
         try:
             out.append(publish_slot(client, s, dry_run=dry_run))
-        except (PublishError, GraphError) as e:
+        except Exception as e:  # noqa: BLE001 — one failure must not stop the queue
             out.append({"slot_id": s, "error": str(e)})
     return out
 
@@ -258,8 +272,15 @@ def main(argv: list[str]) -> int:
     else:
         slot_id = argv[1]
         if "--now" in argv:
-            d = C.client_dir(client); db = DB.for_client(d)
-            db.conn.execute("UPDATE posts SET scheduled_at=? WHERE slot_id=?", (now(), slot_id)); db.conn.commit(); db.close()
+            db = DB.for_client(C.client_dir(client))
+            try:
+                db.post(slot_id)   # KeyError on an unknown slot
+                db.journal("post.publish_now", slot_id, {"scheduled_at": now()})
+                db.conn.execute("UPDATE posts SET scheduled_at=? WHERE slot_id=?", (now(), slot_id))
+            except KeyError:
+                print(f"no such slot: {slot_id}"); return 1
+            finally:
+                db.close()
         try:
             res = publish_slot(client, slot_id, dry_run=dry)
         except (PublishError, GraphError) as e:
