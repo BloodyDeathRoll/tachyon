@@ -13,6 +13,7 @@ plays on Instagram). Files: posts/<slot>/video-<ratio>.mp4; progress in formats.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -47,9 +48,23 @@ def status_path(client: str, slot: str) -> Path:
     return C.client_dir(client) / "posts" / slot / "formats.json"
 
 
+def _alive(pid) -> bool:
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except (TypeError, ValueError, ProcessLookupError):
+        return False
+    except PermissionError:
+        return True
+
+
 def status(client: str, slot: str) -> dict:
+    """formats.json; a job whose process is gone (restart, crash) reads as failed, not running."""
     p = status_path(client, slot)
-    return json.loads(p.read_text()) if p.exists() else {}
+    st = json.loads(p.read_text()) if p.exists() else {}
+    if st.get("state") == "running" and st.get("pid") and not _alive(st["pid"]):
+        st.update(state="failed", error=st.get("error") or "stopped before it finished (restart or crash)")
+    return st
 
 
 def _status(client: str, slot: str, **kw) -> None:
@@ -62,7 +77,7 @@ def filter_for(ratio: str) -> str:
     w, h = RATIOS[ratio]
     if ratio == "16x9":   # the safe box (all our text and UI), as tall as the frame, over a blurred copy
         top, bot = round(H * 0.14), round(H * (1 - 0.35))
-        fw = round((bot - top) and W * h / (bot - top) / 2) * 2
+        fw = round(W * h / (bot - top) / 2) * 2
         return (f"[0:v]split[a][b];[a]scale={w}:-2,crop={w}:{h},boxblur=40:4,eq=brightness=-0.08[bg];"
                 f"[b]crop={W}:{bot - top}:0:{top},scale={fw}:{h}[fg];[bg][fg]overlay=(W-w)/2:0,setsar=1[v]")
     y = max(0, min(H - h, SAFE_MID - h // 2))
@@ -71,6 +86,7 @@ def filter_for(ratio: str) -> str:
 
 def make_one(client: str, slot: str, ratio: str) -> Path:
     src = C.client_dir(client) / "posts" / slot / "video.mp4"
+    src_mtime = src.stat().st_mtime
     out = path(client, slot, ratio)
     tmp = out.with_suffix(".part.mp4")
     r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-filter_complex", filter_for(ratio),
@@ -81,6 +97,9 @@ def make_one(client: str, slot: str, ratio: str) -> Path:
         tmp.unlink(missing_ok=True)
         raise RuntimeError(f"ffmpeg failed for {ratio}: {r.stderr.strip()[-300:]}")
     tmp.replace(out)
+    if src.stat().st_mtime != src_mtime:   # the reel changed while cutting: this cut is of the old one
+        out.unlink(missing_ok=True)
+        raise RuntimeError("the reel was re-rendered meanwhile: generate again")
     return out
 
 
@@ -99,12 +118,24 @@ def make(client: str, slot: str, ratios: list[str]) -> int:
 
 def start(client: str, slot: str, ratios: list[str]) -> None:
     ratios = [r for r in ratios if r in RATIOS]
-    if not ratios or status(client, slot).get("state") == "running":
+    if not ratios:
         return
-    _status(client, slot, state="running", current=ratios[0], wanted=ratios, error=None)
-    log = (C.client_dir(client) / "posts" / slot / "formats.log").open("a")
-    subprocess.Popen([sys.executable, "-m", "spine.formats", "make", client, slot, *ratios], cwd=ROOT,
-                     stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    lock = C.client_dir(client) / "posts" / slot / "formats.lock"
+    try:   # one start at a time, even for two fast clicks
+        fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        return
+    try:
+        if status(client, slot).get("state") == "running":
+            return
+        _status(client, slot, state="running", current=ratios[0], wanted=ratios, error=None, pid=None)
+        with (C.client_dir(client) / "posts" / slot / "formats.log").open("a") as log:
+            proc = subprocess.Popen([sys.executable, "-m", "spine.formats", "make", client, slot, *ratios], cwd=ROOT,
+                                    stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+        _status(client, slot, pid=proc.pid)
+    finally:
+        os.close(fd)
+        lock.unlink(missing_ok=True)
 
 
 def main(argv: list[str]) -> int:

@@ -582,7 +582,8 @@ def ig_sync(client: str, slot: str) -> str:
             "const sync=()=>{if(a.duration)a.currentTime=v.currentTime%a.duration};"
             "const fade=()=>v.duration?Math.max(0,Math.min(1,(v.duration-v.currentTime)/1.2)):1;"   # same 1.2 s fade as baked tracks
             "const vol=()=>{a.volume=v.muted?0:Math.min(1,v.volume*MV*fade())};"
-            "const tick=()=>{if(!v.paused){vol();requestAnimationFrame(tick)}};v.addEventListener('play',()=>requestAnimationFrame(tick));"
+            "let raf=0;const tick=()=>{raf=0;if(!v.paused){vol();raf=requestAnimationFrame(tick)}};"
+            "v.addEventListener('play',()=>{if(!raf)raf=requestAnimationFrame(tick)});"
             "v.addEventListener('play',()=>{sync();vol();a.play().catch(()=>{})});"
             "v.addEventListener('pause',()=>a.pause());v.addEventListener('seeked',sync);"
             "v.addEventListener('volumechange',vol);v.addEventListener('ended',()=>a.pause());"

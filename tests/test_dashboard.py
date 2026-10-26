@@ -544,6 +544,9 @@ def test_calendar_nav_shows_the_shown_weeks_start(server):
     assert "title='Back to today'>Mar 2099</a>" in body
 
 
+needs_ffmpeg = pytest.mark.skipif(not __import__("shutil").which("ffmpeg"), reason="needs ffmpeg")
+
+
 def _real_reel(client_dir, seconds=1):
     import subprocess
     out = client_dir / "posts" / "w01-s1" / "video.mp4"
@@ -552,6 +555,7 @@ def _real_reel(client_dir, seconds=1):
     return out
 
 
+@needs_ffmpeg
 def test_formats_crop_to_the_right_sizes(client_dir):
     import subprocess
     from spine import formats as F
@@ -564,6 +568,7 @@ def test_formats_crop_to_the_right_sizes(client_dir):
     assert sorted(F.ready("demo", "w01-s1")) == sorted(F.RATIOS)
 
 
+@needs_ffmpeg
 def test_formats_go_stale_after_a_rerender(client_dir):
     import os
     from spine import formats as F
@@ -574,6 +579,7 @@ def test_formats_go_stale_after_a_rerender(client_dir):
     assert F.ready("demo", "w01-s1") == []
 
 
+@needs_ffmpeg
 def test_video_page_switches_formats_and_downloads(server, client_dir):
     from spine import formats as F
     _real_reel(client_dir)
@@ -594,3 +600,25 @@ def test_generate_formats_post_starts_the_job(server, client_dir, monkeypatch):
     monkeypatch.setattr(F, "start", lambda c, s, r: got.append(r))
     status, _, _ = req(server, "POST", "/demo/v/w01-s1/formats", {"r": "16x9"})
     assert status == 303 and got == [["16x9"]]
+
+
+
+def test_formats_job_that_died_reads_as_failed(server, client_dir):
+    from spine import formats as F
+    F.status_path("demo", "w01-s1").write_text(json.dumps({"state": "running", "current": "1x1", "pid": 999999999}))
+    assert F.status("demo", "w01-s1")["state"] == "failed"
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "Generate new version" in body and "stopped before it finished" in body
+
+
+def test_formats_start_runs_once(client_dir, monkeypatch):
+    from spine import formats as F
+    calls = []
+
+    class P:
+        pid = 4242
+    monkeypatch.setattr(F.subprocess, "Popen", lambda *a, **k: calls.append(a) or P())
+    monkeypatch.setattr(F, "_alive", lambda pid: True)
+    F.start("demo", "w01-s1", ["1x1"])
+    F.start("demo", "w01-s1", ["1x1"])   # second click while running
+    assert len(calls) == 1 and F.status("demo", "w01-s1")["pid"] == 4242
