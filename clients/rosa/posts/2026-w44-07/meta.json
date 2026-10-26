@@ -5,7 +5,7 @@
   "angle": "Open on Pixabay surfer footage (218670_large.mp4) with the hook. The phone flies in showing home.png: the Ollie's Point card with its Epic badge and offshore wind line. Scroll down to the Costa Rica group, Ollie's Point and Witch's Rock side by side with their next three days. End card: logo, \"rosa.surf, link in bio\", \"Footage: Pixabay\".",
   "hook_formula": "Costa Rica's two famous rights.",
   "cta": "link in bio (rosa.surf on the end card)",
-  "audio_type": "Old Steel (AlexGrohl), file",
+  "audio_type": "Surfer Girl (Nick Gallant), instagram",
   "engine": "remotion 4 (engines/remotion)",
   "film": {
     "engine": "remotion",
@@ -21,7 +21,20 @@
   "landing": "https://rosa.surf/",
   "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w44-07",
   "plan": "2026-W44",
-  "track": "old-steel",
+  "track": "ig:713579815760196",
   "theme": "dark",
-  "duration_s": 13.06
+  "duration_s": 13.06,
+  "audio_configuration": {
+    "audio_id": "713579815760196",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Surfer Girl",
+    "artist": "Nick Gallant",
+    "cover": "https://scontent.fhfa1-1.fna.fbcdn.net/v/t39.30808-1/292636946_509329640940127_3409036784385541902_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=HEubDOwVJdgQ7kNvwGefmjN&_nc_oc=AdrjaTm1hh4lgZPBXqUp4nF9dlrKZ9JMe6UwhJFEWci1xPYX_sUD6b9Bqx7D82fOqGXxQbX3UTiF2AjClrJHbYEe&_nc_zt=24&_nc_ht=scontent.fhfa1-1.fna&edm=AOP_XFkEAAAA&_nc_gid=YFC_1ZPWMkyjIj3p7-xWaw&oh=00_AQM5sHNXK2eO3iaQdupNyYbQSw0xqWHT2W-4TU0Ce1rKbQ&oe=6AE51B01",
+    "duration": 140.0,
+    "link": null,
+    "preview_of": "ig:713579815760196"
+  }
 }

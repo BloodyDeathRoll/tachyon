@@ -1,0 +1,19 @@
+{
+ "state": "done",
+ "step": "done",
+ "notes": "Add our Rosa app particles animation to the empty bottom areas that only show a dark background color. Use the exact animation from the Rosa app - particles rising up and disappearing as they rise.",
+ "rounds": [
+  {
+   "notes": "Add our Rosa app particles animation to the empty bottom areas that only show a dark background color. Use the exact animation from the Rosa app - particles rising up and disappearing as they rise.",
+   "at": "2026-10-26T18:58:45+00:00"
+  }
+ ],
+ "error": null,
+ "skip_edit": false,
+ "changes": "I made the edit, but I couldn't run any checks: the `npx` commands for `tsc` and `remotion still` need permission, and that permission wasn't granted.\n\n```\nnpx tsc --noEmit -p .\n```\n\nThe films for 2026-w44-02 to w44-14 already use the same particles code, based on the app's `BottomGlow.tsx` + `particles.ts`. I copied it from film-2026-w44-02 as is.\n\n- Added the Rosa particles (copied from film-2026-w44-02) to `film-2026-w44-01.tsx`: specks rise and fade over a two-tone glow in the bottom band (y 1280\u20131920).\n- They show only while the dark background is on screen, from 2.2 s to 9.0 s, fading in and out with it.\n- Added `random` to the `remotion` import in the same file.",
+ "updated_at": "2026-10-26T19:02:44+00:00",
+ "verdicts": {
+  "reel": "VERDICT: WARN (worst band 0.26x; text or UI in a band shows as > 0.6x)",
+  "story": "VERDICT: WARN (worst band 0.26x; text or UI in a band shows as > 0.6x)"
+ }
+}

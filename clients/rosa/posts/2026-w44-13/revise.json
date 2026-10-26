@@ -1,0 +1,18 @@
+{
+ "state": "done",
+ "step": "done",
+ "notes": "Add the particles animation we use in the Rosa app loading screen. Keep the exact animation we use in the app itself, particles rising up and fading away as they rise",
+ "rounds": [
+  {
+   "notes": "Add the particles animation we use in the Rosa app loading screen. Keep the exact animation we use in the app itself, particles rising up and fading away as they rise",
+   "at": "2026-10-26T18:45:15+00:00"
+  }
+ ],
+ "error": null,
+ "updated_at": "2026-10-26T18:49:48+00:00",
+ "changes": "I added the particles to w44-13, but nothing is checked: the permission settings blocked `npx tsc --noEmit -p .` and `npx remotion still`, so there's no type-check and no frame. Run both before rendering.\n\n- `engines/remotion/src/films/film-2026-w44-13.tsx`: added a `Particles` layer copied from the one already in `film-2026-w44-14.tsx`. I compared that copy with `~/Projects/rosa/web/src/components/particles.ts`, the `splashParticles` settings in `main.tsx` and the splash CSS in `index.html`, and it matches: same colours and density, specks rising from the bottom 460 px (app size) and fading as they climb.\n- Same file: the layer runs for the whole film and sits behind the phone and all text.\n- Same file: added the `random` import from `remotion`.",
+ "verdicts": {
+  "reel": "VERDICT: PASS (worst band 0.02x; text or UI in a band shows as > 0.6x)",
+  "story": "VERDICT: PASS (worst band 0.02x; text or UI in a band shows as > 0.6x)"
+ }
+}

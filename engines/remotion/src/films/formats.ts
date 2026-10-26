@@ -4,7 +4,11 @@
 import type React from "react";
 export type FormatFilm = { id: string; seconds: number; width: number; height: number; component: React.FC };
 // @imports
+import x, { SECONDS as x_s } from "./film-2026-w44-01-16x9";
+import x13, { SECONDS as x13_s } from "./film-2026-w44-13-16x9";
 
 export const FORMATS: FormatFilm[] = [
   // @formats
+  { id: "film-2026-w44-01-16x9", seconds: x_s, width: 1920, height: 1080, component: x },
+  { id: "film-2026-w44-13-16x9", seconds: x13_s, width: 1920, height: 1080, component: x13 },
 ];

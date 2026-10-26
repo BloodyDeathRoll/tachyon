@@ -7,14 +7,14 @@
   "length_target": 10,
   "duration_s": 10.0,
   "cta": "link in bio (URL on end card)",
-  "audio_type": "Pixabay 'Old Steel' (Pixabay Content License), baked in",
+  "audio_type": "Energetic Surf Rock (Tunetank), file",
   "engine": "remotion 4 (engines/remotion)",
   "film": {
     "engine": "remotion",
     "reel": "Favorites",
     "story": "FavoritesStory",
     "source": "engines/remotion/src/Favorites.tsx",
-    "music": "clients/rosa/assets/music/old-steel-449645.mp3"
+    "music": "clients/rosa/assets/music/energetic-surf-rock-music-350069.mp3"
   },
   "trial": false,
   "share_to_feed": true,
@@ -22,5 +22,6 @@
   "story": true,
   "experiment_id": null,
   "landing": "https://rosa.surf/",
-  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w43-05"
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w43-05",
+  "track": "energetic-surf-rock"
 }

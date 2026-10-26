@@ -5,7 +5,7 @@
   "angle": "Hook over Pixabay sunrise wave footage (310248_large.mp4). Cut to the phone in 3D showing charts.png, a slow pan across the Atlantic swell arrows from the UK down to South Africa. The play button pulses and the Sun to Sat timeline highlights left to right. End card: logo, \"rosa.surf/charts\", \"Footage: Pixabay\".",
   "hook_formula": "The whole ocean, one screen.",
   "cta": "link in bio (rosa.surf on the end card)",
-  "audio_type": "Retro Surf Rock (Tunetank), file",
+  "audio_type": "Make It Bounce (Giulio Cercato), instagram",
   "engine": "remotion 4 (engines/remotion)",
   "film": {
     "engine": "remotion",
@@ -23,5 +23,18 @@
   "plan": "2026-W44",
   "duration_s": 12.05,
   "theme": "light",
-  "track": "retro-surf-rock"
+  "track": "ig:433246833011780",
+  "audio_configuration": {
+    "audio_id": "433246833011780",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Make It Bounce",
+    "artist": "Giulio Cercato",
+    "cover": "https://scontent.fhfa1-1.fna.fbcdn.net/v/t39.30808-1/469664734_1119322796867067_2405028789482486743_n.jpg?stp=c159.159.682.682a_dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=DXwnlljam8YQ7kNvwFeUJ7F&_nc_oc=AdrGopAU67rSuj8okXWxaK7Q1bJkCI9PQkqcnDVVUlSALqmyvHkHrauPQoOvS5Fw5iT4f9MCS0TFgaAjs-tdY8yi&_nc_zt=24&_nc_ht=scontent.fhfa1-1.fna&edm=AOP_XFkEAAAA&_nc_gid=oFNceEDpT8UnvsjMILierA&oh=00_AQNMFlz7y2IekBeXdqDjhJ5vh95lWTkyahkBE6KL589RAg&oe=6AE58BFD",
+    "duration": 126.2,
+    "link": null,
+    "preview_of": "ig:433246833011780"
+  }
 }

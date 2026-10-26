@@ -7,7 +7,7 @@
   "length_target": 18,
   "duration_s": 18.0,
   "cta": "link in bio (URL on end card)",
-  "audio_type": "Pixabay 'Old Steel' (Pixabay Content License), baked in",
+  "audio_type": "The Yorker (cloud cover), instagram",
   "engine": "remotion 4 (engines/remotion)",
   "film": {
     "engine": "remotion",
@@ -22,5 +22,19 @@
   "story": true,
   "experiment_id": null,
   "landing": "https://rosa.surf/",
-  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w43-04"
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w43-04",
+  "track": "ig:2131356407792185",
+  "audio_configuration": {
+    "audio_id": "2131356407792185",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "The Yorker",
+    "artist": "cloud cover",
+    "cover": "https://static.xx.fbcdn.net/rsrc.php/yM/r/LXmIH1W7DBC.webp",
+    "duration": 66.3,
+    "link": null,
+    "preview_of": "ig:2131356407792185"
+  }
 }

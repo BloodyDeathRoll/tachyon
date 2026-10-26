@@ -5,7 +5,7 @@
   "angle": "Hook in big Inter numerals over Pixabay footage (218670_large.mp4). The phone drops in on search.png: the \"Search spots or regions\" bar and the recent list, Banzai Pipeline, Supertubos, Uluwatu, each with its rating dot. Tap Supertubos and cut to spot-supertubos.png. End card: logo, \"rosa.surf, link in bio\", \"Footage: Pixabay\".",
   "hook_formula": "3,056 spots. Type one.",
   "cta": "link in bio (rosa.surf on the end card)",
-  "audio_type": "Upbeat Lounge (AtlasAudio), file",
+  "audio_type": "Dance Off (Instrumental) (half.cool), instagram",
   "engine": "remotion 4 (engines/remotion)",
   "film": {
     "engine": "remotion",
@@ -23,5 +23,18 @@
   "plan": "2026-W44",
   "duration_s": 13.06,
   "theme": "light",
-  "track": "upbeat-lounge"
+  "track": "ig:1273448554222971",
+  "audio_configuration": {
+    "audio_id": "1273448554222971",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Dance Off (Instrumental)",
+    "artist": "half.cool",
+    "cover": "https://static.xx.fbcdn.net/rsrc.php/yM/r/LXmIH1W7DBC.webp",
+    "duration": 187.4,
+    "link": null,
+    "preview_of": "ig:1273448554222971"
+  }
 }

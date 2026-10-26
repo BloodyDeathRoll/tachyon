@@ -5,14 +5,14 @@
   "angle": "Hook on a black card. The phone shows charts.png and zooms toward the Pacific edge, cross-dissolve into map.png: the North Shore with numbered spot pins. The Rocky Point card slides up with its Good badge. Final beat cuts to spot-pipeline.png's week strip. End card: logo, \"rosa.surf/charts\".",
   "hook_formula": "From open ocean to your break.",
   "cta": "link in bio (rosa.surf on the end card)",
-  "audio_type": "Retro Surf Rock (Tunetank), file",
+  "audio_type": "The Yorker (cloud cover), instagram",
   "engine": "remotion 4 (engines/remotion)",
   "film": {
     "engine": "remotion",
     "reel": "film-2026-w44-09",
     "story": "film-2026-w44-09-story",
     "source": "engines/remotion/src/films/film-2026-w44-09.tsx",
-    "music": "clients/rosa/assets/music/retro-surf-rock-348237.mp3"
+    "music": "clients/rosa/assets/music/surf-rock-204622.mp3"
   },
   "trial": false,
   "share_to_feed": true,
@@ -21,7 +21,20 @@
   "landing": "https://rosa.surf/",
   "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w44-09",
   "plan": "2026-W44",
-  "track": "retro-surf-rock",
+  "track": "ig:2131356407792185",
   "theme": "dark",
-  "duration_s": 13.06
+  "duration_s": 13.06,
+  "audio_configuration": {
+    "audio_id": "2131356407792185",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "The Yorker",
+    "artist": "cloud cover",
+    "cover": "https://static.xx.fbcdn.net/rsrc.php/yM/r/LXmIH1W7DBC.webp",
+    "duration": 66.3,
+    "link": null,
+    "preview_of": "ig:2131356407792185"
+  }
 }
