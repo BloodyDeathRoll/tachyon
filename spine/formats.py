@@ -18,6 +18,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -152,7 +153,13 @@ def _unregister(fid: str, ratio: str) -> None:
 def make_one(client: str, slot: str, ratio: str) -> Path:
     """One format at a time across all slots: the layouts and formats.ts are shared sources."""
     with open(FILMS / ".formats.lock", "w") as lk:
-        fcntl.flock(lk, fcntl.LOCK_EX)
+        while True:
+            try:
+                fcntl.flock(lk, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:   # another format is being made: wait, and say so (heartbeat)
+                _status(client, slot, step="queued")
+                time.sleep(15)
         return _make_one(client, slot, ratio)
 
 
@@ -179,9 +186,12 @@ def _make_one(client: str, slot: str, ratio: str) -> Path:
             _drop(fid, ratio)
             raise RuntimeError(f"no {LABEL[ratio]} layout was written")
     _register(fid, ratio)
-    r = subprocess.run(["npx", "tsc", "--noEmit", "-p", "."], cwd=REMOTION, capture_output=True, text=True)
+    r = subprocess.run(["npx", "tsc", "--noEmit", "-p", "."], cwd=REMOTION, capture_output=True, text=True, timeout=300)
     if r.returncode != 0:
-        _drop(fid, ratio)   # never leave a broken film registered; the next run writes it afresh
+        if f"{fid}-{ratio}" in r.stdout:
+            _drop(fid, ratio)   # its own error: never leave it registered; the next run writes it afresh
+        else:
+            _unregister(fid, ratio)   # someone else's error: keep the layout, just don't register it now
         raise RuntimeError(f"the {LABEL[ratio]} layout does not typecheck: {r.stdout[-300:]}")
     _status(client, slot, step="rendering")
     out = path(client, slot, ratio)
@@ -189,7 +199,7 @@ def _make_one(client: str, slot: str, ratio: str) -> Path:
     tmp = out.with_suffix(".part.mp4")
     try:
         _run(["npx", "remotion", "render", "src/index.ts", f"{fid}-{ratio}", str(raw), "--log=error",
-              f"--timeout={RENDER_TIMEOUT_MS}"], cwd=REMOTION)
+              f"--timeout={RENDER_TIMEOUT_MS}"], cwd=REMOTION, timeout=30 * 60)
         _run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-i", str(src), "-map", "0:v", "-map", "1:a?",
               "-c:v", "copy", "-c:a", "copy", "-shortest", "-map_metadata", "-1", "-movflags", "+faststart", str(tmp)], cwd=ROOT)
         tmp.replace(out)

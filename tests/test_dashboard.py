@@ -622,7 +622,7 @@ def test_formats_layout_that_does_not_typecheck_is_unregistered(client_dir, fake
     from spine import formats as F
     _real_reel(client_dir)
     run = F.subprocess.run
-    monkeypatch.setattr(F.subprocess, "run", lambda cmd, *a, **k: subprocess.CompletedProcess(cmd, 1, "TS2304", "")
+    monkeypatch.setattr(F.subprocess, "run", lambda cmd, *a, **k: subprocess.CompletedProcess(cmd, 1, "src/films/S-2x3.tsx: TS2304", "")
                         if cmd[:2] == ["npx", "tsc"] else run(cmd, *a, **k))
     assert F.make("demo", "w01-s1", ["2x3"]) == 1
     assert "S-2x3" not in (F.FILMS / "formats.ts").read_text()
@@ -741,3 +741,15 @@ def test_formats_failed_layout_write_leaves_nothing_registered(client_dir, fake_
     monkeypatch.setattr(F.subprocess, "run", claude_dies)
     assert F.make("demo", "w01-s1", ["1x1"]) == 1
     assert "S-1x1" not in (F.FILMS / "formats.ts").read_text()
+
+
+
+def test_formats_unrelated_type_error_keeps_the_layout(client_dir, fake_remotion, monkeypatch):
+    import subprocess
+    from spine import formats as F
+    _real_reel(client_dir)
+    run = F.subprocess.run
+    monkeypatch.setattr(F.subprocess, "run", lambda cmd, *a, **k: subprocess.CompletedProcess(cmd, 1, "src/Other.tsx: TS2304", "")
+                        if cmd[:2] == ["npx", "tsc"] else run(cmd, *a, **k))
+    assert F.make("demo", "w01-s1", ["2x3"]) == 1
+    assert (F.FILMS / "S-2x3.tsx").exists() and "S-2x3" not in (F.FILMS / "formats.ts").read_text()

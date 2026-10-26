@@ -980,7 +980,7 @@ def replies_card(client: str, slot: str) -> str:
 def formats_button(client: str, slot: str, have: list[str]) -> str:
     st = F.status(client, slot)
     if st.get("state") == "running":
-        doing = {"writing": "Laying out", "rendering": "Rendering"}.get(st.get("step"), "Generating")
+        doing = {"writing": "Laying out", "rendering": "Rendering", "queued": "Waiting to make"}.get(st.get("step"), "Generating")
         return f"<span class='tag gen'>{doing} {ESC(F.LABEL.get(st.get('current'), ''))}…</span>"
     err = (f"<p class=hint style='color:#b42318;margin:0'>Last run failed: {ESC(st.get('error') or '')}</p>"
            if st.get("state") == "failed" else "")
