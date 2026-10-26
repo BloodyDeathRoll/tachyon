@@ -49,7 +49,8 @@ next step. Copy this file to `clients/<name>/PLAYBOOK.md` and tick as you go.
 
 1. Nothing goes on screen that is not in `product.md`. Re-measure before reuse.
 2. 9:16 is the master; every slot ships `video.mp4` (reel) and `video-story.mp4` (story), both inside Meta's safe box (top 14 %, bottom 35 %, sides 6 %; reel also inside the 4:5 feed crop). Other ratios by relayout, never crop.
-3. Film sources live in git under `clients/<name>/films/`. A render from a scratchpad
+3. Film sources live under `clients/<name>/films/`, on local disk only (not in git, to save
+   repo space). A render from a scratchpad
    does not count as done.
 4. One variable per experiment. Pre-register it in `calendar.yaml` before the render.
 5. Client red lines apply to every asset (Rosa: no competitor data, no scraped cams,

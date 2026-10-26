@@ -116,7 +116,7 @@ Writes:
    then `avoid-ai-writing` as a second opinion. Every claim cites a line of `product.md`.
 2. **Film** (Claude as motion designer). The brief that produced the Rosa reels is the
    model: one prompt, Claude writes the whole film. Film source lives in
-   `clients/<name>/films/<slug>/` in git, driven by the script JSON, with `?ar=` /
+   `clients/<name>/films/<slug>/` (local only, not in git), driven by the script JSON, with `?ar=` /
    `?theme=` and `?variant=reel|story` switches (9:16 master; the story variant may use the taller box and a sticker-friendly end card; 1:1 and 16:9 by relayout, never crop). Inputs: real
    app captures via Playwright, client footage from `assets/`, code animation, voice-over
    via ElevenLabs when the script calls for it, SFX/music from `assets/` or none. No
@@ -275,7 +275,7 @@ tachyon/
   first three slots after a QA pass (numbers, metadata strip). `rosa promo.mp4` is 16:9
   and gets relaid out once a film source exists.
 - **Film sources are lost.** Rebuild from the session jsonl under `~/.claude/projects/`
-  as a design reference; commit under `clients/rosa/films/`. The same showreel brief is
+  as a design reference; keep under `clients/rosa/films/` (local only). The same showreel brief is
   the engine-comparison brief.
 - Pillars: "why this rating", swell map (`/charts`), free with no paywall (never name a
   competitor without a measurement), spot spotlights by region, swell-alert moments,

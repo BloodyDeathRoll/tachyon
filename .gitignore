@@ -20,13 +20,9 @@ engines/remotion/node_modules/
 engines/remotion/out/
 engines/remotion/public/footage/
 compare/*.mp4
-clients/*/films/*/audio*.wav
 compare/**/*.mp4
 clients/*/posts/*/*.wav
 clients/*/posts/*/*.mp4
-clients/*/films/*/fr*/
-clients/*/films/**/*.mp4
-clients/*/films/**/*.wav
 clients/*/posts/*/versions/**/*.mp4
 clients/*/posts/*/versions/**/*.jpg
 clients/*/posts/*/versions/**/*.wav
@@ -43,3 +39,6 @@ clients/*/posts/*/versions/**/*.wav
 *.wav
 *.mp3
 *.m4a
+
+# film work files: local only
+clients/*/films/
