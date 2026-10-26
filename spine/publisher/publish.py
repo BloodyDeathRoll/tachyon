@@ -154,6 +154,58 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
         db.close()
 
 
+HAND_FROM = {"NEEDS_APPROVAL", "APPROVED", "QUEUED", "FAILED", "MANUAL_HANDOFF"}
+
+
+def hand_candidates(client: str, *, graph: Graph | None = None, limit: int = 25) -> list[dict]:
+    """Recent posts on the account that no slot is linked to yet, newest first."""
+    g = C.load_grants(client)
+    graph = graph or Graph(C.token(client))
+    rows = graph.get(f"{g['ig_user_id']}/media", limit=limit,
+                     fields="id,caption,timestamp,permalink,media_product_type,thumbnail_url,media_url").get("data", [])
+    db = DB.for_client(C.client_dir(client))
+    try:
+        linked = {p["ig_media_id"] for p in db.posts() if p["ig_media_id"]}
+    finally:
+        db.close()
+    return [r for r in rows if r["id"] not in linked]
+
+
+def link_by_hand(client: str, slot_id: str, media_id: str, *, graph: Graph | None = None,
+                 link_runner=None) -> dict:
+    """The operator posted this slot from the Instagram app; attach that post so it is measured."""
+    g = C.load_grants(client)
+    graph = graph or Graph(C.token(client))
+    if not any(r["id"] == media_id for r in hand_candidates(client, graph=graph)):
+        raise PublishError(f"{media_id} is not a recent, unlinked post on @{g.get('ig_username')}")
+    info = graph.media(media_id)
+    d = C.client_dir(client)
+    db = DB.for_client(d)
+    try:
+        row = db.post(slot_id)
+        if row["state"] not in HAND_FROM:
+            raise PublishError(f"{slot_id} is {row['state']}; only unpublished slots can be linked")
+        j = db.journal("meta.link_by_hand", slot_id, {"media": media_id})
+        if row["state"] != "MANUAL_HANDOFF":
+            db.set_state(slot_id, "MANUAL_HANDOFF", note="posted by hand in the Instagram app")
+        db.set_state(slot_id, "PUBLISHED", ig_media_id=media_id, permalink=info.get("permalink"),
+                     published_at=info.get("timestamp") or now())
+        db.journal_outcome(j, info)
+        meta = json.loads((d / "posts" / slot_id / "meta.json").read_text()) \
+            if (d / "posts" / slot_id / "meta.json").exists() else {}
+        bio_target = meta.get("bio_link_while_live")
+        if bio_target and g.get("bio_link"):
+            j = db.journal("bio_link.set", slot_id, {"url": bio_target, "via": g["bio_link"]["public_url"]})
+            try:
+                db.journal_outcome(j, links.set_target(g, bio_target, runner=link_runner))
+            except links.LinkError as e:
+                db.journal_outcome(j, {"error": str(e)})
+        db.set_state(slot_id, "MEASURING")
+        return {"slot_id": slot_id, "ig_media_id": media_id, "permalink": info.get("permalink")}
+    finally:
+        db.close()
+
+
 def _fail(db: DB, slot: Path, slot_id: str, caption: str, first_comment: str, reason: str) -> None:
     post = db.post(slot_id)
     if post["state"] != "PUBLISHING":

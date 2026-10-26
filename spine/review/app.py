@@ -31,6 +31,7 @@ from .. import revise as R
 from .. import schedule as SCH
 from .. import week as W
 from ..db import DB
+from ..publisher.publish import HAND_FROM
 
 ESC = html.escape
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -977,6 +978,12 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
                      f"<p class=big style='font-size:19px;margin-top:2px'>{ESC(wh)}</p></div>{act}</div>"
                      + (f"<p class=hint style='margin-top:8px'>{sub_}</p>" if sub_ else "") + replies_card(client, slot) + "</section>")
 
+        if row["state"] in HAND_FROM:
+            right.append(f"<section class=card><h2>Posted it by hand?</h2>"
+                         f"<p class=hint>Used a song only the Instagram app has? Post it there, then link the post here so it gets tracked.</p>"
+                         f"<a class='btn sec small' style='margin-top:12px' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}/byhand'>"
+                         f"{icon('ext', 15)}Link the Instagram post</a></section>")
+
         # performance
         m, at = media_latest(db, slot)
         if m:
@@ -1220,6 +1227,44 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
         db.close()
 
 
+def render_byhand(client: str, slot: str) -> bytes:
+    """Pick which recent Instagram post is this slot, posted by hand in the app."""
+    d = C.client_dir(client)
+    db = DB.for_client(d)
+    try:
+        row = db.post(slot)
+    finally:
+        db.close()
+    back = f"/{quote(client)}/v/{quote(slot)}"
+    head = (f"<a class=back href='{ESC(back)}'>{icon('back', 16)}{ESC(title_of(client, row))}</a>"
+            f"<h1>Link the Instagram post</h1><p class=sub>Pick the post you made by hand for this video. Only posts not linked to another video are shown.</p>")
+    if row["state"] not in HAND_FROM:
+        return shell(client, "overview", head + "<section class=card><p class=muted>This video is already published or not ready.</p></section>", "Link post")
+    try:
+        from spine.publisher.publish import hand_candidates
+        cands = hand_candidates(client)
+    except Exception as e:  # noqa: BLE001 — no token or network: say so
+        return shell(client, "overview", head + f"<section class=card><p class=muted>Could not reach Instagram: {ESC(str(e))}</p></section>", "Link post")
+    if not cands:
+        return shell(client, "overview", head + "<section class=card><p class=muted>No unlinked posts on Instagram yet. Post it in the app, then reload this page.</p></section>", "Link post")
+    words = set(re.findall(r"[a-z]{4,}", read(d / "posts" / slot / "caption.txt").lower()))
+    score = lambda c: len(words & set(re.findall(r"[a-z]{4,}", (c.get("caption") or "").lower())))
+    best = max(cands, key=score)["id"] if words and max(map(score, cands)) else None
+    items = []
+    for c in cands:
+        img = c.get("thumbnail_url") or c.get("media_url") or ""
+        cap = " ".join((c.get("caption") or "No caption").split())
+        tag = "<span class='tag live' style='margin-left:8px'>Best match</span>" if c["id"] == best else ""
+        items.append(
+            f"<form method=post action='{ESC(back)}/byhand' class=row style='gap:14px;align-items:center;padding:12px 0;border-top:1px solid var(--line, #eee)'>"
+            + (f"<img src='{ESC(img)}' alt='' style='width:54px;height:96px;object-fit:cover;border-radius:8px;flex:none'>" if img else "")
+            + f"<div style='flex:1;min-width:0'><b>{ESC(when(c.get('timestamp')))}</b>{tag}"
+            f"<div class=muted style='font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'>{ESC(cap)}</div>"
+            f"<a class=muted style='font-size:13px' href='{ESC(c.get('permalink') or '#')}' target=_blank rel=noopener>Open on Instagram</a></div>"
+            f"<input type=hidden name=media value='{ESC(c['id'])}'><button class='btn pri small'>This one</button></form>")
+    return shell(client, "overview", head + f"<section class=card>{''.join(items)}</section>", "Link post")
+
+
 def render_qa(client: str, slot: str) -> bytes:
     d = C.client_dir(client)
     db = DB.for_client(d)
@@ -1356,6 +1401,8 @@ class Handler(BaseHTTPRequestHandler):
             if parts[1] == "v" and len(parts) == 3:
                 return self._send(200, render_video(name, parts[2], "story" if q.get("as") == "story" else "reel",
                                                     q.get("music") or "file", q.get("q") or "", q))
+            if parts[1] == "v" and len(parts) == 4 and parts[3] == "byhand":
+                return self._send(200, render_byhand(name, parts[2]))
             if parts[1] == "v" and len(parts) == 4 and parts[3] == "qa":
                 return self._send(200, render_qa(name, parts[2]))
             if len(parts) == 3 and parts[1] == "track":
@@ -1437,6 +1484,13 @@ class Handler(BaseHTTPRequestHandler):
                     kw = {"custom": True, "comments": bool(g["auto_reply"]["comments"]), "dm": bool(g["auto_reply"]["dm"])}
                 C.set_video_replies(name, parts[2], **kw)
                 return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}#replies")
+            if parts[1] == "v" and len(parts) == 4 and parts[3] == "byhand":
+                from spine.publisher.publish import PublishError, link_by_hand
+                try:
+                    link_by_hand(name, parts[2], form["media"])
+                except PublishError as e:
+                    return self._send(400, str(e).encode(), "text/plain")
+                return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}")
             if parts[1] == "v" and len(parts) == 4 and parts[3] == "track":
                 T = _tracks()
                 if not T:
