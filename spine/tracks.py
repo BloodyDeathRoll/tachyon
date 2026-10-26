@@ -112,7 +112,7 @@ def _ig_fetch(client: str, query: str | None, graph=None) -> list[dict]:
     if query:
         params["search_query"] = query
     res = g.get("ig_audio", **params)
-    rows = res.get("data") if isinstance(res, dict) else res
+    rows = (res.get("audio") or res.get("data")) if isinstance(res, dict) else res   # API returns {"audio": [...]}
     return _ig_parse(rows or [])
 
 
