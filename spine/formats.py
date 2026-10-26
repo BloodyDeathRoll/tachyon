@@ -1,19 +1,21 @@
-"""Other aspect ratios of a finished reel, for posting by hand on other platforms.
+"""Other formats of a finished reel (1:1, 4:5, 2:3, 16:9), for posting by hand elsewhere.
 
     python -m spine.formats make <client> <slot> 1x1 4x5 2x3 16x9   # what the dashboard spawns
 
-Made from the 9:16 reel (video.mp4) with ffmpeg, no re-render:
-- 1:1, 4:5, 2:3 crop the full-width frame around the centre of Meta's safe box (top 14 %,
-  bottom 35 %), where every text and UI element of our films sits, so nothing is cut.
-- 16:9 shows the safe box, frame-high and centred, over a blurred copy of the reel.
-Audio is copied as is: a video whose music is an Instagram track is silent here (that track only
-plays on Instagram). Files: posts/<slot>/video-<ratio>.mp4; progress in formats.json.
+A real re-layout, not a crop: for each format, claude -p writes a version of the reel's film
+(engines/remotion/src/films/<film>-<ratio>.tsx) with the same beats, words, timing and assets,
+placed for that frame size. It is registered in films/formats.ts, rendered by Remotion, and gets
+the reel's own soundtrack (music, voice-over and fade as mixed). A film edited after its format
+version was written gets a fresh version. Files: posts/<slot>/video-<ratio>.mp4; progress in
+formats.json.
 """
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -22,10 +24,13 @@ from pathlib import Path
 from . import clients as C
 
 ROOT = Path(__file__).resolve().parent.parent
-W, H = 1080, 1920
-SAFE_MID = round(H * (0.14 + (1 - 0.35)) / 2)   # centre of the safe box, y ≈ 758
+REMOTION = ROOT / "engines" / "remotion"
+FILMS = REMOTION / "src" / "films"
+WRITE_TIMEOUT = 25 * 60
+RENDER_TIMEOUT_MS = 180_000
+ALLOWED = "Read Edit Write Glob Grep Bash(npx tsc:*) Bash(npx remotion still:*)"
 RATIOS = {"1x1": (1080, 1080), "4x5": (1080, 1350), "2x3": (1080, 1620), "16x9": (1920, 1080)}
-STALL = 600   # seconds without a status write before a running job counts as dead (one cut takes < 1 min)
+STALL = 45 * 60   # seconds without a status write before a running job counts as dead (writing + rendering one format)
 LABEL = {"1x1": "1:1", "4x5": "4:5", "2x3": "2:3", "16x9": "16:9"}
 
 
@@ -64,10 +69,13 @@ def status(client: str, slot: str) -> dict:
     p = status_path(client, slot)
     try:
         st = json.loads(p.read_text()) if p.exists() else {}
+        if not isinstance(st, dict):
+            st = {}
+        since = (datetime.now(timezone.utc) - datetime.fromisoformat(st.get("updated_at") or now())).total_seconds()
     except ValueError:
-        st = {}
+        st, since = {}, 0
     if st.get("state") == "running":
-        no_pid_for = (datetime.now(timezone.utc) - datetime.fromisoformat(st.get("updated_at") or now())).total_seconds()
+        no_pid_for = since
         if ((st.get("pid") and not _alive(st["pid"])) or (not st.get("pid") and no_pid_for > 60)
                 or no_pid_for > STALL):   # no progress for 10 min: killed (a zombie still answers kill 0)
             st.update(state="failed", error=st.get("error") or "stopped before it finished (restart or crash)")
@@ -82,31 +90,96 @@ def _status(client: str, slot: str, **kw) -> None:
     tmp.replace(status_path(client, slot))   # atomic: the page reads it while the job writes
 
 
-def filter_for(ratio: str) -> str:
+def _run(cmd: list[str], cwd: Path, timeout: int | None = None) -> str:
+    r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+    if r.returncode != 0:
+        raise RuntimeError(f"{cmd[0]} failed: {(r.stderr or r.stdout).strip()[-400:]}")
+    return r.stdout
+
+
+def prompt(fid: str, ratio: str) -> str:
     w, h = RATIOS[ratio]
-    if ratio == "16x9":   # the safe box (all our text and UI), as tall as the frame, over a blurred copy
-        top, bot = round(H * 0.14), round(H * (1 - 0.35))
-        fw = round(W * h / (bot - top) / 2) * 2
-        return (f"[0:v]split[a][b];[a]scale={w}:-2,crop={w}:{h},boxblur=40:4,eq=brightness=-0.08[bg];"
-                f"[b]crop={W}:{bot - top}:0:{top},scale={fw}:{h}[fg];[bg][fg]overlay=(W-w)/2:0,setsar=1[v]")
-    y = max(0, min(H - h, SAFE_MID - h // 2))
-    return f"[0:v]crop={w}:{h}:0:{y},setsar=1[v]"
+    shape = ("landscape: use the width, e.g. the phone to one side and the words beside it, footage filling the frame"
+             if w > h else "square: a tighter layout, e.g. a smaller phone with the words above or beside it"
+             if w == h else "a shorter portrait frame: rebalance the stack so it fits without crowding")
+    return f"""Make a {LABEL[ratio]} ({w}x{h}) version of the Instagram reel film src/films/{fid}.tsx.
+
+This is a real re-layout, not a crop or a letterbox. Keep everything the film says and does: the
+same beats in the same order and timing, the same words, the same app screens, footage, colours
+and animations. Re-place them for a {w}x{h} frame so the space is used well ({shape}).
+
+Read src/lib.tsx and src/films/{fid}.tsx first. Write src/films/{fid}-{ratio}.tsx:
+- `export {{ SECONDS }} from "./{fid}";` and `export default` a component with no props.
+- Keep every text and UI element inside FORMAT_SAFE({w}, {h}) from ../lib (there is no Instagram
+  UI on this format; ignore SAFE[variant]). No text under MIN_TYPE px.
+- Footage fills the whole frame. <Phone> takes cx and cy (its centre in the frame) and pose.s for scale.
+  The phone is 420x880 at s=1: in every beat the whole phone, including any pose.y move, stays
+  inside FORMAT_SAFE; scale it down rather than let it run off an edge.
+- Check it: `npx remotion still src/index.ts {fid}-{ratio} /tmp/{fid}-{ratio}-N.png --frame=N` at the
+  start, middle and end of each beat; fix anything cut off or crowded. (It is registered for you only
+  after you finish, so to check frames add the entry to src/films/formats.ts yourself:
+  `import x, {{ SECONDS as x_s }} from "./{fid}-{ratio}";` and `{{ id: "{fid}-{ratio}", seconds: x_s,
+  width: {w}, height: {h}, component: x }},` between the markers.)
+Edit no other file (apart from that formats.ts entry). Run `npx tsc --noEmit -p .` until it passes. Do not render, do not commit.
+End with one line per layout decision."""
+
+
+def _register(fid: str, ratio: str) -> None:
+    idx = FILMS / "formats.ts"
+    s = idx.read_text()
+    cid = f"{fid}-{ratio}"
+    if f'"./{cid}"' in s:
+        return
+    var = re.sub(r"\W", "_", cid)
+    w, h = RATIOS[ratio]
+    s = s.replace("// @imports", f'import {var}, {{ SECONDS as {var}_s }} from "./{cid}";\n// @imports')
+    s = s.replace("  // @formats", f'  {{ id: "{cid}", seconds: {var}_s, width: {w}, height: {h}, component: {var} }},\n  // @formats')
+    idx.write_text(s)
+
+
+def _unregister(fid: str, ratio: str) -> None:
+    idx = FILMS / "formats.ts"
+    cid = f"{fid}-{ratio}"
+    keep = [ln for ln in idx.read_text().splitlines(keepends=True) if f'"./{cid}"' not in ln and f'id: "{cid}"' not in ln]
+    idx.write_text("".join(keep))
 
 
 def make_one(client: str, slot: str, ratio: str) -> Path:
-    src = C.client_dir(client) / "posts" / slot / "video.mp4"
+    sd = C.client_dir(client) / "posts" / slot
+    src = sd / "video.mp4"
     src_mtime = src.stat().st_mtime
-    out = path(client, slot, ratio)
-    tmp = out.with_suffix(".part.mp4")
-    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-filter_complex", filter_for(ratio),
-                        "-map", "[v]", "-map", "0:a?", "-c:v", "libx264", "-preset", "medium", "-crf", "19",
-                        "-pix_fmt", "yuv420p", "-c:a", "copy", "-map_metadata", "-1", "-movflags", "+faststart", str(tmp)],
-                       capture_output=True, text=True)
+    film = json.loads((sd / "meta.json").read_text()).get("film") or {}
+    if film.get("engine") != "remotion" or not film.get("reel"):
+        raise RuntimeError("this video has no Remotion film to re-lay out")
+    fid = film["reel"]
+    base = REMOTION / film["source"].removeprefix("engines/remotion/") if film.get("source") else FILMS / f"{fid}.tsx"
+    ffile = FILMS / f"{fid}-{ratio}.tsx"
+    if not ffile.exists() or (base.exists() and base.stat().st_mtime > ffile.stat().st_mtime):
+        ffile.unlink(missing_ok=True)
+        _status(client, slot, step="writing")
+        _run(["claude", "-p", prompt(fid, ratio), "--allowedTools", *ALLOWED.split(" "), "--permission-mode", "acceptEdits"],
+             cwd=REMOTION, timeout=WRITE_TIMEOUT)
+        if not ffile.exists():
+            raise RuntimeError(f"no {LABEL[ratio]} layout was written")
+    _register(fid, ratio)
+    r = subprocess.run(["npx", "tsc", "--noEmit", "-p", "."], cwd=REMOTION, capture_output=True, text=True)
     if r.returncode != 0:
+        _unregister(fid, ratio)   # never leave a broken film registered
+        raise RuntimeError(f"the {LABEL[ratio]} layout does not typecheck: {r.stdout[-300:]}")
+    _status(client, slot, step="rendering")
+    out = path(client, slot, ratio)
+    raw = out.with_suffix(".raw.mp4")
+    tmp = out.with_suffix(".part.mp4")
+    try:
+        _run(["npx", "remotion", "render", "src/index.ts", f"{fid}-{ratio}", str(raw), "--log=error",
+              f"--timeout={RENDER_TIMEOUT_MS}"], cwd=REMOTION)
+        _run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-i", str(src), "-map", "0:v", "-map", "1:a?",
+              "-c:v", "copy", "-c:a", "copy", "-shortest", "-map_metadata", "-1", "-movflags", "+faststart", str(tmp)], cwd=ROOT)
+        tmp.replace(out)
+    finally:
+        raw.unlink(missing_ok=True)
         tmp.unlink(missing_ok=True)
-        raise RuntimeError(f"ffmpeg failed for {ratio}: {r.stderr.strip()[-300:]}")
-    tmp.replace(out)
-    if src.stat().st_mtime != src_mtime:   # the reel changed while cutting: this cut is of the old one
+    if src.stat().st_mtime != src_mtime:   # the reel changed meanwhile: this version is of the old one
         out.unlink(missing_ok=True)
         raise RuntimeError("the reel was re-rendered meanwhile: generate again")
     return out
@@ -131,19 +204,12 @@ def start(client: str, slot: str, ratios: list[str]) -> None:
     if not ratios:
         return
     lock = C.client_dir(client) / "posts" / slot / "formats.lock"
-    try:   # one start at a time, even for two fast clicks
-        fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-    except FileExistsError:
-        try:
-            if datetime.now().timestamp() - lock.stat().st_mtime < 60:
-                return
-        except FileNotFoundError:
-            return
-        lock.unlink(missing_ok=True)   # left by a killed request: take it over
-        try:
-            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
-            return   # someone else took it over first
+    fd = os.open(lock, os.O_CREAT | os.O_WRONLY)
+    try:   # one start at a time, even for two fast clicks; the kernel drops the lock if we die
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        os.close(fd)
+        return
     try:
         if status(client, slot).get("state") == "running":
             return
@@ -155,8 +221,7 @@ def start(client: str, slot: str, ratios: list[str]) -> None:
         except OSError as e:
             _status(client, slot, state="failed", error=f"could not start: {e}")
     finally:
-        os.close(fd)
-        lock.unlink(missing_ok=True)
+        os.close(fd)   # releases the lock
 
 
 def main(argv: list[str]) -> int:

@@ -555,17 +555,78 @@ def _real_reel(client_dir, seconds=1):
     return out
 
 
+@pytest.fixture
+def fake_remotion(client_dir, tmp_path, monkeypatch):
+    """formats.make_one without claude or Remotion: the 'render' writes a real clip of the right size."""
+    import subprocess
+    from spine import formats as F
+    films = tmp_path / "films"
+    films.mkdir()
+    (films / "formats.ts").write_text("// @imports\nexport const FORMATS = [\n  // @formats\n];\n")
+    monkeypatch.setattr(F, "FILMS", films)
+    monkeypatch.setattr(F, "REMOTION", tmp_path)
+    (films / "S.tsx").write_text("film")
+    meta = client_dir / "posts" / "w01-s1" / "meta.json"
+    meta.write_text(json.dumps({"title": "Showreel", "film": {"engine": "remotion", "reel": "S", "story": "SS"}}))
+    calls = []
+    real_run = subprocess.run
+
+    def run(cmd, *a, **k):
+        calls.append(cmd[:3])
+        if cmd[0] == "claude":
+            r = next(x for x in F.RATIOS if f"-{x}.tsx" in cmd[2])
+            (films / f"S-{r}.tsx").write_text("layout")
+        elif cmd[:2] == ["npx", "remotion"]:
+            w, h = F.RATIOS[cmd[4].split("-", 1)[1]]
+            real_run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"color=size={w}x{h}:duration=1", str(cmd[5])], check=True)
+        elif cmd[:2] == ["npx", "tsc"]:
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+        else:
+            return real_run(cmd, *a, **k)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+    monkeypatch.setattr(F.subprocess, "run", run)
+    return calls
+
+
 @needs_ffmpeg
-def test_formats_crop_to_the_right_sizes(client_dir):
+def test_formats_are_new_layouts_rendered_at_size_with_the_reels_sound(client_dir, fake_remotion):
     import subprocess
     from spine import formats as F
     _real_reel(client_dir)
-    assert F.make("demo", "w01-s1", list(F.RATIOS)) == 0
-    for r, (w, h) in F.RATIOS.items():
-        got = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v", "-show_entries", "stream=width,height",
-                              "-of", "csv=p=0", str(F.path("demo", "w01-s1", r))], capture_output=True, text=True).stdout.strip()
-        assert got == f"{w},{h}", r
-    assert sorted(F.ready("demo", "w01-s1")) == sorted(F.RATIOS)
+    assert F.make("demo", "w01-s1", ["16x9", "1x1"]) == 0, F.status("demo", "w01-s1")
+    for r in ("16x9", "1x1"):
+        w, h = F.RATIOS[r]
+        got = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height", "-of", "csv=p=0",
+                              str(F.path("demo", "w01-s1", r))], capture_output=True, text=True).stdout
+        assert f"video,{w},{h}" in got and "audio" in got, r
+    assert [c[0] for c in fake_remotion].count("claude") == 2
+    assert 'id: "S-16x9"' in (F.FILMS / "formats.ts").read_text()
+    F.make("demo", "w01-s1", ["16x9"])   # layout already written: render again, no new claude run
+    assert [c[0] for c in fake_remotion].count("claude") == 2
+
+
+@needs_ffmpeg
+def test_formats_relayout_when_the_film_changed(client_dir, fake_remotion):
+    import os
+    from spine import formats as F
+    _real_reel(client_dir)
+    F.make("demo", "w01-s1", ["4x5"])
+    later = (F.FILMS / "S-4x5.tsx").stat().st_mtime + 10
+    os.utime(F.FILMS / "S.tsx", (later, later))
+    F.make("demo", "w01-s1", ["4x5"])
+    assert [c[0] for c in fake_remotion].count("claude") == 2
+
+
+def test_formats_layout_that_does_not_typecheck_is_unregistered(client_dir, fake_remotion, monkeypatch):
+    import subprocess
+    from spine import formats as F
+    _real_reel(client_dir)
+    run = F.subprocess.run
+    monkeypatch.setattr(F.subprocess, "run", lambda cmd, *a, **k: subprocess.CompletedProcess(cmd, 1, "TS2304", "")
+                        if cmd[:2] == ["npx", "tsc"] else run(cmd, *a, **k))
+    assert F.make("demo", "w01-s1", ["2x3"]) == 1
+    assert "S-2x3" not in (F.FILMS / "formats.ts").read_text()
+    assert "does not typecheck" in F.status("demo", "w01-s1")["error"]
 
 
 @needs_ffmpeg
@@ -573,7 +634,7 @@ def test_formats_go_stale_after_a_rerender(client_dir):
     import os
     from spine import formats as F
     reel = _real_reel(client_dir)
-    F.make("demo", "w01-s1", ["1x1"])
+    F.path("demo", "w01-s1", "1x1").write_bytes(b"x")
     later = F.path("demo", "w01-s1", "1x1").stat().st_mtime + 10
     os.utime(reel, (later, later))
     assert F.ready("demo", "w01-s1") == []
@@ -583,7 +644,7 @@ def test_formats_go_stale_after_a_rerender(client_dir):
 def test_video_page_switches_formats_and_downloads(server, client_dir):
     from spine import formats as F
     _real_reel(client_dir)
-    F.make("demo", "w01-s1", ["4x5"])
+    F.path("demo", "w01-s1", "4x5").write_bytes(b"fake")
     _, body, _ = req(server, "GET", "/demo/v/w01-s1")
     assert "Generate new version" in body and "?as=4x5'" in body
     _, body, _ = req(server, "GET", "/demo/v/w01-s1?as=4x5")
@@ -592,6 +653,15 @@ def test_video_page_switches_formats_and_downloads(server, client_dir):
     c.request("GET", "/demo/media/w01-s1/video-4x5.mp4?dl=1")
     r = c.getresponse()
     assert r.status == 200 and "demo-w01-s1-4x5.mp4" in (r.getheader("Content-Disposition") or "")
+
+
+def test_generating_shows_a_yellow_pill(server, client_dir):
+    import os
+    from spine import formats as F
+    F.status_path("demo", "w01-s1").write_text(json.dumps({"state": "running", "current": "16x9", "step": "rendering",
+                                                           "pid": os.getpid(), "updated_at": F.now()}))
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "<span class='tag gen'>Rendering 16:9…</span>" in body
 
 
 def test_generate_formats_post_starts_the_job(server, client_dir, monkeypatch):
@@ -636,17 +706,13 @@ def test_formats_job_that_never_registered_reads_failed_after_a_minute(client_di
     assert F.status("demo", "w01-s1")["state"] == "failed"
 
 
-def test_formats_stale_lock_is_taken_over(client_dir, monkeypatch):
-    import os
+def test_formats_leftover_lock_file_does_not_block(client_dir, monkeypatch):
     from spine import formats as F
     calls = []
     monkeypatch.setattr(F.subprocess, "Popen", lambda *a, **k: calls.append(a))
-    lock = client_dir / "posts" / "w01-s1" / "formats.lock"
-    lock.write_text("")
-    os.utime(lock, (1, 1))
+    (client_dir / "posts" / "w01-s1" / "formats.lock").write_text("")   # left by a killed request
     F.start("demo", "w01-s1", ["1x1"])
-    assert len(calls) == 1 and not lock.exists()
-
+    assert len(calls) == 1
 
 
 def test_formats_job_without_progress_for_10_min_reads_failed(client_dir, monkeypatch):

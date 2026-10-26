@@ -413,7 +413,7 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .rgm{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:50;display:grid;place-items:center;padding:24px}
 .rgm[hidden]{display:none}
 .rgbox{background:#fff;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px;min-width:300px;animation:pop .18s ease-out}
-.pop{display:inline-block}.fmtseg{margin-bottom:12px;flex-wrap:wrap}.rgbox.wide{width:min(560px,100%)}.rgbox textarea{min-height:130px}
+.pop{display:inline-block}.tag.gen{background:#FEF3C7;color:#92400E;border-radius:999px}.fmtseg{margin-bottom:12px;flex-wrap:wrap}.rgbox.wide{width:min(560px,100%)}.rgbox textarea{min-height:130px}
 .rgbox label{display:flex;flex-direction:column;gap:6px;font-size:13.5px;color:var(--ink3)}
 .rgbox input{border:1px solid var(--rule);border-radius:9px;padding:8px 10px;font-size:15px;color:var(--ink)}
 .chips{position:absolute;left:10px;top:10px;z-index:2;display:flex;gap:4px;align-items:center}
@@ -585,7 +585,7 @@ def ig_sync(client: str, slot: str) -> str:
             "let raf=0;const tick=()=>{raf=0;if(!v.paused){vol();raf=requestAnimationFrame(tick)}};"
             "v.addEventListener('play',()=>{if(!raf)raf=requestAnimationFrame(tick)});"
             "v.addEventListener('play',()=>{sync();vol();a.play().catch(()=>{})});"
-            "v.addEventListener('pause',()=>a.pause());v.addEventListener('seeked',sync);"
+            "v.addEventListener('pause',()=>a.pause());v.addEventListener('seeked',()=>{sync();vol()});"
             "v.addEventListener('volumechange',vol);v.addEventListener('ended',()=>a.pause());"
             "setInterval(()=>{if(!v.paused&&a.duration&&Math.abs(a.currentTime-v.currentTime%a.duration)>0.3)sync()},1000);})();</script>")
 
@@ -979,7 +979,8 @@ def replies_card(client: str, slot: str) -> str:
 def formats_button(client: str, slot: str, have: list[str]) -> str:
     st = F.status(client, slot)
     if st.get("state") == "running":
-        return f"<span class=muted style='font-size:13.5px'>Making {ESC(F.LABEL.get(st.get('current'), ''))}…</span>"
+        doing = {"writing": "Laying out", "rendering": "Rendering"}.get(st.get("step"), "Generating")
+        return f"<span class='tag gen'>{doing} {ESC(F.LABEL.get(st.get('current'), ''))}…</span>"
     err = (f"<p class=hint style='color:#b42318;margin:0'>Last run failed: {ESC(st.get('error') or '')}</p>"
            if st.get("state") == "failed" else "")
     act = f"/{ESC(quote(client))}/v/{ESC(quote(slot))}/formats"
@@ -987,9 +988,9 @@ def formats_button(client: str, slot: str, have: list[str]) -> str:
                     f"{'' if r in have else 'checked'}>{F.LABEL[r]}{' <span class=muted>(remake)</span>' if r in have else ''}</label>"
                     for r in F.RATIOS)
     box = (f"<form method=post action='{act}' class=rgbox><h2>Generate other formats</h2>"
-           f"<p class=muted style='margin:0;max-width:380px'>For posting by hand on other platforms. Made from the reel: "
-           f"1:1, 4:5 and 2:3 crop around the text, 16:9 sets it on a blurred background. "
-           f"A video with an Instagram track comes out without that music.</p>{err}{boxes}"
+           f"<p class=muted style='margin:0;max-width:400px'>For posting by hand on other platforms. Each format is a new layout "
+           f"of this film (same words, beats and footage, placed for that size), rendered with the reel's sound. "
+           f"A few minutes per format. A video with an Instagram track comes out without that music.</p>{err}{boxes}"
            f"<div class=btns><button class='btn pri small'>Generate</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>")
     return popup(f"<button type=button class='btn sec small' data-open>Generate new version</button>", box)
 
