@@ -1684,7 +1684,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(400, b"bad Content-Length", "text/plain")
         if not length or length > self.UPLOAD_MAX:
             return self._send(413 if length else 400, b"empty or too large (2 GB max)", "text/plain")
-        C.client_dir(name)   # unknown client: KeyError -> 404 below
+        try:
+            C.client_dir(name)
+        except KeyError:
+            return self._send(404, b"not found", "text/plain")
         fd, tmp_ = tempfile.mkstemp(suffix=Path(q.get("name") or "x.mp4").suffix or ".mp4")
         os.close(fd)
         tmp = Path(tmp_)
@@ -1697,6 +1700,8 @@ class Handler(BaseHTTPRequestHandler):
                         break
                     f.write(chunk)
                     left -= len(chunk)
+            if left:
+                return self._send(400, b"the upload was cut off: try again", "text/plain")
             slot = M.add_upload(name, q.get("at") or "", tmp, q.get("name") or "upload.mp4")
             return self._redirect(f"/{quote(name)}/v/{quote(slot)}")
         except (ValueError, RuntimeError) as e:

@@ -903,3 +903,20 @@ def test_failed_upload_leaves_no_row_or_files(client_dir, tmp_path, monkeypatch)
     with pytest.raises(KeyError):
         db.post("2099-w02-01")
     db.close()
+
+
+def test_a_claimed_slot_is_taken_for_the_next_add(client_dir, tmp_path, monkeypatch):
+    from spine import manual as M
+    slot, at = M._claim("demo", FUTURE, "x", "upload")
+    f = tmp_path / "x.mp4"
+    f.write_bytes(b"x")
+    with pytest.raises(ValueError, match="taken"):
+        M.add_upload("demo", FUTURE, f, "x.mp4")
+    M._unclaim("demo", slot)
+    assert M._check_slot("demo", FUTURE) == FUTURE
+
+
+def test_upload_to_unknown_client_is_404(server):
+    c = http.client.HTTPConnection("127.0.0.1", server)
+    c.request("POST", f"/nobody/new/upload?at={FUTURE.replace('+', '%2B')}&name=a.mp4", body=b"x")
+    assert c.getresponse().status == 404

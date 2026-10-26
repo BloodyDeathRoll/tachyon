@@ -79,6 +79,36 @@ def _check_slot(client: str, at: str) -> str:
     return iso
 
 
+def _claim(client: str, at: str, title: str, engine: str) -> tuple[str, str]:
+    """Check the slot and book it (folder + post row) in one step, under a lock, so two adds can
+    never take the same slot or id."""
+    import fcntl
+    d = C.client_dir(client)
+    with open(d / ".add.lock", "w") as lk:
+        fcntl.flock(lk, fcntl.LOCK_EX)
+        at = _check_slot(client, at)
+        slot = new_slot(client, at)
+        db = DB.for_client(d)
+        try:
+            db.create_post(slot, client, scheduled_at=at, angle=title, engine=engine)
+        except Exception:
+            shutil.rmtree(d / "posts" / slot, ignore_errors=True)
+            raise
+        finally:
+            db.close()
+    return slot, at
+
+
+def _unclaim(client: str, slot: str) -> None:
+    shutil.rmtree(C.client_dir(client) / "posts" / slot, ignore_errors=True)
+    (UPLOADS / f"{slot}.mp4").unlink(missing_ok=True)
+    db = DB.for_client(C.client_dir(client))
+    try:
+        db.delete_post(slot)
+    finally:
+        db.close()
+
+
 def _run(cmd: list[str]) -> None:
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=20 * 60)
     if r.returncode != 0:
@@ -87,10 +117,10 @@ def _run(cmd: list[str]) -> None:
 
 def add_upload(client: str, at: str, src: Path, name: str) -> str:
     """A video file → a slot waiting for approval at `at`."""
-    at = _check_slot(client, at)
     if Path(name).suffix.lower() not in VIDEO_EXT:
         raise ValueError(f"not a video file: {name}")
-    slot = new_slot(client, at)
+    title = Path(name).stem.replace("_", " ").replace("-", " ").strip()[:40] or "Upload"
+    slot, at = _claim(client, at, title, "upload")
     sd = C.client_dir(client) / "posts" / slot
     try:
         has_audio = bool(subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index",
@@ -108,7 +138,6 @@ def add_upload(client: str, at: str, src: Path, name: str) -> str:
         UPLOADS.mkdir(parents=True, exist_ok=True)
         shutil.copy2(sd / "video.mp4", UPLOADS / f"{slot}.mp4")   # what a later edit builds the film on
         fid = W.film_id(slot)
-        title = Path(name).stem.replace("_", " ").replace("-", " ").strip()[:40] or "Upload"
         meta = {"slot_id": slot, "title": title, "source": "upload", "upload": f"uploads/{slot}.mp4",
                 "uploaded_name": name, "duration_s": round(dur, 2),
                 "film": {"engine": "remotion", "reel": fid, "story": f"{fid}-story",
@@ -128,7 +157,6 @@ def add_upload(client: str, at: str, src: Path, name: str) -> str:
         (sd / "qa.md").write_text(qa)
         db = DB.for_client(C.client_dir(client))
         try:
-            db.create_post(slot, client, scheduled_at=at, angle=title, engine="upload")
             for st in ("BRIEFED", "SCRIPTED", "RENDERED"):
                 db.set_state(slot, st)
             db.set_state(slot, "QA", qa_verdict=qa.strip().splitlines()[-1])
@@ -136,35 +164,31 @@ def add_upload(client: str, at: str, src: Path, name: str) -> str:
         finally:
             db.close()
     except Exception:
-        shutil.rmtree(sd, ignore_errors=True)
-        (UPLOADS / f"{slot}.mp4").unlink(missing_ok=True)
-        db = DB.for_client(C.client_dir(client))
-        try:
-            db.delete_post(slot)   # no orphan row if it got that far
-        finally:
-            db.close()
+        _unclaim(client, slot)   # no files, no row: the slot is free again
         raise
     return slot
 
 
 def add_prompt(client: str, at: str, prompt: str) -> str:
     """A free-text prompt → a slot in production at `at` (made in the background)."""
-    at = _check_slot(client, at)
     prompt = prompt.strip()
     if not prompt:
         raise ValueError("write what the video should be")
-    slot = new_slot(client, at)
+    slot, at = _claim(client, at, "New video", "remotion")
     sd = C.client_dir(client) / "posts" / slot
-    (sd / "prompt.txt").write_text(prompt + "\n")
-    (sd / "meta.json").write_text(json.dumps({"slot_id": slot, "title": "New video", "source": "prompt", "plan": "manual"},
-                                             indent=2) + "\n")
-    db = DB.for_client(C.client_dir(client))
     try:
-        db.create_post(slot, client, scheduled_at=at, angle="New video", engine="remotion")
-        db.set_state(slot, "BRIEFED")
-    finally:
-        db.close()
-    start(client, slot)
+        (sd / "prompt.txt").write_text(prompt + "\n")
+        (sd / "meta.json").write_text(json.dumps({"slot_id": slot, "title": "New video", "source": "prompt", "plan": "manual"},
+                                                 indent=2) + "\n")
+        db = DB.for_client(C.client_dir(client))
+        try:
+            db.set_state(slot, "BRIEFED")
+        finally:
+            db.close()
+        start(client, slot)
+    except Exception:
+        _unclaim(client, slot)
+        raise
     return slot
 
 
