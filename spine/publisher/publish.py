@@ -176,6 +176,14 @@ def link_by_hand(client: str, slot_id: str, media_id: str, *, graph: Graph | Non
     """The operator posted this slot from the Instagram app; attach that post so it is measured."""
     g = C.load_grants(client)
     graph = graph or Graph(C.token(client))
+    link_runner = link_runner or subprocess.run
+    d = C.client_dir(client)
+    db = DB.for_client(d)
+    try:
+        if db.post(slot_id)["ig_media_id"] == media_id:   # already linked (double click): nothing to do
+            return {"slot_id": slot_id, "ig_media_id": media_id, "permalink": db.post(slot_id)["permalink"]}
+    finally:
+        db.close()
     if not any(r["id"] == media_id for r in hand_candidates(client, graph=graph)):
         raise PublishError(f"{media_id} is not a recent, unlinked post on @{g.get('ig_username')}")
     info = graph.media(media_id)
@@ -198,7 +206,7 @@ def link_by_hand(client: str, slot_id: str, media_id: str, *, graph: Graph | Non
             j = db.journal("bio_link.set", slot_id, {"url": bio_target, "via": g["bio_link"]["public_url"]})
             try:
                 db.journal_outcome(j, links.set_target(g, bio_target, runner=link_runner))
-            except links.LinkError as e:
+            except Exception as e:  # noqa: BLE001 — bio link failure is logged, never fatal
                 db.journal_outcome(j, {"error": str(e)})
         db.set_state(slot_id, "MEASURING")
         return {"slot_id": slot_id, "ig_media_id": media_id, "permalink": info.get("permalink")}
