@@ -753,3 +753,107 @@ def test_formats_unrelated_type_error_keeps_the_layout(client_dir, fake_remotion
                         if cmd[:2] == ["npx", "tsc"] else run(cmd, *a, **k))
     assert F.make("demo", "w01-s1", ["2x3"]) == 1
     assert (F.FILMS / "S-2x3.tsx").exists() and "S-2x3" not in (F.FILMS / "formats.ts").read_text()
+
+
+FUTURE = "2099-01-05T06:30:00+00:00"
+
+
+@needs_ffmpeg
+def test_add_new_upload_lands_in_approval_with_its_own_sound(server, client_dir, tmp_path, monkeypatch):
+    import subprocess
+    from spine import manual as M
+    monkeypatch.setattr(M, "UPLOADS", tmp_path / "uploads")
+    src = tmp_path / "clip.mov"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=1920x1080:rate=25:duration=2",
+                    "-f", "lavfi", "-i", "sine=duration=2", "-shortest", "-pix_fmt", "yuv420p", str(src)], check=True)
+    c = http.client.HTTPConnection("127.0.0.1", server)
+    c.request("POST", f"/demo/new/upload?at={FUTURE.replace('+', '%2B')}&name=clip.mov", body=src.read_bytes())
+    r = c.getresponse()
+    assert r.status == 303, r.read()
+    slot = r.getheader("Location").rsplit("/", 1)[1]
+    assert slot == "2099-w02-01"
+    sd = client_dir / "posts" / slot
+    got = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height", "-of", "csv=p=0",
+                          str(sd / "video.mp4")], capture_output=True, text=True).stdout
+    assert "video,1080,1920" in got and "audio" in got
+    assert (sd / "cover.jpg").exists() and (tmp_path / "uploads" / f"{slot}.mp4").exists()
+    db = DB.for_client(client_dir)
+    row = db.post(slot)
+    db.close()
+    assert row["state"] in ("NEEDS_APPROVAL", "NEEDS_INPUT") and row["scheduled_at"] == FUTURE
+    _, body, _ = req(server, "GET", f"/demo/v/{slot}")
+    assert "Approve and schedule" in body or "Needs" in body
+    assert "Generate new version" not in body   # an upload has no film until its first edit
+
+
+def test_add_new_upload_refuses_taken_or_past_slots_and_non_video(client_dir, tmp_path):
+    from spine import manual as M
+    f = tmp_path / "x.mp4"
+    f.write_bytes(b"x")
+    with pytest.raises(ValueError, match="past"):
+        M.add_upload("demo", "2000-01-03T06:30:00+00:00", f, "x.mp4")
+    with pytest.raises(ValueError, match="not a video"):
+        M.add_upload("demo", FUTURE, f, "notes.txt")
+    db = DB.for_client(client_dir)
+    db.conn.execute("UPDATE posts SET scheduled_at=? WHERE slot_id='w01-s1'", (FUTURE,))
+    db.close()
+    with pytest.raises(ValueError, match="taken"):
+        M.add_upload("demo", FUTURE, f, "x.mp4")
+
+
+def test_add_new_prompt_plans_then_makes_it(server, client_dir, monkeypatch):
+    from spine import manual as M
+    from spine import week as W
+    spawned = []
+    monkeypatch.setattr(M.subprocess, "Popen", lambda *a, **k: spawned.append(a[0]))
+    status, _, loc = req(server, "POST", "/demo/new", {"at": FUTURE, "prompt": "particles over the swell chart"})
+    assert status == 303 and spawned and spawned[0][-1] == "2099-w02-01"
+    slot = loc.rsplit("/", 1)[1]
+    _, body, _ = req(server, "GET", f"/demo/v/{slot}")
+    assert "In production" in body
+    seen = {}
+
+    def fake_claude(prompt, allowed, timeout):
+        seen["prompt"] = prompt
+        out = W.plans_dir("demo") / f"manual-{slot}.yaml"
+        out.write_text(yaml.safe_dump({"items": [{"at": "x", "title": "Particles", "pillar": "proof", "brief": "b",
+                                                  "hook": "Look", "caption": "Free forecast, link in bio."}]}))
+        return ""
+    monkeypatch.setattr(W, "_claude", fake_claude)
+    monkeypatch.setattr(W, "produce", lambda c, s: seen.setdefault("made", s))
+    assert M.produce("demo", slot) == 0
+    assert "particles over the swell chart" in seen["prompt"] and seen["made"] == slot
+    meta = json.loads((client_dir / "posts" / slot / "meta.json").read_text())
+    assert meta["title"] == "Particles" and meta["plan"] == "manual" and meta["film"]["reel"] == f"film-{slot}"
+
+
+def test_add_new_prompt_failure_shows_error_and_rerun(server, client_dir, monkeypatch):
+    from spine import manual as M
+    from spine import week as W
+    monkeypatch.setattr(M.subprocess, "Popen", lambda *a, **k: None)
+    _, _, loc = req(server, "POST", "/demo/new", {"at": FUTURE, "prompt": "x"})
+    slot = loc.rsplit("/", 1)[1]
+    monkeypatch.setattr(W, "_claude", lambda *a: (_ for _ in ()).throw(RuntimeError("claude failed: timeout")))
+    assert M.produce("demo", slot) == 1
+    _, body, _ = req(server, "GET", f"/demo/v/{slot}")
+    assert "Making it failed" in body and "Nothing was made yet" in body and "value=retry" in body
+    assert "value=approve" not in body
+    restarted = []
+    monkeypatch.setattr(M, "start", lambda c, s: restarted.append(s))
+    req(server, "POST", f"/demo/v/{slot}/decide", {"action": "retry"})
+    assert restarted == [slot]
+
+
+def test_week_prep_skips_ids_added_by_hand(client_dir):
+    from spine import week as W
+    sd = client_dir / "posts" / "2099-w02-01"
+    sd.mkdir(parents=True)
+    (sd / "meta.json").write_text(json.dumps({"plan": "manual"}))
+    items = [{"at": FUTURE, "title": "T", "brief": "b", "hook": "h", "caption": "c"}]
+    assert W.make_slots("demo", "2099-W02", items) == ["2099-w02-02"]
+    assert W.make_slots("demo", "2099-W02", items) == ["2099-w02-02"]   # a resumed run reuses its own
+
+
+def test_calendar_open_slots_offer_add_new(server):
+    _, body, _ = req(server, "GET", "/demo/calendar?w=2099-W02")
+    assert "data-add='2099-01-05T06:30:00+00:00'" in body and "id=addnew" in body and "+ Add new" in body
