@@ -147,8 +147,11 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
         if not media_id:
             reason = f"media_publish gave no id ({pub.get('error') if isinstance(pub, dict) else pub}); it may be live: check Instagram and link it on the video page"
             db.set_state(slot_id, "FAILED", note=reason)
-            _write_handoff(slot, slot_id, caption, first_comment, reason, maybe_live=True)
-            db.set_state(slot_id, "MANUAL_HANDOFF", note=reason)
+            db.set_state(slot_id, "MANUAL_HANDOFF", note=reason)   # the state is the safety; the file a convenience
+            try:
+                _write_handoff(slot, slot_id, caption, first_comment, reason, maybe_live=True)
+            except OSError:
+                pass
             raise PublishError(reason)
         # live on Instagram from here: never FAILED (FAILED -> QUEUED would post it twice)
         try:
@@ -167,7 +170,7 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
                 db.journal_outcome(j, links.set_target(g, bio_target, runner=link_runner))
             except Exception as e:  # noqa: BLE001 — bio link failure is logged, never fatal
                 db.journal_outcome(j, {"error": str(e)})
-                (slot / "handoff.md").write_text(f"# Bio link not updated\n\nSet {g['bio_link']['public_url']} target by hand:\n\n```\n{bio_target}\n```\n\n{e}\n")
+                (slot / "bio_link_handoff.md").write_text(f"# Bio link not updated\n\nSet {g['bio_link']['public_url']} target by hand:\n\n```\n{bio_target}\n```\n\n{e}\n")
 
         comment_id = None
         if first_comment:
