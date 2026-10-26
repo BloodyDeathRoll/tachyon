@@ -132,9 +132,11 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
         try:
             pub = graph.write(f"{g['ig_user_id']}/media_publish", creation_id=cid)
         except GraphError as e:
-            db.journal_outcome(j, {"error": str(e)})
-            _fail(db, slot, slot_id, caption, first_comment, str(e))
-            raise
+            if not e.ambiguous:   # a clear 4xx-style refusal: nothing was posted
+                db.journal_outcome(j, {"error": str(e)})
+                _fail(db, slot, slot_id, caption, first_comment, str(e))
+                raise
+            pub = {"error": str(e)}
         except Exception as e:  # noqa: BLE001
             pub = {"error": str(e)}
         try:
@@ -145,6 +147,7 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
         if not media_id:
             reason = f"media_publish gave no id ({pub.get('error') if isinstance(pub, dict) else pub}); it may be live: check Instagram and link it on the video page"
             db.set_state(slot_id, "FAILED", note=reason)
+            _write_handoff(slot, slot_id, caption, first_comment, reason, maybe_live=True)
             db.set_state(slot_id, "MANUAL_HANDOFF", note=reason)
             raise PublishError(reason)
         # live on Instagram from here: never FAILED (FAILED -> QUEUED would post it twice)
@@ -251,11 +254,18 @@ def _fail(db: DB, slot: Path, slot_id: str, caption: str, first_comment: str, re
     prior = sum(1 for r in db.conn.execute(
         "SELECT 1 FROM journal WHERE target=? AND action='post.state' AND intent LIKE '%\"to\": \"FAILED\"%'", (slot_id,)))
     if prior >= 2:
-        (slot / "handoff.md").write_text(
-            f"# Manual handoff · {slot_id}\n\nReason: {reason}\n\n1. Upload `video.mp4` as a Reel.\n"
-            f"2. Caption:\n\n```\n{caption}\n```\n\n3. First comment:\n\n```\n{first_comment}\n```\n\n"
-            f"4. Enter the media id in the review page.\n")
+        _write_handoff(slot, slot_id, caption, first_comment, reason)
         db.set_state(slot_id, "MANUAL_HANDOFF", note=reason)
+
+
+def _write_handoff(slot: Path, slot_id: str, caption: str, first_comment: str, reason: str,
+                   maybe_live: bool = False) -> None:
+    first = ("0. It may already be live: check the account on Instagram first. If it is there, use "
+             "\"Link the Instagram post\" on the video page and skip the rest.\n") if maybe_live else ""
+    (slot / "handoff.md").write_text(
+        f"# Manual handoff · {slot_id}\n\nReason: {reason}\n\n{first}1. Upload `video.mp4` as a Reel.\n"
+        f"2. Caption:\n\n```\n{caption}\n```\n\n3. First comment:\n\n```\n{first_comment}\n```\n\n"
+        f"4. Link the post with \"Link the Instagram post\" on the video page.\n")
 
 
 def run_queue(client: str, *, dry_run: bool = False) -> list[dict]:

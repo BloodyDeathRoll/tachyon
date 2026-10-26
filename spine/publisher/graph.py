@@ -17,9 +17,15 @@ RUPLOAD = f"https://rupload.facebook.com/ig-api-upload/{VERSION}"
 
 
 class GraphError(RuntimeError):
-    def __init__(self, code: int | None, subcode: int | None, message: str, raw: dict | None = None):
+    def __init__(self, code: int | None, subcode: int | None, message: str, raw: dict | None = None,
+                 http_status: int | None = None):
         super().__init__(f"Graph {code}/{subcode}: {message}")
-        self.code, self.subcode, self.raw = code, subcode, raw or {}
+        self.code, self.subcode, self.raw, self.http_status = code, subcode, raw or {}, http_status
+
+    @property
+    def ambiguous(self) -> bool:
+        """A 5xx or Meta's transient codes say nothing about whether a write took effect."""
+        return (self.http_status or 0) >= 500 or self.code in (1, 2) or bool(self.raw.get("is_transient"))
 
 
 def _request(method: str, url: str, data: bytes | None = None, headers: dict | None = None) -> dict:
@@ -32,8 +38,8 @@ def _request(method: str, url: str, data: bytes | None = None, headers: dict | N
         try:
             err = json.loads(body)["error"]
         except (ValueError, KeyError):
-            raise GraphError(e.code, None, body[:300].decode(errors="replace")) from None
-        raise GraphError(err.get("code"), err.get("error_subcode"), err.get("message"), err) from None
+            raise GraphError(e.code, None, body[:300].decode(errors="replace"), http_status=e.code) from None
+        raise GraphError(err.get("code"), err.get("error_subcode"), err.get("message"), err, http_status=e.code) from None
     return json.loads(body) if body else {}
 
 
