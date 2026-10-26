@@ -190,6 +190,7 @@ def test_instagram_track_plays_with_the_video(server, client_dir):
     sd = client_dir / "posts" / "w01-s1"
     m = json.loads((sd / "meta.json").read_text()) if (sd / "meta.json").exists() else {}
     m["audio_configuration"] = {"audio_id": "1", "audio_volume": 100, "video_volume": 1}
+    m.update(track="ig:1", track_info={"preview_of": "ig:1"})
     (sd / "meta.json").write_text(json.dumps(m))
     (sd / "ig-track.m4a").write_bytes(b"\0" * 64)
     status, body, _ = req(server, "GET", "/demo/v/w01-s1")
@@ -201,3 +202,26 @@ def test_instagram_track_plays_with_the_video(server, client_dir):
 def test_no_track_element_without_instagram_track(server):
     status, body, _ = req(server, "GET", "/demo/v/w01-s1")
     assert "id=igtrack" not in body
+
+
+def test_ig_preview_fetch_cache_and_failure(client_dir, monkeypatch):
+    import io, json
+    from spine import tracks as T
+    sd = client_dir / "posts" / "w01-s1"
+
+    class Resp(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    assert T.fetch_ig_preview("demo", "w01-s1", "https://x/a.m4a", opener=lambda u, timeout: Resp(b"abc")).read_bytes() == b"abc"
+    m = json.loads((sd / "meta.json").read_text()) if (sd / "meta.json").exists() else {}
+    m.update(track="ig:1", track_info={"preview_of": "ig:1"})
+    (sd / "meta.json").write_text(json.dumps(m))
+    assert T.ig_preview("demo", "w01-s1") is not None
+    m["track"] = "ig:2"                                 # pick changed elsewhere: stale copy not played
+    (sd / "meta.json").write_text(json.dumps(m))
+    assert T.ig_preview("demo", "w01-s1") is None
+
+    def boom(u, timeout):
+        raise OSError("expired")
+    assert T.fetch_ig_preview("demo", "w01-s1", "https://x/b.m4a", opener=boom) is None
+    assert not (sd / T.IG_PREVIEW).exists()             # old copy removed, nothing half-written

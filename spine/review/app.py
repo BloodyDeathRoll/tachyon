@@ -563,7 +563,10 @@ def ig_sync(client: str, slot: str) -> str:
     f = T.ig_preview(client, slot) if T else None
     if not f:
         return ""
-    vol = max(1, min(100, int(cfg.get("audio_volume", 100)))) / 100
+    try:
+        vol = max(1, min(100, int(cfg.get("audio_volume", 100)))) / 100
+    except (TypeError, ValueError):
+        vol = 1.0
     return (f"<audio id=igtrack preload=auto src='{media_url(client, slot, f.name)}'></audio>"
             "<script>(()=>{const v=document.querySelector('#frame video'),a=document.getElementById('igtrack');if(!v||!a)return;"
             f"const MV={vol};"
