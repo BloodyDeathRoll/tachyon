@@ -498,3 +498,40 @@ def test_failure_before_start_has_a_readable_step(server, client_dir):
     _fail(client_dir, step="queued")
     _, body, _ = req(server, "GET", "/demo/v/w01-s1")
     assert "Failed before it started" in body and "still the previous cut" in body
+
+
+def test_delete_unknown_video_is_404(server):
+    status, _, _ = req(server, "POST", "/demo/v/nope/delete", {})
+    assert status == 404
+
+
+def test_delete_refused_while_rerendering(server, client_dir):
+    (client_dir / "posts" / "w01-s1" / "revise.json").write_text(json.dumps({"state": "running", "step": "rendering"}))
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "Delete this video?" not in body
+    status, _, _ = req(server, "POST", "/demo/v/w01-s1/delete", {})
+    assert status == 409 and (client_dir / "posts" / "w01-s1").exists()
+
+
+def test_delete_keeps_files_if_the_row_cannot_go(server, client_dir, monkeypatch):
+    def boom(self, slot):
+        raise RuntimeError("db locked")
+    monkeypatch.setattr(DB, "delete_post", boom)
+    try:
+        req(server, "POST", "/demo/v/w01-s1/delete", {})
+    except http.client.HTTPException:
+        pass   # the error itself reaches the server log
+    assert (client_dir / "posts" / "w01-s1" / "caption.txt").exists()
+
+
+def test_approving_an_unslotted_video_takes_the_slot_the_calendar_showed(server, client_dir):
+    db = DB.for_client(client_dir)
+    db.create_post("w01-s0", "demo")
+    for st in ["BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL"]:
+        db.set_state("w01-s0", st)
+    shown = SCH.preview_slots(db, ["w01-s0", "w01-s1"])["w01-s1"]   # s0 is earlier in order
+    db.close()
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve"})
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["scheduled_at"] == shown
+    db.close()

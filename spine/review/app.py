@@ -260,8 +260,8 @@ h2{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
 .ui b{position:absolute;border:2px dashed #fff;border-radius:4px}
 .ui span{position:absolute;right:8px;font:600 11px Inter;color:#fff;background:rgba(0,0,0,.6);padding:2px 6px;border-radius:6px}
 .pctl{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap}
-.seg{display:inline-flex;background:var(--grey-bg);border-radius:10px;padding:3px}
-.seg a{padding:6px 14px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--ink3)}
+.seg{display:inline-flex;background:var(--grey-bg);border-radius:999px;padding:3px}
+.seg a{padding:6px 14px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--ink3)}
 .seg a.on{background:var(--ink);color:#fff}
 .chk{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink2);cursor:pointer}
 .chk input{accent-color:var(--ink);width:16px;height:16px}
@@ -411,7 +411,7 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .rgm{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:50;display:grid;place-items:center;padding:24px}
 .rgm[hidden]{display:none}
 .rgbox{background:#fff;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px;min-width:300px;animation:pop .18s ease-out}
-.rgbox.wide{width:min(560px,100%)}.rgbox textarea{min-height:130px}
+.pop{display:inline-block}.rgbox.wide{width:min(560px,100%)}.rgbox textarea{min-height:130px}
 .rgbox label{display:flex;flex-direction:column;gap:6px;font-size:13.5px;color:var(--ink3)}
 .rgbox input{border:1px solid var(--rule);border-radius:9px;padding:8px 10px;font-size:15px;color:var(--ink)}
 .chips{position:absolute;left:10px;top:10px;z-index:2;display:flex;gap:4px;align-items:center}
@@ -419,7 +419,7 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .cell .chips{left:6px;top:6px}.cell.mini .chips{left:3px;top:3px}
 .vo{font:700 10.5px Inter;color:#fff;background:#5c2f93;padding:3px 7px;border-radius:999px;letter-spacing:.04em}
 .cell .vo{font-size:9.5px;padding:2px 6px}
-.filt button{border:0;background:transparent;padding:6px 12px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--ink3);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.filt button{border:0;background:transparent;padding:6px 12px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--ink3);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
 .filt button i{font-style:normal;font-size:11.5px;background:#E2E2E2;color:var(--ink2);border-radius:999px;padding:0 6px;min-width:18px;text-align:center}
 .filt button.on{background:var(--ink);color:#fff}.filt button.on i{background:var(--lime);color:var(--ink)}
 .vid[hidden]{display:none}
@@ -710,12 +710,12 @@ def views_chart(series: list[tuple[datetime, int]], g: str, W: int = 600, H: int
 def popup(trigger: str, box: str) -> str:
     """A button that opens a centred box (`box` is the inner form). Esc, Cancel or a click
     outside closes it."""
-    return (f"<span class=pop>{trigger}<div class=rgm hidden>{box}</div><script>(()=>{{"
+    return (f"<div class=pop>{trigger}<div class=rgm hidden>{box}</div><script>(()=>{{"
             "const w=document.currentScript.parentElement,m=w.querySelector('.rgm');"
             "w.querySelector('[data-open]').addEventListener('click',e=>{e.preventDefault();m.hidden=false;"
             "const f=m.querySelector('textarea,input:not([type=hidden]),button');if(f)f.focus();});"
             "m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-close]'))m.hidden=true;});"
-            "document.addEventListener('keydown',e=>{if(e.key==='Escape')m.hidden=true;});})();</script></span>")
+            "document.addEventListener('keydown',e=>{if(e.key==='Escape')m.hidden=true;});})();</script></div>")
 
 
 def prepare_button(client: str, week: str, label: str) -> str:
@@ -1293,11 +1293,16 @@ def delete_video(client: str, slot: str) -> None:
         if (R.status(client, slot) or {}).get("state") == "running":
             raise ValueError("a re-render is running: wait for it to finish")
         src = d / "posts" / slot
+        dst = d / "trash" / f"{slot}-{datetime.now(timezone.utc):%Y%m%dT%H%M%S}"
         if src.exists():
-            dst = d / "trash" / f"{slot}-{datetime.now(timezone.utc):%Y%m%dT%H%M%S}"
             dst.parent.mkdir(exist_ok=True)
             shutil.move(src, dst)
-        db.delete_post(slot)
+        try:
+            db.delete_post(slot)
+        except Exception:
+            if dst.exists():
+                shutil.move(dst, src)   # keep files and row together
+            raise
     finally:
         db.close()
 
@@ -1663,6 +1668,8 @@ class Handler(BaseHTTPRequestHandler):
             if parts[1] == "v" and len(parts) == 4 and parts[3] == "delete":
                 try:
                     delete_video(name, parts[2])
+                except KeyError:
+                    return self._send(404, b"no such video", "text/plain")
                 except ValueError as e:
                     return self._send(409, str(e).encode(), "text/plain")
                 return self._redirect(f"/{quote(name)}")
@@ -1685,7 +1692,9 @@ class Handler(BaseHTTPRequestHandler):
                     if "caption" in form:
                         (d / "posts" / slot).mkdir(parents=True, exist_ok=True)
                         (d / "posts" / slot / "caption.txt").write_text(form["caption"])
-                    at = SCH.slot_for_approval(db, db.post(slot), C.load_grants(name))
+                    row_ = db.post(slot)
+                    at = ((not row_["scheduled_at"] and preview_slot(name, db, slot))
+                          or SCH.slot_for_approval(db, row_, C.load_grants(name)))   # the slot the calendar showed
                     db.set_state(slot, "APPROVED", note=notes or None, scheduled_at=at)
                     R.dismiss(name, slot)
                 elif form.get("action") == "revoke":
