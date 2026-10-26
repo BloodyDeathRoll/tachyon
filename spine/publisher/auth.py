@@ -50,7 +50,9 @@ def read_env(path: Path) -> dict[str, str]:
         if not line or line.startswith("#") or "=" not in line:
             continue
         k, v = line.split("=", 1)
-        k = k.strip().removeprefix("export ").strip()
+        k = k.strip()
+        if k.startswith("export") and k[6:7].isspace():
+            k = k[6:].strip()
         out[k] = v.strip().strip('"').strip("'")
     return out
 

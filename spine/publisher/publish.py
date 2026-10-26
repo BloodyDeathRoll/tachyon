@@ -41,7 +41,7 @@ QUOTA = 100
 
 
 # a URL or bare domain in a comment (rosa.surf, www.x.com, https://…): never clickable there
-URLISH = re.compile(r"https?://|www\.|\b[a-z0-9-]+\.(?:surf|com|app|io|co|net|org|me|ly|link)\b", re.I)
+URLISH = re.compile(r"https?://|www\.|\b[a-z0-9-]+\.[a-z]{2,}\b", re.I)   # broad on purpose: a false hit only blocks a comment
 
 
 class PublishError(RuntimeError):
@@ -120,13 +120,33 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
             if status != "FINISHED":
                 raise PublishError(f"container {cid} still {status} after {POLL_MAX} min")
 
-            j = db.journal("meta.media_publish", slot_id, {"container": cid})
-            pub = graph.write(f"{g['ig_user_id']}/media_publish", creation_id=cid)
-            db.journal_outcome(j, pub)
-            media_id = pub["id"]
         except Exception as e:  # noqa: BLE001 — nothing is live yet: a FAILED state, reason kept
             _fail(db, slot, slot_id, caption, first_comment, str(e))
             raise
+
+        # media_publish: an error answer from Meta means nothing was posted (FAILED, retried as
+        # usual). No answer (timeout, dropped connection) or no id means the reel may be live
+        # anyway: never retry automatically (it could post twice); hand off, and the operator
+        # links it on the video page if it is up.
+        j = db.journal("meta.media_publish", slot_id, {"container": cid})
+        try:
+            pub = graph.write(f"{g['ig_user_id']}/media_publish", creation_id=cid)
+        except GraphError as e:
+            db.journal_outcome(j, {"error": str(e)})
+            _fail(db, slot, slot_id, caption, first_comment, str(e))
+            raise
+        except Exception as e:  # noqa: BLE001
+            pub = {"error": str(e)}
+        try:
+            db.journal_outcome(j, pub)
+        except Exception:  # noqa: BLE001 — the journal must not decide whether a live reel counts
+            pass
+        media_id = pub.get("id") if isinstance(pub, dict) else None
+        if not media_id:
+            reason = f"media_publish gave no id ({pub.get('error') if isinstance(pub, dict) else pub}); it may be live: check Instagram and link it on the video page"
+            db.set_state(slot_id, "FAILED", note=reason)
+            db.set_state(slot_id, "MANUAL_HANDOFF", note=reason)
+            raise PublishError(reason)
         # live on Instagram from here: never FAILED (FAILED -> QUEUED would post it twice)
         try:
             info = graph.media(media_id)
@@ -275,11 +295,16 @@ def main(argv: list[str]) -> int:
             db = DB.for_client(C.client_dir(client))
             try:
                 db.post(slot_id)   # KeyError on an unknown slot
-                db.journal("post.publish_now", slot_id, {"scheduled_at": now()})
-                db.conn.execute("UPDATE posts SET scheduled_at=? WHERE slot_id=?", (now(), slot_id))
+                ts = now()
+                db.conn.execute("BEGIN IMMEDIATE")
+                db.journal("post.scheduled_now", slot_id, {"scheduled_at": ts})
+                db.conn.execute("UPDATE posts SET scheduled_at=? WHERE slot_id=?", (ts, slot_id))
+                db.conn.execute("COMMIT")
             except KeyError:
                 print(f"no such slot: {slot_id}"); return 1
             finally:
+                if db.conn.in_transaction:
+                    db.conn.execute("ROLLBACK")
                 db.close()
         try:
             res = publish_slot(client, slot_id, dry_run=dry)
