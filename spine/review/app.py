@@ -989,13 +989,16 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         blocks = []
         # decision
         if cls == "need" and st.get("state") == "failed":
-            step = {"editing": "while editing the film", "rendering": "while rendering"}.get(st.get("step"), "")
-            rerun = ("Renders again with the change already made." if st.get("step") == "rendering"
+            step = {"editing": "while editing the film", "rendering": "while rendering",
+                    "finishing": "after rendering"}.get(st.get("step"), "")
+            rerun = ("Renders again with the change already made." if st.get("step") in ("rendering", "finishing")
                      else "Runs the edit and the render again with the same notes.")
             blocks.append(
                 f"<section class='card errcard' id=error><h2>Re-render failed</h2>"
                 f"<p class=hint>Failed {ESC(step)} {ESC(ago(st.get('failed_at') or st.get('updated_at')))}. "
-                f"The video here is still the previous cut, so you can approve it or send new notes.</p>"
+                + ("The video here is still the previous cut, so you can approve it or send new notes.</p>"
+                   if st.get("step") in ("editing", "rendering", "queued") else
+                   "The new cut is in place (it failed after rendering), so you can approve it or send new notes.</p>")
                 + (f"<p class=hint><b>Your notes:</b> {ESC(st.get('notes') or '')}</p>" if st.get("notes") else "")
                 + f"<pre class=errlog>{ESC(st.get('error') or 'No error text.')}</pre>"
                 f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide'>"

@@ -94,7 +94,7 @@ def retry(client: str, slot: str, db: DB) -> bool:
     if db.post(slot)["state"] == "NEEDS_APPROVAL":
         db.set_state(slot, "REJECTED", note="re-run after a failed render")
     _write_status(client, slot, state="running", step="queued", error=None,
-                  skip_edit=st.get("step") == "rendering")
+                  skip_edit=st.get("step") in ("rendering", "finishing"))
     try:
         _spawn(client, slot)
     except Exception as e:   # nothing is running: show the failure again, back to approval
@@ -227,6 +227,7 @@ def run(client: str, slot: str) -> int:
             changes = _edit(client, slot, film, notes, slot_dir) if notes else None
         _write_status(client, slot, step="rendering", changes=changes)
         verdicts = render(client, slot)
+        _write_status(client, slot, step="finishing")   # the new cut is in place from here on
         db.set_state(slot, "RENDERED")
         qa = _qa_md(slot, verdicts, changes, notes)
         (slot_dir / "qa.md").write_text(qa)

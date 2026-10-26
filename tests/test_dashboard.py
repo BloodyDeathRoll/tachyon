@@ -410,3 +410,9 @@ def test_rerun_that_cannot_start_shows_the_failure_again(client_dir, monkeypatch
     db.close()
     st = R.status("demo", "w01-s1")
     assert st["state"] == "failed" and "could not start" in st["error"]
+
+
+def test_failure_after_render_says_the_new_cut_is_in_place(server, client_dir):
+    _fail(client_dir, step="finishing")
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "The new cut is in place" in body and "still the previous cut" not in body
