@@ -260,8 +260,8 @@ h2{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
 .ui b{position:absolute;border:2px dashed #fff;border-radius:4px}
 .ui span{position:absolute;right:8px;font:600 11px Inter;color:#fff;background:rgba(0,0,0,.6);padding:2px 6px;border-radius:6px}
 .pctl{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap}
-.seg{display:inline-flex;background:var(--grey-bg);border-radius:10px;padding:3px}
-.seg a{padding:6px 14px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--ink3)}
+.seg{display:inline-flex;background:var(--grey-bg);border-radius:999px;padding:3px}
+.seg a{padding:6px 14px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--ink3)}
 .seg a.on{background:var(--ink);color:#fff}
 .chk{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink2);cursor:pointer}
 .chk input{accent-color:var(--ink);width:16px;height:16px}
@@ -271,6 +271,8 @@ textarea:focus,select:focus,.tfield input:focus{outline:none;border-color:var(--
 .btns{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
 .btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:10px;padding:11px 18px;font-weight:600;cursor:pointer;font-size:14.5px}
 .btn.pri{background:var(--lime);color:var(--ink)}.btn.pri:hover{background:var(--lime-h)}
+.btn.danger{background:#d92d20;color:#fff}.btn.danger:hover{background:#b42318}
+.btn.dangerline{color:#b42318}
 .btn.sec{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1px var(--rule)}.btn.sec:hover{box-shadow:inset 0 0 0 1px #BDBDBD}
 .btn.dark{background:var(--ink);color:#fff}.btn.dark:hover{background:var(--acc-h)}
 .btn:focus-visible,a:focus-visible,summary:focus-visible,.cell:focus-visible{outline:3px solid rgba(141,240,0,.8);outline-offset:2px}
@@ -409,6 +411,7 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .rgm{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:50;display:grid;place-items:center;padding:24px}
 .rgm[hidden]{display:none}
 .rgbox{background:#fff;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px;min-width:300px;animation:pop .18s ease-out}
+.pop{display:inline-block}.rgbox.wide{width:min(560px,100%)}.rgbox textarea{min-height:130px}
 .rgbox label{display:flex;flex-direction:column;gap:6px;font-size:13.5px;color:var(--ink3)}
 .rgbox input{border:1px solid var(--rule);border-radius:9px;padding:8px 10px;font-size:15px;color:var(--ink)}
 .chips{position:absolute;left:10px;top:10px;z-index:2;display:flex;gap:4px;align-items:center}
@@ -416,7 +419,7 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .cell .chips{left:6px;top:6px}.cell.mini .chips{left:3px;top:3px}
 .vo{font:700 10.5px Inter;color:#fff;background:#5c2f93;padding:3px 7px;border-radius:999px;letter-spacing:.04em}
 .cell .vo{font-size:9.5px;padding:2px 6px}
-.filt button{border:0;background:transparent;padding:6px 12px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--ink3);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.filt button{border:0;background:transparent;padding:6px 12px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--ink3);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
 .filt button i{font-style:normal;font-size:11.5px;background:#E2E2E2;color:var(--ink2);border-radius:999px;padding:0 6px;min-width:18px;text-align:center}
 .filt button.on{background:var(--ink);color:#fff}.filt button.on i{background:var(--lime);color:var(--ink)}
 .vid[hidden]{display:none}
@@ -704,6 +707,31 @@ def views_chart(series: list[tuple[datetime, int]], g: str, W: int = 600, H: int
     return "".join(out)
 
 
+def popup(trigger: str, box: str) -> str:
+    """A button that opens a centred box (`box` is the inner form). Esc, Cancel or a click
+    outside closes it."""
+    return (f"<div class=pop>{trigger}<div class=rgm hidden>{box}</div><script>(()=>{{"
+            "const w=document.currentScript.parentElement,m=w.querySelector('.rgm');"
+            "w.querySelector('[data-open]').addEventListener('click',e=>{e.preventDefault();m.hidden=false;"
+            "const f=m.querySelector('textarea,input:not([type=hidden]),button');if(f)f.focus();});"
+            "m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-close]'))m.hidden=true;});"
+            "document.addEventListener('keydown',e=>{if(e.key==='Escape')m.hidden=true;});})();</script></div>")
+
+
+def prepare_button(client: str, week: str, label: str) -> str:
+    base = f"/{ESC(quote(client))}"
+    last = W.last_instructions(client)
+    box = (f"<form method=post action='{base}/week' class='rgbox wide'><input type=hidden name=action value=prepare>"
+           f"<input type=hidden name=week value='{ESC(week)}'>"
+           f"<h2>{ESC(label)}</h2>"
+           f"<label>Instructions for this batch<textarea name=instructions rows=6 "
+           f"placeholder='e.g. Add our Rosa app particles to the empty dark areas. Try a light, airy style with new layouts.'>{ESC(last)}</textarea></label>"
+           f"<p class=hint style='margin:0'>Applies to every video in the batch. Leave empty for the usual style. "
+           f"{'Prefilled with the last batch&#39;s instructions.' if last else ''}</p>"
+           f"<div class=btns><button class='btn pri small'>Start</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>")
+    return popup(f"<button type=button class='btn pri small' data-open>{ESC(label)}</button>", box)
+
+
 def views_block(client: str, db: DB, slot: str | None, q: dict, base: str) -> str:
     g = q.get("g") if q.get("g") in GRANS else "day"
     eg, a, b = view_window(g, q.get("from"), q.get("to"))
@@ -790,8 +818,7 @@ def week_card(client: str) -> str:
         err = f"<div class=note>Last run failed: {ESC(st.get('error') or '')}</div>" if st.get("state") == "failed" else ""
         body = (f"{err}<p class=muted style='margin:0 0 14px'>{total} videos, one for each slot. Claude plans them, makes them and "
                 f"sends each one here for approval.</p>"
-                f"<form method=post action='{base}/week'><input type=hidden name=action value=prepare>"
-                f"<button class='btn pri small'>Prepare next week</button></form>")
+                + prepare_button(client, wk, "Prepare next week"))
     auto = (f"<form method=post action='{base}/week' class=autorow><input type=hidden name=action value=auto>"
             f"<input type=hidden name=value value='{0 if ws['auto'] else 1}'>"
             f"<span>Prepare automatically every {ESC(ws['day'])}</span>"
@@ -1032,7 +1059,7 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
 
         right = []
         # when it publishes, with a way to change it
-        at_ = row["published_at"] if cls == "live" else (row["scheduled_at"] or (SCH.slot_for_approval(db, row, C.load_grants(client)) if cls == "need" else None))
+        at_ = row["published_at"] if cls == "live" else (row["scheduled_at"] or (preview_slot(client, db, slot) if cls == "need" else None))
         cal = ""
         if at_:
             dt_ = parse(at_)
@@ -1051,6 +1078,10 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
                      f"<p class=big style='font-size:19px;margin-top:2px'>{ESC(wh)}</p></div>{act}</div>"
                      + (f"<p class=hint style='margin-top:8px'>{sub_}</p>" if sub_ else "") + replies_card(client, slot) + "</section>")
 
+        if row["state"] not in NO_DELETE and (st.get("state") != "running"):
+            right_end = delete_card(client, slot, title_of(client, row))
+        else:
+            right_end = ""
         if row["state"] in HAND_FROM:
             right.append(f"<section class=card><h2>Posted it by hand?</h2>"
                          f"<p class=hint>Used a song only the Instagram app has? Post it there, then link the post here so it gets tracked.</p>"
@@ -1092,6 +1123,8 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
             links.append(f"<a href='/{ESC(quote(client))}/v/{ESC(quote(slot))}/qa'>QA report</a>")
         if links:
             right.append(f"<div class=links>{''.join(links)}</div>")
+        if right_end:
+            right.append(right_end)
 
         body = (f"<a class=back href='/{ESC(quote(client))}'>{icon('back', 16)}Overview</a>"
                 f"<h1>{ESC(title_of(client, row))} <span class=hno>{ESC(' · '.join(x for x in slot_no(slot) if x))}</span></h1><p class=sub>{when_line}</p>"
@@ -1158,9 +1191,10 @@ let f0='all';try{f0=localStorage.getItem(FK)||'all'}catch(_){}setF(f0);
 
 def _cal_items(client: str, db: DB, first, last) -> dict:
     out: dict[tuple[str, str], list] = {}
+    preview = SCH.preview_slots(db, unslotted(client, db), C.load_grants(client))
     for row in db.posts():
         tag = tag_for(client, row)
-        ts = parse(row["published_at"] or row["scheduled_at"])
+        ts = parse(row["published_at"] or row["scheduled_at"] or preview.get(row["slot_id"]))
         if tag and ts and first <= ts.date() <= last:
             out.setdefault((ts.date().isoformat(), ts.strftime("%H:%M")), []).append((row, tag))
     return out
@@ -1184,7 +1218,7 @@ def _cell(client: str, row, tag, past: bool, hl: str | None, mini: bool = False,
             f"<span class=cb><span class='tag {cls}'>{ESC(label)}</span><span class=ct>{t}</span></span></a>")
 
 
-def _cal_head(client: str, view: str, title: str, prev: str, today_q: str, nxt: str) -> str:
+def _cal_head(client: str, view: str, title: str, prev: str, today_q: str, nxt: str, label: str = "Today") -> str:
     base = f"/{quote(client)}/calendar"
     t = datetime.now(timezone.utc).date()
     y, w, _ = t.isocalendar()
@@ -1195,7 +1229,7 @@ def _cal_head(client: str, view: str, title: str, prev: str, today_q: str, nxt: 
     return ("<div class=row style='margin-bottom:12px;flex-wrap:wrap'>"
             f"<div class=row style='gap:16px;flex-wrap:wrap'><h2>{title}</h2>{seg}<div class='seg filt calfilt' role=group aria-label='Show'>{filt}</div></div><div class=calnav>"
             f"<a href='{base}?{prev}' aria-label='Previous'>{icon('prev', 16)}</a>"
-            f"<a class=txt href='{base}?{today_q}'>Today</a>"
+            f"<a class=txt href='{base}?{today_q}' title='Back to today'>{ESC(label)}</a>"
             f"<a href='{base}?{nxt}' aria-label='Next'>{icon('next', 16)}</a></div></div>"
             "<p class=hint style='margin:0 0 16px'>Grab a video by its dots and drop it on another to swap them, or on an open slot to move it. "
             "Press play for a quick look. Live videos stay put.</p>")
@@ -1235,12 +1269,62 @@ def render_month(client: str, month: str | None, hl: str | None = None) -> bytes
             day += timedelta(days=1)
         g.append("</div>")
         head = _cal_head(client, "month", first.strftime("%B %Y"), f"view=month&m={prv_m:%Y-%m}", f"view=month&m={today:%Y-%m}",
-                         f"view=month&m={nxt_m:%Y-%m}")
+                         f"view=month&m={nxt_m:%Y-%m}", label=first.strftime("%b %Y"))
         body = (header(client, "Calendar") + f"<section class=card>{head}{''.join(g)}</section>"
                 f"<div class=toast id=toast></div><script>{CAL_JS.replace('__C__', quote(client))}</script>")
         return shell(client, "calendar", body, "Calendar")
     finally:
         db.close()
+
+
+NO_DELETE = {"PUBLISHING", "PUBLISHED", "MEASURING", "ANALYZED", "MANUAL_HANDOFF"}   # live, or maybe live
+
+
+def delete_video(client: str, slot: str) -> None:
+    """Remove a video from the plan and the dashboard. Its folder moves to clients/<c>/trash/,
+    so nothing is lost by accident. Refused once it is (or may be) on Instagram."""
+    import shutil
+    d = C.client_dir(client)
+    db = DB.for_client(d)
+    try:
+        row = db.post(slot)
+        if row["state"] in NO_DELETE:
+            raise ValueError("this video is on Instagram (or may be): it cannot be deleted here")
+        if (R.status(client, slot) or {}).get("state") == "running":
+            raise ValueError("a re-render is running: wait for it to finish")
+        src = d / "posts" / slot
+        dst = d / "trash" / f"{slot}-{datetime.now(timezone.utc):%Y%m%dT%H%M%S}"
+        if src.exists():
+            dst.parent.mkdir(exist_ok=True)
+            shutil.move(src, dst)
+        try:
+            db.delete_post(slot)
+        except Exception:
+            if dst.exists():
+                shutil.move(dst, src)   # keep files and row together
+            raise
+    finally:
+        db.close()
+
+
+def delete_card(client: str, slot: str, title: str) -> str:
+    act = f"/{ESC(quote(client))}/v/{ESC(quote(slot))}/delete"
+    box = (f"<form method=post action='{act}' class=rgbox><h2>Delete this video?</h2>"
+           f"<p class=muted style='margin:0;max-width:380px'>&ldquo;{ESC(title)}&rdquo; leaves the plan, the calendar and the dashboard. "
+           f"Its files move to clients/{ESC(client)}/trash, so they can be recovered by hand.</p>"
+           f"<div class=btns><button class='btn danger small'>Delete</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>")
+    return ("<section class=card><h2>Delete</h2><p class=hint>Not needed any more? Remove it from the plan.</p><div style='margin-top:12px'>"
+            + popup(f"<button type=button class='btn sec small dangerline' data-open>{icon('x', 15)}Delete video</button>", box) + "</div></section>")
+
+
+def unslotted(client: str, db: DB) -> list[str]:
+    """Videos waiting for approval that hold no slot yet (their slot is a preview)."""
+    return [r["slot_id"] for r in db.posts() if not r["scheduled_at"] and not r["published_at"]
+            and (tag_for(client, r) or ("", ""))[1] == "need"]
+
+
+def preview_slot(client: str, db: DB, slot: str) -> str | None:
+    return SCH.preview_slots(db, unslotted(client, db), C.load_grants(client)).get(slot)
 
 
 def render_calendar(client: str, week: str | None, hl: str | None = None) -> bytes:
@@ -1255,9 +1339,10 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
     try:
         cells: dict[tuple[str, str], list] = {}
         extra_times = set()
+        preview = SCH.preview_slots(db, unslotted(client, db), C.load_grants(client))
         for row in db.posts():
             tag = tag_for(client, row)
-            ts = parse(row["published_at"] or row["scheduled_at"])
+            ts = parse(row["published_at"] or row["scheduled_at"] or preview.get(row["slot_id"]))
             if not tag or not ts or not (days[0] <= ts.date() <= days[-1]):
                 continue
             hm = ts.strftime("%H:%M")
@@ -1270,7 +1355,8 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
         next_w = (days[0] + timedelta(days=7)).isocalendar()
         ty, tw, _ = today.isocalendar()
         head = _cal_head(client, "week", f"{days[0].strftime('%-d %b')} – {days[-1].strftime('%-d %b %Y')}",
-                         f"w={prev_w[0]}-W{prev_w[1]:02d}", f"w={ty}-W{tw:02d}", f"w={next_w[0]}-W{next_w[1]:02d}")
+                         f"w={prev_w[0]}-W{prev_w[1]:02d}", f"w={ty}-W{tw:02d}", f"w={next_w[0]}-W{next_w[1]:02d}",
+                         label=days[0].strftime("%a %-d %b"))
         g = ["<div class=cal style='grid-template-columns:56px repeat(7,minmax(0,1fr))'><div></div>"]
         for day in days:
             g.append(f"<div class='dh{' today' if day == today else ''}'>{day.strftime('%a')}<b>{day.day}</b></div>")
@@ -1291,8 +1377,7 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
         st = W.status(client, week)
         note = ""
         if week == W.next_week() and not st:
-            note = (f"<form method=post action='/{ESC(quote(client))}/week' style='margin-top:20px'><input type=hidden name=action value=prepare>"
-                    f"<button class='btn pri small'>Prepare this week</button></form>")
+            note = f"<div style='margin-top:20px'>{prepare_button(client, week, 'Prepare this week')}</div>"
         body = (header(client, "Calendar") + f"<section class=card>{head}{''.join(g)}{note}</section>"
                 f"<div class=toast id=toast></div><script>{CAL_JS.replace('__C__', quote(client))}</script>")
         return shell(client, "calendar", body, "Calendar")
@@ -1575,12 +1660,20 @@ class Handler(BaseHTTPRequestHandler):
                 if form.get("action") == "prepare":
                     wk = form.get("week") or W.next_week()
                     if (W.status(name, wk) or {}).get("state") != "running":
-                        W.start(name, wk)
+                        W.start(name, wk, form.get("instructions") or "")
                 elif form.get("action") == "auto":
                     ws = W.settings(name)
                     C.set_value(name, "week_prep", {"auto": form.get("value") == "1", "day": ws["day"]})
                 return self._redirect(f"/{quote(name)}")
             # /<c>/v/<slot>/decide (dashboard) or /<c>/decide with slot= (older form)
+            if parts[1] == "v" and len(parts) == 4 and parts[3] == "delete":
+                try:
+                    delete_video(name, parts[2])
+                except KeyError:
+                    return self._send(404, b"no such video", "text/plain")
+                except ValueError as e:
+                    return self._send(409, str(e).encode(), "text/plain")
+                return self._redirect(f"/{quote(name)}")
             if parts[1] == "v" and len(parts) == 4 and parts[3] == "decide":
                 slot, back = parts[2], f"/{quote(name)}/v/{quote(parts[2])}"
             elif parts[1] == "decide":
@@ -1600,7 +1693,9 @@ class Handler(BaseHTTPRequestHandler):
                     if "caption" in form:
                         (d / "posts" / slot).mkdir(parents=True, exist_ok=True)
                         (d / "posts" / slot / "caption.txt").write_text(form["caption"])
-                    at = SCH.slot_for_approval(db, db.post(slot), C.load_grants(name))
+                    row_ = db.post(slot)
+                    at = ((not row_["scheduled_at"] and preview_slot(name, db, slot))
+                          or SCH.slot_for_approval(db, row_, C.load_grants(name)))   # the slot the calendar showed
                     db.set_state(slot, "APPROVED", note=notes or None, scheduled_at=at)
                     R.dismiss(name, slot)
                 elif form.get("action") == "revoke":

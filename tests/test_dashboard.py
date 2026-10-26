@@ -3,6 +3,7 @@ reject → re-render job, QA off the main screens."""
 
 import http.client
 import json
+import re
 import threading
 from datetime import datetime, timezone
 from urllib.parse import urlencode
@@ -136,9 +137,9 @@ def test_schedule_times_are_editable(server, client_dir):
 def test_prepare_next_week_and_auto_toggle(server, client_dir, monkeypatch):
     from spine import week as W
     started = []
-    monkeypatch.setattr(W, "start", lambda c, w: started.append((c, w)))
-    req(server, "POST", "/demo/week", {"action": "prepare"})
-    assert started == [("demo", W.next_week())]
+    monkeypatch.setattr(W, "start", lambda c, w, i=None: started.append((c, w, i)))
+    req(server, "POST", "/demo/week", {"action": "prepare", "instructions": "particles everywhere"})
+    assert started == [("demo", W.next_week(), "particles everywhere")]
     req(server, "POST", "/demo/week", {"action": "auto", "value": "1"})
     assert C.load_grants("demo")["week_prep"]["auto"] is True
     _, body, _ = req(server, "GET", "/demo")
@@ -418,7 +419,126 @@ def test_failure_after_render_says_the_new_cut_is_in_place(server, client_dir):
     assert "The new cut is in place" in body and "still the previous cut" not in body
 
 
+def test_delete_video_moves_it_to_trash(server, client_dir):
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "Delete this video?" in body and "data-open" in body
+    status, _, loc = req(server, "POST", "/demo/v/w01-s1/delete", {})
+    assert status == 303 and loc == "/demo"
+    db = DB.for_client(client_dir)
+    with pytest.raises(KeyError):
+        db.post("w01-s1")
+    db.close()
+    assert not (client_dir / "posts" / "w01-s1").exists()
+    assert len(list((client_dir / "trash").glob("w01-s1-*"))) == 1
+    _, body, _ = req(server, "GET", "/demo")
+    assert "Showreel" not in body
+
+
+def test_live_video_cannot_be_deleted(server, client_dir):
+    db = DB.for_client(client_dir)
+    for st in ["APPROVED", "QUEUED"]:
+        db.set_state("w01-s1", st)
+    db.set_state("w01-s1", "PUBLISHING")
+    db.set_state("w01-s1", "PUBLISHED", ig_media_id="m1")
+    db.close()
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "Delete this video?" not in body
+    status, _, _ = req(server, "POST", "/demo/v/w01-s1/delete", {})
+    assert status == 409
+    assert (client_dir / "posts" / "w01-s1").exists()
+
+
+def test_unslotted_video_shows_on_the_calendar_where_the_page_says(server, client_dir):
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    m = re.search(r"Planned for</span><p class=big[^>]*>([^<]+)<", body)
+    assert m, "planned date on the video page"
+    db = DB.for_client(client_dir)
+    at = SCH.preview_slots(db, ["w01-s1"])["w01-s1"]
+    db.close()
+    dt = datetime.fromisoformat(at)
+    y, w, _ = dt.isocalendar()
+    _, cal, _ = req(server, "GET", f"/demo/calendar?w={y}-W{w:02d}")
+    assert "/demo/v/w01-s1" in cal
+
+
+def test_two_unslotted_videos_get_different_preview_slots(client_dir):
+    db = DB.for_client(client_dir)
+    db.create_post("w01-s2", "demo")
+    for st in ["BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL"]:
+        db.set_state("w01-s2", st)
+    p = SCH.preview_slots(db, ["w01-s2", "w01-s1"])
+    db.close()
+    assert p["w01-s1"] != p["w01-s2"] and p["w01-s1"] < p["w01-s2"]
+
+
+def test_batch_instructions_reach_both_prompts(client_dir, monkeypatch):
+    from spine import week as W
+    monkeypatch.setattr(W.subprocess, "Popen", lambda *a, **k: None)
+    W.start("demo", "2099-W02", "Use the app particles in empty dark areas")
+    assert W.last_instructions("demo") == "Use the app particles in empty dark areas"
+    prompt = W.plan_prompt("demo", "2099-W02", ["2099-01-12T06:30:00+00:00"], W.ROOT / "x.yaml")
+    assert "Use the app particles in empty dark areas" in prompt
+    s = client_dir / "posts" / "w01-s1"
+    (s / "brief.md").write_text("# T\n\nHook: x\n\nbrief")
+    (s / "meta.json").write_text(json.dumps({"title": "T", "plan": "2099-W02"}))
+    assert "Use the app particles in empty dark areas" in W.film_prompt("demo", "w01-s1")
+    W.start("demo", "2099-W03")   # the daily auto run reuses the last brief
+    assert W.status("demo", "2099-W03")["instructions"] == "Use the app particles in empty dark areas"
+
+
+def test_prepare_popup_prefills_last_instructions(server, client_dir, monkeypatch):
+    from spine import week as W
+    monkeypatch.setattr(W.subprocess, "Popen", lambda *a, **k: None)
+    W.start("demo", "2099-W02", "light and airy")
+    W.plans_dir("demo").joinpath("2099-W02.json").write_text(json.dumps({"state": "done", "instructions": "light and airy", "started_at": "2099"}))
+    _, body, _ = req(server, "GET", "/demo")
+    assert "Instructions for this batch" in body and "light and airy</textarea>" in body
+
 def test_failure_before_start_has_a_readable_step(server, client_dir):
     _fail(client_dir, step="queued")
     _, body, _ = req(server, "GET", "/demo/v/w01-s1")
     assert "Failed before it started" in body and "still the previous cut" in body
+
+
+def test_delete_unknown_video_is_404(server):
+    status, _, _ = req(server, "POST", "/demo/v/nope/delete", {})
+    assert status == 404
+
+
+def test_delete_refused_while_rerendering(server, client_dir):
+    (client_dir / "posts" / "w01-s1" / "revise.json").write_text(json.dumps({"state": "running", "step": "rendering"}))
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "Delete this video?" not in body
+    status, _, _ = req(server, "POST", "/demo/v/w01-s1/delete", {})
+    assert status == 409 and (client_dir / "posts" / "w01-s1").exists()
+
+
+def test_delete_keeps_files_if_the_row_cannot_go(server, client_dir, monkeypatch):
+    def boom(self, slot):
+        raise RuntimeError("db locked")
+    monkeypatch.setattr(DB, "delete_post", boom)
+    try:
+        req(server, "POST", "/demo/v/w01-s1/delete", {})
+    except http.client.HTTPException:
+        pass   # the error itself reaches the server log
+    assert (client_dir / "posts" / "w01-s1" / "caption.txt").exists()
+
+
+def test_approving_an_unslotted_video_takes_the_slot_the_calendar_showed(server, client_dir):
+    db = DB.for_client(client_dir)
+    db.create_post("w01-s0", "demo")
+    for st in ["BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL"]:
+        db.set_state("w01-s0", st)
+    shown = SCH.preview_slots(db, ["w01-s0", "w01-s1"])["w01-s1"]   # s0 is earlier in order
+    db.close()
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve"})
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["scheduled_at"] == shown
+    db.close()
+
+
+def test_calendar_nav_shows_the_shown_weeks_start(server):
+    _, body, _ = req(server, "GET", "/demo/calendar?w=2099-W02")
+    assert "title='Back to today'>Mon 5 Jan</a>" in body
+    _, body, _ = req(server, "GET", "/demo/calendar?view=month&m=2099-03")
+    assert "title='Back to today'>Mar 2099</a>" in body
