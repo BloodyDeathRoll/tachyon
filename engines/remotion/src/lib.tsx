@@ -8,6 +8,11 @@ export const SAFE = {
   reel: { x: 65, y: 285, w: 950, h: 963 },
   story: { x: 65, y: 269, w: 950, h: 979 },
 };
+/** other formats (1:1, 4:5, 2:3, 16:9) have no Instagram UI on top: a 6 % margin all round */
+export const FORMAT_SAFE = (w: number, h: number) => {
+  const m = Math.round(Math.min(w, h) * 0.06);
+  return { x: m, y: m, w: w - 2 * m, h: h - 2 * m };
+};
 
 // ── palette (clients/rosa/brand.md) ─────────────────────────────────────────
 export const C = {
@@ -71,12 +76,14 @@ export const Footage: React.FC<{ src: string; from: number; to: number; startFro
 
 // ── the phone: a 3D-floating device with a screen stack ─────────────────────
 export type Pose = { x: number; y: number; s: number; rx: number; ry: number; rz: number; o: number };
-export const Phone: React.FC<{ pose: Pose; children: React.ReactNode; glow?: number }> = ({ pose, children, glow = 0.14 }) => {
+/** `cx`/`cy`: the phone's centre in the frame (defaults: the 9:16 reel's 540, 760) */
+export const Phone: React.FC<{ pose: Pose; children: React.ReactNode; glow?: number; cx?: number; cy?: number }> = ({ pose, children, glow = 0.14, cx = 540, cy = 760 }) => {
   const W = 420, H = 880;
+  const { width, height } = useVideoConfig();
   return (
-    <div style={{ position: "absolute", left: 0, top: 0, width: 1080, height: 1920, perspective: 2400, perspectiveOrigin: "540px 760px", pointerEvents: "none" }}>
+    <div style={{ position: "absolute", left: 0, top: 0, width, height, perspective: 2400, perspectiveOrigin: `${cx}px ${cy}px`, pointerEvents: "none" }}>
       <div style={{
-        position: "absolute", left: 540 - W / 2, top: 760 - H / 2, width: W, height: H, borderRadius: 64,
+        position: "absolute", left: cx - W / 2, top: cy - H / 2, width: W, height: H, borderRadius: 64,
         background: "linear-gradient(145deg,#1b2230,#05070c 40%,#0d1320 70%,#20283a)",
         boxShadow: `0 60px 140px rgba(0,0,0,.75), 0 0 0 1.5px #2a3345 inset, 0 0 120px rgba(17,183,242,${glow})`,
         opacity: pose.o, transformStyle: "preserve-3d",
