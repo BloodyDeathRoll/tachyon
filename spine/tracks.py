@@ -231,6 +231,42 @@ def apply(client: str, slot: str) -> None:
             _mux(sd / f, track, vo, float(vo_meta.get("start", 0.5)), music_dir)
 
 
+IG_PREVIEW = "ig-track.m4a"   # local copy of an Instagram track, for the dashboard preview only
+
+
+IG_PREVIEW_MAX = 30 * 1024 * 1024
+
+
+def ig_preview(client: str, slot: str) -> Path | None:
+    """The local preview copy of the slot's Instagram track, only if it is for the current pick."""
+    _, m = _meta(client, slot)
+    f = C.client_dir(client) / "posts" / slot / IG_PREVIEW
+    if m.get("track") and (m.get("track_info") or {}).get("preview_of") == m["track"] and f.exists() and f.stat().st_size:
+        return f
+    return None
+
+
+def fetch_ig_preview(client: str, slot: str, url: str | None, opener=None) -> Path | None:
+    """Download the chosen Instagram track once (at pick time) so the dashboard can play it with
+    the video. The video file stays as it is: Instagram adds the track when it publishes."""
+    f = C.client_dir(client) / "posts" / slot / IG_PREVIEW
+    f.unlink(missing_ok=True)
+    if not url:
+        return None
+    import urllib.request
+    try:
+        with (opener or urllib.request.urlopen)(url, timeout=30) as r:
+            data = r.read(IG_PREVIEW_MAX + 1)
+    except Exception:  # noqa: BLE001 — expired link or no network: no preview, nothing breaks
+        return None
+    if not data or len(data) > IG_PREVIEW_MAX:
+        return None
+    tmp = f.with_suffix(".tmp")
+    tmp.write_bytes(data)
+    tmp.replace(f)
+    return f
+
+
 def set_track(client: str, slot: str, track_id: str) -> None:
     track = next((t for t in _library(client) if t["id"] == track_id), None) or _ig_known(client).get(track_id)
     if not track:
@@ -242,7 +278,10 @@ def set_track(client: str, slot: str, track_id: str) -> None:
         m["audio_configuration"] = {"audio_id": track["audio_id"], "audio_volume": 30 if m.get("voiceover") else 100,
                                     "video_volume": 100 if m.get("voiceover") else 1}
         m["track_info"] = {k: track.get(k) for k in ("title", "artist", "cover", "duration", "link")}
+        if fetch_ig_preview(client, slot, track.get("preview")):
+            m["track_info"]["preview_of"] = track_id
     else:
+        (C.client_dir(client) / "posts" / slot / IG_PREVIEW).unlink(missing_ok=True)
         m.pop("audio_configuration", None)
         m.setdefault("film", {})["music"] = _rel(C.client_dir(client) / "assets" / "music" / track["file"])
     m["audio_type"] = f"{track['title']} ({track.get('artist')}), {track.get('source', 'file')}"

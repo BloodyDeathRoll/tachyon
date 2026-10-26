@@ -39,7 +39,7 @@ FONT = ROOT / "dashboard" / "fonts" / "inter-var.woff2"
 LOGO = ROOT / "dashboard" / "brand" / "tachyon-logo.svg"
 ICON = ROOT / "dashboard" / "brand" / "tachyon-icon.svg"
 MAX_SLOTS = 6
-MEDIA_FILES = {"video.mp4", "video-story.mp4", "cover.jpg"}
+MEDIA_FILES = {"video.mp4", "video-story.mp4", "cover.jpg", "ig-track.m4a"}
 LIVE_TTL = timedelta(minutes=15)
 
 # ── tags ──────────────────────────────────────────────────────────────────────
@@ -552,6 +552,32 @@ def refresh_live(client: str, db: DB, row) -> None:
         pass
 
 
+def ig_sync(client: str, slot: str) -> str:
+    """An Instagram track is attached at publish, so the file is silent of it. Play the local copy
+    alongside the video, following play, pause, seek, loop and the player's volume."""
+    m = meta_of(client, slot)
+    cfg = m.get("audio_configuration")
+    if not cfg:
+        return ""
+    T = _tracks()
+    f = T.ig_preview(client, slot) if T else None
+    if not f:
+        return ""
+    try:
+        vol = max(1, min(100, int(cfg.get("audio_volume", 100)))) / 100
+    except (TypeError, ValueError):
+        vol = 1.0
+    return (f"<audio id=igtrack preload=auto src='{media_url(client, slot, f.name)}'></audio>"
+            "<script>(()=>{const v=document.querySelector('#frame video'),a=document.getElementById('igtrack');if(!v||!a)return;"
+            f"const MV={vol};"
+            "const sync=()=>{if(a.duration)a.currentTime=v.currentTime%a.duration};"
+            "const vol=()=>{a.volume=v.muted?0:Math.min(1,v.volume*MV)};"
+            "v.addEventListener('play',()=>{sync();vol();a.play().catch(()=>{})});"
+            "v.addEventListener('pause',()=>a.pause());v.addEventListener('seeked',sync);"
+            "v.addEventListener('volumechange',vol);v.addEventListener('ended',()=>a.pause());"
+            "setInterval(()=>{if(!v.paused&&a.duration&&Math.abs(a.currentTime-v.currentTime%a.duration)>0.3)sync()},1000);})();</script>")
+
+
 # ── charts ────────────────────────────────────────────────────────────────────
 def bar_chart(days: list[dict], key: str, key2: str | None = None, W: int = 960, H: int = 220) -> str:
     end = datetime.now(timezone.utc).date()
@@ -868,7 +894,7 @@ def music_card(client: str, slot: str, cls: str, src: str = "file", q: str = "")
         search = (f"<form method=get action='{base}#music' class=srch><input type=hidden name=music value=ig>"
                   f"{icon('search', 16)}<input name=q value='{ESC(q)}' placeholder='Search Instagram music' aria-label='Search Instagram music'>"
                   f"</form><p class=hint style='margin:8px 0 0'>{'Results for “' + ESC(q) + '”' if q else 'Trending on Instagram'}. "
-                  f"The track is attached on Instagram when it publishes, so it plays there, not in this preview.</p>")
+                  f"The track is attached on Instagram when it publishes; here it plays with the video so you can hear the mix.</p>")
     rows = []
     for t in lib:
         on = t["id"] == cur
@@ -942,6 +968,7 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
                f"<a href='{base}?as=story' class='{'on' if is_story else ''}'>Story</a></div>") if has_story else "<span></span>"
         dls = (f"<a class=dl href='{media_url(client, slot, vfile)}&dl=1' download>{icon('download', 15)}Download {'story' if is_story else 'reel'}</a>"
                if (sdir / vfile).exists() else "")
+        player += ig_sync(client, slot)
         player += (f"<div class=pctl>{seg}{dls}<label class=chk><input type=checkbox "
                    f"onchange=\"document.getElementById('frame').classList.toggle('showui',this.checked)\">Show what Instagram covers</label></div>")
 
