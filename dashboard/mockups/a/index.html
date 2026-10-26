@@ -1,0 +1,1522 @@
+<!doctype html>
+<html lang="en" data-view="overview">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tachyon — Overview</title>
+<meta name="description" content="Tachyon operator dashboard, direction A “Inbox” (run dash-01): one queue of what waits on you, the week and the live reel beside it. Reads dashboard/data.json; a static open renders everything.">
+<style>
+@font-face{font-family:"Manrope";font-style:normal;font-weight:200 800;font-display:swap;src:url("../../fonts/manrope-latin-wght-normal.woff2") format("woff2")}
+:root{
+  --ground:#F5F7FB;--card:#FFFFFF;--ink:#0B1220;--ink2:#4B5563;--ink3:#6B7280;--rule:#E5E8EF;
+  /* Direction A accent: teal. White on it 6.05:1, it on white 6.05:1, on the ground 5.64:1, on t5 5.48:1. */
+  --acc:#0B6E6E;--acc-hover:#095C5C;--t1:#489292;--t2:#85B6B6;--t3:#B6D4D4;--t4:#DAE9E9;--t5:#EEF5F5;
+  --blue:#1F4BFF;
+  --green:#1A7F37;--green-bg:#EDF7F0;--red:#C0182B;--red-bg:#FCEBED;--amber:#8A4B00;--amber-bg:#FFF4D6;--grey-bg:#EEF0F3;
+  --shadow:0 1px 2px rgba(11,18,32,.04),0 8px 24px rgba(11,18,32,.06);
+  --r:20px;--r2:12px;--gap:24px;--pad:28px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{font-family:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;color:var(--ink);background:var(--ground);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{margin:0;background:var(--ground);display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh;font-size:15px;line-height:1.45;font-weight:400}
+a{color:inherit}
+button,select,textarea,input{font:inherit;color:inherit}
+h1,h2,h3,p,ul,ol,figure,dl,dd{margin:0}
+ul,ol{padding:0;list-style:none}
+svg{display:block;overflow:visible}
+img,video{display:block;max-width:100%}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.lnk{display:inline-flex;align-items:center;gap:4px;color:var(--blue);font-weight:600;text-decoration:none;white-space:nowrap;border-radius:4px}
+.lnk:hover{text-decoration:underline;text-underline-offset:3px}
+.lnk svg{width:12px;height:12px;flex:none}
+.muted{color:var(--ink3)}
+.meta13{font-size:13px;color:var(--ink3);font-weight:500}
+b,strong{font-weight:700}
+
+/* ---------- sidebar ---------- */
+.side{position:sticky;top:0;height:100vh;background:var(--card);box-shadow:var(--shadow);display:flex;flex-direction:column;padding:28px 20px 24px;z-index:2}
+.logo{display:flex;align-items:center;gap:10px;padding:4px 8px 28px;font-weight:700;font-size:18px;letter-spacing:-.01em}
+.logo i{width:24px;height:24px;border-radius:8px;background:var(--acc);display:inline-block;position:relative;flex:none}
+.logo i::after{content:"";position:absolute;left:7px;top:7px;width:10px;height:10px;border-radius:3px;background:#fff}
+.nav{display:flex;flex-direction:column;gap:4px}
+.nav a{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 12px;border:0;background:transparent;border-radius:var(--r2);font-weight:500;font-size:15px;color:var(--ink2);cursor:pointer;text-decoration:none}
+.nav a:hover{background:var(--ground);color:var(--ink)}
+.nav a[aria-current="page"]{background:var(--t5);color:var(--acc);font-weight:700}
+.nav a svg{width:22px;height:22px;flex:none}
+.nav .badge{margin-left:auto;background:var(--acc);color:#fff;font-size:13px;font-weight:700;min-width:24px;height:24px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;padding:0 8px}
+.nav .n{margin-left:auto;font-size:13px;color:var(--ink3);font-weight:600}
+.side-foot{margin-top:auto;padding:16px 12px 0;border-top:1px solid var(--rule);font-size:13px;color:var(--ink3);display:grid;gap:4px}
+.side-foot b{color:var(--ink2);font-weight:700}
+.side-foot .dot{display:inline-block;width:8px;height:8px;border-radius:999px;background:var(--green);margin-right:6px;vertical-align:1px}
+
+/* ---------- main ---------- */
+main{min-width:0;padding:0 24px 48px}
+.top{height:72px;display:flex;align-items:center;justify-content:space-between;gap:24px;position:sticky;top:0;background:var(--ground);z-index:5}
+.top h1{font-size:28px;font-weight:700;letter-spacing:-.015em;line-height:1}
+.top .keys{font-size:13px;color:var(--ink3);margin-left:16px;font-weight:500}
+.top .keys kbd{font:inherit;font-weight:700;color:var(--ink2)}
+.controls{display:flex;gap:12px;align-items:center}
+.fresh{font-size:13px;color:var(--ink3);font-weight:500;white-space:nowrap}
+.fresh i{display:inline-block;width:8px;height:8px;border-radius:999px;background:var(--green);margin-right:6px;vertical-align:1px}
+.psel{position:relative;display:inline-flex;align-items:center;background:var(--card);border-radius:999px;box-shadow:var(--shadow);height:40px;padding:0 14px;gap:8px;font-size:14px;font-weight:500;color:var(--ink2)}
+.psel select{appearance:none;-webkit-appearance:none;border:0;background:transparent;padding:0 22px 0 0;height:40px;font-weight:600;color:var(--ink);cursor:pointer;max-width:200px}
+.psel .chev{position:absolute;right:14px;width:12px;height:12px;pointer-events:none}
+.psel:focus-within{outline:2px solid var(--acc);outline-offset:2px}
+.psel select:focus{outline:none}
+.view{display:none}.view.on{display:block}
+.sum{margin:0 0 20px;font-size:17px;line-height:26px;color:var(--ink2);text-wrap:pretty;max-width:92ch}
+.sum b{color:var(--ink);font-weight:700}
+
+/* ---------- cards / shared ---------- */
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:var(--pad)}
+.card.tight{padding:20px 24px}
+.gh{display:flex;align-items:center;gap:10px;margin:0 0 12px;min-height:28px}
+.gh h2{font-size:18px;font-weight:700;letter-spacing:-.005em;line-height:28px}
+.gh .cnt{min-width:24px;height:24px;padding:0 8px;border-radius:6px;background:var(--t5);color:var(--acc);font-weight:700;font-size:13px;display:inline-grid;place-items:center}
+.gh .cnt.z{background:var(--grey-bg);color:var(--ink2)}
+.gh .meta{margin-left:auto;font-size:13px;color:var(--ink3);font-weight:500}
+.grp+.grp{margin-top:28px}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 10px;font-size:13px;font-weight:700;white-space:nowrap;line-height:1}
+.pill::before{content:"";width:8px;height:8px;border-radius:999px;background:currentColor;flex:none}
+.pill.acc{background:var(--t5);color:var(--acc)}
+.pill.green{background:var(--green-bg);color:var(--green)}
+.pill.red{background:var(--red-bg);color:var(--red)}
+.pill.amber{background:var(--amber-bg);color:var(--amber)}
+.pill.grey{background:var(--grey-bg);color:var(--ink2)}
+.pill.outline{background:transparent;color:var(--ink3);box-shadow:inset 0 0 0 1px var(--rule)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:999px;border:1.5px solid var(--rule);background:var(--card);color:var(--ink);font-weight:700;font-size:15px;cursor:pointer;white-space:nowrap;text-decoration:none;line-height:1}
+.btn:hover{background:var(--ground)}
+.btn svg{width:16px;height:16px;flex:none}
+.btn.primary{height:44px;padding:0 22px;border-color:transparent;background:var(--acc);color:#fff;border-radius:12px;min-width:160px}
+.btn.primary:hover{background:var(--acc-hover)}
+.btn.danger{height:44px;padding:0 18px;border-color:transparent;background:var(--red-bg);color:var(--red);border-radius:12px}
+.btn.danger:hover{background:#F8D9DD}
+.btn.danger-fill{height:48px;padding:0 22px;border-color:transparent;background:var(--red);color:#fff;border-radius:12px}
+.btn.danger-fill:hover{background:#A6142A}
+.btn.ghost{border-color:transparent;color:var(--ink2);background:transparent}
+.btn.ghost:hover{background:var(--ground);color:var(--ink)}
+.btn.sm{height:32px;padding:0 12px;font-size:13px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn .ok{display:none}
+.btn.done .ok{display:inline}
+.btn.done .lbl,.btn.done .ic{display:none}
+.cover{display:block;border-radius:8px;overflow:hidden;background:var(--t4);position:relative;flex:none}
+.cover img{width:100%;height:100%;object-fit:cover}
+.cover.c96{width:96px;height:171px}
+.cover.c48{width:48px;height:85px;border-radius:6px}
+.cover.c32{width:32px;height:57px;border-radius:5px}
+.rowline{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.soft{background:var(--ground);border-radius:var(--r2);padding:14px 16px}
+.switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;color:var(--ink2)}
+.switch input{position:absolute;opacity:0;width:1px;height:1px}
+.switch i{width:44px;height:24px;border-radius:999px;background:#CBD2DC;position:relative;flex:none;transition:background .15s}
+.switch i::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(11,18,32,.2);transition:transform .15s}
+.switch input:checked+i{background:var(--acc)}
+.switch input:checked+i::after{transform:translateX(20px)}
+.switch input:focus-visible+i{outline:2px solid var(--acc);outline-offset:2px}
+.switch .w{min-width:24px;color:var(--ink)}
+
+/* ---------- overview ---------- */
+.ov{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:var(--gap);align-items:start}
+.ok-card{display:grid;grid-template-columns:40px minmax(0,1fr);gap:20px;align-items:start}
+.ok-card .disc{width:40px;height:40px;border-radius:999px;background:var(--green-bg);color:var(--green);display:grid;place-items:center}
+.ok-card .disc svg{width:22px;height:22px}
+.ok-card .big{font-size:20px;font-weight:700;line-height:28px;letter-spacing:-.005em}
+.ok-card .next{margin-top:6px;color:var(--ink2);font-size:15px;line-height:24px}
+.ok-card .next b{color:var(--ink)}
+.q-card{display:grid;grid-template-columns:96px minmax(0,1fr);gap:24px}
+.q-card .ttl{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.q-card .ttl h3{font-size:18px;font-weight:700;letter-spacing:-.005em;line-height:28px}
+.q-card .ttl .len{color:var(--ink3);font-weight:500}
+.q-card .when{margin-top:4px;font-size:15px;color:var(--ink)}
+.q-card .when b{font-weight:700}
+.q-card .when .rel{color:var(--ink3);font-weight:500}
+.q-card .desc{margin-top:4px;color:var(--ink2)}
+.q-card .qa{margin-top:8px;display:inline-flex;align-items:center;gap:6px;color:var(--ink2);font-weight:600}
+.q-card .qa svg{width:16px;height:16px;color:var(--amber)}
+.q-card .acts{margin-top:18px;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.q-card .acts .lead{color:var(--ink3);font-weight:600;margin-right:2px}
+.q-card .acts .right{margin-left:auto}
+.q-card .slot{font-size:13px;color:var(--ink3);margin-top:8px}
+.hand{display:grid;gap:10px;color:var(--ink2)}
+.hand .r{display:grid;grid-template-columns:20px minmax(0,1fr);gap:12px;align-items:start}
+.hand .r i{width:20px;height:20px;border-radius:6px;border:1.5px dashed #CBD2DC;margin-top:2px}
+.hand b{color:var(--ink);font-weight:700}
+.rail{display:grid;gap:var(--gap)}
+.rail .card{padding:24px}
+.rail h2{font-size:18px;font-weight:700;letter-spacing:-.005em;line-height:28px}
+.rail .sub{font-size:13px;color:var(--ink3);font-weight:500;margin-top:2px}
+.wk{margin-top:16px;display:grid;grid-template-columns:44px repeat(7,minmax(0,1fr));gap:6px 4px;align-items:center;text-align:center}
+.wk .d{font-size:13px;font-weight:700;color:var(--ink3);padding:4px 0}
+.wk .d.today{color:var(--acc);background:var(--t4);border-radius:8px}
+.wk .t{font-size:13px;color:var(--ink2);text-align:left;font-weight:600}
+.wk .c{height:40px;display:grid;place-items:center;border-radius:8px;background:transparent}
+.wk .c.today{background:var(--t5)}
+.wk .c a{display:block;width:18px;height:18px;border-radius:999px;cursor:pointer;border:0;padding:0}
+.wk .c a:hover{transform:scale(1.15)}
+.wk .c a.live{background:var(--green)}
+.wk .c a.sched{background:#fff;box-shadow:inset 0 0 0 2px var(--ink2)}
+.wk .c a.acc{background:var(--acc)}
+.wk .c a.red{background:var(--red)}
+.wk .c a.grey{background:var(--grey-bg)}
+.wk .c .none{width:6px;height:6px;border-radius:999px;background:#D5D9E2}
+.legend{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink2);font-weight:500}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:999px;margin-right:6px;vertical-align:-1px}
+.legend i.live{background:var(--green)}.legend i.sched{box-shadow:inset 0 0 0 2px var(--ink2);background:#fff}
+.nextwk{margin-top:12px;color:var(--ink3);font-size:13px}
+.live-card{display:grid;grid-template-columns:96px minmax(0,1fr);gap:20px;margin-top:16px}
+.live-card .ttl{font-size:18px;font-weight:700;line-height:28px}
+.live-card .ttl span{color:var(--ink3);font-weight:500;font-size:15px;margin-left:6px}
+.live-card .since{color:var(--ink2);margin-top:2px}
+.mslots{margin-top:12px;display:grid;gap:0;font-size:14px}
+.mslots div{display:flex;justify-content:space-between;gap:8px;color:var(--ink2);border-top:1px solid var(--rule);padding:7px 0}
+.mslots div:last-child{border-bottom:1px solid var(--rule)}
+.mslots b{color:var(--ink2);font-weight:600}
+.mslots span{color:var(--ink3)}
+.arrive{margin-top:12px;color:var(--ink2);font-size:14px}
+.arrive b{color:var(--ink);font-weight:700}
+.health{margin-top:14px;display:grid;gap:10px}
+.health .h{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:baseline;border-bottom:1px solid var(--rule);padding-bottom:10px}
+.health .h:last-child{border-bottom:0;padding-bottom:0}
+.health .h span{color:var(--ink2)}
+.health .h b{font-weight:700;white-space:nowrap}
+.health .h b.ok{color:var(--green)}
+.health .h b.na{color:var(--ink3);font-weight:500}
+.strip{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));padding:0}
+.strip .s{padding:20px 24px;display:grid;gap:2px;align-content:start;min-width:0}
+.strip .s+.s{border-left:1px solid var(--rule)}
+.strip .s span{font-size:13px;color:var(--ink2);font-weight:600}
+.strip .s b{font-size:24px;line-height:32px;font-weight:700;letter-spacing:-.01em}
+.strip .s b.ok{color:var(--green)}.strip .s b.bad{color:var(--red)}.strip .s b.na{color:var(--ink3);font-weight:500}
+.strip .s small{font-size:13px;color:var(--ink3);text-wrap:pretty}
+.acct{margin-top:14px}
+.acct .line{color:var(--ink2);font-size:15px}
+.acct .line b{color:var(--ink);font-weight:700}
+.chart{margin-top:12px;position:relative}
+.chart svg{width:100%;height:auto}
+.chart text{font-family:inherit;font-size:12px;fill:var(--ink3);font-weight:500}
+.chart .pt{cursor:pointer}
+.chart .pt:focus-visible{outline:none}
+.chart .pt:focus-visible circle,.chart .pt:hover circle{stroke:var(--acc);stroke-width:3}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:#fff;font-size:13px;font-weight:600;padding:8px 10px;border-radius:8px;white-space:nowrap;transform:translate(-50%,-100%);display:none;line-height:1.3}
+.tip.on{display:block}
+.tip small{display:block;font-weight:500;color:#CBD2DC;font-size:12px}
+.chart-note{margin-top:8px;font-size:13px;color:var(--ink3)}
+
+/* ---------- approve ---------- */
+.ap-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+.ap-head .sum{margin:0}
+.preview{display:inline-flex;align-items:center;gap:12px;background:var(--card);border-radius:999px;box-shadow:var(--shadow);padding:6px 16px 6px 12px;font-size:14px}
+.preview .switch{font-weight:600;color:var(--ink2)}
+.banner{display:flex;align-items:flex-start;gap:12px;background:var(--amber-bg);color:var(--amber);border-radius:var(--r2);padding:12px 16px;font-weight:600;margin-bottom:20px;line-height:22px}
+.banner svg{width:20px;height:20px;flex:none;margin-top:1px}
+.compact{display:grid}
+.compact .r{display:grid;grid-template-columns:48px minmax(0,1fr) auto auto;gap:20px;align-items:center;padding:14px 0;border-top:1px solid var(--rule)}
+.compact .r:first-child{border-top:0;padding-top:0}
+.compact .r:last-child{padding-bottom:0}
+.compact .r h3{font-size:16px;font-weight:700}
+.compact .r h3 span{color:var(--ink3);font-weight:500;margin-left:6px}
+.compact .r .when{color:var(--ink2);margin-top:2px;font-size:14px}
+.compact .r .when i{font-style:normal;color:var(--ink3);margin-left:6px}
+.compact .r .act{justify-self:end}
+.ap-card{display:grid;grid-template-columns:360px minmax(0,1fr);gap:28px;position:relative;scroll-margin-top:88px}
+.ap-card.focus{outline:2px solid var(--acc);outline-offset:4px}
+.ap-card+.ap-card{margin-top:24px}
+.vid{width:360px;position:sticky;top:88px;align-self:start}
+.vid video{width:360px;height:640px;border-radius:var(--r2);background:#0B1220;object-fit:cover}
+.vid .meta{margin-top:10px;font-size:13px;color:var(--ink3);text-align:center}
+.ap-right{min-width:0;display:grid;gap:22px;align-content:start}
+.ap-ttl{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.ap-ttl h2{font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:30px}
+.ap-ttl .when{margin-left:auto;display:inline-flex;align-items:center;gap:8px;color:var(--ink);font-weight:600}
+.ap-ttl .when button{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:8px;border:1.5px solid var(--rule);background:#fff;cursor:pointer;color:var(--ink2)}
+.ap-ttl .when button:hover{background:var(--ground)}
+.ap-ttl .when button svg{width:14px;height:14px}
+.ap-l2{color:var(--ink2);margin-top:-14px}
+.ap-l3{font-size:13px;color:var(--ink3);margin-top:-16px}
+.ap-sec h3{font-size:13px;font-weight:700;color:var(--ink2);margin-bottom:8px;letter-spacing:.005em}
+.capbox{position:relative;border:1.5px solid var(--rule);border-radius:var(--r2);background:#fff}
+.capbox:focus-within{border-color:var(--acc);box-shadow:0 0 0 2px var(--t4)}
+.capbox textarea,.capbox .mirror{font:inherit;font-size:16px;line-height:1.6;padding:14px 16px;margin:0;width:100%;white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;letter-spacing:normal}
+.capbox textarea{display:block;position:relative;z-index:1;background:transparent;border:0;resize:none;color:transparent;caret-color:var(--ink);outline:none;min-height:calc(8 * 1.6 * 16px + 28px);overflow:hidden}
+.capbox .mirror{position:absolute;inset:0;z-index:0;color:var(--ink);pointer-events:none;overflow:hidden}
+.capbox .mirror .after{color:var(--ink3)}
+.capbox .cutrule{position:absolute;left:0;right:0;height:0;border-top:1px solid #CBD2DC;z-index:2;pointer-events:none}
+.capbox .cutrule .lbl{position:absolute;right:12px;top:-10px;background:#fff;padding:0 6px;font-size:13px;color:var(--ink3);font-weight:600;line-height:20px}
+.capbox .cutrule .tick{position:absolute;top:-6px;width:0;border-left:2px solid var(--ink3);height:12px}
+.cap-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;font-size:13px;color:var(--ink3)}
+.cap-foot b{color:var(--ink2);font-weight:700}
+.showall{display:none;margin-top:10px}
+.less{display:none}
+.verdicts{display:flex;flex-wrap:wrap;gap:8px 20px;margin-top:10px}
+.verdicts span{display:inline-flex;align-items:center;gap:8px;font-weight:600;color:var(--ink2)}
+.verdicts span::before{content:"";width:8px;height:8px;border-radius:999px;background:currentColor;flex:none}
+.verdicts .g{color:var(--green)}.verdicts .a{color:var(--amber)}.verdicts .r{color:var(--red)}.verdicts .n{color:var(--ink3)}.verdicts .n::before{background:var(--rule)}
+.fc{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center}
+.fc p{overflow-wrap:anywhere}
+.qa-list{display:grid;gap:8px}
+.qa-list li{display:grid;grid-template-columns:20px minmax(0,1fr);gap:10px;align-items:start;line-height:22px}
+.qa-list li svg{width:18px;height:18px;margin-top:2px}
+.qa-list li.pass svg{color:var(--green)}
+.qa-list li.warn svg{color:var(--amber)}
+.qa-list li.note svg{color:#CBD2DC}
+.qa-list li.spec{color:var(--ink2);font-weight:600}
+.ovr{display:grid;gap:8px}
+.ovr li{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:10px 14px;font-weight:600;line-height:22px}
+.ovr li b{font-weight:700;margin-right:6px}
+.ap-acts{display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;bottom:0;background:#fff;margin:0 -28px -28px;padding:16px 28px 28px;border-top:1px solid var(--rule);border-radius:0 0 var(--r) var(--r)}
+.ap-acts.flat{border-top-color:transparent}
+.ap-acts .right{margin-left:auto}
+.ap-done{display:grid;grid-template-columns:40px minmax(0,1fr);gap:20px;align-items:center}
+.ap-done .disc{width:40px;height:40px;border-radius:999px;background:var(--green-bg);color:var(--green);display:grid;place-items:center}
+.ap-done .disc svg{width:22px;height:22px}
+.ap-done .disc.grey{background:var(--grey-bg);color:var(--ink2)}
+.ap-done .big{font-size:18px;font-weight:700}
+.ap-done .next{color:var(--ink2);margin-top:2px}
+.pager{display:none}
+
+/* ---------- calendar ---------- */
+.cal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:20px}
+.cal-head .sum{margin:0;flex:1 1 480px}
+.wknav{display:flex;align-items:center;gap:8px;flex:none}
+.wknav .wkl{font-weight:700;font-size:15px;padding:0 6px;white-space:nowrap}
+.board{display:grid;grid-template-columns:56px repeat(7,minmax(0,1fr));gap:8px;padding:20px 24px 24px;position:relative}
+.board .day{display:contents}
+.board .slotw{display:none}
+.nextwk-card{margin-top:16px;color:var(--ink2)}
+.nextwk-card b{color:var(--ink)}
+.board .hd{font-size:13px;color:var(--ink3);font-weight:600;padding:0 0 6px;text-align:left;display:flex;align-items:center;gap:8px}
+.board .hd b{color:var(--ink);font-weight:700;font-size:14px}
+.board .hd.today b{color:var(--acc)}
+.board .hd .tdy{font-size:11px;font-weight:700;color:var(--acc);background:var(--t5);border-radius:6px;padding:2px 6px;line-height:1.2}
+.board .tm{font-size:13px;color:var(--ink2);font-weight:600;display:flex;align-items:center}
+.board .cell{min-height:92px;border-radius:12px;display:grid}
+.board .cell.today{background:var(--t5)}
+.board .cell .empty{display:block;border:1px dashed var(--rule);border-radius:10px;height:32px;align-self:center;margin:0 6px}
+.board .cell.today .empty{border-color:var(--t3)}
+.chip{display:grid;grid-template-columns:32px minmax(0,1fr);gap:8px;align-items:center;text-align:left;width:100%;border:0;background:#fff;border-radius:12px;padding:10px 8px;cursor:pointer;box-shadow:inset 0 0 0 1px var(--rule);min-height:92px}
+.chip:hover{box-shadow:inset 0 0 0 1px #CBD2DC,var(--shadow)}
+.chip .txt{display:grid;gap:2px;min-width:0}
+.chip .txt b{font-size:14px;font-weight:700;line-height:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip .st{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;line-height:16px}
+.chip .st i{width:8px;height:8px;border-radius:999px;background:currentColor;flex:none}
+.chip.green .st{color:var(--green)}.chip.grey .st{color:var(--ink2)}.chip.acc .st{color:var(--acc)}.chip.red .st{color:var(--red)}.chip.outline .st{color:var(--ink3)}
+.chip small{font-size:12px;color:var(--ink3);line-height:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.boardnote{grid-column:1/-1;text-align:center;color:var(--ink2);padding:8px 0 0;font-weight:500}
+/* ---------- posts ---------- */
+.tbl{padding:8px 0 0}
+.tbl .scroll{overflow-x:auto;position:relative}
+.sr{margin:-1px}
+table.posts{width:100%;border-collapse:collapse;min-width:980px}
+table.posts th{font-size:13px;font-weight:700;color:var(--ink3);text-align:left;padding:12px 10px 12px 0;border-bottom:1px solid var(--rule);line-height:16px;vertical-align:bottom}
+table.posts th.r button{justify-content:flex-end;text-align:right;white-space:nowrap}
+table.posts th.l{white-space:nowrap}
+table.posts th:first-child,table.posts td:first-child{padding-left:24px}
+table.posts th:last-child,table.posts td:last-child{padding-right:24px}
+table.posts th.r,table.posts td.r{text-align:right}
+table.posts th button{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border-radius:4px;color:inherit;font:inherit}
+table.posts th button svg{width:12px;height:12px;opacity:0}
+table.posts th[aria-sort="ascending"] button,table.posts th[aria-sort="descending"] button{color:var(--ink)}
+table.posts th[aria-sort="ascending"] button svg,table.posts th[aria-sort="descending"] button svg,table.posts th button:hover svg{opacity:1}
+table.posts th button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+table.posts td{padding:12px 10px 12px 0;border-bottom:1px solid var(--rule);vertical-align:middle;height:72px;font-size:15px}
+table.posts tr:last-child td{border-bottom:0}
+table.posts tbody tr{cursor:pointer}
+table.posts tbody tr:hover td{background:#FAFBFD}
+table.posts tbody tr:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+table.posts .reel{display:flex;align-items:center;gap:12px}
+table.posts th:first-child{width:22%;min-width:200px}
+table.posts .reel b{white-space:nowrap}
+table.posts td:nth-child(2){min-width:170px}
+table.posts td:nth-child(3){min-width:120px}
+table.posts .reel b{font-weight:700}
+
+/* ---------- popups ---------- */
+dialog.modal{border:0;border-radius:var(--r);box-shadow:0 2px 6px rgba(11,18,32,.06),0 24px 64px rgba(11,18,32,.16);padding:0;width:min(600px,calc(100% - 32px));max-height:calc(100vh - 64px);color:var(--ink);background:var(--card)}
+dialog.modal.wide{width:min(880px,calc(100% - 32px))}
+dialog.modal::backdrop{background:rgba(255,255,255,.8)}
+.modal form{display:flex;flex-direction:column;max-height:calc(100vh - 64px)}
+.modal .mh{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:28px 28px 16px}
+.modal .mh h2{font-size:22px;line-height:28px;font-weight:700;letter-spacing:-.01em}
+.modal .mh p{margin-top:4px;font-size:15px;line-height:22px;color:var(--ink2)}
+.modal .x{width:40px;height:40px;border-radius:999px;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--ink2);flex:none;margin:-6px -8px 0 0}
+.modal .x:hover{background:var(--ground)}
+.modal .x svg{width:18px;height:18px}
+.modal .mb{padding:4px 28px 8px;overflow:auto;display:grid;gap:16px}
+.modal .mf{display:flex;justify-content:flex-end;gap:12px;padding:20px 28px 28px}
+.modal textarea,.modal input[type=text],.modal input[type=datetime-local]{width:100%;border:1.5px solid var(--rule);border-radius:var(--r2);padding:12px 14px;font-size:15px;line-height:1.5;background:#fff}
+.modal textarea:focus,.modal input:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 2px var(--t4)}
+.modal .capbox textarea,.modal .capbox textarea:focus{background:transparent;border:0;border-radius:0;padding:14px 16px;font-size:16px;line-height:1.6;box-shadow:none}
+.modal label.lbl{display:block;font-size:13px;font-weight:700;color:var(--ink2);margin-bottom:6px}
+.modal .note{font-size:14px;color:var(--ink2);line-height:22px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chips button{border:1.5px solid var(--rule);background:#fff;border-radius:999px;padding:7px 12px;font-size:13px;font-weight:700;color:var(--ink2);cursor:pointer;line-height:1}
+.chips button:hover{background:var(--ground)}
+.chips button[aria-pressed="true"]{background:var(--t5);color:var(--acc);border-color:var(--t3)}
+.winTable{width:100%;border-collapse:collapse;font-size:15px}
+.winTable th{font-size:13px;color:var(--ink3);text-align:left;font-weight:700;padding:0 12px 10px 0;border-bottom:1px solid var(--rule)}
+.winTable td{padding:12px 12px 12px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+.winTable tr:last-child td{border-bottom:0}
+.winTable td.v{color:var(--ink3)}
+.winTable td b{font-weight:700}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:14px 18px;border-radius:12px;font-weight:600;font-size:15px;display:flex;align-items:center;gap:16px;box-shadow:0 12px 32px rgba(11,18,32,.24);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:50;max-width:calc(100% - 32px)}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+.toast button{border:0;background:rgba(255,255,255,.14);color:#fff;font-weight:700;border-radius:8px;padding:6px 12px;cursor:pointer}
+.toast button:hover{background:rgba(255,255,255,.24)}
+.toast small{display:block;font-weight:500;color:#CBD2DC;font-size:13px;margin-top:2px}
+
+/* ---------- mobile top bar ---------- */
+.mtop{display:none}
+
+/* ---------- 1024: rail under the queue ---------- */
+@media (max-width:1180px){
+  .ov{grid-template-columns:minmax(0,1fr)}
+  .rail{grid-template-columns:1fr 1fr}
+  .rail .card.span{grid-column:1/-1}
+  .chip{grid-template-columns:minmax(0,1fr);padding:10px 8px}
+  .chip .cover{display:none}
+  .chip .txt b{font-size:13px}
+  .board .hd{flex-wrap:wrap;gap:4px 8px}
+  .ap-card{grid-template-columns:300px minmax(0,1fr)}
+  .vid,.vid video{width:300px}.vid video{height:533px}
+}
+/* ---------- 900: sidebar becomes a top bar ---------- */
+@media (max-width:900px){
+  body{grid-template-columns:minmax(0,1fr)}
+  .side{display:none}
+  .mtop{display:flex;align-items:center;gap:12px;height:56px;padding:0 16px;background:var(--card);box-shadow:var(--shadow);position:sticky;top:0;z-index:6}
+  .mtop .logo{padding:0;font-size:17px}
+  .mtop .vn{font-weight:700;color:var(--ink2)}
+  .mtop .menu{margin-left:auto;width:44px;height:44px;border-radius:12px;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;color:var(--ink)}
+  .mtop .menu svg{width:24px;height:24px}
+  main{padding:0 16px 120px}
+  .top{height:auto;padding:16px 0 12px;position:static;flex-wrap:wrap;gap:8px 16px}
+  .top h1{font-size:26px}
+  .top .keys{display:none}
+  .fresh{display:none}
+  .rail{grid-template-columns:1fr}
+  .board{display:block;padding:8px 16px 16px}
+  .board .tm{display:none}
+  .board .day{display:grid;gap:6px;padding:12px 0;border-top:1px solid var(--rule)}
+  .board .day:first-of-type{border-top:0}
+  .board .hd{padding:0 0 2px}
+  .board .cell,.board .hd{min-height:0;grid-column:auto!important;grid-row:auto!important}
+  .board .day{grid-template-columns:minmax(0,1fr)}
+  .board .cell.today{background:transparent}
+  .board .cell .empty{height:36px;margin:0;display:flex;align-items:center;padding:0 12px}
+  .board .slotw{display:inline;font-size:12px;color:var(--ink3)}
+  .chip{min-height:0}
+  .boardnote{padding-top:12px}
+  .strip{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .strip .s:nth-child(4){border-left:0}.strip .s:nth-child(n+4){border-top:1px solid var(--rule)}
+}
+@media (max-width:640px){
+  dialog.modal,dialog.modal.wide{width:100%;max-width:none;margin:auto 0 0;border-radius:20px 20px 0 0;max-height:calc(100vh - 40px)}
+  .modal .mh{padding:24px 16px 12px}.modal .mb{padding:4px 16px 8px}
+  .modal .mf{position:sticky;bottom:0;background:#fff;padding:16px 16px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--rule);flex-direction:column-reverse}
+  .modal .mf .btn{width:100%;height:48px}
+  .card{padding:20px}
+  .sum{font-size:16px;line-height:24px}
+  .ok-card{grid-template-columns:36px minmax(0,1fr);gap:14px}
+  .q-card{grid-template-columns:72px minmax(0,1fr);gap:16px}
+  .cover.c96{width:72px;height:128px}
+  .q-card .acts{gap:8px}.q-card .acts .lead{flex-basis:100%}.q-card .acts .btn{height:32px;padding:0 12px;font-size:13px}.q-card .acts .right{margin-left:auto}
+  .live-card{grid-template-columns:72px minmax(0,1fr)}
+  .compact .r{grid-template-columns:48px minmax(0,1fr);gap:12px 16px}
+  .compact .r .pill{grid-column:2}
+  .compact .r .act{grid-column:2;justify-self:start}
+  /* Approve: one card per screen, video 240×427, sticky bar */
+  .ap-head{flex-direction:column;align-items:stretch}
+  .preview{align-self:flex-start}
+  .ap-card{grid-template-columns:minmax(0,1fr);gap:18px}
+  .vid{width:240px;margin:0 auto;position:static}
+  .vid video{width:240px;height:427px}
+  .ap-right{gap:18px}
+  .ap-ttl .when{margin-left:0;width:100%}
+  .ap-l2{margin-top:-8px}.ap-l3{margin-top:-10px}
+  .capbox textarea{min-height:calc(4 * 1.6 * 16px + 28px)}
+  .capbox.collapsed{max-height:236px;overflow:hidden}
+  .capbox.collapsed::after{content:"";position:absolute;left:0;right:0;bottom:0;height:72px;background:linear-gradient(rgba(255,255,255,0),#fff);z-index:3;pointer-events:none}
+  .showall{display:inline-flex!important}
+  .sum .more,.cap-foot .more{display:none}.cap-foot .less{display:inline}
+  .cap-foot .btn{display:none}
+  .capbox:focus-within+.cap-foot .btn{display:inline-flex}
+  .ap-acts{display:none}
+  .pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;font-size:13px;color:var(--ink3);font-weight:600}
+  .pager button{width:44px;height:44px;border-radius:12px;border:1.5px solid var(--rule);background:#fff;display:grid;place-items:center;cursor:pointer;color:var(--ink)}
+  .pager button[disabled]{color:#CBD2DC}
+  .pager button svg{width:18px;height:18px}
+  .mbar{position:fixed;left:0;right:0;bottom:0;height:calc(72px + env(safe-area-inset-bottom));padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:#fff;box-shadow:0 -8px 24px rgba(11,18,32,.08);display:flex;gap:12px;align-items:center;z-index:7}
+  .mbar .btn.danger{width:112px;height:44px;padding:0}
+  .mbar .btn.primary{flex:1;height:48px}
+  .ap-done{grid-template-columns:36px minmax(0,1fr);gap:14px}
+  .wk{grid-template-columns:40px repeat(7,minmax(0,1fr))}
+  .strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .strip .s{padding:16px}
+  .strip .s:nth-child(4){border-left:1px solid var(--rule)}.strip .s:nth-child(odd){border-left:0}.strip .s:nth-child(n+3){border-top:1px solid var(--rule)}
+}
+@media (min-width:641px){.mbar{display:none}}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}
+}
+</style>
+</head>
+<body>
+<aside class="side" aria-label="Sections">
+  <div class="logo"><i aria-hidden="true"></i>Tachyon</div>
+  <nav class="nav" id="nav" aria-label="Main"></nav>
+  <div class="side-foot" id="sidefoot"></div>
+</aside>
+
+<main>
+  <header class="mtop">
+    <div class="logo"><i aria-hidden="true"></i>Tachyon</div>
+    <span class="vn" id="mviewname"></span>
+    <button class="menu" id="menubtn" aria-label="Open sections" aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+  </header>
+
+  <div class="top">
+    <div style="display:flex;align-items:center;min-width:0"><h1 id="title" tabindex="-1">Overview</h1><span class="keys" id="keys" hidden><kbd>J</kbd> <kbd>K</kbd> move · <kbd>A</kbd> approve · <kbd>R</kbd> reject</span></div>
+    <div class="controls">
+      <span class="fresh" id="fresh"></span>
+      <label class="psel"><span class="sr">Client</span>
+        <select id="client"></select>
+        <svg class="chev" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+      </label>
+    </div>
+  </div>
+
+  <section class="view" id="view-overview" aria-labelledby="title"></section>
+  <section class="view" id="view-approve" aria-labelledby="title"></section>
+  <section class="view" id="view-calendar" aria-labelledby="title"></section>
+  <section class="view" id="view-posts" aria-labelledby="title"></section>
+  <section class="view" id="view-today" aria-labelledby="title"></section>
+  <section class="view" id="view-learn" aria-labelledby="title"></section>
+  <section class="view" id="view-settings" aria-labelledby="title"></section>
+</main>
+
+<dialog class="modal" id="modal"><form method="dialog" id="modalform"></form></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script id="data" type="application/json">{
+ "generated_at": "2026-10-24T18:22:37+00:00",
+ "states": {
+  "main": [
+   "IDEA",
+   "BRIEFED",
+   "SCRIPTED",
+   "RENDERED",
+   "QA",
+   "NEEDS_APPROVAL",
+   "APPROVED",
+   "QUEUED",
+   "PUBLISHING",
+   "PUBLISHED",
+   "MEASURING",
+   "ANALYZED"
+  ],
+  "exceptions": [
+   "REJECTED",
+   "FAILED",
+   "NEEDS_INPUT",
+   "MANUAL_HANDOFF"
+  ],
+  "waiting_on_human": [
+   "MANUAL_HANDOFF",
+   "NEEDS_APPROVAL",
+   "NEEDS_INPUT"
+  ]
+ },
+ "clients": [
+  {
+   "name": "rosa",
+   "display": "Rosa",
+   "grants": {
+    "page_id": "1450505061475499",
+    "ig_user_id": "17841452024696422",
+    "auto_approve_pillars": [],
+    "auto_reply": {
+     "comments": false,
+     "dm": false
+    },
+    "emergency_stop": false
+   },
+   "handle": "rosasurfapp",
+   "posts": [
+    {
+     "slot_id": "2026-w43-01",
+     "state": "MEASURING",
+     "state_group": "live",
+     "scheduled_at": "2026-10-24T18:06:17+00:00",
+     "published_at": "2026-10-24T18:06:50+0000",
+     "age_hours": 0.3,
+     "pillar": "Free, and why",
+     "angle": "showreel: what Rosa is",
+     "hook_formula": "existing-clip",
+     "cta": "link in bio + first comment",
+     "length_s": 30.07,
+     "engine": "html-playwright v0",
+     "trial": false,
+     "experiment_id": null,
+     "qa_rounds": 0,
+     "qa": {
+      "spec": "PASS",
+      "verdict": "APPROVED",
+      "verdict_note": "with operator overrides recorded",
+      "lines": [
+       "\"78 KB\" whole app: product.md entry JS 63 KB + CSS 15 KB gzip = 78 KB. PASS",
+       "\"Updated 4x a day\", \"Seven days at a glance\" (horizon is 16 days; understated, not wrong). PASS",
+       "\"2,741 spots worldwide, up from 40 in July\": live count 3,056. STALE. Operator override 2026-10-24: post as-is; caption omits the count so the two never contradict. Re-render before reuse.",
+       "\"0.14 s from tap to forecast, on 4G\": not in product.md, unmeasured. WARN, operator accepted.",
+       "\"Checked against ocean buoys\": buoy ground truth exists only for the US and Portugal; soft claim, not an accuracy comparison. WARN, operator accepted.",
+       "\"Footage: Pixabay\" ocean shots: brand draft bans stock surfer footage; Pixabay licence allows it. Operator override 2026-10-24. Originality risk is low (UI is the subject).",
+       "Forecasts on screen: attribution line added to the caption (product.md rule). PASS",
+       "No competitor named or alluded to. No AI label trigger: code render + stock footage, no generative output, markers clean. PASS",
+       "Cover at 7 s (Epic 0.9–1.4 m card)."
+      ],
+      "warns": [
+       "\"2,741 spots worldwide, up from 40 in July\": live count 3,056. STALE. Operator override 2026-10-24: post as-is; caption omits the count so the two never contradict. Re-render before reuse.",
+       "\"0.14 s from tap to forecast, on 4G\": not in product.md, unmeasured. WARN, operator accepted.",
+       "\"Checked against ocean buoys\": buoy ground truth exists only for the US and Portugal; soft claim, not an accuracy comparison. WARN, operator accepted."
+      ]
+     },
+     "ig_media_id": "18105188747629741",
+     "permalink": "https://www.instagram.com/reel/De4vMcBkqeL/",
+     "note": "operator approved in chat 2026-10-24",
+     "caption": "Should I surf? One tap says yes or no, and why. Free at rosa.surf, link in bio.\n\nThat's the whole app in 30 seconds. Open it, your spots are there with size, period and wind, and the rating tells you why the day's Epic or Fair.\n\nSpots worldwide, 16 days out, updated four times a day. It's free and it runs in your browser, so there's nothing to install.\n\nA surf forecast app that shows its reasoning.\n\nWaves: NOAA GFS-Wave + ECMWF open data (CC-BY 4.0) · Peak periods: DWD GWAM (CC-BY 4.0) · Weather by Open-Meteo.com (CC-BY 4.0) · Sea temp: NOAA OISST · Tides: EOT20 (CC-BY 4.0)\n\n#surfforecast #surfing #surfreport\n",
+     "first_comment": "Here it is, free: https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w43-01&utm_content=comment\n",
+     "source_asset": "rosa-showreel-v14-30s-blues-9x16.mp4",
+     "operator_overrides": [
+      "stale spot count 2,741 on screen (live 3,056): operator chose to post as-is 2026-10-24",
+      "Pixabay ocean footage: operator chose to post as-is 2026-10-24"
+     ],
+     "files": {
+      "video": true,
+      "cover": true
+     },
+     "media_url": "/media/rosa/2026-w43-01/video.mp4",
+     "cover_url": "/media/rosa/2026-w43-01/cover.jpg",
+     "metrics": {
+      "by_window": {},
+      "latest": null,
+      "windows_done": [],
+      "next_window_at": "2026-10-25T18:06:50+00:00"
+     },
+     "updated_at": "2026-10-24T18:07:10+00:00"
+    },
+    {
+     "slot_id": "2026-w43-02",
+     "state": "QUEUED",
+     "state_group": "scheduled",
+     "scheduled_at": "2026-10-25T06:30:00+00:00",
+     "published_at": null,
+     "age_hours": null,
+     "pillar": "Free, and why",
+     "angle": "favorites: all your breaks on one screen",
+     "hook_formula": "existing-clip",
+     "cta": "link in bio + first comment",
+     "length_s": 15.07,
+     "engine": "html-playwright v0",
+     "trial": false,
+     "experiment_id": null,
+     "qa_rounds": 0,
+     "qa": {
+      "spec": "PASS",
+      "verdict": "APPROVED",
+      "verdict_note": "",
+      "lines": [
+       "Numbers on screen: \"12 favorites\" (demo count, not a product claim). No spot count, horizon or refresh figure, so nothing to go stale. PASS",
+       "Spot names shown are real breaks (Banzai Pipeline, J-Bay, Snapper Rocks, La Graviere, Uluwatu, Supertubos, Chicama, Teahupoo, Upper Trestles, Bells Beach, Anchor Point): demo data in the real UI. PASS",
+       "No competitor named or alluded to. PASS",
+       "No stock footage, no faces, no third-party logo, no watermark. Footer \"ROSA.SURF · SURF FORECAST · WORLDWIDE\". PASS",
+       "Banned words: none spoken or shown. Caption passes ig-human 87.5 and caption lint READY. PASS",
+       "Attribution line (data sources) not on screen: brand.md lists it as proof we may use, not as required. WARN, noted for the first rendered reel.",
+       "Cover: frame at 9.5 s (\"All your breaks.\" with the phone). PASS",
+       "Caption vs product: favorites need Google sign-in, so the caption says \"nothing to pay for\" and not \"nothing to sign up for\". PASS"
+      ],
+      "warns": [
+       "Attribution line (data sources) not on screen: brand.md lists it as proof we may use, not as required. WARN, noted for the first rendered reel."
+      ]
+     },
+     "ig_media_id": null,
+     "permalink": null,
+     "note": "operator approved in chat 2026-10-24",
+     "caption": "All your spots on one screen. Free, worldwide. rosa.surf, link in bio.\n\nStar a break once and it's there every morning: size, period, wind, and why the day rates what it rates. Pipeline next to Uluwatu next to Snapper, one tap each.\n\n3,056 spots, 16 days out, four updates a day. There's nothing to pay for.\n\nIt's a surf forecast app built around the spots you actually surf.\n\nWaves: NOAA GFS-Wave + ECMWF open data (CC-BY 4.0) · Peak periods: DWD GWAM (CC-BY 4.0) · Weather by Open-Meteo.com (CC-BY 4.0) · Sea temp: NOAA OISST · Tides: EOT20 (CC-BY 4.0)\n\n#surfforecast #surfing #surfreport\n",
+     "first_comment": "Here it is, free, no install needed: https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w43-02&utm_content=comment\n",
+     "source_asset": "rosa-favorites-9x16.mp4",
+     "operator_overrides": [],
+     "files": {
+      "video": true,
+      "cover": true
+     },
+     "media_url": "/media/rosa/2026-w43-02/video.mp4",
+     "cover_url": "/media/rosa/2026-w43-02/cover.jpg",
+     "metrics": {
+      "by_window": {},
+      "latest": null,
+      "windows_done": [],
+      "next_window_at": null
+     },
+     "updated_at": "2026-10-24T18:14:42+00:00"
+    }
+   ],
+   "groups": {
+    "live": 1,
+    "scheduled": 1
+   },
+   "needs_you": [],
+   "live": [
+    {
+     "slot_id": "2026-w43-01",
+     "state": "MEASURING",
+     "state_group": "live",
+     "scheduled_at": "2026-10-24T18:06:17+00:00",
+     "published_at": "2026-10-24T18:06:50+0000",
+     "age_hours": 0.3,
+     "pillar": "Free, and why",
+     "angle": "showreel: what Rosa is",
+     "hook_formula": "existing-clip",
+     "cta": "link in bio + first comment",
+     "length_s": 30.07,
+     "engine": "html-playwright v0",
+     "trial": false,
+     "experiment_id": null,
+     "qa_rounds": 0,
+     "qa": {
+      "spec": "PASS",
+      "verdict": "APPROVED",
+      "verdict_note": "with operator overrides recorded",
+      "lines": [
+       "\"78 KB\" whole app: product.md entry JS 63 KB + CSS 15 KB gzip = 78 KB. PASS",
+       "\"Updated 4x a day\", \"Seven days at a glance\" (horizon is 16 days; understated, not wrong). PASS",
+       "\"2,741 spots worldwide, up from 40 in July\": live count 3,056. STALE. Operator override 2026-10-24: post as-is; caption omits the count so the two never contradict. Re-render before reuse.",
+       "\"0.14 s from tap to forecast, on 4G\": not in product.md, unmeasured. WARN, operator accepted.",
+       "\"Checked against ocean buoys\": buoy ground truth exists only for the US and Portugal; soft claim, not an accuracy comparison. WARN, operator accepted.",
+       "\"Footage: Pixabay\" ocean shots: brand draft bans stock surfer footage; Pixabay licence allows it. Operator override 2026-10-24. Originality risk is low (UI is the subject).",
+       "Forecasts on screen: attribution line added to the caption (product.md rule). PASS",
+       "No competitor named or alluded to. No AI label trigger: code render + stock footage, no generative output, markers clean. PASS",
+       "Cover at 7 s (Epic 0.9–1.4 m card)."
+      ],
+      "warns": [
+       "\"2,741 spots worldwide, up from 40 in July\": live count 3,056. STALE. Operator override 2026-10-24: post as-is; caption omits the count so the two never contradict. Re-render before reuse.",
+       "\"0.14 s from tap to forecast, on 4G\": not in product.md, unmeasured. WARN, operator accepted.",
+       "\"Checked against ocean buoys\": buoy ground truth exists only for the US and Portugal; soft claim, not an accuracy comparison. WARN, operator accepted."
+      ]
+     },
+     "ig_media_id": "18105188747629741",
+     "permalink": "https://www.instagram.com/reel/De4vMcBkqeL/",
+     "note": "operator approved in chat 2026-10-24",
+     "caption": "Should I surf? One tap says yes or no, and why. Free at rosa.surf, link in bio.\n\nThat's the whole app in 30 seconds. Open it, your spots are there with size, period and wind, and the rating tells you why the day's Epic or Fair.\n\nSpots worldwide, 16 days out, updated four times a day. It's free and it runs in your browser, so there's nothing to install.\n\nA surf forecast app that shows its reasoning.\n\nWaves: NOAA GFS-Wave + ECMWF open data (CC-BY 4.0) · Peak periods: DWD GWAM (CC-BY 4.0) · Weather by Open-Meteo.com (CC-BY 4.0) · Sea temp: NOAA OISST · Tides: EOT20 (CC-BY 4.0)\n\n#surfforecast #surfing #surfreport\n",
+     "first_comment": "Here it is, free: https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w43-01&utm_content=comment\n",
+     "source_asset": "rosa-showreel-v14-30s-blues-9x16.mp4",
+     "operator_overrides": [
+      "stale spot count 2,741 on screen (live 3,056): operator chose to post as-is 2026-10-24",
+      "Pixabay ocean footage: operator chose to post as-is 2026-10-24"
+     ],
+     "files": {
+      "video": true,
+      "cover": true
+     },
+     "media_url": "/media/rosa/2026-w43-01/video.mp4",
+     "cover_url": "/media/rosa/2026-w43-01/cover.jpg",
+     "metrics": {
+      "by_window": {},
+      "latest": null,
+      "windows_done": [],
+      "next_window_at": "2026-10-25T18:06:50+00:00"
+     },
+     "updated_at": "2026-10-24T18:07:10+00:00"
+    }
+   ],
+   "account_daily": [
+    {
+     "date": "2026-10-24",
+     "views": 0,
+     "reach": 0,
+     "accounts_engaged": 0,
+     "total_interactions": 0,
+     "profile_links_taps": 0,
+     "followers_count": 0,
+     "media_count": 1
+    }
+   ],
+   "account_latest": {
+    "date": "2026-10-24",
+    "views": 0,
+    "reach": 0,
+    "accounts_engaged": 0,
+    "total_interactions": 0,
+    "profile_links_taps": 0,
+    "followers_count": 0,
+    "media_count": 1
+   },
+   "experiments": [],
+   "conversions": [],
+   "costs": [],
+   "engage": {
+    "date": "2026-10-24",
+    "file": false,
+    "items": [],
+    "done": 0,
+    "total": 0
+   },
+   "calendar": null,
+   "reports": [],
+   "lessons": null,
+   "changelog_head": [
+    "# Rosa — changelog",
+    "",
+    "- 2026-10-24 CP1 passed: strategy.md, funnel.md, profile.md approved by the operator.",
+    "  Rules added the same day: 16 days; surfer voice; no competitors; no \"comment for the",
+    "  link\" ever; posting slots 06:30 / 18:30 UTC."
+   ],
+   "kpis": [
+    {
+     "kpi": "Non-follower reach share",
+     "source": "insights",
+     "target": "≥ 60 %"
+    },
+    {
+     "kpi": "Sends / reach",
+     "source": "insights",
+     "target": "≥ 1 % median"
+    },
+    {
+     "kpi": "Hold (avg watch / duration)",
+     "source": "insights",
+     "target": "≥ 50 % on 15 s clips"
+    },
+    {
+     "kpi": "Profile link taps → sessions",
+     "source": "insights + GA4 UTM",
+     "target": "≥ 100 sessions / week"
+    },
+    {
+     "kpi": "`app_install` + `push_optin_start`",
+     "source": "GA4",
+     "target": "≥ 30 / week"
+    },
+    {
+     "kpi": "`favorite_add` (lead)",
+     "source": "GA4",
+     "target": "≥ 15 / week"
+    }
+   ],
+   "journal_recent": [
+    {
+     "id": 24,
+     "ts": "2026-10-24T18:14:42+00:00",
+     "action": "post.state",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 23,
+     "ts": "2026-10-24T18:14:42+00:00",
+     "action": "post.state",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 22,
+     "ts": "2026-10-24T18:07:10+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 21,
+     "ts": "2026-10-24T18:07:05+00:00",
+     "action": "meta.comment.create",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 20,
+     "ts": "2026-10-24T18:07:05+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 19,
+     "ts": "2026-10-24T18:06:44+00:00",
+     "action": "meta.media_publish",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 18,
+     "ts": "2026-10-24T18:06:19+00:00",
+     "action": "meta.container.upload",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 17,
+     "ts": "2026-10-24T18:06:18+00:00",
+     "action": "meta.container.create",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 16,
+     "ts": "2026-10-24T18:06:18+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 15,
+     "ts": "2026-10-24T18:06:17+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 14,
+     "ts": "2026-10-24T18:06:17+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 13,
+     "ts": "2026-10-24T17:56:58+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 12,
+     "ts": "2026-10-24T17:56:58+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 11,
+     "ts": "2026-10-24T17:56:58+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 10,
+     "ts": "2026-10-24T17:56:58+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 9,
+     "ts": "2026-10-24T17:56:58+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 8,
+     "ts": "2026-10-24T17:56:58+00:00",
+     "action": "post.create",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 7,
+     "ts": "2026-10-24T17:56:58+00:00",
+     "action": "post.rename",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 6,
+     "ts": "2026-10-24T17:48:30+00:00",
+     "action": "post.state",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 5,
+     "ts": "2026-10-24T17:47:50+00:00",
+     "action": "post.state",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 4,
+     "ts": "2026-10-24T17:47:50+00:00",
+     "action": "post.state",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 3,
+     "ts": "2026-10-24T17:47:50+00:00",
+     "action": "post.state",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 2,
+     "ts": "2026-10-24T17:47:50+00:00",
+     "action": "post.state",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 1,
+     "ts": "2026-10-24T17:47:50+00:00",
+     "action": "post.create",
+     "target": "2026-w43-02"
+    }
+   ],
+   "listen": {
+    "comments_waiting": null,
+    "dms_waiting": null,
+    "note": "listen/ webhook not deployed yet; counts appear once it is"
+   },
+   "ga4": {
+    "sessions_by_campaign": null,
+    "note": "ga4.py not built; sessions per UTM appear once it runs"
+   }
+  }
+ ],
+ "totals": {
+  "needs_you": 0,
+  "live": 1,
+  "scheduled": 1,
+  "in_production": 0,
+  "emergency_stop": false
+ }
+}</script>
+<script>
+'use strict';
+const D = JSON.parse(document.getElementById('data').textContent);
+const C = D.clients[0];
+/* The mockup's clock is the data's clock, so "in 12 h" reads the same every time it opens. */
+const NOW = new Date(D.generated_at);
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const MEDIA = '../../../clients/rosa/posts/';
+const mediaUrl = (p, f) => MEDIA + p.slot_id + '/' + f;
+
+/* ---------- time ---------- */
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MONS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const parse = iso => iso ? new Date(String(iso).replace(/([+-]\d\d)(\d\d)$/, '$1:$2')) : null;
+const pad = n => String(n).padStart(2, '0');
+const hm = d => pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes());
+const dmy = d => DAYS[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + MONS[d.getUTCMonth()];
+const fmt = iso => { const d = parse(iso); return d ? dmy(d) + ' ' + hm(d) + ' UTC' : ''; };
+const fmtShort = iso => { const d = parse(iso); return d ? dmy(d) + ' ' + hm(d) : ''; };
+const fmtStamp = iso => { const d = parse(iso); return d ? d.getUTCDate() + ' ' + MONS[d.getUTCMonth()] + ' ' + hm(d) + ' UTC' : ''; };
+function rel(iso) {
+  const d = parse(iso); if (!d) return '';
+  const m = Math.round((d - NOW) / 60000), a = Math.abs(m);
+  const s = a < 60 ? a + ' min' : a < 48*60 ? Math.round(a/60) + ' h' : Math.round(a/1440) + ' d';
+  return m >= 0 ? 'in ' + s : s + ' ago';
+}
+const sameUTCDay = (a, b) => a.getUTCFullYear()===b.getUTCFullYear() && a.getUTCMonth()===b.getUTCMonth() && a.getUTCDate()===b.getUTCDate();
+function mondayOf(d) { const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); x.setUTCDate(x.getUTCDate() - ((x.getUTCDay() + 6) % 7)); return x; }
+function isoWeek(d) { const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); const day = (x.getUTCDay() + 6) % 7; x.setUTCDate(x.getUTCDate() - day + 3); const y = new Date(Date.UTC(x.getUTCFullYear(), 0, 4)); return 1 + Math.round(((x - y) / 86400000 - 3 + ((y.getUTCDay() + 6) % 7)) / 7); }
+
+/* ---------- words for states (spine/state.py, all 16) ---------- */
+const STATE = {
+  IDEA:['In production: idea','outline'], BRIEFED:['In production: briefed','outline'], SCRIPTED:['In production: scripted','outline'],
+  RENDERED:['In production: rendered','outline'], QA:['In QA','outline'], NEEDS_APPROVAL:['Waiting for you','acc'], APPROVED:['Approved','grey'],
+  QUEUED:['Scheduled','grey'], PUBLISHING:['Publishing now','grey'], PUBLISHED:['Live','green'], MEASURING:['Live, measuring','green'],
+  ANALYZED:['Measured','grey'], REJECTED:['Sent back with your note','grey'], FAILED:['Publish failed, retrying','red'],
+  NEEDS_INPUT:['QA stuck after 2 rounds, needs your call','acc'], MANUAL_HANDOFF:['Post it by hand, then paste the id','red']
+};
+const stateWords = p => (STATE[p.state] || [p.state, 'grey'])[0];
+const stateRole = p => (STATE[p.state] || [p.state, 'grey'])[1];
+const stateShort = p => ({ MEASURING: 'Live', PUBLISHED: 'Live', NEEDS_APPROVAL: 'Waiting for you', NEEDS_INPUT: 'Needs your call', MANUAL_HANDOFF: 'Post by hand', FAILED: 'Failed', REJECTED: 'Sent back' })[p.state] || stateWords(p).replace(/^In production: /, '');
+const pill = (p, extra='') => `<span class="pill ${stateRole(p)} ${extra}">${esc(stateWords(p))}</span>`;
+function secondLine(p) {
+  switch (p.state) {
+    case 'NEEDS_APPROVAL': return 'since ' + fmtShort(p.updated_at);
+    case 'QUEUED': case 'APPROVED': return fmt(p.scheduled_at) + ' · ' + rel(p.scheduled_at);
+    case 'PUBLISHED': case 'MEASURING': return p.metrics.next_window_at ? 'First numbers ' + fmt(p.metrics.next_window_at) : 'Live since ' + fmt(p.published_at);
+    default: return '';
+  }
+}
+const title = p => { const a = p.angle.split(':')[0].trim(); return a.charAt(0).toUpperCase() + a.slice(1); };
+const len = p => Math.round(p.length_s) + ' s';
+const n = x => x == null ? '—' : Number(x).toLocaleString('en-GB');
+
+/* ---------- derived from the data ---------- */
+const posts = C.posts;
+const byId = Object.fromEntries(posts.map(p => [p.slot_id, p]));
+const waiting = () => posts.filter(p => p.state === 'NEEDS_APPROVAL' || p.state === 'NEEDS_INPUT' || p.state === 'MANUAL_HANDOFF' || p.state === 'FAILED');
+const scheduled = () => posts.filter(p => ['APPROVED','QUEUED','PUBLISHING'].includes(p.state));
+const live = () => posts.filter(p => ['PUBLISHED','MEASURING'].includes(p.state));
+const qaCatches = posts.reduce((s, p) => s + (p.qa?.warns?.length || 0), 0);
+const publishesTried = posts.filter(p => p.published_at || p.state === 'FAILED').length;
+const publishesOk = posts.filter(p => p.published_at).length;
+const firstNumbers = live().map(p => p.metrics.next_window_at).filter(Boolean).sort()[0];
+const nextPost = scheduled().sort((a,b) => a.scheduled_at < b.scheduled_at ? -1 : 1)[0];
+
+/* in-page state for the mockup: nothing is saved; reload resets */
+const S = { keyed: false, preview: document.documentElement.dataset.preview === '1', decided: {}, captions: {}, flags: { comments: C.grants.auto_reply.comments, dm: C.grants.auto_reply.dm }, stop: C.grants.emergency_stop, week: 0, sort: { key: 'when', dir: 1 }, focus: 0 };
+const effState = p => S.decided[p.slot_id]?.state || (S.preview && p.slot_id === '2026-w43-02' ? 'NEEDS_APPROVAL' : p.state);
+const eff = p => ({ ...p, state: effState(p), caption: S.captions[p.slot_id] ?? p.caption });
+
+/* ---------- icons ---------- */
+const I = {
+  ext: '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2H2v8h8V8M7 2h3v3M10 2 5.5 6.5"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
+  check18: '<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="7.5" fill="#EDF7F0" stroke="none"/><path d="m5.5 9.3 2.3 2.3L12.7 6.7"/></svg>',
+  warn18: '<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.5 16.5 15H1.5L9 2.5Z" fill="#FFF4D6"/><path d="M9 7v4M9 13.2v.1"/></svg>',
+  dot18: '<svg viewBox="0 0 18 18" fill="currentColor"><circle cx="9" cy="9" r="4"/></svg>',
+  copy: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="5.5" y="5.5" width="8" height="8" rx="2"/><path d="M10.5 5.5v-1a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h1"/></svg>',
+  pencil: '<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m2 12 .8-3.2L9.6 2a1.4 1.4 0 0 1 2 0l.4.4a1.4 1.4 0 0 1 0 2L5.2 11.2 2 12Z"/></svg>',
+  x: '<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m4 4 10 10M14 4 4 14"/></svg>',
+  left: '<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m11 4-5 5 5 5"/></svg>',
+  right: '<svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 4 5 5-5 5"/></svg>',
+  bang: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10" cy="10" r="8"/><path d="M10 6v5M10 13.8v.1"/></svg>',
+  nav: {
+    overview: '<svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="12" y="3" width="7" height="7" rx="2"/><rect x="3" y="12" width="7" height="7" rx="2"/><rect x="12" y="12" width="7" height="7" rx="2"/></svg>',
+    approve: '<svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/><path d="M3 12h5l1.5 2h3l1.5-2h5"/><path d="m8 7 2.5 2.5L15 4.5"/></svg>',
+    calendar: '<svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="5" width="16" height="14" rx="2"/><path d="M3 9h16M7 3v4M15 3v4"/></svg>',
+    posts: '<svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="4" y="3" width="14" height="16" rx="2"/><path d="m9 8 5 3-5 3V8Z"/></svg>',
+    today: '<svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h14M4 11h9M4 16h6"/><path d="m14 15 2 2 3-4"/></svg>',
+    learn: '<svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 18V9M10 18V5M16 18v-7"/><path d="M3 19h16"/></svg>',
+    settings: '<svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 7h14M4 15h14"/><circle cx="8" cy="7" r="2.2" fill="#fff"/><circle cx="14" cy="15" r="2.2" fill="#fff"/></svg>'
+  }
+};
+
+/* ---------- shell ---------- */
+const VIEWS = [['overview','Overview'],['approve','Approve'],['calendar','Calendar'],['posts','Posts'],['today','Today'],['learn','Learn'],['settings','Settings']];
+function renderNav() {
+  const w = waiting().filter(p => effState(p) !== 'APPROVED' && effState(p) !== 'REJECTED').length + (S.preview && !S.decided['2026-w43-02'] ? 1 : 0);
+  const counts = { approve: w, posts: posts.length, today: (C.engage.total || 0) + (C.listen.comments_waiting || 0) + (C.listen.dms_waiting || 0) };
+  $('#nav').innerHTML = VIEWS.map(([k, l]) => {
+    let tail = '';
+    if (k === 'approve') tail = w ? `<span class="badge">${w}</span>` : `<span class="n">0</span>`;
+    else if (k in counts) tail = `<span class="n">${counts[k]}</span>`;
+    return `<a href="#${k}" data-view="${k}">${I.nav[k]}<span>${l}</span>${tail}</a>`;
+  }).join('');
+  $('#sidefoot').innerHTML = `<div><b>${esc(C.display)}</b> · @${esc(C.handle)}</div><div><span class="dot"></span>Data ${fmtStamp(D.generated_at)} · live</div><div>${posts.length} reels this week · ${C.grants.emergency_stop ? 'Publishing stopped' : 'Publishing on'}</div>`;
+  $('#fresh').innerHTML = `<i aria-hidden="true"></i>Data ${fmtStamp(D.generated_at)} · live`;
+  $('#client').innerHTML = D.clients.map(c => `<option>${esc(c.display)}</option>`).join('');
+}
+
+/* ---------- Overview ---------- */
+function weekStrip(mon, { small=true } = {}) {
+  const days = [...Array(7)].map((_, i) => { const d = new Date(mon); d.setUTCDate(mon.getUTCDate() + i); return d; });
+  const cell = (d, slot) => {
+    const p = posts.map(eff).find(p => { const t = parse(p.scheduled_at); return t && sameUTCDay(t, d) && ((t.getUTCHours() < 12) === (slot === '06:30')); });
+    const today = sameUTCDay(d, NOW) ? ' today' : '';
+    if (!p) return `<div class="c${today}"><span class="none" aria-hidden="true"></span></div>`;
+    const role = { green:'live', grey:'sched', acc:'acc', red:'red', outline:'grey' }[stateRole(p)] || 'grey';
+    return `<div class="c${today}"><a href="#posts" class="${role}" data-post="${p.slot_id}" aria-label="${esc(title(p))} · ${esc(stateWords(p))} · ${esc(fmt(p.scheduled_at))}" title="${esc(title(p))} · ${esc(stateWords(p))}"></a></div>`;
+  };
+  return `<div class="wk" role="grid" aria-label="This week, two slots a day">
+    <div></div>${days.map(d => `<div class="d${sameUTCDay(d, NOW) ? ' today' : ''}">${DAYS[d.getUTCDay()][0]}<span class="sr">${dmy(d)}</span></div>`).join('')}
+    <div class="t">06:30</div>${days.map(d => cell(d, '06:30')).join('')}
+    <div class="t">18:30</div>${days.map(d => cell(d, '18:30')).join('')}
+  </div>`;
+}
+function accountChart() {
+  const rows = C.account_daily || [];
+  const W = 312, H = 120, L = 28, R = 8, T = 12, B = 26;
+  const mon = mondayOf(NOW);
+  const days = [...Array(7)].map((_, i) => { const d = new Date(mon); d.setUTCDate(mon.getUTCDate() + i); return d; });
+  const x = i => L + i * (W - L - R) / 6;
+  const ymax = Math.max(10, ...rows.map(r => r.followers_count));
+  const y = v => T + (H - T - B) * (1 - v / ymax);
+  const ticks = [0, ymax / 2, ymax];
+  const pts = rows.map(r => { const d = parse(r.date + 'T00:00:00Z'); const i = Math.round((d - mon) / 86400000); return { i, r }; }).filter(p => p.i >= 0 && p.i < 7);
+  return `<div class="chart" id="acctchart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Followers per day this week: ${pts.map(p => dmy(days[p.i]) + ' ' + p.r.followers_count).join(', ') || 'no days yet'}">
+    ${ticks.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#E5E8EF"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${v}</text>`).join('')}
+    ${days.map((d, i) => `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" ${sameUTCDay(d, NOW) ? 'font-weight="700" fill="#0B6E6E"' : ''}>${DAYS[d.getUTCDay()][0]}</text>`).join('')}
+    ${pts.length >= 2 ? `<polyline fill="none" stroke="#489292" stroke-width="2" points="${pts.map(p => x(p.i) + ',' + y(p.r.followers_count)).join(' ')}"/>` : ''}
+    ${pts.map(p => `<g class="pt" tabindex="0" role="button" data-tip="${esc(dmy(days[p.i]))} · ${p.r.followers_count} followers · ${p.r.media_count} post${p.r.media_count === 1 ? '' : 's'}" data-x="${x(p.i)}" data-y="${y(p.r.followers_count)}"><circle cx="${x(p.i)}" cy="${y(p.r.followers_count)}" r="6" fill="#0B6E6E" stroke="#fff" stroke-width="2"/><text x="${x(p.i)}" y="${y(p.r.followers_count) - 12}" text-anchor="middle" font-weight="700" fill="#0B1220">${p.r.followers_count}</text></g>`).join('')}
+  </svg><div class="tip" role="tooltip"></div></div>
+  <p class="chart-note">${pts.length} day of account numbers. A line is drawn from the third day (${dmy(new Date(Date.UTC(2026, 9, 26)))}).</p>`;
+}
+function renderOverview() {
+  const w = waiting().map(eff).filter(p => p.state !== 'APPROVED');
+  const next = nextPost ? eff(nextPost) : null;
+  const comingUp = scheduled().map(eff);
+  const liveP = live().map(eff);
+  const sum = w.length
+    ? `<b>${w.length} post${w.length > 1 ? 's' : ''} waiting for you.</b> ${next ? `The next one posts ${fmt(next.scheduled_at)}.` : ''}`
+    : `<b>Nothing needs you.</b> ${liveP.length} reel live, ${comingUp.length} scheduled, ${C.groups.in_production || 0} in production. Publishing is ${S.stop ? 'stopped' : 'on'}.`;
+  $('#view-overview').innerHTML = `
+  <p class="sum">${sum}</p>
+  <div class="ov">
+    <div class="queue">
+      <section class="grp" aria-labelledby="g1"><div class="gh"><h2 id="g1">Needs you</h2><span class="cnt${w.length ? '' : ' z'}">${w.length}</span></div>
+        ${w.length ? w.map(p => `<div class="card q-card"><a class="cover c96" href="#approve"><img src="${mediaUrl(p, 'cover.jpg')}" alt=""></a><div><div class="ttl"><h3>${esc(title(p))}</h3><span class="len">${len(p)}</span>${pill(p)}</div><div class="when">${esc(secondLine(p))}</div><div class="desc">${esc(p.pillar)} · ${esc(p.angle)}</div><div class="acts"><a class="btn primary" href="#approve">Review and approve</a></div></div></div>`).join('')
+        : `<div class="card ok-card"><div class="disc">${I.check}</div><div><div class="big">Nothing needs you.</div><div class="next">${next ? `<b>${esc(title(next))}</b> posts ${fmt(next.scheduled_at)} · ${rel(next.scheduled_at)}.<br>` : ''}${firstNumbers ? `First numbers for <b>${esc(title(live()[0]))}</b> arrive ${fmt(firstNumbers)} · ${rel(firstNumbers)}.` : ''}</div></div></div>`}
+      </section>
+      <section class="grp" aria-labelledby="g2"><div class="gh"><h2 id="g2">Coming up</h2><span class="cnt${comingUp.length ? '' : ' z'}">${comingUp.length}</span><span class="meta">Approved, waiting for their slot</span></div>
+        ${comingUp.length ? comingUp.map(p => `<div class="card q-card" data-post="${p.slot_id}">
+          <button class="cover c96" data-open="post" data-post="${p.slot_id}" aria-label="Open ${esc(title(p))}" style="border:0;padding:0;cursor:pointer"><img src="${mediaUrl(p, 'cover.jpg')}" alt=""></button>
+          <div>
+            <div class="ttl"><h3>${esc(title(p))}</h3><span class="len">${len(p)}</span>${pill(p)}</div>
+            <div class="when"><b>${fmt(p.scheduled_at)}</b> <span class="rel">· ${rel(p.scheduled_at)}</span></div>
+            <div class="desc">${esc(p.pillar)} · ${esc(p.angle)}</div>
+            <div class="qa">${p.qa.warns.length ? I.warn18 : I.check18}QA approved${p.qa.warns.length ? `, ${p.qa.warns.length} warning${p.qa.warns.length > 1 ? 's' : ''}` : ', clean'}</div>
+            <div class="acts"><span class="lead">Before it posts:</span><button class="btn" data-open="post" data-post="${p.slot_id}" data-edit="1">${I.pencil}Edit caption</button><button class="btn" data-open="reschedule" data-post="${p.slot_id}">Change time</button><button class="btn ghost right" data-open="reject" data-post="${p.slot_id}" style="color:var(--red)">Send back</button></div>
+            <div class="slot">${esc(p.slot_id)}</div>
+          </div></div>`).join('')
+        : `<div class="card tight muted">Nothing is scheduled. Plan runs Monday and fills the week.</div>`}
+      </section>
+      <section class="grp" aria-labelledby="g3"><div class="gh"><h2 id="g3">Today's hand work</h2><span class="cnt z">0</span><span class="meta">${dmy(NOW)}</span></div>
+        <div class="card tight hand">
+          <div class="r"><i aria-hidden="true"></i><div><b>No replies to send.</b> Comment and DM alerts start once the listener is deployed; Claude drafts replies every morning after that.</div></div>
+          <div class="r"><i aria-hidden="true"></i><div><b>No engagement round for ${dmy(NOW)}.</b> Plan writes one each day it runs; the first comes with week 44's plan on Monday.</div></div>
+        </div>
+      </section>
+    </div>
+    <aside class="rail" aria-label="This week, live and health">
+      <section class="card span"><h2>This week</h2><div class="sub">Mon ${mondayOf(NOW).getUTCDate()} – Sun ${mondayOf(NOW).getUTCDate() + 6} Oct · week ${isoWeek(NOW)}</div>
+        ${weekStrip(mondayOf(NOW))}
+        <div class="legend"><span><i class="live"></i>Live</span><span><i class="sched"></i>Scheduled</span></div>
+        <div class="nextwk">Next week: no plan yet. Plan runs Monday.</div>
+      </section>
+      <section class="card"><h2>Live</h2><div class="sub">${liveP.length} reel${liveP.length === 1 ? '' : 's'} measuring</div>
+        ${liveP.map(p => `<div class="live-card"><button class="cover c96" data-open="post" data-post="${p.slot_id}" aria-label="Open ${esc(title(p))}" style="border:0;padding:0;cursor:pointer"><img src="${mediaUrl(p, 'cover.jpg')}" alt=""></button><div>
+          <div class="ttl">${esc(title(p))}<span>${len(p)}</span></div>
+          <div class="since">Live since ${sameUTCDay(parse(p.published_at), NOW) ? hm(parse(p.published_at)) + ' UTC today' : fmt(p.published_at)}</div>
+          <div class="mslots" aria-label="Latest numbers"><div><b>Views</b><span>—</span></div><div><b>Reach</b><span>—</span></div><div><b>Sends / reach</b><span>—</span></div><div><b>Saves / reach</b><span>—</span></div><div><b>Follows / reach</b><span>—</span></div></div>
+          <div class="arrive">First numbers <b>${fmt(p.metrics.next_window_at)}</b> · ${rel(p.metrics.next_window_at)}</div>
+          <div style="margin-top:10px">${p.permalink ? `<a class="lnk" href="${esc(p.permalink)}" target="_blank" rel="noopener">Open on Instagram ${I.ext}</a>` : ''}</div>
+        </div></div>`).join('')}
+      </section>
+      <section class="card"><h2>Account</h2><div class="sub">@${esc(C.handle)}</div>
+        <div class="acct"><div class="line"><b>${n(C.account_latest.followers_count)}</b> followers · <b>${n(C.account_latest.media_count)}</b> post · account numbers start tomorrow</div>${accountChart()}</div>
+      </section>
+    </aside>
+  </div>
+  <section class="grp" aria-labelledby="g4" style="margin-top:28px"><div class="gh"><h2 id="g4">Health</h2><span class="meta">Is the machine running?</span></div>
+    <div class="card strip">
+      <div class="s"><span>Publishes</span><b class="ok">${publishesOk} of ${publishesTried}</b><small>this week</small></div>
+      <div class="s"><span>QA catches</span><b>${qaCatches}</b><small>warnings on 2 reels, all accepted</small></div>
+      <div class="s"><span>Emergency stop</span><b class="${S.stop ? 'bad' : 'ok'}">${S.stop ? 'On' : 'Off'}</b><small>${S.stop ? 'nothing publishes' : 'publishing on'}</small></div>
+      <div class="s"><span>Cost per reel</span><b class="na">—</b><small>not recorded yet</small></div>
+      <div class="s"><span>Token expiry</span><b class="na">—</b><small>not reported yet</small></div>
+      <div class="s"><span>GA4 sessions</span><b class="na">—</b><small>not connected; UTM links are live</small></div>
+    </div>
+  </section>`;
+  wireChart($('#acctchart'));
+}
+function wireChart(root) {
+  if (!root) return;
+  const tip = $('.tip', root), svg = $('svg', root);
+  const show = g => { const vb = svg.viewBox.baseVal, r = svg.getBoundingClientRect(); const sx = r.width / vb.width, sy = r.height / vb.height; tip.innerHTML = esc(g.dataset.tip); tip.style.left = (g.dataset.x * sx) + 'px'; tip.style.top = (g.dataset.y * sy - 10) + 'px'; tip.classList.add('on'); };
+  const hide = () => tip.classList.remove('on');
+  $$('.pt', root).forEach(g => { g.addEventListener('mouseenter', () => show(g)); g.addEventListener('mouseleave', hide); g.addEventListener('focus', () => show(g)); g.addEventListener('blur', hide); });
+}
+
+/* ---------- Approve ---------- */
+const CUT = 125;
+function verdicts(p) {
+  const hook = p.caption.split('\n')[0];
+  const out = [];
+  if (hook.length <= CUT) out.push(`<span class="g">Hook survives the cut · ${hook.length} characters</span>`);
+  else { const before = p.caption.slice(0, CUT).trim().split(/\s+/).slice(-3).join(' '); out.push(`<span class="a">Cut mid-sentence after “${esc(before)}”</span>`); }
+  const qaText = (p.qa.lines || []).join(' ');
+  const h = qaText.match(/ig-human\s+(\d+(?:\.\d+)?)/i), l = qaText.match(/caption lint\s+([A-Z]+)/i);
+  if (h) { const v = +h[1]; out.push(`<span class="${v >= 70 ? 'g' : v >= 55 ? 'a' : 'r'}">Reads human · ${v}/100</span>`); } else out.push('<span class="n">Reads human · not scored</span>');
+  if (l) out.push(`<span class="g">Caption lint: ${esc(l[1].toLowerCase())}</span>`); else out.push('<span class="n">Caption lint · not scored</span>');
+  return `<div class="verdicts">${out.join('')}</div>`;
+}
+function qaList(p) {
+  const cls = s => /PASS\.?$/.test(s.trim()) ? 'pass' : /WARN|STALE/.test(s) ? 'warn' : 'note';
+  const ic = { pass: I.check18, warn: I.warn18, note: I.dot18 };
+  const head = p.qa.warns.length ? `QA · approved with ${p.qa.warns.length} warning${p.qa.warns.length > 1 ? 's' : ''}` : 'QA · approved, clean';
+  return `<div class="ap-sec"><h3>${head}</h3><ul class="qa-list">
+    <li class="spec pass">${I.check18}<span>Spec checks: ${esc(String(p.qa.spec).toLowerCase())} · ${Math.round(p.length_s * 10) / 10} s</span></li>
+    ${p.qa.lines.map(s => `<li class="${cls(s)}">${ic[cls(s)]}<span>${esc(s)}</span></li>`).join('')}
+  </ul></div>`;
+}
+function captionBox(p, id) {
+  const cap = p.caption.replace(/\n$/, '');
+  return `<div class="ap-sec"><h3>Caption</h3>
+    <div class="capbox" data-cap="${id}">
+      <div class="mirror" aria-hidden="true"></div>
+      <div class="cutrule" aria-hidden="true"><span class="tick"></span><span class="lbl">… more</span></div>
+      <textarea id="cap-${id}" aria-label="Caption" spellcheck="false">${esc(cap)}</textarea>
+    </div>
+    <button class="btn sm showall" data-showall aria-expanded="false">Show all · ${cap.length} characters</button>
+    <div class="cap-foot"><span><b class="cnt">${cap.length}</b> characters · <span class="more">Instagram shows ${CUT} before … more</span><span class="less">${CUT} before the cut</span></span><button class="btn" data-save-cap="${id}"><span class="lbl">Save caption</span><span class="ok">${I.check} Saved</span></button></div>
+    ${verdicts(p)}
+  </div>`;
+}
+function wireCaption(box) {
+  const ta = $('textarea', box), mir = $('.mirror', box), rule = $('.cutrule', box), tick = $('.tick', box);
+  const foot = box.parentElement.querySelector('.cap-foot'), cnt = $('.cnt', foot);
+  if (window.matchMedia('(max-width:640px)').matches && ta.value.length > CUT + 40) { box.classList.add('collapsed'); ta.addEventListener('focus', () => { box.classList.remove('collapsed'); box.nextElementSibling?.matches('[data-showall]') && box.nextElementSibling.remove(); }, { once: true }); } else box.nextElementSibling?.matches('[data-showall]') && box.nextElementSibling.remove();
+  const draw = () => {
+    const v = ta.value;
+    mir.innerHTML = `<span class="before">${esc(v.slice(0, CUT))}</span><span class="cut"></span><span class="after">${esc(v.slice(CUT))}</span>​`;
+    ta.style.height = 'auto'; ta.style.height = Math.max(ta.scrollHeight, 0) + 'px';
+    cnt.textContent = v.length;
+    const c = $('.cut', mir);
+    if (v.length <= CUT) { rule.hidden = true; return; }
+    rule.hidden = false;
+    const cr = c.getBoundingClientRect(), br = box.getBoundingClientRect();
+    rule.style.top = Math.round(cr.bottom - br.top + 2) + 'px';
+    tick.style.left = Math.round(cr.left - br.left) + 'px';
+  };
+  ta.addEventListener('input', draw);
+  ta.addEventListener('input', () => { const b = $('[data-save-cap]', foot); b.classList.remove('done'); });
+  draw(); requestAnimationFrame(draw);
+  new ResizeObserver(draw).observe(box);
+}
+function approvalCard(p, idx, multi) {
+  const isWaiting = p.state === 'NEEDS_APPROVAL';
+  const cov = p.qa.lines.join(' ').match(/Cover[^.]*?(\d+(?:\.\d+)?) s/i);
+  const src = `<div class="meta13">From ${esc(p.source_asset)}${cov ? ' · cover at ' + cov[1] + ' s' : ''}</div>`;
+  return `<article class="card ap-card${idx === S.focus && (S.keyed || multi) ? ' focus' : ''}" data-card="${p.slot_id}" tabindex="-1" aria-label="${esc(title(p))}, ${esc(stateWords(p))}">
+    <div class="vid"><video controls preload="metadata" playsinline poster="${mediaUrl(p, 'cover.jpg')}" src="${mediaUrl(p, 'video.mp4')}"></video><div class="meta">${len(p)} · 9:16 · ${esc(p.engine)}</div></div>
+    <div class="ap-right">
+      <div class="ap-ttl"><h2>${esc(title(p))}</h2>${pill(p)}<span class="when">Posts ${fmt(p.scheduled_at)}<button data-open="reschedule" data-post="${p.slot_id}" aria-label="Change the time">${I.pencil}</button></span></div>
+      <div class="ap-l2">${esc(p.pillar)} · ${esc(p.angle)} · ${esc(p.cta)}</div>
+      <div class="ap-l3">Trial: ${p.trial ? 'yes' : 'no'} · Experiment: ${p.experiment_id ? esc(p.experiment_id) : 'none'} · ${esc(p.slot_id)}</div>
+      ${captionBox(p, p.slot_id)}
+      <div class="ap-sec"><h3>First comment, posted right after the reel</h3><div class="soft fc"><p>${linkify(p.first_comment.trim())}</p><button class="btn" data-copy="${esc(p.first_comment.trim())}">${I.copy}<span class="lbl">Copy</span><span class="ok">${I.check} Copied</span></button></div></div>
+      ${qaList(p)}
+      ${p.operator_overrides.length ? `<div class="ap-sec"><h3>Your overrides</h3><ul class="ovr">${p.operator_overrides.map(o => `<li><b>${overrideDate(o)}</b>${esc(overrideText(o))}</li>`).join('')}</ul></div>` : ''}
+      ${src}
+      <div class="ap-acts">
+        ${isWaiting ? `<button class="btn primary" data-approve="${p.slot_id}">Approve</button><button class="btn danger" data-open="reject" data-post="${p.slot_id}">Send back</button>` : ''}
+        ${p.permalink ? `<a class="lnk right" href="${esc(p.permalink)}" target="_blank" rel="noopener">Open on Instagram ${I.ext}</a>` : ''}
+      </div>
+    </div>
+  </article>`;
+}
+const overrideDate = o => { const m = o.match(/(\d{4})-(\d\d)-(\d\d)/); return m ? `${+m[3]} ${MONS[+m[2] - 1]} ·` : ''; };
+const overrideText = o => { let s = o.replace(/\s*\d{4}-\d\d-\d\d\.?$/, '').replace(/operator chose to post as-is/i, 'posted as-is'); return s.charAt(0).toUpperCase() + s.slice(1); };
+const linkify = s => s.split(/(https?:\/\/\S+)/g).map((part, i) => { if (i % 2 === 0) return esc(part); let host = part, camp = ''; try { const x = new URL(part); host = x.host; camp = x.searchParams.get('utm_campaign') || ''; } catch (e) {} return `<a class="lnk" href="${esc(part)}" target="_blank" rel="noopener">${esc(host)}${camp ? ' · utm_campaign ' + esc(camp) : ''} ${I.ext}</a>`; }).join('');
+function renderApprove() {
+  const items = posts.map(eff).filter(p => p.state === 'NEEDS_APPROVAL' || (S.decided[p.slot_id] && p.slot_id === '2026-w43-02' && S.preview));
+  const others = posts.map(eff).filter(p => !items.includes(p));
+  $('#keys').hidden = !items.length;
+  S.focus = Math.min(S.focus, Math.max(0, items.length - 1));
+  const toggle = `<label class="preview switch" title="Shows the Favorites reel as if it were waiting for you, so the card can be judged. It is really scheduled.">
+    <input type="checkbox" id="previewtoggle" ${S.preview ? 'checked' : ''}><i aria-hidden="true"></i><span>Preview with a sample: show Favorites as if it were waiting</span></label>`;
+  const empty = `<div class="ap-head"><p class="sum"><b>No post is waiting for approval.</b> <span class="more">The next one appears here when QA passes it.</span> Both of this week's reels are already approved.</p>${toggle}</div>
+    <div class="card compact">${others.map(p => `<div class="r">
+      <button class="cover c48" data-open="post" data-post="${p.slot_id}" aria-label="Open ${esc(title(p))}" style="border:0;padding:0;cursor:pointer"><img src="${mediaUrl(p, 'cover.jpg')}" alt=""></button>
+      <div><h3>${esc(title(p))}<span>${len(p)}</span></h3><div class="when">${esc(secondLine(p))}</div></div>
+      ${pill(p)}
+      <div class="act">${p.state === 'QUEUED' ? `<button class="btn" data-open="reschedule" data-post="${p.slot_id}">Change time</button>` : p.permalink ? `<a class="lnk" href="${esc(p.permalink)}" target="_blank" rel="noopener">Open on Instagram ${I.ext}</a>` : `<button class="btn" data-open="post" data-post="${p.slot_id}">Open</button>`}</div>
+    </div>`).join('')}</div>`;
+  const banner = S.preview ? `<div class="banner">${I.bang}<span>Preview: Favorites is really scheduled for ${fmt(byId['2026-w43-02'].scheduled_at)}. Approve and Send back here change nothing.</span></div>` : '';
+  const cards = items.map((p, i) => {
+    const d = S.decided[p.slot_id];
+    if (d?.state === 'APPROVED') return `<article class="card ap-done" data-card="${p.slot_id}"><div class="disc">${I.check}</div><div><div class="big">Approved.</div><div class="next">${esc(title(p))} posts ${fmt(p.scheduled_at)} · ${rel(p.scheduled_at)}. Saved in the mockup only.</div></div></article>`;
+    if (d?.state === 'REJECTED') return `<article class="card ap-done" data-card="${p.slot_id}"><div class="disc grey">${I.left}</div><div><div class="big">Sent back with your note.</div><div class="next">${esc(title(p))} returns to Script: “${esc(d.note)}”. Saved in the mockup only.</div></div></article>`;
+    return approvalCard(p, i, items.length > 1);
+  }).join('');
+  const pager = items.length ? `<div class="pager"><button data-pg="-1" ${S.focus === 0 ? 'disabled' : ''} aria-label="Previous">${I.left}</button><span>${S.focus + 1} of ${items.length}</span><button data-pg="1" ${S.focus >= items.length - 1 ? 'disabled' : ''} aria-label="Next">${I.right}</button></div>` : '';
+  const focused = items[S.focus];
+  const mbar = focused && focused.state === 'NEEDS_APPROVAL' && !S.decided[focused.slot_id] ? `<div class="mbar"><button class="btn danger" data-open="reject" data-post="${focused.slot_id}">Send back</button><button class="btn primary" data-approve="${focused.slot_id}">Approve</button></div>` : '';
+  $('#view-approve').innerHTML = items.length
+    ? `<div class="ap-head"><p class="sum"><b>${(c => c + ' post' + (c === 1 ? '' : 's') + ' waiting for you.')(items.filter(p => !S.decided[p.slot_id]).length)}</b> <span class="more">Approve queues it for its slot; Send back returns it to Script with your note.</span></p>${toggle}</div>${banner}${pager}${cards}${mbar}`
+    : `${empty}`;
+  $$('.capbox', $('#view-approve')).forEach(wireCaption);
+  $('#previewtoggle').addEventListener('change', e => { S.preview = e.target.checked; if (!S.preview) delete S.decided['2026-w43-02']; S.focus = 0; renderNav(); renderApprove(); markNav(); });
+}
+
+/* ---------- Calendar / Posts / Today / Learn / Settings (built in later rounds) ---------- */
+function renderCalendar() {
+  const mon = mondayOf(NOW); mon.setUTCDate(mon.getUTCDate() + S.week * 7);
+  const days = [...Array(7)].map((_, i) => { const d = new Date(mon); d.setUTCDate(mon.getUTCDate() + i); return d; });
+  const sun = days[6];
+  const all = posts.map(eff);
+  const inWeek = all.filter(p => { const t = parse(p.scheduled_at); return t && t >= mon && t < new Date(sun.getTime() + 86400000); });
+  const find = (d, slot) => inWeek.find(p => { const t = parse(p.scheduled_at); return sameUTCDay(t, d) && ((t.getUTCHours() < 12) === (slot === '06:30')); });
+  const chip = (p, slot) => {
+    const t = parse(p.scheduled_at); const actual = hm(t); const differs = actual !== slot;
+    return `<button class="chip ${stateRole(p)}" data-open="post" data-post="${p.slot_id}" aria-label="${esc(title(p))}, ${esc(stateWords(p))}, ${esc(fmt(p.scheduled_at))}">
+      <span class="cover c32"><img src="${mediaUrl(p, 'cover.jpg')}" alt=""></span>
+      <span class="txt"><b>${esc(title(p))}</b><span class="st"><i></i>${esc(stateShort(p))}</span><small>${differs ? `went out ${actual}` : esc(p.pillar)}</small></span></button>`;
+  };
+  const cell = (d, slot, i, row) => { const p = find(d, slot); const today = sameUTCDay(d, NOW) ? ' today' : ''; return `<div class="cell${today}" style="grid-column:${i + 2};grid-row:${row}" role="gridcell">${p ? chip(p, slot) : `<span class="empty" aria-hidden="true"><span class="slotw">${slot} · nothing planned</span></span>`}</div>`; };
+  const label = `Week ${isoWeek(mon)} · Mon ${mon.getUTCDate()} ${MONS[mon.getUTCMonth()]} – Sun ${sun.getUTCDate()} ${MONS[sun.getUTCMonth()]}`;
+  const note = S.week > 0 ? `No plan for week ${isoWeek(mon)} yet. Plan runs Monday and fills this week.` : S.week < 0 ? `Nothing posted in week ${isoWeek(mon)}. Rosa's first reel went out Sat 24 Oct.` : '';
+  const sum = S.week === 0 ? `<b>${inWeek.length} reels this week.</b> ${inWeek.map(p => `${esc(title(p))} ${p.state === 'MEASURING' || p.state === 'PUBLISHED' ? 'went out ' + DAYS[parse(p.published_at).getUTCDay()] + ' ' + hm(parse(p.published_at)) : 'posts ' + DAYS[parse(p.scheduled_at).getUTCDay()] + ' ' + hm(parse(p.scheduled_at))} UTC`).join(' · ')}.`
+    : `<b>${esc(note)}</b>`;
+  $('#view-calendar').innerHTML = `
+  <div class="cal-head"><p class="sum">${sum}</p>
+    <div class="wknav"><button class="btn sm" data-week="-1" aria-label="Previous week">${I.left}</button><span class="wkl">${label}</span><button class="btn sm" data-week="1" aria-label="Next week">${I.right}</button>${S.week ? `<button class="btn sm" data-week="0">This week</button>` : ''}</div></div>
+  <div class="card board" role="grid" aria-label="${esc(label)}">
+    <div class="tm" style="grid-column:1;grid-row:2">06:30</div><div class="tm" style="grid-column:1;grid-row:3">18:30</div>
+    ${days.map((d, i) => `<div class="day" role="row"><div class="hd${sameUTCDay(d, NOW) ? ' today' : ''}" style="grid-column:${i + 2};grid-row:1" role="columnheader"><b>${DAYS[d.getUTCDay()]}</b> ${d.getUTCDate()}${sameUTCDay(d, NOW) ? '<span class="tdy">Today</span>' : ''}</div>${cell(d, '06:30', i, 2)}${cell(d, '18:30', i, 3)}</div>`).join('')}
+    ${note ? `<div class="boardnote" style="grid-column:1/-1;grid-row:4">${esc(note)}</div>` : ''}
+  </div>
+  ${S.week === 0 ? `<div class="card tight nextwk-card"><b>Next week · week ${isoWeek(new Date(sun.getTime() + 86400000))} · Mon ${sun.getUTCDate() + 1} Oct – Sun 1 Nov.</b> No plan yet. Plan runs Monday and fills the week; its first engagement round comes with it.</div>` : ''}
+  <p class="meta13" style="margin-top:12px">Times are UTC. A reel that went out before its slot shows the actual time. Drag to move is not built; use Change time in the reel.</p>`;
+  $$('[data-week]', $('#view-calendar')).forEach(b => b.addEventListener('click', () => { S.week = b.dataset.week === '0' ? 0 : S.week + +b.dataset.week; renderCalendar(); }));
+}
+const COLS = [
+  ['title', 'Reel', 'l'], ['state', 'State', 'l'], ['when', 'Published', 'l'], ['views', 'Views', 'r'], ['reach', 'Reach', 'r'], ['sends', 'Sends /<br>reach', 'r'],
+  ['saves', 'Saves /<br>reach', 'r'], ['follows', 'Follows /<br>reach', 'r'], ['skip', 'Skip<br>rate', 'r'], ['hold', 'Hold', 'r'], ['open', '', 'r']
+];
+function metric(p, k) {
+  const m = p.metrics.latest; if (!m) return null;
+  const d = m._derived || {};
+  return { views: m.views, reach: m.reach, sends: d.sends_per_reach, saves: d.saves_per_reach, follows: d.follows_per_reach, skip: d.skip_rate, hold: d.hold }[k];
+}
+function renderPosts() {
+  const rows = posts.map(eff);
+  const key = S.sort.key, dir = S.sort.dir;
+  const val = (p, k) => k === 'title' ? title(p) : k === 'state' ? stateWords(p) : k === 'when' ? (p.published_at || p.scheduled_at || '') : (metric(p, k) ?? -1);
+  rows.sort((a, b) => { const x = val(a, key), y = val(b, key); return (x > y ? 1 : x < y ? -1 : 0) * dir; });
+  const arrive = p => p.metrics.next_window_at ? `First numbers ${fmt(p.metrics.next_window_at)}` : p.published_at ? 'Measuring' : `After it posts ${fmt(p.scheduled_at)}`;
+  const dash = p => `<span class="muted" title="${esc(arrive(p))}" aria-label="${esc(arrive(p))}">—</span>`;
+  const fmtM = (p, k) => { const v = metric(p, k); if (v == null) return dash(p); return k === 'views' || k === 'reach' ? n(v) : pct(v); };
+  const th = ([k, l, al]) => k === 'open' ? `<th class="${al}"><span class="sr">Link</span></th>` : `<th class="${al}" aria-sort="${key === k ? (dir > 0 ? 'ascending' : 'descending') : 'none'}"><button data-sort="${k}">${l}<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${key === k && dir < 0 ? 'm3 7 3 3 3-3' : 'm3 5 3-3 3 3'}"/></svg></button></th>`;
+  const tr = p => `<tr tabindex="0" data-open="post" data-post="${p.slot_id}" aria-label="Open ${esc(title(p))}">
+    <td><div class="reel"><span class="cover c32"><img src="${mediaUrl(p, 'cover.jpg')}" alt=""></span><div><b>${esc(title(p))}</b> <span class="muted">${len(p)}</span><div class="meta13">${esc(p.pillar)}</div></div></div></td>
+    <td>${pill(p)}<div class="meta13" style="margin-top:4px">${esc(secondLine(p))}</div></td>
+    <td>${p.published_at ? fmt(p.published_at) : `<span class="muted">Not yet · ${fmt(p.scheduled_at)}</span>`}</td>
+    <td class="r">${fmtM(p, 'views')}</td><td class="r">${fmtM(p, 'reach')}</td><td class="r">${fmtM(p, 'sends')}</td><td class="r">${fmtM(p, 'saves')}</td><td class="r">${fmtM(p, 'follows')}</td><td class="r">${fmtM(p, 'skip')}</td><td class="r">${fmtM(p, 'hold')}</td>
+    <td class="r">${p.permalink ? `<a class="lnk" href="${esc(p.permalink)}" target="_blank" rel="noopener" data-stop>Open ${I.ext}</a>` : ''}</td></tr>`;
+  const live1 = live()[0];
+  $('#view-posts').innerHTML = `
+  <p class="sum"><b>${posts.length} reels.</b> ${live1 ? `${esc(title(live1))}'s first numbers arrive ${fmt(live1.metrics.next_window_at)}; until then the metric columns are dashes.` : ''} <span class="more">Click a row to open a reel, a column head to sort.</span></p>
+  <div class="card tbl"><div class="scroll"><table class="posts"><thead><tr>${COLS.map(th).join('')}</tr></thead><tbody>${rows.map(tr).join('')}</tbody></table></div></div>`;
+  $$('[data-sort]', $('#view-posts')).forEach(b => b.addEventListener('click', e => { e.stopPropagation(); const k = b.dataset.sort; S.sort = { key: k, dir: S.sort.key === k ? -S.sort.dir : 1 }; renderPosts(); }));
+  $$('tr[data-open]', $('#view-posts')).forEach(r => r.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); POPUP.post(eff(byId[r.dataset.post])); } }));
+}
+function renderToday() {
+  $('#view-today').innerHTML = `<p class="sum">${dmy(NOW)} · the two daily hand jobs. Both are empty today.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px">
+    <section class="card"><div class="gh" style="margin-bottom:12px"><h2>Replies to send</h2><span class="cnt z">0</span></div><p class="muted">No replies drafted. Comment and DM alerts start once the listener is deployed; Claude drafts replies every morning after that.</p></section>
+    <section class="card"><div class="gh" style="margin-bottom:12px"><h2>Engagement round</h2><span class="cnt z">0 of 10</span></div><p class="muted">No engagement round for ${dmy(NOW)}. Plan writes one each day it runs; the first comes with week 44's plan on Monday.</p></section>
+  </div>`;
+}
+function renderLearn() {
+  $('#view-learn').innerHTML = `<p class="sum">The weekly read-out: what won, what to change. Nothing to read yet.</p>
+  <div style="display:grid;gap:24px">
+    <section class="card"><div class="gh" style="margin-bottom:12px"><h2>Weekly report</h2><span class="cnt z">0</span></div><p class="muted">No weekly report yet. Learn runs on Sundays once a full week of numbers exists; the showreel's 7-day numbers land 31 Oct, so the earliest report is Sun 1 Nov.</p></section>
+    <section class="card"><div class="gh" style="margin-bottom:12px"><h2>Experiments</h2><span class="cnt z">0</span></div><p class="muted">No experiment this week. Both reels are existing clips; the first pre-registered test comes with week 44's plan.</p></section>
+    <section class="card"><div class="gh" style="margin-bottom:12px"><h2>Strategy changes to accept or reject</h2><span class="cnt z">0</span></div><p class="muted">None proposed. They arrive with the first weekly report.</p></section>
+  </div>`;
+}
+function renderSettings() {
+  const sw = (k, label) => `<div class="h"><span>${label}</span><label class="switch"><input type="checkbox" data-flag="${k}" ${S.flags[k] ? 'checked' : ''}><i aria-hidden="true"></i><span class="w">${S.flags[k] ? 'On' : 'Off'}</span></label></div>`;
+  $('#view-settings').innerHTML = `<p class="sum">${esc(C.display)} · @${esc(C.handle)}</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px;align-items:start">
+    <section class="card"><h2 style="font-size:18px">What Claude may do on its own</h2><div class="health" style="margin-top:14px">${sw('comments', 'Reply to comments without asking')}${sw('dm', 'Reply to DMs without asking')}<div class="h"><span>Approve posts without asking</span><b class="na">No pillar yet</b></div></div></section>
+    <section class="card" style="box-shadow:var(--shadow),inset 0 0 0 1.5px var(--red-bg)"><h2 style="font-size:18px">Emergency stop</h2><p class="muted" style="margin-top:8px">${S.stop ? 'Publishing is stopped. Nothing goes out until you resume.' : 'Halts the queue. Nothing publishes until you resume.'}</p><div style="margin-top:16px">${S.stop ? `<button class="btn primary" data-open="resume">Resume publishing</button>` : `<button class="btn danger-fill" data-open="stop">Stop everything for ${esc(C.display)}</button>`}</div></section>
+    <section class="card"><h2 style="font-size:18px">Account</h2><div class="health" style="margin-top:14px"><div class="h"><span>Facebook Page</span><b>${esc(C.grants.page_id)}</b></div><div class="h"><span>Instagram account</span><b>${esc(C.grants.ig_user_id)}</b></div><div class="h"><span>Token expiry</span><b class="na">Not reported yet</b></div><div class="h"><span>Last cron run</span><b>${fmt(C.journal_recent[0]?.ts)}</b></div></div></section>
+    <section class="card"><h2 style="font-size:18px">Documents</h2><div class="rowline" style="margin-top:14px;gap:20px"><a class="lnk" href="../../../docs/PLAN.md">Plan ${I.ext}</a><a class="lnk" href="../../../clients/rosa/strategy.md">Strategy ${I.ext}</a></div></section>
+  </div>`;
+}
+
+/* ---------- popups ---------- */
+let opener = null;
+function openModal({ title, sub, body, footer, wide=false, onsubmit }) {
+  opener = document.activeElement;
+  const dlg = $('#modal'), f = $('#modalform');
+  dlg.classList.toggle('wide', wide);
+  f.innerHTML = `<div class="mh"><div><h2 id="mtitle">${title}</h2>${sub ? `<p>${sub}</p>` : ''}</div><button type="button" class="x" data-close aria-label="Close">${I.x}</button></div><div class="mb">${body}</div>${footer ? `<div class="mf">${footer}</div>` : ''}`;
+  dlg.setAttribute('aria-labelledby', 'mtitle');
+  f.onsubmit = e => { if (e.submitter && e.submitter.hasAttribute('data-close')) return; e.preventDefault(); if (onsubmit && onsubmit(f) === false) return; dlg.close(); };
+  dlg.showModal();
+  const first = $('textarea, input:not([type=hidden]), .btn.primary, .btn.danger-fill', f); if (first) first.focus();
+}
+$('#modal').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+$('#modal').addEventListener('close', () => { if (opener && opener.isConnected) opener.focus(); });
+$('#modal').addEventListener('click', e => { if (e.target.closest('[data-close]')) $('#modal').close(); });
+
+const POPUP = {
+  reject(p) {
+    openModal({ title: `Send back — ${esc(title(p))}`, sub: 'Tell Claude what to change. The post returns to Script with your note.',
+      body: `<div><label class="lbl" for="rnote">Your note</label><textarea id="rnote" rows="3" required placeholder="What should change"></textarea></div>`,
+      footer: `<button type="button" class="btn" data-close>Cancel</button><button class="btn danger-fill" style="height:44px">Send back</button>`,
+      onsubmit(f) { const v = $('#rnote', f).value.trim(); if (!v) { $('#rnote', f).focus(); return false; } S.decided[p.slot_id] = { state: 'REJECTED', note: v }; toast(`Sent back. ${esc(title(p))} returns to Script with your note.`, 'Saved in the mockup only. The dashboard server records this for real.'); rerender(); } });
+  },
+  reschedule(p) {
+    const d = parse(p.scheduled_at), val = d.toISOString().slice(0, 16);
+    openModal({ title: `Change the time — ${esc(title(p))}`, sub: `Now ${fmt(p.scheduled_at)}.`,
+      body: `<div><label class="lbl" for="when">Date and time (UTC)</label><input id="when" type="datetime-local" value="${val}" required></div>
+        <div><div class="lbl" style="font-size:13px;font-weight:700;color:var(--ink2);margin-bottom:6px">House slots</div><div class="chips"><button type="button" data-slot="06:30" aria-pressed="${hm(d) === '06:30'}">06:30 UTC</button><button type="button" data-slot="18:30" aria-pressed="${hm(d) === '18:30'}">18:30 UTC</button></div></div>
+        <p class="note">Containers are made 24 h before the slot, so a time under 24 h away publishes on the next cron run (every 10 min).</p>`,
+      footer: `<button type="button" class="btn" data-close>Cancel</button><button class="btn primary">Save time</button>`,
+      onsubmit(f) { const v = $('#when', f).value; if (!v) return false; toast(`Time saved. ${esc(title(p))} posts ${fmt(v + ':00Z')}.`, 'Saved in the mockup only. The dashboard server records this for real.'); } });
+    $$('[data-slot]', $('#modalform')).forEach(b => b.addEventListener('click', () => { const i = $('#when'); i.value = i.value.slice(0, 11) + b.dataset.slot; $$('[data-slot]').forEach(x => x.setAttribute('aria-pressed', x === b)); }));
+  },
+  post(p, { edit=false } = {}) {
+    const wins = [['24h', '24 h', 1], ['72h', '72 h', 3], ['7d', '7 d', 7]];
+    const base = parse(p.published_at);
+    const rows = wins.map(([k, l, days]) => { const m = p.metrics.by_window[k]; if (m) { const d = m._derived || {}; return `<tr><td><b>${l}</b></td><td>${n(m.views)}</td><td>${n(m.reach)}</td><td>${pct(d.sends_per_reach)}</td><td>${pct(d.saves_per_reach)}</td><td>${pct(d.follows_per_reach)}</td><td>${pct(d.hold)}</td></tr>`; }
+      const when = base ? new Date(base.getTime() + days * 86400000) : null; return `<tr><td><b>${l}</b></td><td class="v" colspan="6">${when ? 'Arrives ' + fmt(when.toISOString()) : 'After it posts, ' + l + ' later'}</td></tr>`; }).join('');
+    openModal({ wide: true, title: `${esc(title(p))} · ${len(p)}`, sub: `${esc(stateWords(p))}${secondLine(p) ? ' · ' + esc(secondLine(p)) : ''} · ${esc(p.pillar)} · ${esc(p.angle)}`,
+      body: `<div style="display:grid;grid-template-columns:180px minmax(0,1fr);gap:24px;align-items:start" class="postpop">
+        <div><img src="${mediaUrl(p, 'cover.jpg')}" alt="" style="width:180px;height:320px;object-fit:cover;border-radius:12px;background:var(--t4)"><div class="meta13" style="margin-top:8px;text-align:center">${len(p)} · ${esc(p.engine)}</div></div>
+        <div style="display:grid;gap:18px;min-width:0">
+          <div class="ap-sec"><h3>Numbers</h3><table class="winTable"><thead><tr><th>Window</th><th>Views</th><th>Reach</th><th>Sends / reach</th><th>Saves / reach</th><th>Follows / reach</th><th>Hold</th></tr></thead><tbody>${rows}</tbody></table></div>
+          ${edit ? captionBox(p, 'pop-' + p.slot_id) : `<div class="ap-sec"><h3>Caption</h3><p style="white-space:pre-wrap;line-height:1.6;color:var(--ink2)">${esc(p.caption.trim())}</p></div>`}
+          ${qaList(p)}
+          ${p.operator_overrides.length ? `<div class="ap-sec"><h3>Your overrides</h3><ul class="ovr">${p.operator_overrides.map(o => `<li><b>${overrideDate(o)}</b>${esc(overrideText(o))}</li>`).join('')}</ul></div>` : ''}
+          <div class="meta13">${esc(p.slot_id)} · From ${esc(p.source_asset)}</div>
+        </div></div>`,
+      footer: `${p.permalink ? `<a class="lnk" href="${esc(p.permalink)}" target="_blank" rel="noopener" style="margin-right:auto">Open on Instagram ${I.ext}</a>` : ''}${p.state === 'QUEUED' ? `<button type="button" class="btn" data-open="reschedule" data-post="${p.slot_id}">Change time</button>` : ''}<button type="button" class="btn" data-close>Close</button>` });
+    $$('.capbox', $('#modalform')).forEach(wireCaption);
+  },
+  stop() { openModal({ title: `Stop everything for ${esc(C.display)}?`, sub: `The queue halts. Nothing publishes until you resume. ${nextPost ? `The ${esc(title(nextPost).toLowerCase())} reel scheduled for ${fmt(nextPost.scheduled_at)} will wait.` : ''}`, body: '', footer: `<button type="button" class="btn" data-close>Cancel</button><button class="btn danger-fill">Stop publishing</button>`, onsubmit() { S.stop = true; toast('Publishing stopped. Nothing goes out until you resume.', 'Saved in the mockup only.'); rerender(); } }); },
+  resume() { openModal({ title: `Resume publishing for ${esc(C.display)}?`, sub: 'The queue runs again on the next cron tick (every 10 min).', body: '', footer: `<button type="button" class="btn" data-close>Cancel</button><button class="btn primary">Resume</button>`, onsubmit() { S.stop = false; toast('Publishing resumed.', 'Saved in the mockup only.'); rerender(); } }); },
+  flag(k) { const what = k === 'comments' ? 'comments' : 'DMs'; openModal({ title: `Let Claude reply to ${what} on its own?`, sub: `Claude drafts a reply and posts it without waiting for you. You can turn it off here any time.`, body: '', footer: `<button type="button" class="btn" data-close>Cancel</button><button class="btn primary">Turn on</button>`, onsubmit() { S.flags[k] = true; toast(`Claude now replies to ${what} on its own.`, 'Saved in the mockup only.'); rerender(); } }); $('#modal').addEventListener('close', () => rerender(), { once: true }); }
+};
+const pct = v => v == null ? '—' : (v * 100).toFixed(1) + ' %';
+
+/* ---------- toast ---------- */
+let toastT = null, undoFn = null;
+function toast(msg, sub, { undo, ms=4000 } = {}) {
+  const t = $('#toast');
+  t.innerHTML = `<div>${msg}${sub ? `<small>${sub}</small>` : ''}</div>${undo ? `<button type="button" id="undo">Undo</button>` : ''}`;
+  t.classList.add('on'); clearTimeout(toastT);
+  undoFn = undo || null;
+  if (undo) $('#undo').addEventListener('click', () => { clearTimeout(toastT); t.classList.remove('on'); undo(); undoFn = null; });
+  toastT = setTimeout(() => { t.classList.remove('on'); undoFn = null; }, ms);
+}
+
+/* ---------- approve actions ---------- */
+let pendingApprove = null;
+function approve(id) {
+  const p = eff(byId[id]); if (p.state !== 'NEEDS_APPROVAL') return;
+  clearTimeout(pendingApprove);
+  toast(`Approving ${esc(title(p))}…`, `Posts ${fmt(p.scheduled_at)}. Saved in the mockup only.`, { ms: 2000, undo: () => { clearTimeout(pendingApprove); pendingApprove = null; } });
+  pendingApprove = setTimeout(() => { S.decided[id] = { state: 'APPROVED' }; toast(`Approved. Posts ${fmt(p.scheduled_at)}.`, 'Saved in the mockup only. The dashboard server records this for real.'); rerender(); }, 2000);
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', e => {
+  if (e.target.closest('[data-stop]')) return;
+  const o = e.target.closest('[data-open]');
+  if (o) { const k = o.dataset.open; const p = o.dataset.post ? eff(byId[o.dataset.post]) : null; if (k === 'post') POPUP.post(p, { edit: !!o.dataset.edit }); else if (POPUP[k]) POPUP[k](p); return; }
+  const a = e.target.closest('[data-approve]'); if (a) return approve(a.dataset.approve);
+  const c = e.target.closest('[data-copy]'); if (c) { navigator.clipboard?.writeText(c.dataset.copy).catch(() => {}); c.classList.add('done'); setTimeout(() => c.classList.remove('done'), 1600); return; }
+  const s = e.target.closest('[data-save-cap]'); if (s) { const id = s.dataset.saveCap.replace(/^pop-/, ''); const ta = $(`#cap-${s.dataset.saveCap}`); S.captions[id] = ta.value + '\n'; s.classList.add('done'); setTimeout(() => s.classList.remove('done'), 1600); return; }
+  const sa = e.target.closest('[data-showall]'); if (sa) { const box = sa.previousElementSibling; box.classList.remove('collapsed'); sa.remove(); $('textarea', box).dispatchEvent(new Event('input')); return; }
+  const pg = e.target.closest('[data-pg]'); if (pg) { S.focus += +pg.dataset.pg; renderApprove(); return; }
+  if (e.target.closest('#menubtn')) { openModal({ title: 'Sections', body: `<nav class="nav" aria-label="Main">${$('#nav').innerHTML}</nav>` }); return; }
+});
+document.addEventListener('change', e => {
+  const f = e.target.closest('[data-flag]'); if (f) { const k = f.dataset.flag; if (f.checked) { f.checked = false; POPUP.flag(k); } else { S.flags[k] = false; toast(`Claude no longer replies to ${k === 'comments' ? 'comments' : 'DMs'} on its own.`, 'Saved in the mockup only.'); rerender(); } }
+});
+document.addEventListener('keydown', e => {
+  if ($('#modal').open || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (current !== 'approve') return;
+  const cards = $$('.ap-card', $('#view-approve'));
+  if (!cards.length) return;
+  const k = e.key.toLowerCase();
+  if (k === 'j' || k === 'k') { S.keyed = true; S.focus = Math.max(0, Math.min(cards.length - 1, S.focus + (k === 'j' ? 1 : -1))); cards.forEach((c, i) => c.classList.toggle('focus', i === S.focus)); cards[S.focus].scrollIntoView({ block: 'start', behavior: 'smooth' }); cards[S.focus].focus({ preventScroll: true }); e.preventDefault(); }
+  else if (k === 'a') { approve(cards[S.focus].dataset.card); e.preventDefault(); }
+  else if (k === 'r') { POPUP.reject(eff(byId[cards[S.focus].dataset.card])); e.preventDefault(); }
+  else if (k === '?') { openModal({ title: 'Keys on Approve', body: `<dl style="display:grid;grid-template-columns:48px 1fr;gap:10px 16px"><dt><kbd>J</kbd></dt><dd>Next card</dd><dt><kbd>K</kbd></dt><dd>Previous card</dd><dt><kbd>A</kbd></dt><dd>Approve the outlined card (2 s to undo)</dd><dt><kbd>R</kbd></dt><dd>Send the outlined card back, with a note</dd><dt><kbd>Esc</kbd></dt><dd>Close</dd></dl>` }); }
+});
+
+/* ---------- routing ---------- */
+let current = null;
+const RENDER = { overview: renderOverview, approve: renderApprove, calendar: renderCalendar, posts: renderPosts, today: renderToday, learn: renderLearn, settings: renderSettings };
+function markNav() { $$('#nav a').forEach(a => a.toggleAttribute('aria-current', false)); const a = $(`#nav a[data-view="${current}"]`); if (a) a.setAttribute('aria-current', 'page'); }
+function route() {
+  const qs = new URLSearchParams(location.search).get('view');
+  const h = location.hash.slice(1) || qs || document.documentElement.dataset.view || 'overview';
+  const v = RENDER[h] ? h : 'overview';
+  const changed = v !== current; current = v;
+  $$('.view').forEach(s => s.classList.toggle('on', s.id === 'view-' + v));
+  const label = VIEWS.find(x => x[0] === v)[1];
+  $('#title').textContent = label; $('#mviewname').textContent = label; document.title = 'Tachyon — ' + label;
+  renderNav(); markNav();
+  RENDER[v]();
+  $('#keys').hidden = v !== 'approve' || !$$('.ap-card').length;
+  if (changed) window.scrollTo(0, 0);
+}
+function rerender() { renderNav(); markNav(); RENDER[current](); }
+window.addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>

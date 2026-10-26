@@ -1,0 +1,5 @@
+2026-w44-07: npx failed: at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+ Error  Failed to fetch http://localhost:3000/proxy?src=http%3A%2F%2Flocalhost%3A3000%2Fpublic%2Ffootage%2F218670_large.mp4&time=1.1166666666666667&transparent=false&toneMapped=true. This could be caused by Chrome rejecting the request because the disk space is low. Consider increasing the disk size of your environment.
+2026-w44-09: npx failed: s:116:24
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+ Error  Failed to fetch http://localhost:3000/proxy?src=http%3A%2F%2Flocalhost%3A3000%2Fpublic%2Ffootage%2F310248_large.mp4&time=12.65&transparent=false&toneMapped=true. This could be caused by Chrome rejecting the request because the disk space is low. Consider increasing the disk size of your environment.

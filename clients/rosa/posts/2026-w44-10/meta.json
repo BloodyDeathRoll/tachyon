@@ -1,0 +1,27 @@
+{
+  "slot_id": "2026-w44-10",
+  "title": "3,056 spots search",
+  "pillar": "Spot spotlight",
+  "angle": "Hook in big Inter numerals over Pixabay footage (218670_large.mp4). The phone drops in on search.png: the \"Search spots or regions\" bar and the recent list, Banzai Pipeline, Supertubos, Uluwatu, each with its rating dot. Tap Supertubos and cut to spot-supertubos.png. End card: logo, \"rosa.surf, link in bio\", \"Footage: Pixabay\".",
+  "hook_formula": "3,056 spots. Type one.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Upbeat Lounge (AtlasAudio), file",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w44-10",
+    "story": "film-2026-w44-10-story",
+    "source": "engines/remotion/src/films/film-2026-w44-10.tsx",
+    "music": "clients/rosa/assets/music/upbeat-lounge-613342.mp3"
+  },
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w44-10",
+  "plan": "2026-W44",
+  "duration_s": 13.06,
+  "theme": "light",
+  "track": "upbeat-lounge"
+}

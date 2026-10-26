@@ -1,0 +1,27 @@
+{
+  "slot_id": "2026-w44-05",
+  "title": "Swell finds you",
+  "pillar": "Swell alert moment",
+  "angle": "Hook over Pixabay wave footage (310248_large.mp4). Cut to the phone showing spot-pipeline.png, push in on the day strip as the bars step up from Today to Sunday and turn dark green. A brand card slides in: \"Swell alert. Straight to your phone.\" End card: logo, \"rosa.surf, link in bio\", \"Footage: Pixabay\".",
+  "hook_formula": "Let the swell find you.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Energetic Surf Rock (Tunetank), file",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w44-05",
+    "story": "film-2026-w44-05-story",
+    "source": "engines/remotion/src/films/film-2026-w44-05.tsx",
+    "music": "clients/rosa/assets/music/energetic-surf-rock-music-350069.mp3"
+  },
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w44-05",
+  "plan": "2026-W44",
+  "duration_s": 12.05,
+  "track": "energetic-surf-rock",
+  "theme": "dark"
+}

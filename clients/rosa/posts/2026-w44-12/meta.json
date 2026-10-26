@@ -1,0 +1,27 @@
+{
+  "slot_id": "2026-w44-12",
+  "title": "Pipeline live cam",
+  "pillar": "Spot spotlight",
+  "angle": "Hook on a black card. The phone shows spot-pipeline.png: the week strip first, then scroll to the embedded live cam with its owner credit line visible, then down to the Good badge and the bars. Card: \"Forecast, then the cam.\" End card: logo, \"rosa.surf, link in bio\".",
+  "hook_formula": "Forecast first. Then the cam.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Energetic Surf Rock (Tunetank), file",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w44-12",
+    "story": "film-2026-w44-12-story",
+    "source": "engines/remotion/src/films/film-2026-w44-12.tsx",
+    "music": "clients/rosa/assets/music/energetic-surf-rock-music-350069.mp3"
+  },
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w44-12",
+  "plan": "2026-W44",
+  "duration_s": 13.06,
+  "theme": "light",
+  "track": "energetic-surf-rock"
+}

@@ -1,0 +1,35 @@
+{
+  "slot_id": "2026-w44-11",
+  "title": "Swell filling in",
+  "pillar": "Swell alert moment",
+  "angle": "Hook over Pixabay sunrise footage (310248_large.mp4). The phone shows spot-supertubos.png, push in on the line \"New swell filling in\" under Today. Then the day strip: bars climb from Mon into Tue and Wed and stay dark green. Card: \"Get the alert. Clear the morning.\" End card: logo, \"rosa.surf, link in bio\", \"Footage: Pixabay\".",
+  "hook_formula": "New swell filling in.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Upbeat Summer Background (DELOSound), file",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w44-11",
+    "story": "film-2026-w44-11-story",
+    "source": "engines/remotion/src/films/film-2026-w44-11.tsx",
+    "music": "clients/rosa/assets/music/upbeat-summer-background-music-368292.mp3"
+  },
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w44-11",
+  "plan": "2026-W44",
+  "duration_s": 13.06,
+  "voiceover": {
+    "script": "Dude, look at this swell filling in at Supertubos! You can watch it build, day by day. Tuesday morning? Clean. I was first out.",
+    "voice": "dia:seed9",
+    "speed": 1.08,
+    "start": 0.5,
+    "file": "vo.wav",
+    "engine": "dia-1.6b (Nari Labs, Apache-2.0), local GPU"
+  },
+  "track": "summer-background",
+  "theme": "dark"
+}

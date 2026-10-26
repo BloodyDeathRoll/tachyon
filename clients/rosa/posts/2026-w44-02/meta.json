@@ -1,0 +1,27 @@
+{
+  "slot_id": "2026-w44-02",
+  "title": "Swell map ocean",
+  "pillar": "Swell map",
+  "angle": "Hook over Pixabay sunrise wave footage (310248_large.mp4). Cut to the phone in 3D showing charts.png, a slow pan across the Atlantic swell arrows from the UK down to South Africa. The play button pulses and the Sun to Sat timeline highlights left to right. End card: logo, \"rosa.surf/charts\", \"Footage: Pixabay\".",
+  "hook_formula": "The whole ocean, one screen.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Retro Surf Rock (Tunetank), file",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w44-02",
+    "story": "film-2026-w44-02-story",
+    "source": "engines/remotion/src/films/film-2026-w44-02.tsx",
+    "music": "clients/rosa/assets/music/retro-surf-rock-348237.mp3"
+  },
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w44-02",
+  "plan": "2026-W44",
+  "duration_s": 12.05,
+  "theme": "light",
+  "track": "retro-surf-rock"
+}

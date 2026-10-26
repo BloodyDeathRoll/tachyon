@@ -1,0 +1,143 @@
+<style>
+.ft img{filter:saturate(.72) contrast(1.06) brightness(.96)}
+.tint{position:absolute;left:0;top:0;width:100%;height:100%;background:#0a6fa8;mix-blend-mode:color;opacity:.38}
+.chap{font-size:15px;font-weight:750;letter-spacing:.3em;color:#11b7f2;white-space:nowrap}
+.chap b{display:inline-block;color:#f5f0e8;margin-right:14px;font-weight:750}
+.sub2{font-size:30px;font-weight:500;color:#acb4d2c8;white-space:nowrap;letter-spacing:-.005em}
+.sub2 b{color:#f5f0e8;font-weight:650}
+.chip{display:inline-flex;align-items:center;gap:12px;height:54px;padding:0 24px;border-radius:27px;background:#181921c8;box-shadow:0 0 0 1px #ffffff14 inset;font-size:21px;font-weight:600;white-space:nowrap}
+.chip i{width:9px;height:9px;border-radius:50%;background:#11b7f2;box-shadow:0 0 12px #11b7f2}
+#prog{position:absolute;left:0;width:1920px;bottom:44px;text-align:center}
+#prog span{display:inline-block;margin:0 14px;font-size:12px;font-weight:700;letter-spacing:.3em;color:#f5f0e838}
+.ft{position:absolute;overflow:hidden}
+.ft img{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+.clut{position:absolute;z-index:45;will-change:transform}
+.ad{font-family:Inter,sans-serif}
+.nl{position:absolute;left:0;font-size:62px;font-weight:750;letter-spacing:-.035em;color:#acb4d2;white-space:nowrap}
+.nl s{position:absolute;left:-6px;top:50%;height:6px;margin-top:-1px;border-radius:3px;background:#11b7f2;transform-origin:0 50%;box-shadow:0 0 14px #11b7f2aa}
+</style>
+</head>
+<body>
+<div id="stage">
+ <canvas id="bg" width="1920" height="1080"></canvas>
+ <div id="cam">
+  <!-- free: live water behind -->
+  <div id="ftB" class="ft" style="left:0;top:0;width:1920px;height:1080px"><img id="ftBi"><div class="tint" style="opacity:.2"></div><div class="a" style="left:0;top:0;width:1920px;height:1080px;background:linear-gradient(90deg,rgba(2,3,6,.55),rgba(2,3,6,.72) 45%,rgba(2,3,6,.6))"></div></div>
+
+  <!-- 01 fast -->
+  <div id="fBox" class="a" style="left:936px;top:250px">
+   <div class="chap"><b>01</b>FAST</div>
+   <div class="big" style="font-size:250px;margin-top:20px;letter-spacing:-.05em"><span id="fNum">0.00</span><span style="font-size:.36em;font-weight:650;color:#acb4d2b0;margin-left:.12em;letter-spacing:-.02em">s</span></div>
+   <div class="sub2" id="fSub" style="margin-top:6px">From tap to forecast, <b>on 4G</b></div>
+   <div id="fBar" class="a" style="left:4px;top:430px;width:760px;height:60px">
+    <div class="a" style="left:0;top:20px;width:760px;height:4px;border-radius:2px;background:#ffffff14"></div>
+    <div id="fFill" class="a" style="left:0;top:20px;width:760px;height:4px;border-radius:2px;background:linear-gradient(90deg,#11b7f2,#5dfc9f);transform-origin:0 50%;box-shadow:0 0 18px #11b7f288"></div>
+    <div id="fHead" class="a" style="left:-7px;top:15px;width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 0 16px #11b7f2"></div>
+    <div class="a hud" style="left:0;top:40px">0 s</div>
+    <div class="a" style="left:758px;top:8px;width:2px;height:28px;background:#f5f0e860"></div>
+    <div class="a hud" style="left:640px;top:40px;width:120px;text-align:right;color:#f5f0e8a0">Target 2 s</div>
+   </div>
+   <div class="a hud" id="fNote" style="left:4px;top:530px">Measured on rosa.surf &nbsp;&middot;&nbsp; 5 cold loads &nbsp;&middot;&nbsp; no cache</div>
+  </div>
+  <div id="bEy" class="a ey" style="left:936px;top:232px">Puerto Escondido &nbsp;&middot;&nbsp; Mexico &nbsp;&middot;&nbsp; Today</div>
+  <div id="bPill" class="a" style="left:0;top:0;height:176px;border-radius:88px;background:#0c6733;padding:0 66px;font-size:124px;font-weight:760;line-height:172px;letter-spacing:-.035em;transform-origin:0 0;white-space:nowrap;box-shadow:0 30px 80px rgba(12,103,51,.45)">Epic</div>
+  <div id="bNum" class="a big" style="left:928px;top:500px;font-size:170px"></div>
+  <div id="bSub" class="a" style="left:936px;top:702px;font-size:31px;font-weight:500;color:#acb4d2c8;white-space:nowrap"><span class="mask"><span>16 s W swell &nbsp;&middot;&nbsp; 5 km/h NE <b style="color:#24b161;font-weight:650">offshore</b></span></span></div>
+
+  <!-- 02 free -->
+  <div id="frCh" class="a chap" style="left:700px;width:1180px;text-align:center;top:190px"><b>02</b>FREE</div>
+  <svg id="lock" class="a" width="240" height="300" viewBox="-60 -90 120 150" style="left:1170px;top:300px;overflow:visible" fill="none" stroke="#f5f0e8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+   <g id="shk"><path id="shkP" d="M-28 -2 V-36 A28 28 0 0 1 28 -36 V-2"/></g>
+   <rect id="lkB" x="-46" y="-6" width="92" height="66" rx="14"/>
+   <path id="lkH" d="M0 18 V36" stroke-width="7"/>
+  </svg>
+  <div id="frNum" class="a big" style="left:700px;width:1180px;text-align:center;top:250px;font-size:400px;letter-spacing:-.06em"><span style="display:inline-block;font-size:.55em;vertical-align:.62em;color:#acb4d2;margin-right:.04em">$</span><span style="display:inline-block;overflow:hidden;height:1em;line-height:1;vertical-align:top;padding:0 .02em"><span id="frCol" style="display:inline-flex;flex-direction:column"></span></span></div>
+  <div id="frSub" class="a sub2" style="left:700px;width:1180px;text-align:center;top:712px;font-size:36px"><span class="mask"><span>No paywall. <b>No sign-in to check the surf.</b></span></span></div>
+  <div id="frChips" class="a" style="left:700px;width:1180px;top:800px;display:flex;justify-content:center;gap:16px"></div>
+
+  <!-- 03 clear -->
+  <svg id="con" class="a" width="1920" height="1080" style="left:0;top:0" fill="none"></svg>
+  <div id="oCh" class="a chap" style="left:1250px;top:118px"><b>03</b>CLEAR</div>
+  <div id="lab0" class="a lab" style="left:1250px;top:190px"><div class="i">A</div><div class="h"><span class="mask"><span>Seven days at a glance</span></span></div><div class="s" id="lab0s">Epic all week</div></div>
+  <div id="lab1" class="a lab" style="left:1250px;top:390px"><div class="i">B</div><div class="h"><span class="mask"><span>Why this rating</span></span></div><div class="s">Size &middot; Period &middot; Wind &middot; Clarity</div></div>
+  <div id="lab2" class="a lab" style="left:1250px;top:590px"><div class="i">C</div><div class="h"><span class="mask"><span>Hour by hour</span></span></div><div class="s">Surf &middot; Swell &middot; Wind &middot; Energy</div></div>
+
+  <div id="lab3" class="a lab" style="left:1250px;top:790px"><div class="i">D</div><div class="h"><span class="mask"><span>Your favorites</span></span></div><div class="s">Star a spot and it waits on Home</div></div>
+  <!-- 04 no ads -->
+  <div id="nCh" class="a chap" style="left:1060px;top:196px"><b>04</b>NO ADS. NO BLOAT.</div>
+  <div id="nList" class="a" style="left:1060px;top:262px;width:760px;height:460px"></div>
+  <div id="nBig" class="a big" style="left:1052px;top:360px;font-size:150px"><span class="mask"><span>Just the</span></span><br><span class="mask"><span style="color:#11b7f2">surf.</span></span></div>
+  <div id="nSub" class="a sub2" style="left:1060px;top:700px">The whole app is <b>78 KB</b>. Nothing else rides along.</div>
+
+  <!-- 05 gets better -->
+  <div id="gCh" class="a chap" style="left:1180px;top:150px;font-size:26px"><b>05</b>GETS BETTER</div>
+  <div id="gNum" class="a big" style="left:1172px;top:200px;font-size:176px"><span class="mask"><span id="gCnt">40</span></span></div>
+  <div id="gSub" class="a sub2" style="left:1180px;top:392px;font-size:34px"><span class="mask"><span>spots worldwide, <b>up from 40</b> in July</span></span></div>
+  <svg id="chart" class="a" width="640" height="300" style="left:1180px;top:470px;overflow:visible" fill="none"></svg>
+  <div id="gChips" class="a" style="left:1180px;top:770px;width:700px;display:flex;flex-wrap:wrap;gap:12px"></div>
+
+  <!-- phone -->
+  <div id="pw"><div id="phone">
+   <div class="edge" style="transform:translateZ(-16px);background:#08090b"></div><div class="edge" style="transform:translateZ(-12px)"></div><div class="edge" style="transform:translateZ(-8px);background:#22252b"></div><div class="edge" style="transform:translateZ(-4px)"></div>
+   <div id="body"></div>
+   <div class="btn" style="left:-3px;top:180px;height:34px"></div><div class="btn" style="left:-3px;top:240px;height:64px"></div><div class="btn" style="left:-3px;top:316px;height:64px"></div><div class="btn" style="right:-3px;top:260px;height:100px"></div>
+   <div id="screen">
+    <div id="base"></div>
+    <div id="home" class="scr clip" style="background:#010101"></div>
+    <div id="skel" class="scr clip"></div>
+    <div id="spot" class="scr" style="transform-style:preserve-3d"></div>
+    <div id="clutter" class="scr clip" style="z-index:45"></div>
+    <div id="status"></div>
+    <div id="tabs"></div>
+    <div id="ring" class="ring"></div>
+    <div id="touch" class="touch"></div>
+    <div id="glare"></div>
+   </div>
+  </div></div>
+ </div>
+
+ <!-- closing footage, revealed through an iris -->
+ <div id="ftC" class="ft" style="left:0;top:0;width:1920px;height:1080px"><img id="ftCi"><div class="tint" style="opacity:.5"></div><div id="ftCo" class="a" style="left:0;top:0;width:100%;height:100%;background:radial-gradient(ellipse at 50% 46%,rgba(2,6,12,.25),rgba(2,6,12,.7) 75%)"></div></div>
+  <canvas id="fx" width="1920" height="1080"></canvas>
+ <div id="chartLbl" class="a" style="left:0;top:0"></div>
+
+ <!-- opening footage: full frame, then it becomes the phone screen -->
+ <div id="ftA" class="ft" style="left:0;top:0;width:1920px;height:1080px"><img id="ftAi"><div class="tint" style="opacity:.25"></div><div id="ftAo" class="a" style="left:0;top:0;width:100%;height:100%;background:linear-gradient(180deg,rgba(2,3,6,.55),rgba(2,3,6,.15) 40%,rgba(2,3,6,.25) 70%,rgba(2,3,6,.7))"></div></div>
+ <div id="oEy" class="a ey" style="left:0;width:1920px;text-align:center;top:372px;font-size:17px;color:#f5f0e8d0">05:58 &nbsp;&middot;&nbsp; Puerto Escondido, Mexico</div>
+ <div id="oQ" class="a big" style="left:0;width:1920px;text-align:center;top:410px;font-size:156px;text-shadow:0 10px 60px rgba(0,0,0,.45)">Should I surf?</div>
+
+<div id="end" class="a" style="left:0;top:0;width:1920px;height:1080px">
+  <div id="eMark" class="a" style="top:330px;width:190px;height:206px;color:#11b7f2"></div>
+  <div id="eWord" class="a big" style="top:300px;font-size:256px;letter-spacing:-.055em;text-shadow:0 12px 60px rgba(0,0,0,.35)">rosa<span style="color:#11b7f2">.</span></div>
+  <div id="eUrl" class="a" style="left:0;width:1920px;top:748px;text-align:center;font-size:22px;font-weight:650;letter-spacing:.5em;text-indent:.5em">ROSA.SURF</div>
+  <div id="eTag" class="a" style="left:0;width:1920px;top:660px;text-align:center;font-size:15px;font-weight:650;letter-spacing:.34em;text-transform:uppercase;color:#f5f0e8c0">Fast &nbsp;<span class="cy">&middot;</span>&nbsp; Free &nbsp;<span class="cy">&middot;</span>&nbsp; Clear &nbsp;<span class="cy">&middot;</span>&nbsp; No ads &nbsp;<span class="cy">&middot;</span>&nbsp; Gets better every week</div>
+  <div id="cta" class="a" style="left:0;width:1920px;top:612px;text-align:center"><div id="ctaR" style="position:absolute;left:50%;top:0;height:96px;border-radius:48px;border:3px solid #11b7f2"></div><div id="ctaR2" style="position:absolute;left:50%;top:0;height:96px;border-radius:48px;border:3px solid #11b7f2"></div><span id="ctaB" style="position:relative;display:inline-flex;align-items:center;gap:18px;height:96px;padding:0 60px;border-radius:48px;background:#11b7f2;color:#021018;font-size:38px;font-weight:800;letter-spacing:-.02em;overflow:hidden;box-shadow:0 18px 60px rgba(17,183,242,.55),0 0 0 1.5px rgba(255,255,255,.4) inset">Check the surf<svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg><i id="ctaS" style="position:absolute;top:0;left:0;width:120px;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.6),transparent)"></i></span></div>
+ </div>
+
+
+ <!-- v3: title card + logo intro -->
+ <div id="blurBk" class="a" style="left:0;top:0;width:1920px;height:1080px;display:none"></div>
+ <div id="card" class="a" style="left:0;top:0;width:1920px;height:1080px;display:none">
+  <div id="cn" class="a" style="left:0;top:0;font-size:22px;font-weight:750;letter-spacing:.3em;color:#11b7f2"></div>
+  <div id="cs" class="a hud" style="left:0;top:0;width:120px;text-align:right;font-size:15px;color:#f5f0e8a0"></div>
+  <div id="cw" class="a big" style="left:0;top:0;font-size:280px;transform-origin:0 0;white-space:nowrap"></div>
+  <div id="cl" class="a" style="left:0;top:0;height:6px;border-radius:3px;background:#11b7f2;transform-origin:0 50%;box-shadow:0 0 22px #11b7f2"></div>
+ </div>
+ <div id="intro" class="a" style="left:0;top:0;width:1920px;height:1080px">
+  <div id="iBg" class="a" style="left:0;top:0;width:1920px;height:1080px;background:radial-gradient(ellipse at 50% 45%,rgba(2,4,8,.55),rgba(2,4,8,.92) 70%)"></div>
+  <div id="iMark" class="a" style="top:352px;width:150px;height:163px;color:#11b7f2"></div>
+  <div id="iWord" class="a big" style="top:328px;font-size:200px;letter-spacing:-.055em"></div>
+ </div>
+ <div id="flash" class="a" style="left:0;top:0;width:1920px;height:1080px;background:#fff;opacity:0"></div>
+ <div id="vig" class="a" style="left:0;top:0;width:1920px;height:1080px;background:radial-gradient(ellipse at center,transparent 52%,rgba(0,0,0,.5) 100%)"></div>
+ <canvas id="grain" width="960" height="540" style="width:1920px;height:1080px;opacity:.06;mix-blend-mode:overlay;image-rendering:pixelated"></canvas>
+ <div id="fade" class="a" style="left:0;top:0;width:1920px;height:1080px;background:#000;opacity:0"></div>
+ <div id="hud">
+  <div class="a hud" style="left:60px;top:48px"><span class="cy">&#9679;</span>&nbsp; Rosa &nbsp;<span style="opacity:.4">/</span>&nbsp; <span id="hScene"></span></div>
+  <div class="a hud" style="right:60px;top:48px">Showreel &nbsp;<span id="hTc" style="color:#f5f0e8"></span></div>
+  <div class="a hud" id="hLoc" style="left:60px;bottom:46px"></div>
+  <div class="a hud" id="hFoot" style="right:60px;bottom:46px">Footage: Pixabay</div>
+  <div id="prog"></div>
+  <div class="a" style="left:60px;right:60px;bottom:30px;height:1px;background:#f5f0e81c"><div id="hBar" style="height:1px;background:#11b7f2;width:100%;transform-origin:0 0"></div></div>
+ </div>
+</div>

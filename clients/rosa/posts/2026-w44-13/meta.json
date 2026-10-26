@@ -1,0 +1,35 @@
+{
+  "slot_id": "2026-w44-13",
+  "title": "Home screen install",
+  "pillar": "Free, and why",
+  "angle": "Hook over Pixabay footage (1306-145340152_medium.mp4). The logo tile drops onto the phone like a home-screen icon, then the phone opens to home.png. Card: \"Works offline with the last forecast.\" Quick swipe to spot-uluwatu-full.png. End card: logo, \"rosa.surf, it's free\", \"Footage: Pixabay\".",
+  "hook_formula": "Put it on your home screen.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Upbeat Lounge (AtlasAudio), file",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w44-13",
+    "story": "film-2026-w44-13-story",
+    "source": "engines/remotion/src/films/film-2026-w44-13.tsx",
+    "music": "clients/rosa/assets/music/upbeat-lounge-613342.mp3"
+  },
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w44-13",
+  "plan": "2026-W44",
+  "duration_s": 13.06,
+  "voiceover": {
+    "script": "Little trick. Put Rosa on your home screen, it works just like an app. No signal at the beach? Still got the forecast. So good.",
+    "voice": "dia:seed3",
+    "speed": 1.08,
+    "start": 0.5,
+    "file": "vo.wav",
+    "engine": "dia-1.6b (Nari Labs, Apache-2.0), local GPU"
+  },
+  "track": "upbeat-lounge",
+  "theme": "dark"
+}

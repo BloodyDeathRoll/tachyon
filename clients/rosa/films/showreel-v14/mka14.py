@@ -1,0 +1,7 @@
+# audiov13 -> audiov14: swooshes only on title text (intro question + the five title cards)
+exec(open('mka13.py').read().replace("open('audiov13.py', 'w').write(a)", "pass").replace("print('ok', a.count('whoosh('), a.count('swish('), a.count('riser('))", ""))
+r2("add(whoosh(.55,True,300,11000),16.75,.35,.4,.4)\n", "")
+r2("add(whoosh(.6,True),24.0,.28,0,.5);add(riser(.8,200,1400),23.8,.2,0,.5)\n", "")
+r2("audiov13_'+STYLE+'.wav", "audiov14_'+STYLE+'.wav")
+open('audiov14.py', 'w').write(a)
+print('ok', [l for l in a.split('\n') if ('whoosh(' in l or 'riser(' in l or 'swish(' in l) and 'def ' not in l])

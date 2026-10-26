@@ -1,0 +1,26 @@
+{
+  "slot_id": "2026-w43-04",
+  "title": "Showreel",
+  "pillar": "Free, and why",
+  "angle": "what Rosa is: fast / free / clear / no ads / gets better, 18 s",
+  "hook_formula": "question hook 'Should I surf?' (on screen + caption line 1)",
+  "length_target": 18,
+  "duration_s": 18.0,
+  "cta": "link in bio (URL on end card)",
+  "audio_type": "Pixabay 'Old Steel' (Pixabay Content License), baked in",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "Showreel",
+    "story": "ShowreelStory",
+    "source": "engines/remotion/src/Showreel.tsx",
+    "music": "clients/rosa/assets/music/old-steel-449645.mp3"
+  },
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "experiment_id": null,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w43-04"
+}
