@@ -1423,7 +1423,7 @@ def delete_card(client: str, slot: str, title: str) -> str:
            f"<p class=muted style='margin:0;max-width:380px'>&ldquo;{ESC(title)}&rdquo; leaves the plan, the calendar and the dashboard. "
            f"Its files move to clients/{ESC(client)}/trash, so they can be recovered by hand.</p>"
            f"<div class=btns><button class='btn danger small'>Delete</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>")
-    return popup(f"<button type=button class=linkbtn data-open>Delete video</button>", box)
+    return popup(f"<button type=button class='btn sec small dangerline' data-open>{icon('x', 15)}Delete video</button>", box)
 
 
 def add_new_box(client: str) -> str:
