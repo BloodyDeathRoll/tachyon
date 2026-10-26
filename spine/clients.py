@@ -7,6 +7,7 @@ environment (TACHYON_<CLIENT>_TOKEN) or a .env the operator manages.
 from __future__ import annotations
 
 import os
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -133,3 +134,12 @@ def token(name: str) -> str:
     if not value:
         raise RuntimeError(f"no token for {name}: {key} not in env or {env_path()}")
     return value
+
+
+def data_expires(name: str) -> date | None:
+    """Day Meta stops serving data on this client's token unless the app is logged into again
+    (written by publisher/auth.py exchange)."""
+    key = load_grants(name)["token_env"]
+    from spine.publisher.auth import env_path, read_env  # local import: avoids a cycle
+    value = read_env(env_path()).get(f"{key}_DATA_EXPIRES") if key else None
+    return date.fromisoformat(value) if value else None
