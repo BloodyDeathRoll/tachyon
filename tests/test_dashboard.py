@@ -225,3 +225,46 @@ def test_ig_preview_fetch_cache_and_failure(client_dir, monkeypatch):
         raise OSError("expired")
     assert T.fetch_ig_preview("demo", "w01-s1", "https://x/b.m4a", opener=boom) is None
     assert not (sd / T.IG_PREVIEW).exists()             # old copy removed, nothing half-written
+
+
+def test_ig_preview_respects_size_cap(client_dir):
+    import io
+    from spine import tracks as T
+
+    class Resp(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    big = lambda u, timeout: Resp(b"\0" * (T.IG_PREVIEW_MAX + 1))  # noqa: E731
+    assert T.fetch_ig_preview("demo", "w01-s1", "https://x/big.m4a", opener=big) is None
+    assert not (client_dir / "posts" / "w01-s1" / T.IG_PREVIEW).exists()
+
+
+def test_set_track_marks_and_clears_preview(client_dir, monkeypatch):
+    import json
+    from spine import tracks as T
+    sd = client_dir / "posts" / "w01-s1"
+    if not (sd / "meta.json").exists():
+        (sd / "meta.json").write_text("{}")
+    ig = {"id": "ig:7", "audio_id": "7", "title": "T", "artist": "A", "source": "instagram", "preview": "https://x/t.m4a"}
+    lib = [{"id": "f:1", "title": "F", "artist": "B", "source": "file", "file": "f.mp3"}]
+    monkeypatch.setattr(T, "_ig_known", lambda c: {"ig:7": ig})
+    monkeypatch.setattr(T, "_library", lambda c: lib)
+    monkeypatch.setattr(T, "apply", lambda c, s: None)
+    monkeypatch.setattr(T, "_rel", str)   # tmp client dir is outside the repo
+
+    def ok(c, s, url):
+        f = sd / T.IG_PREVIEW
+        f.write_bytes(b"abc")
+        return f
+    monkeypatch.setattr(T, "fetch_ig_preview", ok)
+    T.set_track("demo", "w01-s1", "ig:7")
+    assert json.loads((sd / "meta.json").read_text())["track_info"]["preview_of"] == "ig:7"
+    assert T.ig_preview("demo", "w01-s1") is not None
+
+    monkeypatch.setattr(T, "fetch_ig_preview", lambda c, s, url: None)
+    T.set_track("demo", "w01-s1", "ig:7")
+    assert "preview_of" not in json.loads((sd / "meta.json").read_text())["track_info"]
+
+    (sd / T.IG_PREVIEW).write_bytes(b"abc")
+    T.set_track("demo", "w01-s1", "f:1")
+    assert not (sd / T.IG_PREVIEW).exists()
