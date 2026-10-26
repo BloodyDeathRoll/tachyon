@@ -920,3 +920,26 @@ def test_upload_to_unknown_client_is_404(server):
     c = http.client.HTTPConnection("127.0.0.1", server)
     c.request("POST", f"/nobody/new/upload?at={FUTURE.replace('+', '%2B')}&name=a.mp4", body=b"x")
     assert c.getresponse().status == 404
+
+
+def test_live_view_samples_once_a_minute(server, client_dir, monkeypatch):
+    from spine.publisher import graph as G
+    db = DB.for_client(client_dir)
+    db.conn.execute("UPDATE posts SET ig_media_id='m1' WHERE slot_id='w01-s1'")
+    db.close()
+    calls = []
+    views = iter([10, 13])
+    monkeypatch.setattr(C, "token", lambda c: "t")
+    monkeypatch.setattr(G.Graph, "get", lambda self, path, **p: calls.append(path) or {"data": [{"values": [{"value": next(views)}]}]})
+    app._LIVE.clear()
+    _, body, _ = req(server, "GET", "/demo/live.json")
+    d = json.loads(body)
+    assert d["total"] == 10 and d["points"] == [] and calls == ["m1/insights"]
+    req(server, "GET", "/demo/live.json")   # within the minute: no new call
+    assert len(calls) == 1
+    k = ("demo", "")
+    app._LIVE[k] = [(t - 61, v) for t, v in app._LIVE[k]]
+    d = json.loads(req(server, "GET", "/demo/live.json")[1])
+    assert d["total"] == 13 and [p["v"] for p in d["points"]] == [3]
+    _, page, _ = req(server, "GET", "/demo?g=live")
+    assert "Views right now" in page and "/demo/live.json" in page and ">Live</a>" in page

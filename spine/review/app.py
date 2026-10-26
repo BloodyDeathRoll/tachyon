@@ -267,7 +267,7 @@ h2{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
 .pctl{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap}
 .seg{display:inline-flex;background:var(--grey-bg);border-radius:999px;padding:3px}
 .seg a{padding:6px 14px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--ink3)}
-.seg a.on{background:var(--ink);color:#fff}
+.seg a.on{background:#297cff;color:#fff}
 .chk{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink2);cursor:pointer}
 .chk input{accent-color:var(--ink);width:16px;height:16px}
 .stack{display:flex;flex-direction:column;gap:20px}
@@ -420,7 +420,8 @@ body.dnd .addnew{display:none}
 .rgm{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:50;display:grid;place-items:center;padding:24px}
 .rgm[hidden]{display:none}
 .rgbox{background:#fff;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px;min-width:300px;animation:pop .18s ease-out}
-.pop{display:inline-block}.tag.gen{background:#FEF3C7;color:#92400E;border-radius:999px}.fmtseg{margin-bottom:12px;flex-wrap:wrap}.rgbox.wide{width:min(560px,100%)}.rgbox textarea{min-height:130px}
+.pop{display:inline-block}.lvbars{display:flex;align-items:flex-end;gap:3px;height:120px;border-bottom:1px solid var(--rule)}
+.lvbars i{flex:1;background:#297cff;border-radius:3px 3px 0 0;min-height:2px}.lvbars i.e{background:var(--grey-bg);height:4px}.tag.gen{background:#FEF3C7;color:#92400E;border-radius:999px}.fmtseg{margin-bottom:12px;flex-wrap:wrap}.rgbox.wide{width:min(560px,100%)}.rgbox textarea{min-height:130px}
 .rgbox label{display:flex;flex-direction:column;gap:6px;font-size:13.5px;color:var(--ink3)}
 .rgbox input{border:1px solid var(--rule);border-radius:9px;padding:8px 10px;font-size:15px;color:var(--ink)}
 .chips{position:absolute;left:10px;top:10px;z-index:2;display:flex;gap:4px;align-items:center}
@@ -430,7 +431,7 @@ body.dnd .addnew{display:none}
 .cell .vo{font-size:9.5px;padding:2px 6px}
 .filt button{border:0;background:transparent;padding:6px 12px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--ink3);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
 .filt button i{font-style:normal;font-size:11.5px;background:#E2E2E2;color:var(--ink2);border-radius:999px;padding:0 6px;min-width:18px;text-align:center}
-.filt button.on{background:var(--ink);color:#fff}.filt button.on i{background:var(--lime);color:var(--ink)}
+.filt button.on{background:#297cff;color:#fff}.filt button.on i{background:var(--lime);color:var(--ink)}
 .vid[hidden]{display:none}
 .cell.dim{opacity:.18;filter:grayscale(1);transition:opacity .2s}
 .tdo{font-size:14px;font-weight:600;color:var(--ink3);margin-left:6px}
@@ -633,7 +634,55 @@ def bar_chart(days: list[dict], key: str, key2: str | None = None, W: int = 960,
 
 
 # ── views over time ───────────────────────────────────────────────────────────
-GRANS = ("hour", "day", "month", "custom")
+GRANS = ("live", "hour", "day", "month", "custom")
+LIVE_EVERY = 60          # seconds between Instagram calls for the Live view (6 calls measured at 1 % of quota)
+LIVE_KEEP = 30           # minutes shown
+_LIVE: dict[tuple[str, str], list[tuple[float, int]]] = {}   # (client, slot or "") -> [(epoch, total views)]
+
+
+def live_views(client: str, slot: str | None) -> dict:
+    """Views right now (sum of live videos, or one video), sampled from Instagram at most once a
+    minute while someone has the Live view open. Samples live in memory: a restart starts afresh."""
+    import time as _t
+    key = (client, slot or "")
+    pts = _LIVE.setdefault(key, [])
+    now_ = _t.time()
+    if not pts or now_ - pts[-1][0] >= LIVE_EVERY - 1:
+        db = DB.for_client(C.client_dir(client))
+        try:
+            rows = [db.post(slot)] if slot else [r for r in db.posts() if r["ig_media_id"]]
+            from ..publisher.graph import Graph
+            g = Graph(C.token(client))
+            total = 0
+            for r in rows:
+                if not r["ig_media_id"]:
+                    continue
+                d = g.get(f"{r['ig_media_id']}/insights", metric="views")
+                total += int(((d.get("data") or [{}])[0].get("values") or [{}])[0].get("value") or 0)
+            pts.append((now_, total))
+        except Exception as e:  # noqa: BLE001 — no token or network: say so, keep the samples
+            return {"error": str(e)[:200], "points": [], "total": pts[-1][1] if pts else None}
+        finally:
+            db.close()
+    del pts[:-(LIVE_KEEP + 1)]
+    per_min = [{"t": int(b[0]), "v": max(0, b[1] - a[1])} for a, b in zip(pts, pts[1:])]
+    return {"total": pts[-1][1], "points": per_min, "since": int(pts[0][0]), "every": LIVE_EVERY}
+
+
+def live_block(base_json: str) -> str:
+    return (f"<div class=live data-src='{ESC(base_json)}'><div class=row style='gap:28px;margin:6px 0 10px'>"
+            f"<div><span class=muted style='font-size:13.5px'>Views right now</span><p class=big id=lvtot style='font-size:22px;font-weight:800;margin:0'>…</p></div>"
+            f"<div><span class=muted style='font-size:13.5px'>New in the last 30 min</span><p class=big id=lvnew style='font-size:22px;font-weight:800;margin:0'>…</p></div>"
+            f"<span class='tag gen' id=lvdot>Live · every minute</span></div>"
+            f"<div class=lvbars id=lvbars></div><p class=hint id=lvnote>Collecting: one bar per minute while this page is open. "
+            f"Instagram's counter can lag a few minutes.</p>"
+            "<script>(()=>{const w=document.currentScript.parentElement,b=w.querySelector('#lvbars');"
+            "const draw=d=>{if(d.error){w.querySelector('#lvnote').textContent='Instagram did not answer: '+d.error;return}"
+            "w.querySelector('#lvtot').textContent=(d.total??'–').toLocaleString();"
+            "const s=d.points.reduce((a,p)=>a+p.v,0);w.querySelector('#lvnew').textContent=s.toLocaleString();"
+            "const pts=Array(30-d.points.length).fill(null).concat(d.points.slice(-30));const mx=Math.max(1,...d.points.map(p=>p.v));"
+            "b.innerHTML=pts.map(p=>p?`<i style='height:${Math.max(4,p.v/mx*100)}%' title='${new Date(p.t*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}: ${p.v}'></i>`:'<i class=e></i>').join('');};"
+            "const go=()=>fetch(w.dataset.src).then(r=>r.json()).then(draw).catch(()=>{});go();setInterval(go,60000);})();</script></div>")
 
 
 def _bucket(dt: datetime, g: str) -> datetime:
@@ -746,6 +795,13 @@ def prepare_button(client: str, week: str, label: str) -> str:
 
 def views_block(client: str, db: DB, slot: str | None, q: dict, base: str) -> str:
     g = q.get("g") if q.get("g") in GRANS else "day"
+    seg = "".join(f"<a href='{base}?g={x}#views' class='{'on' if g == x else ''}'>{x.capitalize()}</a>" if x != "custom" else
+                  f"<a href='#' data-range class='{'on' if g == x else ''}'>Custom</a>" for x in GRANS)
+    if g == "live":
+        src = f"/{quote(client)}/live.json" + (f"?slot={quote(slot)}" if slot else "")
+        return (f"<div id=views class=views><div class=row style='flex-wrap:wrap;gap:10px'><div><span class=muted style='font-size:13.5px'>"
+                f"Views, live</span></div><div class='seg sm'>{seg.replace(chr(39) + '#' + chr(39) + ' data-range', chr(39) + base + '?g=custom#views' + chr(39))}</div></div>"
+                f"{live_block(src)}</div>")
     eg, a, b = view_window(g, q.get("from"), q.get("to"))
     series = views_series(db, slot, eg, a, b)
     total = sum(v for _, v in series)
@@ -1645,6 +1701,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, render_calendar(name, q.get("w"), q.get("hl")))
             if parts[1] == "settings" and len(parts) == 2:
                 return self._send(200, render_settings(name))
+            if len(parts) == 2 and parts[1] == "live.json":
+                body = json.dumps(live_views(name, q.get("slot") or None)).encode()
+                return self._send(200, body, "application/json")
             if parts[1] == "v" and len(parts) == 3:
                 return self._send(200, render_video(name, parts[2], q.get("as") if q.get("as") in ("story", *F.RATIOS) else "reel",
                                                     q.get("music") or "file", q.get("q") or "", q))
