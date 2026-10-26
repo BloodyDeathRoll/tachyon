@@ -19,7 +19,9 @@ from __future__ import annotations
 import html
 import json
 import mimetypes
+import os
 import re
+import subprocess
 import sys
 from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -28,6 +30,7 @@ from urllib.parse import parse_qs, quote, urlparse
 
 from .. import clients as C
 from .. import formats as F
+from .. import manual as M
 from .. import revise as R
 from .. import schedule as SCH
 from .. import week as W
@@ -61,8 +64,8 @@ ORDER = {"need": 0, "busy": 1, "sched": 2, "live": 3}
 def tag_for(client: str, row) -> tuple[str, str] | None:
     st = R.status(client, row["slot_id"])
     if st and st.get("state") == "running":
-        return ("Re-rendering", "busy")
-    if row["state"] in ("REJECTED", "SCRIPTED", "NEEDS_APPROVAL") and st and st.get("state") == "failed":
+        return ("In production", "busy") if st.get("kind") == "new" else ("Re-rendering", "busy")
+    if row["state"] in ("REJECTED", "BRIEFED", "SCRIPTED", "NEEDS_APPROVAL") and st and st.get("state") == "failed":
         return ("Needs approval", "need")
     return TAG.get(row["state"])
 
@@ -264,7 +267,7 @@ h2{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
 .pctl{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:14px;flex-wrap:wrap}
 .seg{display:inline-flex;background:var(--grey-bg);border-radius:999px;padding:3px}
 .seg a{padding:6px 14px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--ink3)}
-.seg a.on{background:var(--ink);color:#fff}
+.seg a.on{background:#297cff;color:#fff}
 .chk{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink2);cursor:pointer}
 .chk input{accent-color:var(--ink);width:16px;height:16px}
 .stack{display:flex;flex-direction:column;gap:20px}
@@ -380,7 +383,10 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .cell.mini .mt{position:absolute;left:0;right:0;bottom:0;font:600 10px Inter;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.8));padding:10px 4px 3px}
 .mdot{position:absolute;right:4px;top:4px;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.4)}
 .mdot.need{background:var(--lime)}.mdot.sched{background:var(--blue)}.mdot.live{background:var(--green)}.mdot.busy{background:var(--amber)}
-.cell.mini.open{font-size:10.5px;border-width:1px}
+.cell.mini.open{font-size:10.5px;border-width:1px;cursor:pointer}.cell.mini.open[data-add]:hover{border-color:var(--ink3);color:var(--ink)}
+.cell.open{gap:6px;align-content:center}.addnew{border:0;background:#fff;box-shadow:inset 0 0 0 1px var(--rule);border-radius:999px;padding:5px 12px;
+  font:600 12.5px Inter,system-ui;color:var(--ink);cursor:pointer;opacity:0;transition:opacity .12s}.cell.open:hover .addnew,.addnew:focus{opacity:1}
+body.dnd .addnew{display:none}
 .pvm{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);z-index:50;display:grid;place-items:center;padding:24px}
 .pvm[hidden]{display:none}
 .pvbox{display:flex;flex-direction:column;gap:12px;align-items:center;animation:pop .18s ease-out}
@@ -414,7 +420,8 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .rgm{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:50;display:grid;place-items:center;padding:24px}
 .rgm[hidden]{display:none}
 .rgbox{background:#fff;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px;min-width:300px;animation:pop .18s ease-out}
-.pop{display:inline-block}.tag.gen{background:#FEF3C7;color:#92400E;border-radius:999px}.fmtseg{margin-bottom:12px;flex-wrap:wrap}.rgbox.wide{width:min(560px,100%)}.rgbox textarea{min-height:130px}
+.pop{display:inline-block}.lvbars{display:flex;align-items:flex-end;gap:3px;height:120px;border-bottom:1px solid var(--rule)}
+.lvbars i{flex:1;background:#297cff;border-radius:3px 3px 0 0;min-height:2px}.lvbars i.e{background:var(--grey-bg);height:4px}.tag.gen{background:#FEF3C7;color:#92400E;border-radius:999px}.fmtseg{margin-bottom:12px;flex-wrap:wrap}.rgbox.wide{width:min(560px,100%)}.rgbox textarea{min-height:130px}
 .rgbox label{display:flex;flex-direction:column;gap:6px;font-size:13.5px;color:var(--ink3)}
 .rgbox input{border:1px solid var(--rule);border-radius:9px;padding:8px 10px;font-size:15px;color:var(--ink)}
 .chips{position:absolute;left:10px;top:10px;z-index:2;display:flex;gap:4px;align-items:center}
@@ -424,7 +431,7 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .cell .vo{font-size:9.5px;padding:2px 6px}
 .filt button{border:0;background:transparent;padding:6px 12px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--ink3);cursor:pointer;display:inline-flex;gap:6px;align-items:center}
 .filt button i{font-style:normal;font-size:11.5px;background:#E2E2E2;color:var(--ink2);border-radius:999px;padding:0 6px;min-width:18px;text-align:center}
-.filt button.on{background:var(--ink);color:#fff}.filt button.on i{background:var(--lime);color:var(--ink)}
+.filt button.on{background:#297cff;color:#fff}.filt button.on i{background:var(--lime);color:var(--ink)}
 .vid[hidden]{display:none}
 .cell.dim{opacity:.18;filter:grayscale(1);transition:opacity .2s}
 .tdo{font-size:14px;font-weight:600;color:var(--ink3);margin-left:6px}
@@ -627,7 +634,66 @@ def bar_chart(days: list[dict], key: str, key2: str | None = None, W: int = 960,
 
 
 # ── views over time ───────────────────────────────────────────────────────────
-GRANS = ("hour", "day", "month", "custom")
+GRANS = ("live", "hour", "day", "month", "custom")
+LIVE_EVERY = 60          # seconds between Instagram calls for the Live view (6 calls measured at 1 % of quota)
+LIVE_KEEP = 30           # minutes shown
+_LIVE: dict[tuple[str, str], list[tuple[float, int]]] = {}   # (client, slot or "") -> [(epoch, total views)]
+
+
+def live_views(client: str, slot: str | None) -> dict:
+    """Views right now (sum of live videos, or one video), sampled from Instagram at most once a
+    minute while someone has the Live view open. Each sample keeps per-video counts, so a video
+    going live adds no spike. Samples live in memory: a restart starts afresh."""
+    import threading
+    import time as _t
+    with _LIVE_LOCK.setdefault(client, threading.Lock()):
+        key = (client, slot or "")
+        pts = _LIVE.setdefault(key, [])
+        now_ = _t.time()
+        err = None
+        if not pts or now_ - pts[-1][0] >= LIVE_EVERY - 1:
+            db = DB.for_client(C.client_dir(client))
+            try:
+                rows = [db.post(slot)] if slot else [r for r in db.posts() if r["ig_media_id"]]
+                from ..publisher.graph import Graph
+                g = Graph(C.token(client))
+                per = {}
+                for r in rows:
+                    if r["ig_media_id"]:
+                        d = g.get(f"{r['ig_media_id']}/insights", metric="views")
+                        per[r["slot_id"]] = int(((d.get("data") or [{}])[0].get("values") or [{}])[0].get("value") or 0)
+                pts.append((now_, per))
+            except Exception as e:  # noqa: BLE001 — no token or network: say so, keep the samples
+                err = str(e)[:200]
+            finally:
+                db.close()
+        del pts[:-(LIVE_KEEP + 1)]
+        per_min = [{"t": int(b_[0]), "v": sum(max(0, n - a_[1][k]) for k, n in b_[1].items() if k in a_[1])}
+                   for a_, b_ in zip(pts, pts[1:])]
+        out = {"total": sum(pts[-1][1].values()) if pts else None, "points": per_min,
+               "since": int(pts[0][0]) if pts else None, "every": LIVE_EVERY}
+        if err:
+            out["error"] = err
+        return out
+
+
+_LIVE_LOCK: dict = {}
+
+
+def live_block(base_json: str) -> str:
+    return (f"<div class=live data-src='{ESC(base_json)}'><div class=row style='gap:28px;margin:6px 0 10px'>"
+            f"<div><span class=muted style='font-size:13.5px'>Views right now</span><p class=big id=lvtot style='font-size:22px;font-weight:800;margin:0'>…</p></div>"
+            f"<div><span class=muted style='font-size:13.5px'>New in the last 30 min</span><p class=big id=lvnew style='font-size:22px;font-weight:800;margin:0'>…</p></div>"
+            f"<span class='tag gen' id=lvdot>Live · every minute</span></div>"
+            f"<div class=lvbars id=lvbars></div><p class=hint id=lvnote>Collecting: one bar per minute while this page is open. "
+            f"Instagram's counter can lag a few minutes.</p>"
+            "<script>(()=>{const w=document.currentScript.parentElement,b=w.querySelector('#lvbars');"
+            "const draw=d=>{if(d.error){w.querySelector('#lvnote').textContent='Instagram did not answer: '+d.error;return}"
+            "w.querySelector('#lvtot').textContent=(d.total??'–').toLocaleString();"
+            "const s=d.points.reduce((a,p)=>a+p.v,0);w.querySelector('#lvnew').textContent=s.toLocaleString();"
+            "const pts=Array(30-d.points.length).fill(null).concat(d.points.slice(-30));const mx=Math.max(1,...d.points.map(p=>p.v));"
+            "b.innerHTML=pts.map(p=>p?`<i style='height:${Math.max(4,p.v/mx*100)}%' title='${new Date(p.t*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}: ${p.v}'></i>`:'<i class=e></i>').join('');};"
+            "const go=()=>fetch(w.dataset.src).then(r=>r.json()).then(draw).catch(()=>{});go();setInterval(go,60000);})();</script></div>")
 
 
 def _bucket(dt: datetime, g: str) -> datetime:
@@ -740,6 +806,13 @@ def prepare_button(client: str, week: str, label: str) -> str:
 
 def views_block(client: str, db: DB, slot: str | None, q: dict, base: str) -> str:
     g = q.get("g") if q.get("g") in GRANS else "day"
+    seg = "".join(f"<a href='{base}?g={x}#views' class='{'on' if g == x else ''}'>{x.capitalize()}</a>" if x != "custom" else
+                  f"<a href='#' data-range class='{'on' if g == x else ''}'>Custom</a>" for x in GRANS)
+    if g == "live":
+        src = f"/{quote(client)}/live.json" + (f"?slot={quote(slot)}" if slot else "")
+        return (f"<div id=views class=views><div class=row style='flex-wrap:wrap;gap:10px'><div><span class=muted style='font-size:13.5px'>"
+                f"Views, live</span></div><div class='seg sm'>{seg.replace(chr(39) + '#' + chr(39) + ' data-range', chr(39) + base + '?g=custom#views' + chr(39))}</div></div>"
+                f"{live_block(src)}</div>")
     eg, a, b = view_window(g, q.get("from"), q.get("to"))
     series = views_series(db, slot, eg, a, b)
     total = sum(v for _, v in series)
@@ -1036,7 +1109,10 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         player = seg + player
         if not is_fmt:
             player += ig_sync(client, slot)
-        player += (f"<div class=pctl><span>{formats_button(client, slot, fmts)}</span>{dls}"
+        m_ = meta_of(client, slot)
+        film_src = (m_.get("film") or {}).get("source")
+        can_fmt = not (m_.get("upload") and not (film_src and (ROOT / film_src).exists()))   # an upload until its first edit
+        player += (f"<div class=pctl><span>{formats_button(client, slot, fmts) if can_fmt else ''}</span>{dls}"
                    + ("" if is_fmt else "<label class=chk><input type=checkbox "
                       "onchange=\"document.getElementById('frame').classList.toggle('showui',this.checked)\">Show what Instagram covers</label>")
                    + "</div>")
@@ -1047,7 +1123,7 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         elif cls == "sched":
             when_line = f"<span class='tag sched'>Scheduled</span> &nbsp;{when(row['scheduled_at'])}"
         elif cls == "busy":
-            when_line = "<span class='tag busy'>Re-rendering</span>"
+            when_line = f"<span class='tag busy'>{ESC(label)}</span>"
         else:
             when_line = "<span class='tag need'>Needs approval</span>"
 
@@ -1056,20 +1132,24 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         if cls == "need" and st.get("state") == "failed":
             step = {"editing": "while editing the film", "rendering": "while rendering",
                     "finishing": "after rendering"}.get(st.get("step"), "before it started")
-            rerun = ("Renders again with the change already made." if st.get("step") in ("rendering", "finishing")
+            is_new = st.get("kind") == "new"
+            rerun = ("Tries again from where it stopped, with the same prompt." if is_new else
+                     "Renders again with the change already made." if st.get("step") in ("rendering", "finishing")
                      else "Runs the edit and the render again with the same notes.")
             blocks.append(
-                f"<section class='card errcard' id=error><h2>Re-render failed</h2>"
+                f"<section class='card errcard' id=error><h2>{'Making it failed' if is_new else 'Re-render failed'}</h2>"
                 f"<p class=hint>Failed {ESC(step)} {ESC(ago(st.get('failed_at') or st.get('updated_at')))}. "
-                + ("The new cut is in place (it failed after rendering), so you can approve it or send new notes.</p>"
+                + ("Nothing was made yet.</p>" if is_new and not (sdir / "video.mp4").exists() else
+                   "The new cut is in place (it failed after rendering), so you can approve it or send new notes.</p>"
                    if st.get("step") == "finishing" else
                    "The video here is still the previous cut, so you can approve it or send new notes.</p>")
-                + (f"<p class=hint><b>Your notes:</b> {ESC(st.get('notes') or '')}</p>" if st.get("notes") else "")
+                + (f"<p class=hint><b>{'Your prompt' if is_new else 'Your notes'}:</b> {ESC(st.get('notes') or '')}</p>" if st.get("notes") else "")
                 + f"<pre class=errlog>{ESC(st.get('error') or 'No error text.')}</pre>"
                 f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide'>"
                 f"<div class=btns><button class='btn pri' name=action value=retry>{icon('redo')}Re-run</button></div>"
                 f"<p class=hint>{rerun}</p></form></section>")
-        if cls == "need":
+        nothing_yet = st.get("kind") == "new" and not (sdir / "video.mp4").exists()
+        if cls == "need" and not nothing_yet:
             blocks.append(
                 f"<section class=card><h2>Your call</h2>"
                 f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' style='margin-top:16px'>"
@@ -1300,7 +1380,9 @@ def render_month(client: str, month: str | None, hl: str | None = None) -> bytes
                 if got:
                     cells.append(_cell(client, got[0][0], got[0][1], past, hl, mini=True, hm=hm))
                 elif not past:
-                    cells.append(f"<div class='cell mini open' data-at='{slot_dt.isoformat(timespec='seconds')}' title='Open slot {hm}'>{hm}</div>")
+                    iso_ = slot_dt.isoformat(timespec='seconds')
+                    add_ = f" data-add='{iso_}'" if hm in times else ""
+                    cells.append(f"<div class='cell mini open' data-at='{iso_}'{add_} title='Open slot {hm}'>{hm}</div>")
             out = " out" if day.month != first.month else ""
             tod = " today" if day == today else ""
             drop = f" data-day='{day.isoformat()}'" if day >= today else ""
@@ -1310,7 +1392,7 @@ def render_month(client: str, month: str | None, hl: str | None = None) -> bytes
         head = _cal_head(client, "month", first.strftime("%B %Y"), f"view=month&m={prv_m:%Y-%m}", f"view=month&m={today:%Y-%m}",
                          f"view=month&m={nxt_m:%Y-%m}", label=first.strftime("%b %Y"))
         body = (header(client, "Calendar") + f"<section class=card>{head}{''.join(g)}</section>"
-                f"<div class=toast id=toast></div><script>{CAL_JS.replace('__C__', quote(client))}</script>")
+                f"<div class=toast id=toast></div><script>{CAL_JS.replace('__C__', quote(client))}</script>{add_new_box(client)}")
         return shell(client, "calendar", body, "Calendar")
     finally:
         db.close()
@@ -1352,7 +1434,40 @@ def delete_card(client: str, slot: str, title: str) -> str:
            f"<p class=muted style='margin:0;max-width:380px'>&ldquo;{ESC(title)}&rdquo; leaves the plan, the calendar and the dashboard. "
            f"Its files move to clients/{ESC(client)}/trash, so they can be recovered by hand.</p>"
            f"<div class=btns><button class='btn danger small'>Delete</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>")
-    return popup(f"<button type=button class=linkbtn data-open>Delete video</button>", box)
+    return popup(f"<button type=button class='btn sec small dangerline' data-open>{icon('x', 15)}Delete video</button>", box)
+
+
+def add_new_box(client: str) -> str:
+    """Calendar: one popup for every open slot's Add new: upload a video, or describe one."""
+    c = ESC(quote(client))
+    return (f"<div class=rgm id=addnew hidden><div class='rgbox wide'>"
+            f"<h2>Add a video <span class=muted id=addat style='font-weight:500;font-size:15px'></span></h2>"
+            f"<div class='seg sm' id=addtabs><a href='#' data-tab=up class=on>Upload</a><a href='#' data-tab=gen>Generate</a></div>"
+            f"<form id=addup data-c='{c}'><label>Your video<input type=file name=file accept='video/*' required></label>"
+            f"<p class=hint style='margin:0'>Fitted to 9:16 and kept on this computer (not in git). It keeps its own sound until you pick a track; "
+            f"your first edit note turns it into an editable film.</p>"
+            f"<div class=btns><button class='btn pri small'>Upload</button><button type=button class='btn sec small' data-close>Cancel</button>"
+            f"<span class=muted id=addprog></span></div></form>"
+            f"<form id=addgen method=post action='/{c}/new' hidden><input type=hidden name=at>"
+            f"<label>What should the video be?<textarea name=prompt rows=6 required "
+            f"placeholder='e.g. A light, airy reel on the swell chart: the particles rising behind the phone, ending on rosa.surf'></textarea></label>"
+            f"<p class=hint style='margin:0'>Claude plans it from this, then makes it like a week video. A few minutes; it lands in Needs approval.</p>"
+            f"<div class=btns><button class='btn pri small'>Generate</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>"
+            f"</div></div><script>{ADD_JS}</script>")
+
+
+ADD_JS = """(()=>{const m=document.getElementById('addnew');if(!m)return;const up=document.getElementById('addup'),gen=document.getElementById('addgen'),
+prog=document.getElementById('addprog');let at='';
+const open=a=>{at=a;gen.at.value=a;const d=new Date(a);document.getElementById('addat').textContent=d.toLocaleString(undefined,
+{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'UTC'})+' UTC';prog.textContent='';m.hidden=false;};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-add]');if(b&&!document.body.classList.contains('dnd')){e.preventDefault();open(b.dataset.add);}});
+m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-close]'))m.hidden=true;});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')m.hidden=true;});
+document.querySelectorAll('#addtabs a').forEach(t=>t.addEventListener('click',e=>{e.preventDefault();
+document.querySelectorAll('#addtabs a').forEach(x=>x.classList.toggle('on',x===t));up.hidden=t.dataset.tab!=='up';gen.hidden=t.dataset.tab!=='gen';}));
+up.addEventListener('submit',async e=>{e.preventDefault();const f=up.file.files[0];if(!f)return;prog.textContent='Uploading…';
+const r=await fetch(`/${up.dataset.c}/new/upload?at=${encodeURIComponent(at)}&name=${encodeURIComponent(f.name)}`,{method:'POST',body:f});
+if(r.ok){location.href=r.url}else{prog.textContent=await r.text()}});})();"""
 
 
 def unslotted(client: str, db: DB) -> list[str]:
@@ -1410,14 +1525,17 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
                     g.append(_cell(client, items[0][0], items[0][1], past, hl))
                 else:
                     drop = "" if past else f" data-at='{iso}'"
-                    g.append(f"<div class='cell open{' past' if past else ''}'{drop}>{'' if past else 'Open slot'}</div>")
+                    g.append(f"<div class='cell open{' past' if past else ''}'{drop}>"
+                             + ("" if past else "<span>Open slot</span>" + (f"<button type=button class=addnew data-add='{iso}'>+ Add new</button>"
+                                                                           if hm in times else ""))
+                             + "</div>")
         g.append("</div>")
         st = W.status(client, week)
         note = ""
         if week == W.next_week() and not st:
             note = f"<div style='margin-top:20px'>{prepare_button(client, week, 'Prepare this week')}</div>"
         body = (header(client, "Calendar") + f"<section class=card>{head}{''.join(g)}{note}</section>"
-                f"<div class=toast id=toast></div><script>{CAL_JS.replace('__C__', quote(client))}</script>")
+                f"<div class=toast id=toast></div><script>{CAL_JS.replace('__C__', quote(client))}</script>{add_new_box(client)}")
         return shell(client, "calendar", body, "Calendar")
     finally:
         db.close()
@@ -1594,6 +1712,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, render_calendar(name, q.get("w"), q.get("hl")))
             if parts[1] == "settings" and len(parts) == 2:
                 return self._send(200, render_settings(name))
+            if len(parts) == 2 and parts[1] == "live.json":
+                body = json.dumps(live_views(name, q.get("slot") or None)).encode()
+                return self._send(200, body, "application/json")
             if parts[1] == "v" and len(parts) == 3:
                 return self._send(200, render_video(name, parts[2], q.get("as") if q.get("as") in ("story", *F.RATIOS) else "reel",
                                                     q.get("music") or "file", q.get("q") or "", q))
@@ -1621,8 +1742,51 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             pass
 
+    UPLOAD_MAX = 2 * 1024 ** 3
+
+    def _upload(self, name: str):
+        """Calendar → Add new → Upload: the file is the raw request body (streamed to disk)."""
+        import tempfile
+        q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return self._send(400, b"bad Content-Length", "text/plain")
+        if not length or length > self.UPLOAD_MAX:
+            return self._send(413 if length else 400, b"empty or too large (2 GB max)", "text/plain")
+        try:
+            C.client_dir(name)
+        except KeyError:
+            return self._send(404, b"not found", "text/plain")
+        fd, tmp_ = tempfile.mkstemp(suffix=Path(q.get("name") or "x.mp4").suffix or ".mp4")
+        os.close(fd)
+        tmp = Path(tmp_)
+        try:
+            with tmp.open("wb") as f:
+                left = length
+                while left:
+                    chunk = self.rfile.read(min(1 << 20, left))
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    left -= len(chunk)
+            if left:
+                return self._send(400, b"the upload was cut off: try again", "text/plain")
+            slot = M.add_upload(name, q.get("at") or "", tmp, q.get("name") or "upload.mp4")
+            return self._redirect(f"/{quote(name)}/v/{quote(slot)}")
+        except (ValueError, RuntimeError) as e:
+            return self._send(400, str(e).encode(), "text/plain")
+        except KeyError:
+            return self._send(404, b"not found", "text/plain")
+        except (OSError, subprocess.TimeoutExpired) as e:   # ffmpeg missing, disk full, a stuck encode
+            return self._send(500, f"could not take the upload: {e}".encode(), "text/plain")
+        finally:
+            tmp.unlink(missing_ok=True)
+
     def do_POST(self):
         parts = [p for p in urlparse(self.path).path.split("/") if p]
+        if len(parts) == 3 and parts[1:] == ["new", "upload"]:
+            return self._upload(parts[0])
         length = int(self.headers.get("Content-Length") or 0)
         self._multi = parse_qs(self.rfile.read(length).decode(), keep_blank_values=True)
         form = {k: v[0] for k, v in self._multi.items()}
@@ -1705,6 +1869,12 @@ class Handler(BaseHTTPRequestHandler):
                     C.set_value(name, "week_prep", {"auto": form.get("value") == "1", "day": ws["day"]})
                 return self._redirect(f"/{quote(name)}")
             # /<c>/v/<slot>/decide (dashboard) or /<c>/decide with slot= (older form)
+            if parts[1] == "new" and len(parts) == 2:
+                try:
+                    slot = M.add_prompt(name, form.get("at") or "", form.get("prompt") or "")
+                except ValueError as e:
+                    return self._send(400, str(e).encode(), "text/plain")
+                return self._redirect(f"/{quote(name)}/v/{quote(slot)}")
             if parts[1] == "v" and len(parts) == 4 and parts[3] == "formats":
                 db = DB.for_client(d)
                 try:
@@ -1731,7 +1901,10 @@ class Handler(BaseHTTPRequestHandler):
             db = DB.for_client(d)
             try:
                 R.settle(db, name, slot)   # a failed re-render must not block approve / new notes
-                if form.get("action") == "retry":
+                if form.get("action") == "retry" and (R.status(name, slot) or {}).get("kind") == "new":
+                    if (R.status(name, slot) or {}).get("state") == "failed":
+                        M.start(name, slot)
+                elif form.get("action") == "retry":
                     try:
                         R.retry(name, slot, db)
                     except OSError:

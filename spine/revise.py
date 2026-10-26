@@ -59,7 +59,7 @@ def start(client: str, slot: str, notes: str) -> None:
     rounds = prev.get("rounds", [])
     rounds.append({"notes": notes, "at": now()})
     _write_status(client, slot, state="running", step="queued", notes=notes, rounds=rounds, error=None,
-                  skip_edit=False, changes=None)
+                  skip_edit=False, changes=None, kind=None)
     _spawn(client, slot)
 
 
@@ -104,8 +104,23 @@ def retry(client: str, slot: str, db: DB) -> bool:
     return True
 
 
+def _upload_intro(slot_dir: Path, film: dict) -> str:
+    """An uploaded video has no film yet: the first edit builds one on the upload."""
+    meta = json.loads((slot_dir / "meta.json").read_text())
+    if not meta.get("upload") or (ROOT / film["source"]).exists():
+        return ""
+    return f"""
+This video was uploaded by hand and has no film yet. First create {film['source']}: it exports
+`export const SECONDS = {meta.get('duration_s') or 10};` and `export default` a component
+`({{ variant }}: {{ variant: Variant }}) => ...` that plays staticFile("{meta['upload']}") full frame
+(OffthreadVideo, objectFit cover, muted: the soundtrack is mixed in afterwards) for the whole
+duration. Study engines/remotion/src/lib.tsx and one film in engines/remotion/src/films first and
+use the same language for anything you add. Then apply the notes on top of it.
+"""
+
+
 def _prompt(client: str, slot: str, film: dict, notes: str, slot_dir: Path) -> str:
-    return f"""You are revising one Instagram reel for the client "{client}" (slot {slot}).
+    return f"""You are revising one Instagram reel for the client "{client}" (slot {slot}).{_upload_intro(slot_dir, film)}
 The operator rejected the current cut with these notes:
 
 ---
@@ -134,6 +149,29 @@ def _edit(client: str, slot: str, film: dict, notes: str, slot_dir: Path) -> str
     return r.stdout.strip()
 
 
+def _register_if_new(film: dict) -> None:
+    """A film created by the edit (an upload's first one) must be registered before rendering."""
+    import fcntl
+    from . import week as W
+    if not (ROOT / film["source"]).exists():
+        return
+    with open(W.FILMS / ".formats.lock", "w") as lk:   # the same lock the format layouts take
+        fcntl.flock(lk, fcntl.LOCK_EX)
+        if f'"./{film["reel"]}"' in (W.FILMS / "index.ts").read_text():
+            return
+        before = (W.FILMS / "index.ts").read_text()
+        W.register(film["reel"])
+        try:
+            r = subprocess.run(["npx", "tsc", "--noEmit", "-p", "."], cwd=REMOTION, capture_output=True, text=True, timeout=300)
+            ok, out = r.returncode == 0, r.stdout
+        except subprocess.TimeoutExpired:
+            ok, out = False, "type check timed out"
+        if not ok:
+            (W.FILMS / "index.ts").write_text(before)
+            (ROOT / film["source"]).unlink(missing_ok=True)   # a fresh start next time (an upload's first film)
+            raise RuntimeError(f"the film does not typecheck: {out[-300:]}")
+
+
 def _run(cmd: list[str], cwd: Path = ROOT) -> None:
     r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     if r.returncode != 0:
@@ -152,6 +190,8 @@ def render(client: str, slot: str) -> dict:
     meta = json.loads((slot_dir / "meta.json").read_text())
     film = meta["film"]
     music = ROOT / film["music"] if film.get("music") else None
+    if not music and meta.get("upload"):   # a film built on an upload keeps the upload's own sound
+        music = REMOTION / "public" / meta["upload"]
     tmp = slot_dir / ".render"
     tmp.mkdir(exist_ok=True)
     out = {}
@@ -161,7 +201,7 @@ def render(client: str, slot: str) -> dict:
         dst = tmp / f"{variant}-final.mp4"
         d = _duration(raw)
         if music:
-            _run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-i", str(music), "-map", "0:v", "-map", "1:a",
+            _run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-i", str(music), "-map", "0:v", "-map", "1:a?",
                   "-c:v", "copy", "-c:a", "aac", "-b:a", "128k", "-ar", "48000",
                   "-af", f"afade=t=out:st={max(0.0, d - 1.5):.2f}:d=1.5", "-shortest",
                   "-map_metadata", "-1", "-movflags", "+faststart", str(dst)])
@@ -225,6 +265,7 @@ def run(client: str, slot: str) -> int:
         else:
             _write_status(client, slot, step="editing")
             changes = _edit(client, slot, film, notes, slot_dir) if notes else None
+            _register_if_new(film)
         _write_status(client, slot, step="rendering", changes=changes)
         verdicts = render(client, slot)
         _write_status(client, slot, step="finishing")   # the new cut is in place from here on

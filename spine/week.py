@@ -150,7 +150,7 @@ and {c}/reports/ and {c}/lessons.yaml if they exist (what worked).
 Week {week} has {len(times)} publishing slots (UTC):
 {chr(10).join('- ' + t for t in times)}
 
-Write {out.relative_to(ROOT)} as YAML, exactly this shape, one item per slot in that order:
+Write {out.relative_to(ROOT) if out.is_relative_to(ROOT) else out} as YAML, exactly this shape, one item per slot in that order:
 
 week: {week}
 items:
@@ -202,47 +202,67 @@ def film_id(slot: str) -> str:
     return f"film-{slot}"
 
 
+def _ours(d: Path, slot: str, plan: str) -> bool:
+    """True if the slot id is free, or already holds this plan's item (a resumed run)."""
+    m = d / "posts" / slot / "meta.json"
+    return not m.exists() or json.loads(m.read_text()).get("plan") == plan
+
+
+def write_item(client: str, db: DB, slot: str, it: dict, i: int, plan: str, n_vo: int = 0) -> int:
+    """One plan item → posts/<slot>/ (caption, brief, meta with film + track) and a BRIEFED post.
+    Returns the voice-over count so far (voices rotate across a batch)."""
+    d = C.client_dir(client)
+    from . import tracks as T
+    lib = [t for t in T.list_tracks(client) if t["source"] == "file"]
+    m = re.search(r"-W(\d+)", plan)
+    start = int(m[1]) if (lib and m) else 0   # shift the rotation week to week
+    sd = d / "posts" / slot
+    sd.mkdir(parents=True, exist_ok=True)
+    (sd / "caption.txt").write_text(it["caption"].strip() + "\n")
+    (sd / "brief.md").write_text(f"# {it['title']}\n\nHook: {it['hook']}\n\n{it['brief'].strip()}\n")
+    fid = film_id(slot)
+    tr = lib[(start + i) % len(lib)] if lib else None   # neighbours never share a track
+    meta = {"slot_id": slot, "title": it["title"], "pillar": it.get("pillar"), "angle": it["brief"].strip(),
+            "hook_formula": it["hook"], "cta": "link in bio (rosa.surf on the end card)",
+            "audio_type": f"{tr['title']} ({tr['artist']}), baked in" if tr else "Pixabay 'Old Steel', baked in", "engine": "remotion 4 (engines/remotion)",
+            "film": {"engine": "remotion", "reel": fid, "story": f"{fid}-story",
+                     "source": f"engines/remotion/src/films/{fid}.tsx",
+                     "music": tr["path"] if tr else MUSIC.format(c=client)},
+            "track": tr["id"] if tr else None,
+            "trial": False, "share_to_feed": True, "thumb_offset": 1200, "story": True,
+            "landing": "https://rosa.surf/",
+            "bio_link_while_live": f"https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign={slot}",
+            "plan": plan, "theme": it.get("theme") if it.get("theme") in ("light", "dark") else ("light" if i % 2 == 0 else "dark")}
+    if str(it.get("voiceover") or "").strip():
+        from . import voice as V
+        meta["voiceover_script"] = " ".join(str(it["voiceover"]).split())
+        meta["voiceover_voice"] = V.rotate(client, n_vo)   # different voices across the week
+        n_vo += 1
+    (sd / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n")
+    try:
+        db.post(slot)
+    except KeyError:
+        db.create_post(slot, client, scheduled_at=it["at"], pillar=it.get("pillar"), angle=it["title"],
+                       hook_formula=it["hook"], engine="remotion")
+    if db.post(slot)["state"] == "IDEA":
+        db.set_state(slot, "BRIEFED")
+    return n_vo
+
+
 def make_slots(client: str, week: str, items: list[dict]) -> list[str]:
     d = C.client_dir(client)
     db = DB.for_client(d)
     prefix = week.lower()
     slots = []
     n_vo = 0
-    from . import tracks as T
-    lib = [t for t in T.list_tracks(client) if t["source"] == "file"]
-    start = int(week.split("-W")[1]) if lib else 0   # shift the rotation week to week
+    n = 0
     try:
         for i, it in enumerate(items, 1):
-            slot = f"{prefix}-{i:02d}"
-            sd = d / "posts" / slot
-            sd.mkdir(parents=True, exist_ok=True)
-            (sd / "caption.txt").write_text(it["caption"].strip() + "\n")
-            (sd / "brief.md").write_text(f"# {it['title']}\n\nHook: {it['hook']}\n\n{it['brief'].strip()}\n")
-            fid = film_id(slot)
-            tr = lib[(start + i) % len(lib)] if lib else None   # neighbours never share a track
-            meta = {"slot_id": slot, "title": it["title"], "pillar": it.get("pillar"), "angle": it["brief"].strip(),
-                    "hook_formula": it["hook"], "cta": "link in bio (rosa.surf on the end card)",
-                    "audio_type": f"{tr['title']} ({tr['artist']}), baked in" if tr else "Pixabay 'Old Steel', baked in", "engine": "remotion 4 (engines/remotion)",
-                    "film": {"engine": "remotion", "reel": fid, "story": f"{fid}-story",
-                             "source": f"engines/remotion/src/films/{fid}.tsx",
-                             "music": tr["path"] if tr else MUSIC.format(c=client)},
-                    "track": tr["id"] if tr else None,
-                    "trial": False, "share_to_feed": True, "thumb_offset": 1200, "story": True,
-                    "landing": "https://rosa.surf/",
-                    "bio_link_while_live": f"https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign={slot}",
-                    "plan": week, "theme": it.get("theme") if it.get("theme") in ("light", "dark") else ("light" if i % 2 == 0 else "dark")}
-            if str(it.get("voiceover") or "").strip():
-                from . import voice as V
-                meta["voiceover_script"] = " ".join(str(it["voiceover"]).split())
-                meta["voiceover_voice"] = V.rotate(client, n_vo)   # different voices across the week
-                n_vo += 1
-            (sd / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n")
-            try:
-                db.post(slot)
-            except KeyError:
-                db.create_post(slot, client, scheduled_at=it["at"], pillar=it.get("pillar"), angle=it["title"],
-                               hook_formula=it["hook"], engine="remotion")
-                db.set_state(slot, "BRIEFED")
+            n += 1
+            while not _ours(d, f"{prefix}-{n:02d}", week):   # skip ids taken by videos added by hand
+                n += 1
+            slot = f"{prefix}-{n:02d}"
+            n_vo = write_item(client, db, slot, it, i, week, n_vo)
             slots.append(slot)
     finally:
         db.close()

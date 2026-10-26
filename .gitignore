@@ -49,3 +49,5 @@ clients/*/posts/*/formats.lock
 clients/*/posts/*/formats.json
 clients/*/posts/*/formats.log
 clients/*/trash/
+engines/remotion/public/uploads/
+clients/*/.add.lock
