@@ -1,8 +1,22 @@
-# QA · 2026-w44-11 · 2026-10-25T20:12:41+00:00
+# QA · 2026-w44-11 · 2026-10-26T18:52:23+00:00
+
+## Operator notes
+
+Add the particles animation we use in the Rosa app loading screen. Keep the exact animation we use in the app itself, particles rising up and fading away as they rise
 
 ## Changes
 
-Small print removed (decision 16).
+I added the particles, but I couldn't check them: the permission settings blocked both `npx tsc` and `npx remotion still`. The code is not type-checked and I haven't looked at a frame.
+
+- `engines/remotion/src/films/film-2026-w44-11.tsx`: added the app's loading-screen particle effect, ported from `rosa/web` (`particles.ts` with the loading screen's settings from `main.tsx`). Specks rise from the bottom and fade as they climb, across the bottom 1150 px, for the whole film.
+- It's the same code film w44-14 already uses. The only change is a renamed constant (`PBAND`), because this film already has a `BAND`.
+- I left out the loading screen's coloured background glow, because the note only asked for the particles.
+
+To check it, run these in `engines/remotion`:
+```
+npx tsc --noEmit -p .
+npx remotion still src/index.ts film-2026-w44-11 /tmp/x.png --frame=200
+```
 
 ## Safe zones
 

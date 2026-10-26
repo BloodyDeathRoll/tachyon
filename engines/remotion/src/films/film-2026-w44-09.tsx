@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Img, staticFile } from "remotion";
+import { AbsoluteFill, Img, random, staticFile } from "remotion";
 import { C, Credit, Eyebrow, Footage, H1, Phone, SAFE, Screen, Sub, Variant, font, inOut, lerp, outBack, outExpo, rise, seg, useInter, useT, win } from "../lib";
 
 /*
@@ -27,6 +27,44 @@ const Ring: React.FC<{ b: { x: number; y: number; w: number; h: number }; color:
   <div style={{ position: "absolute", left: b.x - 3, top: b.y - 3, width: b.w + 6, height: b.h + 6, borderRadius: radius, border: `2px solid ${color}`,
     boxShadow: `0 0 14px ${color}`, opacity: o, transform: `scale(${s})` }} />
 );
+
+// Rosa loading-screen particles, ported 1:1 from rosa/web particles.ts with the splash's options (main.tsx
+// splashParticles: density 1.4, alpha 0.3, two-tone palette) on the splash's 460 px bottom band, screen-blended:
+// specks rise off the bottom and fade as they climb. Pure function of t: each speck loops its own life with
+// fresh seeded values per cycle. App px (430 wide phone) scaled by PS.
+const PS = 2.5, PBAND = { h: 460 * PS }, ALPHA = 0.3;
+const PALETTE = ["125, 185, 240", "94, 205, 205"];
+const N = Math.round(((1080 / PS) * (PBAND.h / PS)) / 11000 * 1.4);
+const SPECKS = Array.from({ length: N }, (_, i) => ({ i, life: 4 * (0.8 + 0.4 * random(`sl${i}`)), off: random(`so${i}`) * 4 }));
+const speck = (i: number, k: number, age: number, life: number) => {
+  const r = (s: string) => random(`s${s}${i}-${k}`);
+  const depth = Math.pow(r("d"), 0.85), rad = (0.5 + depth * 2.7) * PS, bucket = Math.round((1 - depth) * 4.5);
+  const vy = (0.24 + depth * 1.4) * 60 * PS, vx = (r("v") - 0.5) * (0.05 + depth * 0.28) * 60 * PS;
+  const ph = r("p") * 6.28, ws = (0.004 + r("w") * 0.012) * 60, wa = (0.05 + depth * 0.4) * 60 * PS;
+  const x = r("x") * 1080 + vx * age + (wa / ws) * (Math.cos(ph) - Math.cos(ph + ws * age));
+  const y = PBAND.h + r("y") * 30 * PS - vy * age;
+  const lf = age / life, env = lf < 0.15 ? lf / 0.15 : lf > 0.7 ? (1 - lf) / 0.3 : 1;
+  const tw = 0.75 + 0.25 * Math.sin(r("t") * 6.28 + (0.008 + r("s") * 0.025) * 60 * age);
+  const fadeIn = Math.min(1, (PBAND.h - y) / (80 * PS)), fadeOut = Math.min(1, Math.max(0, y) / (PBAND.h * 0.55));
+  const a = (0.22 + depth * 0.7) * ALPHA * fadeIn * fadeOut * tw * env;
+  return { x, y, depth, rad, bucket, a: Math.max(0, Math.min(1, a)), color: PALETTE[Math.floor(r("c") * PALETTE.length)] };
+};
+const Particles: React.FC<{ t: number; o: number }> = ({ t, o }) => {
+  const ps = SPECKS.map(({ i, life, off }) => {
+    const k = Math.floor((t + off) / life);
+    return { i, ...speck(i, k, t + off - k * life, life) };
+  }).filter((p) => p.a > 0.002).sort((a, b) => a.depth - b.depth);
+  const dot = (p: (typeof ps)[number], rad: number, blur: number, a: number, key: string) => (
+    <div key={key} style={{ position: "absolute", left: p.x - rad, top: p.y - rad, width: rad * 2, height: rad * 2, borderRadius: "50%",
+      background: `rgb(${p.color})`, opacity: a, filter: blur ? `blur(${blur * PS}px)` : undefined }} />
+  );
+  return (
+    <div style={{ position: "absolute", left: 0, bottom: 0, width: 1080, height: PBAND.h, opacity: o, overflow: "hidden", pointerEvents: "none", mixBlendMode: "screen" }}>
+      {ps.filter((p) => p.bucket === 0 && p.rad > 1.4 * PS).map((p) => dot(p, p.rad * 2.6, 8, p.a * 0.55, `g${p.i}`))}
+      {ps.map((p) => dot(p, p.rad, p.bucket, p.a, `d${p.i}`))}
+    </div>
+  );
+};
 
 const Film: React.FC<{ variant: Variant }> = ({ variant }) => {
   useInter();
@@ -61,6 +99,8 @@ const Film: React.FC<{ variant: Variant }> = ({ variant }) => {
       {/* footage bed behind the phone, then the dark panel takes over */}
       <Footage src="footage/218670_large.mp4" from={T.phone - 0.3} to={T.map + 0.6} startFrom={2} dark={0.62} zoom={0.1} />
       <AbsoluteFill style={{ background: "radial-gradient(900px 1100px at 50% 35%, #07203a 0%, #03101f 50%, #000 100%)", opacity: win(t, T.map - 0.2, T.end - 0.2, 0.8, 0.7) }} />
+      {/* the app's loading-screen particles on the empty dark bottom: under the hook card, then the dark panel */}
+      <Particles t={t} o={Math.max(win(t, 0, T.phone - 0.1, 0.6, 0.5), win(t, T.map - 0.2, T.end - 0.2, 0.8, 0.7))} />
       <Footage src="footage/310248_large.mp4" from={T.end - 0.6} to={T.out} startFrom={3} dark={0.5} zoom={0.1} fadeIn={1.0} />
 
       {/* hook on a black card */}

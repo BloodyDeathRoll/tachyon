@@ -1,5 +1,5 @@
 import React from "react";
-import { AbsoluteFill, Img, staticFile } from "remotion";
+import { AbsoluteFill, Img, random, staticFile } from "remotion";
 import { C, Credit, Eyebrow, Footage, H1, Phone, SAFE, Screen, Sub, Variant, font, inOut, lerp, outBack, outExpo, rise, seg, useInter, useT, win } from "../lib";
 
 /*
@@ -20,6 +20,47 @@ const PLAY = { x: 50, y: 738, r: 16 };
 const LINE = { x0: 78, x1: 366, y: 728 };
 const DAYS = [["Sun", 88], ["Mon", 129], ["Tue", 171], ["Wed", 211], ["Thu", 252], ["Fri", 293], ["Sat", 334]] as const;
 const DAY_Y = 752;
+
+// Rosa particles: the app's bottom treatment (rosa/web BottomGlow.tsx + particles.ts, dark theme),
+// a two-tone mesh with specks rising and fading. Made a pure function of t: each speck loops its own
+// life, respawning with fresh seeded values per cycle. App px (430 wide phone) scaled by PS.
+const PS = 2.5, BAND = { top: 1280, h: 640 };
+const PALETTE = ["125, 185, 240", "94, 205, 205"];
+const SPECKS = Array.from({ length: 32 }, (_, i) => ({ i, life: 4 * (0.8 + 0.4 * random(`ql${i}`)), off: random(`qo${i}`) * 4 }));
+const speck = (i: number, k: number, age: number, life: number) => {
+  const r = (s: string) => random(`q${s}${i}-${k}`);
+  const depth = Math.pow(r("d"), 0.85), rad = (0.5 + depth * 2.7) * PS, bucket = Math.round((1 - depth) * 4.5);
+  const vy = (0.24 + depth * 1.4) * 60 * PS, vx = (r("v") - 0.5) * (0.05 + depth * 0.28) * 60 * PS;
+  const ph = r("p") * 6.28, ws = (0.004 + r("w") * 0.012) * 60, wa = (0.05 + depth * 0.4) * 60 * PS;
+  const x = r("x") * 1080 + vx * age + (wa / ws) * (Math.cos(ph) - Math.cos(ph + ws * age));
+  const y = BAND.h + r("y") * 30 * PS - vy * age;
+  const lf = age / life, env = lf < 0.15 ? lf / 0.15 : lf > 0.7 ? (1 - lf) / 0.3 : 1;
+  const tw = 0.75 + 0.25 * Math.sin(r("t") * 6.28 + (0.008 + r("s") * 0.025) * 60 * age);
+  const a = (0.22 + depth * 0.7) * 0.35 * Math.min(1, (BAND.h - y) / (80 * PS)) * Math.min(1, Math.max(0, y) / (BAND.h * 0.55)) * tw * env;
+  return { x, y, rad, bucket, a: Math.max(0, Math.min(1, a)), color: PALETTE[Math.floor(r("c") * PALETTE.length)] };
+};
+const RosaParticles: React.FC<{ t: number; o: number }> = ({ t, o }) => (
+  <div style={{ position: "absolute", left: 0, top: BAND.top, width: 1080, height: BAND.h, opacity: o, overflow: "hidden", pointerEvents: "none" }}>
+    <div style={{ position: "absolute", inset: 0, background:
+      "radial-gradient(95% 100% at 18% 130%, rgba(3,42,250,.55) 0%, transparent 72%), radial-gradient(85% 90% at 82% 120%, rgba(36,177,97,.40) 0%, transparent 70%), linear-gradient(180deg, transparent 0%, rgba(3,42,250,.12) 100%)" }} />
+    <div style={{ position: "absolute", inset: 0, mixBlendMode: "screen" }}>
+      {SPECKS.map(({ i, life, off }) => {
+        const k = Math.floor((t + off) / life), p = speck(i, k, t + off - k * life, life);
+        if (p.a <= 0.002) return null;
+        const dot = (rad: number, blur: number, a: number, key: string) => (
+          <div key={key} style={{ position: "absolute", left: p.x - rad, top: p.y - rad, width: rad * 2, height: rad * 2, borderRadius: "50%",
+            background: `rgb(${p.color})`, opacity: a, filter: blur ? `blur(${blur * PS}px)` : undefined }} />
+        );
+        return (
+          <React.Fragment key={i}>
+            {p.bucket === 0 && p.rad > 1.4 * PS && dot(p.rad * 2.6, 8, p.a * 0.55, "g")}
+            {dot(p.rad, p.bucket, p.a, "d")}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  </div>
+);
 
 const Film: React.FC<{ variant: Variant }> = ({ variant }) => {
   useInter();
@@ -63,6 +104,7 @@ const Film: React.FC<{ variant: Variant }> = ({ variant }) => {
     <AbsoluteFill style={{ background: C.page, overflow: "hidden" }}>
       <Footage src="footage/310248_large.mp4" from={0} to={T.phone + 1.0} startFrom={0} dark={0.4} zoom={0.1} />
       <AbsoluteFill style={{ background: "radial-gradient(900px 1100px at 50% 35%, #07203a 0%, #03101f 50%, #000 100%)", opacity: win(t, T.phone + 0.2, T.end - 0.2, 0.8, 0.7) }} />
+      <RosaParticles t={t} o={win(t, T.phone + 0.2, T.end - 0.2, 0.8, 0.7)} />
       <Footage src="footage/310248_large.mp4" from={T.end - 0.6} to={T.out} startFrom={5} dark={0.5} zoom={0.1} fadeIn={1.0} />
 
       {/* hook */}

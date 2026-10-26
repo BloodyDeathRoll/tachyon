@@ -5,14 +5,14 @@
   "angle": "Open on Pixabay surfer footage (1306-145340152_medium.mp4) with the hook. The phone tilts in showing spot-uluwatu-full.png and scrolls down the hourly table in 3-hour steps, pausing on the green \"Best session\" tag. Keep scrolling to the tide curve and first light / sunset row. End card: logo, \"rosa.surf/spot/uluwatu\", \"Footage: Pixabay\".",
   "hook_formula": "Uluwatu, hour by hour.",
   "cta": "link in bio (rosa.surf on the end card)",
-  "audio_type": "Surf Rock (Abydos_Music), file",
+  "audio_type": "Upbeat Lounge (AtlasAudio), file",
   "engine": "remotion 4 (engines/remotion)",
   "film": {
     "engine": "remotion",
     "reel": "film-2026-w44-04",
     "story": "film-2026-w44-04-story",
     "source": "engines/remotion/src/films/film-2026-w44-04.tsx",
-    "music": "clients/rosa/assets/music/surf-rock-204622.mp3"
+    "music": "clients/rosa/assets/music/upbeat-lounge-613342.mp3"
   },
   "trial": false,
   "share_to_feed": true,
@@ -23,5 +23,5 @@
   "plan": "2026-W44",
   "duration_s": 12.05,
   "theme": "light",
-  "track": "surf-rock-abydos"
+  "track": "upbeat-lounge"
 }

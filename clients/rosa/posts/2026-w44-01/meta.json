@@ -5,7 +5,7 @@
   "angle": "Open on Pixabay surf footage (218670_large.mp4) with the hook, then the phone swings in showing spot-pipeline.png. Push in on the green Good badge. The Size, Period and Wind bars light up one at a time; Size and Period run long, the Wind bar stops short and a card reads \"wind can only polish\". End card: logo, \"rosa.surf, link in bio\", \"Footage: Pixabay\".",
   "hook_formula": "Why Good and not Epic?",
   "cta": "link in bio (rosa.surf on the end card)",
-  "audio_type": "Surf Rock Summer (BFCMUSIC), file",
+  "audio_type": "Summer Somewhere (The Poison Oaks), instagram",
   "engine": "remotion 4 (engines/remotion)",
   "film": {
     "engine": "remotion",
@@ -30,6 +30,24 @@
     "file": "vo.wav",
     "engine": "dia-1.6b (Nari Labs, Apache-2.0), local GPU"
   },
-  "track": "surf-rock-summer",
-  "theme": "dark"
+  "track": "ig:692974534579513",
+  "theme": "dark",
+  "replies": {
+    "custom": false,
+    "comments": true,
+    "dm": true
+  },
+  "audio_configuration": {
+    "audio_id": "692974534579513",
+    "audio_volume": 30,
+    "video_volume": 100
+  },
+  "track_info": {
+    "title": "Summer Somewhere",
+    "artist": "The Poison Oaks",
+    "cover": "https://scontent.fhfa1-1.fna.fbcdn.net/v/t39.30808-1/305922596_459378169545764_3636182688768120979_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=Lp8B-1EVq7YQ7kNvwENuO0v&_nc_oc=Adr-2EJF8QyNe-lT2CScuN81GYBd2jx8q4ppTI9OdiXKmuOrzJ8Sxu_yefFlBiJdKEUIwa_76PrvkwOMhUtz3j9Q&_nc_zt=24&_nc_ht=scontent.fhfa1-1.fna&edm=AOP_XFkEAAAA&_nc_gid=UIwIluzf_66zEudgvfjQ-Q&oh=00_AQMVwbILHb_4LdXpHyFoL131RtiDB_H2OVCsRuePcDsqTg&oe=6AE57F90",
+    "duration": 198.0,
+    "link": null,
+    "preview_of": "ig:692974534579513"
+  }
 }
