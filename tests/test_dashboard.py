@@ -183,3 +183,26 @@ def test_week_plan_slots_and_registry(client_dir, tmp_path, monkeypatch):
     W.register("film-2026-w45-01"); W.register("film-2026-w45-01")
     idx = (tmp_path / "films" / "index.ts").read_text()
     assert idx.count('from "./film-2026-w45-01"') == 1 and 'id: "film-2026-w45-01"' in idx
+
+
+def test_edit_takes_approval_back(server, client_dir):
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})
+    status, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "value=revoke" in body and "Edit</button>" in body
+    status, _, loc = req(server, "POST", "/demo/v/w01-s1/decide", {"action": "revoke"})
+    assert status == 303 and loc == "/demo/v/w01-s1"
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["state"] == "NEEDS_APPROVAL"
+    db.close()
+    status, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "Approve and schedule" in body
+
+
+def test_edit_refused_once_publishing(server, client_dir):
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})
+    db = DB.for_client(client_dir)
+    db.set_state("w01-s1", "QUEUED")
+    db.set_state("w01-s1", "PUBLISHING")
+    db.close()
+    status, _, _ = req(server, "POST", "/demo/v/w01-s1/decide", {"action": "revoke"})
+    assert status == 409

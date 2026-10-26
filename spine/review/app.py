@@ -968,6 +968,13 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
                 f"<div class=btns><button class='btn pri' name=action value=approve>{icon('check')}Approve and schedule</button>"
                 f"<button class='btn sec' name=action value=reject>{icon('redo')}Send back for a new version</button></div>"
                 f"</form></section>")
+        elif row["state"] in ("APPROVED", "QUEUED"):
+            blocks.append(
+                f"<section class=card><h2>Your call</h2>"
+                f"<p class=hint>Approved. Something came up? Take the approval back and keep editing; it stays off Instagram until you approve again.</p>"
+                f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' style='margin-top:16px'>"
+                f"<div class=btns><button class='btn sec' name=action value=revoke>{icon('redo')}Edit</button></div>"
+                f"</form></section>")
         elif cls == "busy" and label == "In production":
             blocks.append(f"<section class=card><h2>Being made</h2><div class=prog><i></i></div>"
                           f"<p class=hint>Planned for {ESC(when(row['scheduled_at']))}. It comes back here for approval when it is ready. "
@@ -1544,6 +1551,12 @@ class Handler(BaseHTTPRequestHandler):
                         (d / "posts" / slot / "caption.txt").write_text(form["caption"])
                     at = SCH.slot_for_approval(db, db.post(slot), C.load_grants(name))
                     db.set_state(slot, "APPROVED", note=notes or None, scheduled_at=at)
+                elif form.get("action") == "revoke":
+                    from ..state import IllegalTransition
+                    try:
+                        db.set_state(slot, "NEEDS_APPROVAL", note="approval taken back to keep editing")
+                    except IllegalTransition:
+                        return self._send(409, b"too late: it is already publishing or live", "text/plain")
                 elif form.get("action") == "reject":
                     if not notes:
                         return self._send(400, b"a rejection needs a note: say what should change", "text/plain")
