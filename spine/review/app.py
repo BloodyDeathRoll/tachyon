@@ -464,11 +464,13 @@ const init=g=>{if(g.querySelector(':scope>.segind'))return;const i=document.crea
  g.addEventListener('click',e=>{const t=e.target.closest('a,button');if(!t||t.parentElement!==g)return;
   if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||t.target==='_blank'||t.hasAttribute('download'))return;   // opens elsewhere: this page keeps its tab
   place(g,t,true);g.querySelectorAll(':scope>a,:scope>button').forEach(x=>x.classList.toggle('on',x===t));
-  const h=t.tagName==='A'&&t.getAttribute('href');if(h&&!h.startsWith('#')){e.preventDefault();setTimeout(()=>location.href=t.href,260);}});
+  const h=t.tagName==='A'&&t.getAttribute('href');if(h&&!h.startsWith('#')){e.preventDefault();
+   setTimeout(()=>location.href=t.href,matchMedia('(prefers-reduced-motion:reduce)').matches?0:360);}});
  if(window.ResizeObserver)new ResizeObserver(()=>place(g,g.querySelector(ON),false)).observe(g);
  new MutationObserver(()=>place(g,g.querySelector(ON),true)).observe(g,{subtree:true,attributes:true,attributeFilter:['class']});};
 const all=()=>document.querySelectorAll('.seg,.filt').forEach(init);
 all();if(document.fonts)document.fonts.ready.then(()=>document.querySelectorAll('.js-ind').forEach(g=>place(g,g.querySelector(ON),false)));
+addEventListener('pageshow',e=>{if(e.persisted)location.reload();});   // Back: show the page's real tab, not the one clicked
 addEventListener('resize',()=>document.querySelectorAll('.js-ind').forEach(g=>place(g,g.querySelector(ON),false)));})();
 """
 
