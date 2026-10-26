@@ -60,7 +60,7 @@ def tag_for(client: str, row) -> tuple[str, str] | None:
     st = R.status(client, row["slot_id"])
     if st and st.get("state") == "running":
         return ("Re-rendering", "busy")
-    if row["state"] in ("REJECTED", "SCRIPTED") and st and st.get("state") == "failed":
+    if row["state"] in ("REJECTED", "SCRIPTED", "NEEDS_APPROVAL") and st and st.get("state") == "failed":
         return ("Needs approval", "need")
     return TAG.get(row["state"])
 
@@ -289,6 +289,9 @@ details.full[open] summary{display:none}
 .links a{display:inline-flex;align-items:center;gap:6px;color:var(--ink3)}.links a:hover{color:var(--ink)}
 .banner{display:flex;gap:12px;align-items:center;padding:14px 18px;border-radius:12px;background:#FFF4D6;color:#8A4B00;font-weight:600;margin-bottom:24px}
 .banner.stop{background:#EF4444;color:#fff}
+.errcard{border-color:#f0b4b4}.errcard h2{color:#b42318}
+pre.errlog{background:var(--ground);border-radius:12px;padding:14px 16px;margin:14px 0 16px;font-size:12.5px;line-height:1.5;
+  white-space:pre-wrap;word-break:break-all;max-height:220px;overflow:auto;color:var(--ink2)}
 .note{background:var(--ground);border-radius:12px;padding:14px 16px;margin-top:14px;white-space:pre-line;color:var(--ink2)}
 .prog{height:6px;background:var(--grey-bg);border-radius:6px;overflow:hidden;margin-top:16px}
 .prog i{display:block;height:100%;background:var(--lime);border-radius:6px;animation:pg 1.6s ease-in-out infinite;width:40%}
@@ -985,11 +988,22 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
 
         blocks = []
         # decision
-        if cls == "need":
-            failed = (f"<div class=note><b>The last re-render failed.</b> {ESC(st.get('error') or '')}</div>"
-                      if st.get("state") == "failed" else "")
+        if cls == "need" and st.get("state") == "failed":
+            step = {"editing": "while editing the film", "rendering": "while rendering"}.get(st.get("step"), "")
+            rerun = ("Renders again with the change already made." if st.get("step") == "rendering"
+                     else "Runs the edit and the render again with the same notes.")
             blocks.append(
-                f"<section class=card><h2>Your call</h2>{failed}"
+                f"<section class='card errcard' id=error><h2>Re-render failed</h2>"
+                f"<p class=hint>Failed {ESC(step)} {ESC(ago(st.get('failed_at') or st.get('updated_at')))}. "
+                f"The video here is still the previous cut, so you can approve it or send new notes.</p>"
+                + (f"<p class=hint><b>Your notes:</b> {ESC(st.get('notes') or '')}</p>" if st.get("notes") else "")
+                + f"<pre class=errlog>{ESC(st.get('error') or 'No error text.')}</pre>"
+                f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide'>"
+                f"<div class=btns><button class='btn pri' name=action value=retry>{icon('redo')}Re-run</button></div>"
+                f"<p class=hint>{rerun}</p></form></section>")
+        if cls == "need":
+            blocks.append(
+                f"<section class=card><h2>Your call</h2>"
                 f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' style='margin-top:16px'>"
                 f"<label for=notes class=muted style='font-size:14px'>What should change? Leave empty to approve.</label>"
                 f"<textarea id=notes name=notes placeholder='e.g. Lead with the advantage, not the number. Make it faster.' style='margin-top:8px'></textarea>"
@@ -1573,12 +1587,16 @@ class Handler(BaseHTTPRequestHandler):
             notes = (form.get("notes") or form.get("note") or "").strip()
             db = DB.for_client(d)
             try:
-                if form.get("action") == "approve":
+                R.settle(db, name, slot)   # a failed re-render must not block approve / new notes
+                if form.get("action") == "retry":
+                    R.retry(name, slot, db)
+                elif form.get("action") == "approve":
                     if "caption" in form:
                         (d / "posts" / slot).mkdir(parents=True, exist_ok=True)
                         (d / "posts" / slot / "caption.txt").write_text(form["caption"])
                     at = SCH.slot_for_approval(db, db.post(slot), C.load_grants(name))
                     db.set_state(slot, "APPROVED", note=notes or None, scheduled_at=at)
+                    R.dismiss(name, slot)
                 elif form.get("action") == "revoke":
                     if db.post(slot)["state"] != "NEEDS_APPROVAL":   # a second click is a no-op
                         try:
