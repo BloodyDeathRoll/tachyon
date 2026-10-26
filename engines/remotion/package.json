@@ -1,0 +1,22 @@
+{
+  "name": "tachyon-remotion",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Engine B: Remotion compositions for Tachyon films (decision 2). Free licence: team of 3 or fewer.",
+  "scripts": {
+    "studio": "remotion studio",
+    "render": "remotion render",
+    "still": "remotion still"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.420",
+    "@remotion/media": "4.0.420",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.420"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "typescript": "5.9.3"
+  }
+}

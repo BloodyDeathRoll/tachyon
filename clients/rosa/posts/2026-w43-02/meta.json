@@ -1,0 +1,23 @@
+{
+  "slot_id": "2026-w43-02",
+  "source_asset": "rosa-favorites-9x16.mp4",
+  "pillar": "Free, and why",
+  "angle": "favorites: all your breaks on one screen, one tap each",
+  "hook_formula": "existing-clip (pre-Tachyon showreel, no hookscore)",
+  "length_target": 15,
+  "duration_s": 15.07,
+  "cta": "link in bio (URL on end card)",
+  "audio_type": "original (baked-in bed from the 2026-10-04 render)",
+  "engine": "html-playwright v0 (2026-10-04 render, sources lost)",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 9500,
+  "experiment_id": null,
+  "landing": "https://rosa.surf/",
+  "utm_campaign": null,
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w43-02",
+  "story": false,
+  "story_reason": "pre-Tachyon clip from 2026-10-04; no story variant exists",
+  "safe_zone": "FAIL: cards sit in the bottom 35 % and the feed crop (operator 2026-10-24); do not reuse",
+  "title": "Favorites (first cut)"
+}

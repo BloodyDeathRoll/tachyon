@@ -1,0 +1,1781 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tachyon — Planner</title>
+<meta name="description" content="Tachyon operator dashboard, direction B “Planner”: the week is the spine; every reel is a chip on a 7-day board and opens into a side panel. Reads dashboard/data.json.">
+<style>
+@font-face{font-family:"Manrope";font-style:normal;font-weight:200 800;font-display:swap;src:url("../../fonts/manrope-latin-wght-normal.woff2") format("woff2")}
+:root{
+  --ground:#F5F7FB;--card:#FFFFFF;--ink:#0B1220;--ink2:#4B5563;--ink3:#6B7280;--rule:#E5E8EF;
+  /* direction B accent: deep ocean blue. Fill only on white; accent text only on t5. */
+  --acc:#0F4C81;--acc-h:#0C3F6B;--t1:#4B79A0;--t2:#87A6C0;--t3:#B7C9D9;--t4:#DBE4EC;--t5:#EEF2F6;
+  --blue:#1F4BFF;
+  --green:#1A7F37;--green-bg:#EDF7F0;--red:#C0182B;--red-bg:#FCEBED;--amber:#8A4B00;--amber-bg:#FFF4D6;--gbg:#EEF0F3;
+  --shadow:0 1px 2px rgba(11,18,32,.04),0 8px 24px rgba(11,18,32,.06);
+  --r:20px;--r2:12px;--gap:24px;--pad:28px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{font-family:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;color:var(--ink);background:var(--ground);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{margin:0;background:var(--ground);display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh;font-size:15px;line-height:1.45;font-weight:400}
+a{color:inherit}
+button,select,input,textarea{font:inherit;color:inherit}
+h1,h2,h3,p,ul,ol,figure,dl,dd{margin:0}
+ul,ol{padding:0;list-style:none}
+svg{display:block;overflow:visible}
+img,video{display:block;max-width:100%}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:4px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:8px;top:-40px;background:var(--ink);color:#fff;padding:8px 12px;border-radius:8px;z-index:3000}
+.skip:focus{top:8px}
+.lnk{display:inline-flex;align-items:center;gap:4px;color:var(--blue);font-weight:600;text-decoration:none;white-space:nowrap;border-radius:4px}
+.lnk:hover{text-decoration:underline;text-underline-offset:3px}
+.lnk svg{width:12px;height:12px}
+.muted{color:var(--ink3)}
+.ink2{color:var(--ink2)}
+.small{font-size:13px}
+b{font-weight:700}
+
+/* ---------- sidebar (Oneshot, verbatim except the accent) ---------- */
+.side{position:sticky;top:0;height:100vh;background:var(--card);box-shadow:var(--shadow);display:flex;flex-direction:column;padding:28px 20px 24px;z-index:2}
+.logo{display:flex;align-items:center;gap:10px;padding:4px 8px 28px;font-weight:700;font-size:18px;letter-spacing:-.01em}
+.logo i{width:24px;height:24px;border-radius:8px;background:var(--acc);display:inline-block;position:relative;flex:none}
+.logo i::after{content:"";position:absolute;left:7px;top:7px;width:10px;height:10px;border-radius:3px;background:#fff}
+.nav{display:flex;flex-direction:column;gap:4px}
+.nav a{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 12px;border:0;background:transparent;border-radius:var(--r2);font-weight:500;font-size:15px;color:var(--ink2);cursor:pointer;text-decoration:none}
+.nav a:hover{background:var(--ground);color:var(--ink)}
+.nav a[aria-current="page"]{background:var(--t5);color:var(--acc);font-weight:700}
+.nav a svg{width:22px;height:22px;flex:none}
+.nav .badge{margin-left:auto;background:var(--acc);color:#fff;font-size:13px;font-weight:700;min-width:24px;height:24px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;padding:0 8px}
+.nav .n{margin-left:auto;font-size:13px;color:var(--ink2);font-weight:600}
+.nav .n.z{color:var(--ink3);font-weight:500}
+.side-foot{margin-top:auto;padding:16px 12px 0;border-top:1px solid var(--rule);font-size:13px;color:var(--ink3);display:grid;gap:4px}
+.side-foot b{color:var(--ink2);font-weight:700}
+
+/* ---------- main ---------- */
+main{min-width:0;padding:0 24px 48px}
+.top{min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:24px;position:sticky;top:0;background:var(--ground);z-index:900;padding:12px 0}
+.top .tl{display:flex;align-items:center;gap:14px;flex-wrap:wrap;min-width:0}
+.top h1{font-size:28px;font-weight:700;letter-spacing:-.015em;line-height:1.1}
+.top .sub{font-size:15px;color:var(--ink3);font-weight:500}
+.controls{display:flex;gap:12px;align-items:center;flex:none}
+.psel{position:relative;display:inline-flex;align-items:center;background:var(--card);border-radius:999px;box-shadow:var(--shadow);height:40px;padding:0 14px;gap:8px;font-size:14px;font-weight:500;color:var(--ink2)}
+.psel svg.ic{width:16px;height:16px;flex:none}
+.psel select{appearance:none;-webkit-appearance:none;border:0;background:transparent;padding:0 22px 0 0;height:40px;font-weight:600;color:var(--ink);cursor:pointer;max-width:260px}
+.psel .chev{position:absolute;right:14px;width:12px;height:12px;pointer-events:none}
+.psel:focus-within{outline:2px solid var(--acc);outline-offset:2px}
+.psel select:focus{outline:none}
+.fresh{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--ink3);font-weight:500;white-space:nowrap}
+.fresh i{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block}
+.view{display:none}.view.on{display:block}
+.wnav{display:inline-flex;align-items:center;gap:6px}
+.ibtn{width:36px;height:36px;border-radius:999px;border:1.5px solid var(--rule);background:var(--card);display:inline-grid;place-items:center;cursor:pointer;color:var(--ink);padding:0}
+.ibtn:hover{background:var(--ground)}
+.ibtn svg{width:16px;height:16px}
+
+/* ---------- cards ---------- */
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:var(--pad)}
+.card-h{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:16px}
+.card-h h2{font-size:18px;font-weight:700;letter-spacing:-.005em;display:flex;align-items:center;gap:10px}
+.card-h .meta{font-size:13px;color:var(--ink3);font-weight:500}
+.cnt{min-width:24px;height:24px;padding:0 8px;border-radius:6px;background:var(--t5);color:var(--acc);font-weight:700;font-size:13px;display:inline-grid;place-items:center}
+.cnt.z{background:var(--gbg);color:var(--ink2)}
+.label{font-size:13px;font-weight:700;color:var(--ink2)}
+.soft{background:var(--ground);border-radius:var(--r2);padding:14px 16px}
+
+/* ---------- pills & buttons (one action grammar) ---------- */
+.pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px;border-radius:6px;font-size:13px;font-weight:600;white-space:nowrap;line-height:1}
+.pill.live{background:var(--green-bg);color:var(--green)}
+.pill.wait{background:var(--acc);color:#fff}
+.pill.sched,.pill.done{background:var(--gbg);color:var(--ink2)}
+.pill.fail{background:var(--red-bg);color:var(--red)}
+.pill.prod{background:transparent;color:var(--ink3);box-shadow:inset 0 0 0 1px var(--rule)}
+.pill.amber{background:var(--amber-bg);color:var(--amber)}
+.pill.sample{background:var(--amber-bg);color:var(--amber)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-size:15px;font-weight:700;border-radius:999px;height:36px;padding:0 16px;line-height:1;cursor:pointer;border:1.5px solid transparent;white-space:nowrap;text-decoration:none;background:transparent;color:var(--ink)}
+.btn svg{width:16px;height:16px;flex:none}
+.btn.p{background:var(--acc);color:#fff;height:44px;padding:0 24px;min-width:160px;border-radius:12px}
+.btn.p:hover{background:var(--acc-h)}
+.btn.s{background:var(--card);border-color:var(--rule)}
+.btn.s:hover{background:var(--ground)}
+.btn.d{background:var(--red-bg);color:var(--red);height:44px;padding:0 20px;border-radius:12px}
+.btn.d:hover{background:#F8DDE0}
+.btn.dd{background:var(--red);color:#fff;height:48px;padding:0 28px;border-radius:12px}
+.btn.dd:hover{background:#A51425}
+.btn.ghost{color:var(--ink2);font-weight:600}
+.btn.ghost:hover{background:var(--ground);color:var(--ink)}
+.btn.sm{height:30px;padding:0 12px;font-size:13px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn.ok{color:var(--green);border-color:#BFE3CA}
+
+/* ---------- band (Sypher stat strip) ---------- */
+.band{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:0;margin-bottom:var(--gap)}
+.band .m{padding:20px 28px;min-width:0;display:flex;flex-direction:column;gap:6px}
+.band .m+.m{border-left:1px solid var(--rule)}
+.band .lab{font-size:14px;font-weight:600;color:var(--ink2)}
+.band .fig{font-size:40px;line-height:44px;font-weight:600;letter-spacing:-.02em;color:var(--ink);display:flex;align-items:baseline;gap:10px}
+.band .fig.word{font-size:18px;line-height:44px;font-weight:700;display:flex;align-items:center;gap:10px}
+.band .fig.word i{width:10px;height:10px;border-radius:50%;background:var(--green);display:inline-block}
+.band .fig.word.off i{background:var(--red)}
+.band .fig.z{color:var(--ink3)}
+.band .fig small{font-size:15px;font-weight:600;color:var(--ink3);letter-spacing:0}
+.band .ctx{font-size:14px;color:var(--ink3);line-height:20px;text-wrap:pretty}
+.band .ctx b{color:var(--ink);font-weight:600}
+.band .m.wait .fig{color:var(--acc)}
+
+/* ---------- board (the week) ---------- */
+.board{padding:20px 24px 24px;overflow:hidden;margin-bottom:var(--gap)}
+.bgrid{display:grid;grid-template-columns:56px repeat(7,minmax(0,1fr));column-gap:6px}
+.bgrid>*{min-width:0}
+.bh{padding:8px 10px 12px;font-size:15px;font-weight:700;color:var(--ink);line-height:20px}
+.bh .d{display:block;font-size:13px;color:var(--ink3);font-weight:500}
+.bh.today{border-radius:12px 12px 0 0}
+.bh.today .d{color:var(--acc);font-weight:600}
+.rl{font-size:13px;font-weight:600;color:var(--ink3);padding:10px 0 0;line-height:16px}
+.cell{padding:6px;min-height:222px;display:flex;align-items:stretch}
+.cell.today{background:var(--t4)}
+.cell.today.last{border-radius:0 0 12px 12px}
+.bh.today{background:var(--t4)}
+.cell .empty{width:100%;min-height:100%;border:1.5px dashed var(--rule);border-radius:var(--r2)}
+.cell.today .empty{border-color:var(--t2)}
+.chip{appearance:none;border:0;padding:0;margin:0;width:100%;text-align:left;background:var(--card);border-radius:var(--r2);box-shadow:0 0 0 1px var(--rule);overflow:hidden;cursor:pointer;display:flex;flex-direction:column;position:relative;color:var(--ink)}
+.chip:hover{box-shadow:0 0 0 1px var(--rule),var(--shadow)}
+.chip.next{box-shadow:0 0 0 2px var(--t3)}
+.chip.next:hover{box-shadow:0 0 0 2px var(--t3),var(--shadow)}
+.chip:focus-visible{outline:2px solid var(--acc);outline-offset:3px}
+.chip .cov{width:100%;height:108px;background:#0B1220;position:relative;overflow:hidden}
+.chip .cov img{width:100%;height:100%;object-fit:cover;object-position:center 12%}
+.chip .cov .len{position:absolute;right:8px;bottom:8px;background:rgba(11,18,32,.72);color:#fff;font-size:12px;font-weight:700;padding:3px 6px;border-radius:6px}
+.chip .cb{padding:10px 12px 12px;display:grid;gap:5px}
+.chip .t{font-size:15px;font-weight:700;line-height:20px}
+.chip .s{font-size:13px;color:var(--ink3);line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip .s b{color:var(--ink2);font-weight:600}
+.noplan{grid-column:1/-1;padding:40px 16px;text-align:center;color:var(--ink3);font-size:15px}
+.noplan b{color:var(--ink2)}
+
+/* ---------- under the board ---------- */
+.row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--gap);align-items:start}
+.lr{display:grid;grid-template-columns:48px minmax(0,1fr);gap:14px;align-items:start}
+.lr .cov{width:48px;height:85px;border-radius:8px;overflow:hidden;background:#0B1220}
+.lr .cov img{width:100%;height:100%;object-fit:cover}
+.lr .t{font-size:16px;font-weight:700;line-height:22px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lr .s{font-size:14px;color:var(--ink3);margin-top:2px}
+.ml{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px;margin-top:14px}
+.ml div{display:grid;gap:2px}
+.ml dt{font-size:13px;color:var(--ink3)}
+.ml dd{font-size:18px;font-weight:600;color:var(--ink3)}
+.ml dd.v{color:var(--ink)}
+.plain{display:grid;gap:12px;font-size:15px;line-height:22px;color:var(--ink2);text-wrap:pretty}
+.plain b{color:var(--ink);font-weight:700}
+.kv{display:grid;gap:10px}
+.kv div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;font-size:15px;line-height:22px;color:var(--ink2)}
+.kv div b{color:var(--ink);font-weight:600;text-align:right}
+.kv div .z{color:var(--ink3);font-weight:500}
+
+/* ---------- charts ---------- */
+.chart{position:relative;margin-top:8px}
+.chart svg{width:100%;height:auto}
+.chart text{font-family:inherit;font-size:12px;fill:var(--ink3)}
+.chart .ax{stroke:var(--rule)}
+.chart .pt circle{fill:var(--acc)}
+.chart .pt{cursor:default;outline:none}
+.chart .pt .tip{opacity:0;transition:opacity .15s}
+.chart .pt:hover .tip,.chart .pt:focus .tip{opacity:1}
+.chart .pt:focus-visible circle{stroke:var(--acc);stroke-width:2;fill:#fff}
+.chart .tip rect{fill:var(--ink)}
+.chart .tip text{fill:#fff;font-weight:600}
+.chart .note{fill:var(--ink3);font-size:13px}
+.chart .ruler text{font-size:12px}
+
+/* ---------- approve ---------- */
+.keys{font-size:13px;color:var(--ink3);font-weight:500;display:inline-flex;gap:8px;align-items:center}
+.keys kbd{font:inherit;font-weight:700;color:var(--ink2);background:var(--card);border-radius:6px;padding:2px 7px;box-shadow:inset 0 0 0 1px var(--rule)}
+.ap{display:grid;grid-template-columns:288px minmax(0,1fr);gap:var(--gap);align-items:start}
+.aplist{padding:20px 20px 16px}
+.aplist h2{font-size:15px;font-weight:700;color:var(--ink2);padding:0 8px 10px;display:flex;align-items:center;gap:8px}
+.aplist h2 .cnt{font-size:13px}
+.aplist .none{padding:4px 8px 16px;color:var(--ink3);font-size:15px;line-height:22px}
+.aprow{appearance:none;border:0;background:transparent;width:100%;text-align:left;display:grid;grid-template-columns:48px minmax(0,1fr);gap:12px;padding:10px 8px;border-radius:var(--r2);cursor:pointer;align-items:center;color:var(--ink)}
+.aprow:hover{background:var(--ground)}
+.aprow[aria-selected="true"]{background:var(--t5)}
+.aprow .cov{width:48px;height:85px;border-radius:8px;overflow:hidden;background:#0B1220}
+.aprow .cov img{width:100%;height:100%;object-fit:cover}
+.aprow .t{font-size:15px;font-weight:700;line-height:20px}
+.aprow .s{font-size:13px;color:var(--ink3);line-height:18px;margin-top:2px}
+.aprow .s b{color:var(--ink2);font-weight:600}
+.aprow .pill{margin-top:6px}
+.apcard{display:grid;grid-template-columns:360px minmax(0,1fr);gap:24px;align-items:start;position:relative;padding:24px}
+.apcard.focus{outline:2px solid var(--acc);outline-offset:4px}
+.vid{width:360px;display:grid;gap:10px}
+.vid video,.vid .noimg{width:360px;height:640px;border-radius:var(--r2);background:#0B1220;object-fit:cover}
+.vid .noimg{display:grid;place-items:center;color:#fff;font-size:13px;text-align:center;padding:16px}
+.vid .vm{font-size:13px;color:var(--ink3);text-align:center}
+.apr{display:grid;gap:22px;min-width:0}
+.trow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.trow h2{font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:28px}
+.trow .when{display:inline-flex;align-items:center;gap:6px;font-size:15px;color:var(--ink2);font-weight:600}
+.trow .when button{appearance:none;border:0;background:transparent;width:28px;height:28px;border-radius:8px;display:inline-grid;place-items:center;cursor:pointer;color:var(--ink2);padding:0}
+.trow .when button:hover{background:var(--ground);color:var(--ink)}
+.trow .when button svg{width:14px;height:14px}
+.meta2{font-size:15px;color:var(--ink2);line-height:22px}
+.meta3{font-size:13px;color:var(--ink3);line-height:18px}
+.life{margin-top:2px}
+.life svg{width:100%;height:auto;max-width:520px}
+.life text{font-family:inherit;font-size:12px;fill:var(--ink3)}
+.life text.on{fill:var(--ink2);font-weight:600}
+.life .ln{stroke:var(--rule);stroke-width:2}
+.life .ln.on{stroke:var(--acc)}
+.life .nd{fill:#fff;stroke:var(--rule);stroke-width:2}
+.life .nd.on{fill:var(--acc);stroke:var(--acc)}
+.life .nd.cur{fill:#fff;stroke:var(--acc);stroke-width:3}
+.sec h3{font-size:13px;font-weight:700;color:var(--ink2);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.sec h3 .pill{height:22px}
+/* caption editor with the Instagram cut */
+.cap{position:relative}
+.cap .mirror,.cap textarea{font:inherit;font-size:16px;line-height:1.6;padding:14px 76px 14px 16px;width:100%;border-radius:var(--r2);white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere;margin:0;display:block}
+.cap .mirror{position:absolute;inset:0;color:transparent;pointer-events:none;visibility:hidden;border:1.5px solid transparent;overflow:hidden}
+.cap textarea{border:1.5px solid var(--rule);background:var(--card);color:var(--ink);resize:none;min-height:calc(8 * 1.6 * 16px + 28px);overflow:hidden}
+.cap textarea:focus{outline:2px solid var(--acc);outline-offset:2px;border-color:var(--rule)}
+.cap textarea[readonly]{background:var(--ground);border-color:transparent}
+.cap .cut{position:absolute;left:0;right:0;height:0;pointer-events:none}
+.cap .cut .ln{position:absolute;right:62px;height:0;border-top:1.5px solid var(--t1)}
+.cap .cut .tk{position:absolute;width:0;border-left:1.5px solid var(--t1)}
+.cap .cut .lb{position:absolute;right:12px;transform:translateY(-50%);font-size:13px;color:var(--ink2);font-weight:700;line-height:18px}
+.capf{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;flex-wrap:wrap}
+.capf .c{font-size:13px;color:var(--ink3)}
+.verd{display:flex;gap:8px 18px;flex-wrap:wrap;margin-top:12px;font-size:15px}
+.verd span{display:inline-flex;align-items:center;gap:8px}
+.verd i{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--ink3)}
+.verd .g i{background:var(--green)}.verd .a i{background:#C77700}.verd .r i{background:var(--red)}
+.verd .n{color:var(--ink3)}
+.fc{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}
+.fc p{font-size:15px;line-height:22px;overflow-wrap:anywhere}
+.qa{display:grid;gap:8px}
+.qa li{display:grid;grid-template-columns:20px minmax(0,1fr);gap:10px;font-size:15px;line-height:22px;color:var(--ink2)}
+.qa li i{width:20px;height:22px;display:inline-grid;place-items:center}
+.qa li i svg{width:16px;height:16px}
+.qa li.pass i{color:var(--green)}
+.qa li.warn i{color:#C77700}
+.qa li.note i{color:var(--ink3)}
+.qa li.spec{color:var(--ink);font-weight:600}
+.ovr{display:grid;gap:8px}
+.ovr li{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:10px 14px;font-size:15px;line-height:22px}
+.ovr li b{font-weight:700}
+.acts{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:4px}
+.acts .sp{flex:1}
+.ro{color:var(--ink3);font-size:13px}
+.samplebar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--amber-bg);color:var(--amber);border-radius:var(--r2);padding:12px 16px;font-size:15px;font-weight:600;margin-bottom:var(--gap)}
+.samplebar .btn{height:32px;font-size:13px;background:#fff;color:var(--amber);border-color:#EACB8A}
+.ap2{display:grid;gap:var(--gap)}
+.readcard{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:16px;align-items:center;padding:20px 24px}
+.readcard .cov{width:48px;height:85px;border-radius:8px;overflow:hidden;background:#0B1220}
+.readcard .cov img{width:100%;height:100%;object-fit:cover}
+.readcard .t{font-size:16px;font-weight:700;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.readcard .s{font-size:14px;color:var(--ink3);margin-top:4px}
+.readcard .a{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+
+/* ---------- window table (Ancestry rows) ---------- */
+.wt{width:100%;border-collapse:collapse;font-size:15px}
+.wt th{font-size:13px;color:var(--ink3);font-weight:600;text-align:right;padding:0 0 10px;border-bottom:1px solid var(--rule)}
+.wt th:first-child{text-align:left}
+.wt th small{display:block;font-weight:500;color:var(--ink3)}
+.wt td{padding:11px 0;border-bottom:1px solid var(--rule);text-align:right;color:var(--ink3)}
+.wt td:first-child{text-align:left;color:var(--ink);font-weight:600}
+.wt tr:last-child td{border-bottom:0}
+
+/* ---------- side panel ---------- */
+.pveil{position:fixed;inset:0 0 0 240px;background:rgba(255,255,255,.8);z-index:1200;opacity:0;pointer-events:none;transition:opacity .2s}
+.pveil.on{opacity:1;pointer-events:auto}
+.panel{position:fixed;top:0;right:0;bottom:0;width:480px;max-width:100%;background:var(--card);box-shadow:0 2px 6px rgba(11,18,32,.06),0 24px 64px rgba(11,18,32,.16);border-radius:20px 0 0 20px;z-index:1201;transform:translateX(104%);transition:transform .25s;display:flex;flex-direction:column;visibility:hidden}
+.panel.on{transform:none;visibility:visible}
+.panel .ph{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 24px 12px}
+.panel .ph .k{font-size:13px;color:var(--ink3);font-weight:600}
+.panel .pb{padding:4px 28px 28px;overflow:auto;flex:1;display:grid;gap:22px;align-content:start}
+.panel .pf{display:flex;gap:12px;align-items:center;padding:16px 28px;border-top:1px solid var(--rule);background:var(--card);flex-wrap:wrap}
+.panel .pf .sp{flex:1}
+.panel .vid{width:240px;margin:0 auto}
+.panel .vid video,.panel .vid .noimg{width:240px;height:427px}
+.x{width:40px;height:40px;border-radius:999px;border:0;background:transparent;display:inline-grid;place-items:center;cursor:pointer;color:var(--ink2);padding:0}
+.x:hover{background:var(--ground);color:var(--ink)}
+.x svg{width:18px;height:18px}
+
+/* ---------- popup ---------- */
+dialog.modal{border:0;border-radius:var(--r);box-shadow:0 2px 6px rgba(11,18,32,.06),0 24px 64px rgba(11,18,32,.16);padding:0;width:min(600px,calc(100% - 32px));max-height:calc(100vh - 64px);color:var(--ink);background:var(--card)}
+dialog.modal::backdrop{background:rgba(255,255,255,.8)}
+.modal .mh{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:28px 28px 0}
+.modal .mh h2{font-size:22px;line-height:28px;font-weight:700;letter-spacing:-.01em}
+.modal .mh p{margin-top:6px;font-size:15px;line-height:22px;color:var(--ink2)}
+.modal .mb{padding:20px 28px 8px;display:grid;gap:16px;font-size:15px;line-height:22px;color:var(--ink2)}
+.modal .mf{display:flex;justify-content:flex-end;gap:12px;padding:20px 28px 28px;flex-wrap:wrap}
+.modal textarea,.modal input[type=datetime-local]{width:100%;border:1.5px solid var(--rule);border-radius:var(--r2);padding:12px 14px;font-size:16px;line-height:1.5;background:var(--card);color:var(--ink);resize:vertical}
+.modal textarea:focus,.modal input:focus{outline:2px solid var(--acc);outline-offset:2px}
+.modal label{display:grid;gap:8px;font-size:13px;font-weight:700;color:var(--ink2)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chips button{font:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--rule);background:var(--card);border-radius:999px;height:32px;padding:0 12px;cursor:pointer;color:var(--ink)}
+.chips button:hover{background:var(--ground)}
+.chips button[aria-pressed="true"]{background:var(--t5);color:var(--acc);border-color:var(--t3)}
+.modal .err{color:var(--red);font-size:13px;font-weight:600}
+.modal .btn.d,.modal .btn.p{height:44px}
+
+/* ---------- toast ---------- */
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,16px);background:var(--ink);color:#fff;border-radius:12px;padding:12px 16px;font-size:15px;line-height:22px;z-index:1400;display:flex;gap:16px;align-items:center;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:calc(100% - 32px);box-shadow:0 8px 24px rgba(11,18,32,.2)}
+.toast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.toast small{display:block;font-size:13px;color:rgba(255,255,255,.7)}
+.toast button{appearance:none;border:0;background:transparent;color:#fff;font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px 6px;border-radius:6px}
+.toast button:focus-visible{outline:2px solid #fff}
+
+/* ---------- posts table ---------- */
+.tbl{padding:8px 0 8px;overflow:auto}
+table.posts{width:100%;border-collapse:collapse;font-size:14px;table-layout:auto}
+.posts th{font-size:13px;font-weight:600;color:var(--ink3);text-align:right;padding:12px 8px;white-space:nowrap;border-bottom:1px solid var(--rule);cursor:pointer;user-select:none}
+.posts th.l:first-child,.posts td.l:first-child{padding-left:20px;width:36px}
+.posts th:last-child,.posts td:last-child{padding-right:20px}
+.posts th:first-child,.posts th.l{text-align:left}
+.posts th button{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border-radius:4px}
+.posts th button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.posts th svg{width:12px;height:12px;opacity:.5}
+.posts th[aria-sort] svg{opacity:1;color:var(--ink)}
+.posts td{padding:10px 8px;border-bottom:1px solid var(--rule);text-align:right;white-space:nowrap;color:var(--ink3)}
+.posts td.dash{color:var(--ink3);min-width:64px}
+.posts td.l{text-align:left;color:var(--ink)}
+.posts tr:hover td{background:var(--ground)}
+.posts tr.g td{background:var(--ground);text-align:left;font-size:15px;font-weight:700;color:var(--ink);padding:9px 20px;height:40px}
+.posts tr.g td span{color:var(--ink3);font-weight:500;margin-left:8px}
+.posts tr.g:hover td{background:var(--ground)}
+.posts .cov{width:32px;height:57px;border-radius:6px;overflow:hidden;background:#0B1220}
+.posts .cov img{width:100%;height:100%;object-fit:cover}
+.posts .nm{all:unset;cursor:pointer;font-weight:700;color:var(--ink);border-radius:4px}
+.posts .nm:hover{text-decoration:underline;text-underline-offset:3px}
+.posts .sub{display:block;font-size:13px;color:var(--ink3);font-weight:500;margin-top:2px}
+.posts td.dash{color:var(--ink3)}
+.posts .no{padding:28px;color:var(--ink3);text-align:center}
+
+/* ---------- calendar (4 weeks) ---------- */
+.cal .board{margin-bottom:0}
+.wk{display:grid;grid-template-columns:56px repeat(7,minmax(0,1fr));column-gap:6px;border-top:1px solid var(--rule);padding-top:12px;margin-top:12px}
+.wk:first-of-type{border-top:0;margin-top:0;padding-top:0}
+.wk .wl{grid-column:1/-1;font-size:15px;font-weight:700;color:var(--ink);padding:4px 10px 10px;display:flex;gap:10px;align-items:baseline}
+.wk .wl span{color:var(--ink3);font-weight:500;font-size:13px}
+.wk .cell{min-height:72px}
+.wk .noplan{padding:22px 16px}
+.wk .cell .empty{height:32px}
+.wk .chip .cov{height:64px}
+
+/* ---------- today / learn / settings ---------- */
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--gap);align-items:start}
+.sw{display:grid;gap:14px}
+.sw li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;font-size:15px}
+.sw li span{display:block;font-size:13px;color:var(--ink3);margin-top:2px}
+.switch{display:inline-flex;align-items:center;gap:10px;font-weight:600;color:var(--ink2);font-size:14px}
+.switch button{appearance:none;border:0;width:44px;height:24px;border-radius:999px;background:#C9CED8;position:relative;cursor:pointer;padding:0}
+.switch button::after{content:"";position:absolute;left:2px;top:2px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s}
+.switch button[aria-checked="true"]{background:var(--acc)}
+.switch button[aria-checked="true"]::after{left:22px}
+.stopcard{display:grid;gap:14px;justify-items:start}
+.stopcard p{font-size:15px;line-height:22px;color:var(--ink2)}
+
+/* ---------- mobile top bar + nav sheet ---------- */
+.mtop{display:none}
+.navsheet{border:0;border-radius:20px 20px 0 0;padding:0;width:100%;max-width:100%;margin:auto 0 0;background:var(--card);box-shadow:0 -8px 32px rgba(11,18,32,.16)}
+.navsheet::backdrop{background:rgba(255,255,255,.8)}
+.navsheet .nav{padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+.navsheet .nav a{height:48px}
+
+@media (max-width:1200px){
+  .ap{grid-template-columns:minmax(0,1fr)}
+  .aplist{padding:16px}
+  .aplist .rows{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:4px}
+  .apcard{grid-template-columns:300px minmax(0,1fr)}
+  .vid,.vid video,.vid .noimg{width:300px}
+  .vid video,.vid .noimg{height:533px}
+}
+@media (max-width:1100px){
+  .band{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .band .m:nth-child(3){border-left:0;border-top:1px solid var(--rule)}
+  .band .m:nth-child(4){border-top:1px solid var(--rule)}
+  .row3{grid-template-columns:minmax(0,1fr)}
+  .cell{min-height:150px}
+  .chip .cov{display:none}
+  .bgrid{grid-template-columns:48px repeat(7,minmax(0,1fr))}
+}
+@media (max-width:760px){
+  body{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);align-content:start}
+  .side{display:none}
+  .mtop{display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 8px 0 16px;background:var(--card);box-shadow:var(--shadow);position:sticky;top:0;z-index:950}
+  .mtop .logo{padding:0;font-size:16px;gap:8px}
+  .mtop .logo i{width:20px;height:20px}
+  .mtop .logo i::after{left:5px;top:5px;width:10px;height:10px}
+  .mtop .vn{font-size:15px;font-weight:700;color:var(--ink2)}
+  .mtop .menu{width:44px;height:44px;border:0;background:transparent;border-radius:12px;display:inline-grid;place-items:center;cursor:pointer;color:var(--ink);padding:0}
+  .mtop .menu svg{width:22px;height:22px}
+  main{padding:0 16px 32px}
+  .top{position:static;min-height:0;padding:16px 0 12px;flex-wrap:wrap;gap:12px}
+  .top h1{font-size:24px}
+  .controls{width:100%;justify-content:space-between}
+  .card{padding:20px;border-radius:16px}
+  .band{grid-template-columns:minmax(0,1fr)}
+  .band .m{padding:12px 20px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"lab fig" "ctx fig";align-items:center;gap:2px 16px;border-left:0!important;border-top:1px solid var(--rule)}
+  .band .m:first-child{border-top:0}
+  .band .lab{grid-area:lab}
+  .band .fig{grid-area:fig;font-size:28px;line-height:32px}
+  .band .fig.word{font-size:15px;line-height:32px}
+  .band .ctx{grid-area:ctx;font-size:13px;line-height:18px}
+  .keys{display:none}
+  /* the board becomes a day list, today first */
+  .bgrid{display:none}
+  .daylist{display:grid;gap:12px}
+  .day{display:grid;gap:8px}
+  .day h3{font-size:15px;font-weight:700;display:flex;gap:8px;align-items:baseline}
+  .day h3 span{color:var(--ink3);font-weight:500;font-size:13px}
+  .day.today h3 span{color:var(--acc);font-weight:600}
+  .slot{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;align-items:center}
+  .slot .rl{padding:0;line-height:20px}
+  .slot .empty{height:32px;border:1px dashed var(--rule);border-radius:10px}
+  .chipr{appearance:none;border:0;padding:0;width:100%;text-align:left;background:var(--card);border-radius:12px;box-shadow:0 0 0 1px var(--rule);display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:center;overflow:hidden;cursor:pointer;color:var(--ink)}
+  .chipr.next{box-shadow:0 0 0 2px var(--t3)}
+  .chipr .cov{width:40px;height:71px;background:#0B1220}
+  .chipr .cov img{width:100%;height:100%;object-fit:cover}
+  .chipr .cb{padding:8px 12px 8px 0;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+  .chipr .t{font-size:15px;font-weight:700}
+  .chipr .s{font-size:13px;color:var(--ink3);width:100%}
+  .day.today .slot{background:var(--t4);border-radius:12px;padding:6px}
+  .ml{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .pveil{inset:0}
+  .panel{width:100%;border-radius:0;transform:translateY(100%)}
+  .panel .pb{padding:4px 16px 24px}
+  .panel .pf{padding:12px 16px calc(12px + env(safe-area-inset-bottom));position:sticky;bottom:0;min-height:72px}
+  .panel .pf .btn.p{height:48px;flex:1;min-width:0}
+  .panel .pf .btn.d{min-width:112px}
+  .apcard{grid-template-columns:minmax(0,1fr)}
+  .vid,.vid video,.vid .noimg{width:240px;margin:0 auto}
+  .vid video,.vid .noimg{height:427px}
+  .acts{position:sticky;bottom:0;background:var(--card);padding:12px 0 calc(12px + env(safe-area-inset-bottom));margin:0 -20px;padding-left:20px;padding-right:20px;border-top:1px solid var(--rule)}
+  .acts .btn.p{flex:1;height:48px}
+  .acts .sp{display:none}
+  .two{grid-template-columns:minmax(0,1fr)}
+  dialog.modal{width:100%;max-width:100%;margin:auto 0 0;border-radius:20px 20px 0 0;max-height:92vh}
+  .modal .mf{position:sticky;bottom:0;background:var(--card);padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+  .modal .mf .btn{flex:1;height:48px}
+  .readcard{grid-template-columns:48px minmax(0,1fr)}
+  .readcard .a{grid-column:1/-1;justify-content:flex-start}
+  .wk{display:none}
+  .calday{border-top:1px solid var(--rule);padding-top:12px;margin-top:12px}
+  .calday:nth-child(2){border-top:0;margin-top:0;padding-top:0}
+  .calday .noplan{padding:12px 0 4px;text-align:left}
+}
+@media (min-width:761px){.daylist{display:none}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<aside class="side" aria-label="Views">
+  <div class="logo"><i aria-hidden="true"></i>Tachyon</div>
+  <nav class="nav" id="nav"></nav>
+  <div class="side-foot" id="sidefoot"></div>
+</aside>
+
+<header class="mtop">
+  <div class="logo"><i aria-hidden="true"></i>Tachyon <span class="vn" id="mvn"></span></div>
+  <button class="menu" id="menubtn" aria-label="Open the views menu" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+</header>
+
+<main id="main" tabindex="-1">
+  <div class="top">
+    <div class="tl" id="tl"></div>
+    <div class="controls">
+      <label class="psel"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span class="sr">Client</span><select id="client"></select><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></label>
+      <span class="fresh" id="fresh"></span>
+    </div>
+  </div>
+
+  <section id="view-overview" class="view" aria-labelledby="h-overview"></section>
+  <section id="view-calendar" class="view"></section>
+  <section id="view-approve" class="view"></section>
+  <section id="view-posts" class="view"></section>
+  <section id="view-today" class="view"></section>
+  <section id="view-learn" class="view"></section>
+  <section id="view-settings" class="view"></section>
+</main>
+
+<div class="pveil" id="pveil"></div>
+<aside class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="ptitle" aria-hidden="true">
+  <div class="ph"><span class="k" id="pkind"></span><button class="x" id="pclose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+  <div class="pb" id="pbody"></div>
+  <div class="pf" id="pfoot"></div>
+</aside>
+
+<dialog class="modal" id="dlg"></dialog>
+<dialog class="navsheet" id="navsheet" aria-label="Views"><nav class="nav" id="mnav"></nav></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script id="data" type="application/json">{
+ "generated_at": "2026-10-24T18:22:37+00:00",
+ "states": {
+  "main": [
+   "IDEA",
+   "BRIEFED",
+   "SCRIPTED",
+   "RENDERED",
+   "QA",
+   "NEEDS_APPROVAL",
+   "APPROVED",
+   "QUEUED",
+   "PUBLISHING",
+   "PUBLISHED",
+   "MEASURING",
+   "ANALYZED"
+  ],
+  "exceptions": [
+   "REJECTED",
+   "FAILED",
+   "NEEDS_INPUT",
+   "MANUAL_HANDOFF"
+  ],
+  "waiting_on_human": [
+   "MANUAL_HANDOFF",
+   "NEEDS_APPROVAL",
+   "NEEDS_INPUT"
+  ]
+ },
+ "clients": [
+  {
+   "name": "rosa",
+   "display": "Rosa",
+   "grants": {
+    "page_id": "1450505061475499",
+    "ig_user_id": "17841452024696422",
+    "auto_approve_pillars": [],
+    "auto_reply": {
+     "comments": false,
+     "dm": false
+    },
+    "emergency_stop": false
+   },
+   "handle": "rosasurfapp",
+   "posts": [
+    {
+     "slot_id": "2026-w43-01",
+     "state": "MEASURING",
+     "state_group": "live",
+     "scheduled_at": "2026-10-24T18:06:17+00:00",
+     "published_at": "2026-10-24T18:06:50+0000",
+     "age_hours": 0.3,
+     "pillar": "Free, and why",
+     "angle": "showreel: what Rosa is",
+     "hook_formula": "existing-clip",
+     "cta": "link in bio + first comment",
+     "length_s": 30.07,
+     "engine": "html-playwright v0",
+     "trial": false,
+     "experiment_id": null,
+     "qa_rounds": 0,
+     "qa": {
+      "spec": "PASS",
+      "verdict": "APPROVED",
+      "verdict_note": "with operator overrides recorded",
+      "lines": [
+       "\"78 KB\" whole app: product.md entry JS 63 KB + CSS 15 KB gzip = 78 KB. PASS",
+       "\"Updated 4x a day\", \"Seven days at a glance\" (horizon is 16 days; understated, not wrong). PASS",
+       "\"2,741 spots worldwide, up from 40 in July\": live count 3,056. STALE. Operator override 2026-10-24: post as-is; caption omits the count so the two never contradict. Re-render before reuse.",
+       "\"0.14 s from tap to forecast, on 4G\": not in product.md, unmeasured. WARN, operator accepted.",
+       "\"Checked against ocean buoys\": buoy ground truth exists only for the US and Portugal; soft claim, not an accuracy comparison. WARN, operator accepted.",
+       "\"Footage: Pixabay\" ocean shots: brand draft bans stock surfer footage; Pixabay licence allows it. Operator override 2026-10-24. Originality risk is low (UI is the subject).",
+       "Forecasts on screen: attribution line added to the caption (product.md rule). PASS",
+       "No competitor named or alluded to. No AI label trigger: code render + stock footage, no generative output, markers clean. PASS",
+       "Cover at 7 s (Epic 0.9–1.4 m card)."
+      ],
+      "warns": [
+       "\"2,741 spots worldwide, up from 40 in July\": live count 3,056. STALE. Operator override 2026-10-24: post as-is; caption omits the count so the two never contradict. Re-render before reuse.",
+       "\"0.14 s from tap to forecast, on 4G\": not in product.md, unmeasured. WARN, operator accepted.",
+       "\"Checked against ocean buoys\": buoy ground truth exists only for the US and Portugal; soft claim, not an accuracy comparison. WARN, operator accepted."
+      ]
+     },
+     "ig_media_id": "18105188747629741",
+     "permalink": "https://www.instagram.com/reel/De4vMcBkqeL/",
+     "note": "operator approved in chat 2026-10-24",
+     "caption": "Should I surf? One tap says yes or no, and why. Free at rosa.surf, link in bio.\n\nThat's the whole app in 30 seconds. Open it, your spots are there with size, period and wind, and the rating tells you why the day's Epic or Fair.\n\nSpots worldwide, 16 days out, updated four times a day. It's free and it runs in your browser, so there's nothing to install.\n\nA surf forecast app that shows its reasoning.\n\nWaves: NOAA GFS-Wave + ECMWF open data (CC-BY 4.0) · Peak periods: DWD GWAM (CC-BY 4.0) · Weather by Open-Meteo.com (CC-BY 4.0) · Sea temp: NOAA OISST · Tides: EOT20 (CC-BY 4.0)\n\n#surfforecast #surfing #surfreport\n",
+     "first_comment": "Here it is, free: https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w43-01&utm_content=comment\n",
+     "source_asset": "rosa-showreel-v14-30s-blues-9x16.mp4",
+     "operator_overrides": [
+      "stale spot count 2,741 on screen (live 3,056): operator chose to post as-is 2026-10-24",
+      "Pixabay ocean footage: operator chose to post as-is 2026-10-24"
+     ],
+     "files": {
+      "video": true,
+      "cover": true
+     },
+     "media_url": "/media/rosa/2026-w43-01/video.mp4",
+     "cover_url": "/media/rosa/2026-w43-01/cover.jpg",
+     "metrics": {
+      "by_window": {},
+      "latest": null,
+      "windows_done": [],
+      "next_window_at": "2026-10-25T18:06:50+00:00"
+     },
+     "updated_at": "2026-10-24T18:07:10+00:00"
+    },
+    {
+     "slot_id": "2026-w43-02",
+     "state": "QUEUED",
+     "state_group": "scheduled",
+     "scheduled_at": "2026-10-25T06:30:00+00:00",
+     "published_at": null,
+     "age_hours": null,
+     "pillar": "Free, and why",
+     "angle": "favorites: all your breaks on one screen",
+     "hook_formula": "existing-clip",
+     "cta": "link in bio + first comment",
+     "length_s": 15.07,
+     "engine": "html-playwright v0",
+     "trial": false,
+     "experiment_id": null,
+     "qa_rounds": 0,
+     "qa": {
+      "spec": "PASS",
+      "verdict": "APPROVED",
+      "verdict_note": "",
+      "lines": [
+       "Numbers on screen: \"12 favorites\" (demo count, not a product claim). No spot count, horizon or refresh figure, so nothing to go stale. PASS",
+       "Spot names shown are real breaks (Banzai Pipeline, J-Bay, Snapper Rocks, La Graviere, Uluwatu, Supertubos, Chicama, Teahupoo, Upper Trestles, Bells Beach, Anchor Point): demo data in the real UI. PASS",
+       "No competitor named or alluded to. PASS",
+       "No stock footage, no faces, no third-party logo, no watermark. Footer \"ROSA.SURF · SURF FORECAST · WORLDWIDE\". PASS",
+       "Banned words: none spoken or shown. Caption passes ig-human 87.5 and caption lint READY. PASS",
+       "Attribution line (data sources) not on screen: brand.md lists it as proof we may use, not as required. WARN, noted for the first rendered reel.",
+       "Cover: frame at 9.5 s (\"All your breaks.\" with the phone). PASS",
+       "Caption vs product: favorites need Google sign-in, so the caption says \"nothing to pay for\" and not \"nothing to sign up for\". PASS"
+      ],
+      "warns": [
+       "Attribution line (data sources) not on screen: brand.md lists it as proof we may use, not as required. WARN, noted for the first rendered reel."
+      ]
+     },
+     "ig_media_id": null,
+     "permalink": null,
+     "note": "operator approved in chat 2026-10-24",
+     "caption": "All your spots on one screen. Free, worldwide. rosa.surf, link in bio.\n\nStar a break once and it's there every morning: size, period, wind, and why the day rates what it rates. Pipeline next to Uluwatu next to Snapper, one tap each.\n\n3,056 spots, 16 days out, four updates a day. There's nothing to pay for.\n\nIt's a surf forecast app built around the spots you actually surf.\n\nWaves: NOAA GFS-Wave + ECMWF open data (CC-BY 4.0) · Peak periods: DWD GWAM (CC-BY 4.0) · Weather by Open-Meteo.com (CC-BY 4.0) · Sea temp: NOAA OISST · Tides: EOT20 (CC-BY 4.0)\n\n#surfforecast #surfing #surfreport\n",
+     "first_comment": "Here it is, free, no install needed: https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w43-02&utm_content=comment\n",
+     "source_asset": "rosa-favorites-9x16.mp4",
+     "operator_overrides": [],
+     "files": {
+      "video": true,
+      "cover": true
+     },
+     "media_url": "/media/rosa/2026-w43-02/video.mp4",
+     "cover_url": "/media/rosa/2026-w43-02/cover.jpg",
+     "metrics": {
+      "by_window": {},
+      "latest": null,
+      "windows_done": [],
+      "next_window_at": null
+     },
+     "updated_at": "2026-10-24T18:14:42+00:00"
+    }
+   ],
+   "groups": {
+    "live": 1,
+    "scheduled": 1
+   },
+   "needs_you": [],
+   "live": [
+    {
+     "slot_id": "2026-w43-01",
+     "state": "MEASURING",
+     "state_group": "live",
+     "scheduled_at": "2026-10-24T18:06:17+00:00",
+     "published_at": "2026-10-24T18:06:50+0000",
+     "age_hours": 0.3,
+     "pillar": "Free, and why",
+     "angle": "showreel: what Rosa is",
+     "hook_formula": "existing-clip",
+     "cta": "link in bio + first comment",
+     "length_s": 30.07,
+     "engine": "html-playwright v0",
+     "trial": false,
+     "experiment_id": null,
+     "qa_rounds": 0,
+     "qa": {
+      "spec": "PASS",
+      "verdict": "APPROVED",
+      "verdict_note": "with operator overrides recorded",
+      "lines": [
+       "\"78 KB\" whole app: product.md entry JS 63 KB + CSS 15 KB gzip = 78 KB. PASS",
+       "\"Updated 4x a day\", \"Seven days at a glance\" (horizon is 16 days; understated, not wrong). PASS",
+       "\"2,741 spots worldwide, up from 40 in July\": live count 3,056. STALE. Operator override 2026-10-24: post as-is; caption omits the count so the two never contradict. Re-render before reuse.",
+       "\"0.14 s from tap to forecast, on 4G\": not in product.md, unmeasured. WARN, operator accepted.",
+       "\"Checked against ocean buoys\": buoy ground truth exists only for the US and Portugal; soft claim, not an accuracy comparison. WARN, operator accepted.",
+       "\"Footage: Pixabay\" ocean shots: brand draft bans stock surfer footage; Pixabay licence allows it. Operator override 2026-10-24. Originality risk is low (UI is the subject).",
+       "Forecasts on screen: attribution line added to the caption (product.md rule). PASS",
+       "No competitor named or alluded to. No AI label trigger: code render + stock footage, no generative output, markers clean. PASS",
+       "Cover at 7 s (Epic 0.9–1.4 m card)."
+      ],
+      "warns": [
+       "\"2,741 spots worldwide, up from 40 in July\": live count 3,056. STALE. Operator override 2026-10-24: post as-is; caption omits the count so the two never contradict. Re-render before reuse.",
+       "\"0.14 s from tap to forecast, on 4G\": not in product.md, unmeasured. WARN, operator accepted.",
+       "\"Checked against ocean buoys\": buoy ground truth exists only for the US and Portugal; soft claim, not an accuracy comparison. WARN, operator accepted."
+      ]
+     },
+     "ig_media_id": "18105188747629741",
+     "permalink": "https://www.instagram.com/reel/De4vMcBkqeL/",
+     "note": "operator approved in chat 2026-10-24",
+     "caption": "Should I surf? One tap says yes or no, and why. Free at rosa.surf, link in bio.\n\nThat's the whole app in 30 seconds. Open it, your spots are there with size, period and wind, and the rating tells you why the day's Epic or Fair.\n\nSpots worldwide, 16 days out, updated four times a day. It's free and it runs in your browser, so there's nothing to install.\n\nA surf forecast app that shows its reasoning.\n\nWaves: NOAA GFS-Wave + ECMWF open data (CC-BY 4.0) · Peak periods: DWD GWAM (CC-BY 4.0) · Weather by Open-Meteo.com (CC-BY 4.0) · Sea temp: NOAA OISST · Tides: EOT20 (CC-BY 4.0)\n\n#surfforecast #surfing #surfreport\n",
+     "first_comment": "Here it is, free: https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w43-01&utm_content=comment\n",
+     "source_asset": "rosa-showreel-v14-30s-blues-9x16.mp4",
+     "operator_overrides": [
+      "stale spot count 2,741 on screen (live 3,056): operator chose to post as-is 2026-10-24",
+      "Pixabay ocean footage: operator chose to post as-is 2026-10-24"
+     ],
+     "files": {
+      "video": true,
+      "cover": true
+     },
+     "media_url": "/media/rosa/2026-w43-01/video.mp4",
+     "cover_url": "/media/rosa/2026-w43-01/cover.jpg",
+     "metrics": {
+      "by_window": {},
+      "latest": null,
+      "windows_done": [],
+      "next_window_at": "2026-10-25T18:06:50+00:00"
+     },
+     "updated_at": "2026-10-24T18:07:10+00:00"
+    }
+   ],
+   "account_daily": [
+    {
+     "date": "2026-10-24",
+     "views": 0,
+     "reach": 0,
+     "accounts_engaged": 0,
+     "total_interactions": 0,
+     "profile_links_taps": 0,
+     "followers_count": 0,
+     "media_count": 1
+    }
+   ],
+   "account_latest": {
+    "date": "2026-10-24",
+    "views": 0,
+    "reach": 0,
+    "accounts_engaged": 0,
+    "total_interactions": 0,
+    "profile_links_taps": 0,
+    "followers_count": 0,
+    "media_count": 1
+   },
+   "experiments": [],
+   "conversions": [],
+   "costs": [],
+   "engage": {
+    "date": "2026-10-24",
+    "file": false,
+    "items": [],
+    "done": 0,
+    "total": 0
+   },
+   "calendar": null,
+   "reports": [],
+   "lessons": null,
+   "changelog_head": [
+    "# Rosa — changelog",
+    "",
+    "- 2026-10-24 CP1 passed: strategy.md, funnel.md, profile.md approved by the operator.",
+    "  Rules added the same day: 16 days; surfer voice; no competitors; no \"comment for the",
+    "  link\" ever; posting slots 06:30 / 18:30 UTC."
+   ],
+   "kpis": [
+    {
+     "kpi": "Non-follower reach share",
+     "source": "insights",
+     "target": "≥ 60 %"
+    },
+    {
+     "kpi": "Sends / reach",
+     "source": "insights",
+     "target": "≥ 1 % median"
+    },
+    {
+     "kpi": "Hold (avg watch / duration)",
+     "source": "insights",
+     "target": "≥ 50 % on 15 s clips"
+    },
+    {
+     "kpi": "Profile link taps → sessions",
+     "source": "insights + GA4 UTM",
+     "target": "≥ 100 sessions / week"
+    },
+    {
+     "kpi": "`app_install` + `push_optin_start`",
+     "source": "GA4",
+     "target": "≥ 30 / week"
+    },
+    {
+     "kpi": "`favorite_add` (lead)",
+     "source": "GA4",
+     "target": "≥ 15 / week"
+    }
+   ],
+   "journal_recent": [
+    {
+     "id": 24,
+     "ts": "2026-10-24T18:14:42+00:00",
+     "action": "post.state",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 23,
+     "ts": "2026-10-24T18:14:42+00:00",
+     "action": "post.state",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 22,
+     "ts": "2026-10-24T18:07:10+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 21,
+     "ts": "2026-10-24T18:07:05+00:00",
+     "action": "meta.comment.create",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 20,
+     "ts": "2026-10-24T18:07:05+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 19,
+     "ts": "2026-10-24T18:06:44+00:00",
+     "action": "meta.media_publish",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 18,
+     "ts": "2026-10-24T18:06:19+00:00",
+     "action": "meta.container.upload",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 17,
+     "ts": "2026-10-24T18:06:18+00:00",
+     "action": "meta.container.create",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 16,
+     "ts": "2026-10-24T18:06:18+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 15,
+     "ts": "2026-10-24T18:06:17+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 14,
+     "ts": "2026-10-24T18:06:17+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 13,
+     "ts": "2026-10-24T17:56:58+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 12,
+     "ts": "2026-10-24T17:56:58+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 11,
+     "ts": "2026-10-24T17:56:58+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 10,
+     "ts": "2026-10-24T17:56:58+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 9,
+     "ts": "2026-10-24T17:56:58+00:00",
+     "action": "post.state",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 8,
+     "ts": "2026-10-24T17:56:58+00:00",
+     "action": "post.create",
+     "target": "2026-w43-01"
+    },
+    {
+     "id": 7,
+     "ts": "2026-10-24T17:56:58+00:00",
+     "action": "post.rename",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 6,
+     "ts": "2026-10-24T17:48:30+00:00",
+     "action": "post.state",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 5,
+     "ts": "2026-10-24T17:47:50+00:00",
+     "action": "post.state",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 4,
+     "ts": "2026-10-24T17:47:50+00:00",
+     "action": "post.state",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 3,
+     "ts": "2026-10-24T17:47:50+00:00",
+     "action": "post.state",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 2,
+     "ts": "2026-10-24T17:47:50+00:00",
+     "action": "post.state",
+     "target": "2026-w43-02"
+    },
+    {
+     "id": 1,
+     "ts": "2026-10-24T17:47:50+00:00",
+     "action": "post.create",
+     "target": "2026-w43-02"
+    }
+   ],
+   "listen": {
+    "comments_waiting": null,
+    "dms_waiting": null,
+    "note": "listen/ webhook not deployed yet; counts appear once it is"
+   },
+   "ga4": {
+    "sessions_by_campaign": null,
+    "note": "ga4.py not built; sessions per UTM appear once it runs"
+   }
+  }
+ ],
+ "totals": {
+  "needs_you": 0,
+  "live": 1,
+  "scheduled": 1,
+  "in_production": 0,
+  "emergency_stop": false
+ }
+}</script>
+<script>
+(() => {
+'use strict';
+const D = JSON.parse(document.getElementById('data').textContent);
+const C = D.clients[0];
+const NOW = new Date(D.generated_at);            // relative times are measured from the data's own clock, not the viewer's
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const h = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === 'class') e.className = v;
+    else if (k === 'html') e.innerHTML = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) e.append(k.nodeType ? k : document.createTextNode(k));
+  return e;
+};
+const I = {
+  ext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 2 21h20L12 3z"/><path d="M12 10v5M12 18h.01" stroke-linecap="round"/></svg>',
+  dot: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="3.5"/></svg>',
+  pen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/></svg>',
+  left: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>',
+  right: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>',
+  sort: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9l4-4 4 4M8 15l4 4 4-4"/></svg>',
+  nav: {
+    overview: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>',
+    calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+    approve: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v6"/><path d="M4 13h4l2 3h4l2-3h4v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-5z"/></svg>',
+    posts: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+    today: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+    learn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h6v18H6a2 2 0 0 0-2 2V5z"/><path d="M20 5a2 2 0 0 0-2-2h-6v18h6a2 2 0 0 1 2 2V5z"/></svg>',
+    settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>'
+  }
+};
+
+/* ---------- time helpers (all UTC) ---------- */
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const p2 = n => String(n).padStart(2, '0');
+const dt = s => s ? new Date(s.replace(/\+0000$/, '+00:00')) : null;
+const fmtDay = d => `${DAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`;
+const fmtTime = d => `${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
+const fmtDT = s => { const d = dt(s); return d ? `${fmtDay(d)} ${fmtTime(d)} UTC` : ''; };
+const fmtDate = s => { const d = dt(s); return d ? `${d.getUTCDate()} ${MON[d.getUTCMonth()]}` : ''; };
+const rel = (s, from = NOW) => {
+  const d = dt(s); if (!d) return '';
+  const ms = d - from, abs = Math.abs(ms), fut = ms > 0;
+  let w;
+  if (abs < 3600e3) w = `${Math.max(1, Math.round(abs / 60e3))} min`;
+  else if (abs < 48 * 3600e3) w = `${Math.floor(abs / 3600e3)} h`;
+  else w = `${Math.round(abs / 86400e3)} days`;
+  return fut ? `in ${w}` : `${w} ago`;
+};
+const addDays = (d, n) => new Date(d.getTime() + n * 86400e3);
+const utcDay = d => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+const isoWeek = d => {  // {year, week, monday}
+  const t = utcDay(d); const day = (t.getUTCDay() + 6) % 7; t.setUTCDate(t.getUTCDate() - day + 3);
+  const y = t.getUTCFullYear(); const jan4 = new Date(Date.UTC(y, 0, 4));
+  const week = 1 + Math.round(((t - jan4) / 86400e3 - 3 + ((jan4.getUTCDay() + 6) % 7)) / 7);
+  const monday = addDays(utcDay(d), -day);
+  return { year: y, week, monday };
+};
+const TODAY = utcDay(NOW);
+const THIS = isoWeek(NOW);
+const SLOTS = ['06:30', '18:30'];                // house slots, from strategy.md (changelog: "posting slots 06:30 / 18:30 UTC")
+const slotOf = s => { const d = dt(s); if (!d) return null; const m = d.getUTCHours() * 60 + d.getUTCMinutes(); return m < 12 * 60 ? 0 : 1; };
+
+/* ---------- post helpers ---------- */
+const mediaPath = u => u ? u.replace(/^\/media\/([^/]+)\/([^/]+)\//, '../../../clients/$1/posts/$2/') : '';
+const title = p => { const a = (p.angle || '').split(':')[0].trim(); return a ? a[0].toUpperCase() + a.slice(1) : p.slot_id; };
+const lenS = p => `${Math.round(p.length_s)} s`;
+const when = p => p.published_at || p.scheduled_at;
+const nextNumbers = p => p.metrics && p.metrics.next_window_at ? fmtDT(p.metrics.next_window_at) : null;
+const windowsFor = p => { // 24 h, 72 h, 7 d from publish time
+  const b = dt(p.published_at); if (!b) return [null, null, null];
+  return [24, 72, 168].map(hh => new Date(b.getTime() + hh * 3600e3).toISOString());
+};
+const stateInfo = p => {
+  const s = p.state, n = nextNumbers(p);
+  const map = {
+    IDEA: ['In production: idea', '', 'prod'], BRIEFED: ['In production: briefed', '', 'prod'],
+    SCRIPTED: ['In production: scripted', p.qa_rounds > 0 ? `Revision ${p.qa_rounds} of 2` : '', 'prod'],
+    RENDERED: ['In production: rendered', '', 'prod'], QA: ['In QA', '', 'prod'],
+    NEEDS_APPROVAL: ['Waiting for you', `Waiting since ${fmtDay(dt(p.updated_at))} ${fmtTime(dt(p.updated_at))} UTC`, 'wait'],
+    APPROVED: ['Approved', 'Queues within 10 min', 'sched'],
+    QUEUED: ['Scheduled', `${fmtDT(p.scheduled_at)} · ${rel(p.scheduled_at)}`, 'sched'],
+    PUBLISHING: ['Publishing now', `Started ${fmtTime(dt(p.scheduled_at))}`, 'sched'],
+    PUBLISHED: ['Live', n ? `First numbers ${n}` : '', 'live'],
+    MEASURING: ['Live, measuring', n ? `24 h numbers ${rel(p.metrics.next_window_at)}` : '', 'live'],
+    ANALYZED: ['Measured', '', 'done'],
+    REJECTED: ['Sent back with your note', p.note || '', 'done'],
+    FAILED: ['Publish failed, retrying', p.note || '', 'fail'],
+    NEEDS_INPUT: ['QA stuck after 2 rounds, needs your call', '', 'wait'],
+    MANUAL_HANDOFF: ['Post it by hand, then paste the id', '', 'fail']
+  };
+  const [words, second, role] = map[s] || [s, '', 'prod'];
+  return { words, second, role };
+};
+const pill = p => { const s = stateInfo(p); return h('span', { class: `pill ${s.role}` }, s.words); };
+const warnsOf = p => (p.qa && p.qa.warns ? p.qa.warns.length : 0);
+const captionChecks = p => { // humanizer + lint live only inside a QA line today (data gap, concepts §6.4)
+  const line = (p.qa?.lines || []).find(l => /ig-human/i.test(l)) || '';
+  const hm = line.match(/ig-human\s+(\d+(?:\.\d+)?)/i), lm = line.match(/caption lint\s+([A-Z]+)/i);
+  return { human: hm ? Number(hm[1]) : null, lint: lm ? lm[1].toLowerCase() : null };
+};
+const firstLine = c => (c || '').split('\n')[0];
+
+/* ---------- mockup state (reverts on reload) ---------- */
+const S = {
+  posts: C.posts.map(p => ({ ...p, _caption: p.caption })),
+  sample: /[?&]sample=1/.test(location.search),
+  weekOffset: 0, calOffset: 0,
+  sel: null, sort: { key: 'when', dir: 1 }, grants: JSON.parse(JSON.stringify(C.grants)), sent: new Set()
+};
+const visiblePosts = () => S.posts.map(p => (S.sample && p.slot_id === '2026-w43-02' && p.state === 'QUEUED') ? { ...p, state: 'NEEDS_APPROVAL', _sample: true } : p);
+const byId = id => visiblePosts().find(p => p.slot_id === id);
+const waiting = () => visiblePosts().filter(p => ['NEEDS_APPROVAL', 'NEEDS_INPUT', 'MANUAL_HANDOFF', 'FAILED'].includes(p.state));
+
+/* ---------- shared pieces ---------- */
+const cover = (p, cls = 'cov') => {
+  const c = h('div', { class: cls });
+  if (p.files?.cover) c.append(h('img', { src: mediaPath(p.cover_url), alt: '', loading: 'lazy', onerror: e => e.target.remove() }));
+  return c;
+};
+const extLink = (href, text) => h('a', { class: 'lnk', href, target: '_blank', rel: 'noopener' }, text, h('span', { html: I.ext, 'aria-hidden': 'true' }));
+const copyBtn = (text, label = 'Copy') => {
+  const b = h('button', { class: 'btn s', type: 'button' }, h('span', { html: I.copy, 'aria-hidden': 'true' }), label);
+  b.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(text); } catch (e) {}
+    b.innerHTML = `${I.check}Copied`; b.classList.add('ok'); live(`${label}: copied`);
+    setTimeout(() => { b.innerHTML = `${I.copy}${esc(label)}`; b.classList.remove('ok'); }, 1600);
+  });
+  return b;
+};
+const metricList = (p, keys) => {
+  const dl = h('dl', { class: 'ml' });
+  const n = nextNumbers(p);
+  for (const [lab] of keys) dl.append(h('div', {}, h('dt', {}, lab), h('dd', { title: n ? `First numbers ${n}` : 'Numbers start after it posts' }, '—')));
+  return dl;
+};
+const METRICS = [['Views'], ['Reach'], ['Sends / reach'], ['Saves / reach'], ['Follows / reach'], ['Hold']];
+
+/* lifecycle nodes (23andMe): filled = reached, ring = where it is now */
+const lifecycle = p => {
+  const steps = ['Scripted', 'QA', 'Approved', 'Queued', 'Published', 'Measured'];
+  const idx = { IDEA: -1, BRIEFED: -1, SCRIPTED: 0, RENDERED: 0, QA: 1, NEEDS_APPROVAL: 1, NEEDS_INPUT: 1, APPROVED: 2, QUEUED: 3, PUBLISHING: 3, PUBLISHED: 4, MEASURING: 4, ANALYZED: 5, REJECTED: 0, FAILED: 3, MANUAL_HANDOFF: 3 }[p.state] ?? -1;
+  const w = 520, step = (w - 40) / (steps.length - 1), y = 12;
+  let s = `<svg viewBox="0 0 ${w} 44" role="img" aria-label="Where this reel is: ${steps.filter((_, i) => i <= idx).join(', ')} done">`;
+  steps.forEach((name, i) => {
+    const x = 20 + i * step;
+    if (i < steps.length - 1) s += `<line class="ln ${i < idx ? 'on' : ''}" x1="${x + 8}" y1="${y}" x2="${x + step - 8}" y2="${y}"/>`;
+    s += `<circle class="nd ${i < idx ? 'on' : ''} ${i === idx ? 'cur' : ''}" cx="${x}" cy="${y}" r="6"/>`;
+    s += `<text class="${i <= idx ? 'on' : ''}" x="${x}" y="${y + 26}" text-anchor="middle">${name}</text>`;
+  });
+  return h('div', { class: 'life', html: s + '</svg>' });
+};
+
+/* caption editor with the "… more" rule after character 125 */
+const CUT = 125;
+const captionEditor = (p, editable) => {
+  const wrap = h('div', { class: 'cap' });
+  const mirror = h('div', { class: 'mirror', 'aria-hidden': 'true' });
+  const ta = h('textarea', { 'aria-label': `Caption for ${title(p)}`, spellcheck: 'false' }, p._caption ?? p.caption);
+  if (!editable) ta.setAttribute('readonly', '');
+  const cut = h('div', { class: 'cut', 'aria-hidden': 'true' }, h('i', { class: 'tk' }), h('i', { class: 'ln' }), h('span', { class: 'lb' }, '… more'));
+  wrap.append(mirror, ta, cut);
+  const foot = h('div', { class: 'capf' });
+  const count = h('span', { class: 'c' });
+  const verd = h('div', { class: 'verd' });
+  const head = h('h3', { style: 'justify-content:space-between' }, h('span', {}, 'Caption'));
+  const out = h('div', { class: 'sec' }, head, wrap, foot, verd);
+  foot.append(count);
+  if (editable) {
+    const save = h('button', { class: 'btn s sm', type: 'button' }, 'Save caption');
+    save.addEventListener('click', () => { p._caption = ta.value; const real = S.posts.find(x => x.slot_id === p.slot_id); if (real) real._caption = ta.value; save.innerHTML = `${I.check}Saved`; save.classList.add('ok'); live('Caption saved in the mockup'); setTimeout(() => { save.textContent = 'Save caption'; save.classList.remove('ok'); }, 1600); });
+    head.append(save);
+  } else head.append(h('span', { class: 'small muted', style: 'font-weight:500' }, 'read-only once live'));
+  const layout = () => {
+    const v = ta.value;
+    ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px';
+    mirror.innerHTML = `<span>${esc(v.slice(0, CUT))}</span><span class="m">&#8203;</span>${esc(v.slice(CUT))}${v.endsWith('\n') ? ' ' : ''}`;
+    mirror.style.height = ta.style.height;
+    const m = mirror.querySelector('.m');
+    const lh = 16 * 1.6;
+    const r = m.getBoundingClientRect(), mr = mirror.getBoundingClientRect();
+    const lineTop = (r.top - mr.top) - (lh - r.height) / 2, left = r.left - mr.left;
+    const top = Math.round(lineTop + lh) - 1;
+    cut.style.top = top + 'px';
+    cut.querySelector('.ln').style.left = left + 'px';
+    const tk = cut.querySelector('.tk'); tk.style.left = left + 'px'; tk.style.top = -lh + 3 + 'px'; tk.style.height = lh - 3 + 'px';
+    const n = v.replace(/\n$/, '').length;
+    count.textContent = `${n} characters · Instagram shows the first ${CUT} before “… more”`;
+    const fl = firstLine(v); verd.innerHTML = '';
+    if (fl.length <= CUT) verd.append(h('span', { class: 'g' }, h('i'), `Hook survives the cut · ${fl.length} characters`));
+    else { const words = v.slice(0, CUT).trim().split(/\s+/).slice(-3).join(' '); verd.append(h('span', { class: 'a' }, h('i'), `Cut mid-sentence after “${words}”`)); }
+    const ck = captionChecks(p);
+    if (ck.human != null) verd.append(h('span', { class: ck.human >= 70 ? 'g' : ck.human >= 55 ? 'a' : 'r' }, h('i'), `Reads human · ${ck.human}/100`));
+    if (ck.lint) verd.append(h('span', { class: ck.lint === 'ready' ? 'g' : 'a' }, h('i'), `Caption lint: ${ck.lint}`));
+    if (ck.human == null && !ck.lint) verd.append(h('span', { class: 'n' }, h('i'), 'Reads-human score: not scored'));
+  };
+  ta.addEventListener('input', layout);
+  out._layout = layout;
+  requestAnimationFrame(layout);
+  if ('ResizeObserver' in window) new ResizeObserver(layout).observe(wrap);
+  return out;
+};
+
+const qaList = p => {
+  const q = p.qa || { lines: [], warns: [] };
+  const n = (q.warns || []).length;
+  const head = h('h3', {}, `QA · ${q.verdict === 'APPROVED' ? (n ? `approved with ${n} warning${n > 1 ? 's' : ''}` : 'approved, clean') : (q.verdict || '').toLowerCase()}`);
+  const ul = h('ul', { class: 'qa' });
+  ul.append(h('li', { class: 'spec pass' }, h('i', { html: I.check }), `Spec check: ${q.spec === 'PASS' ? 'passed' : (q.spec || 'not recorded')}`));
+  for (const line of q.lines || []) {
+    const cls = /\bPASS\b\.?\s*$/.test(line) ? 'pass' : /\b(WARN|STALE)\b/.test(line) ? 'warn' : 'note';
+    ul.append(h('li', { class: cls }, h('i', { html: cls === 'pass' ? I.check : cls === 'warn' ? I.warn : I.dot }), line));
+  }
+  return h('div', { class: 'sec' }, head, ul);
+};
+const overrides = p => {
+  if (!p.operator_overrides?.length) return null;
+  const ul = h('ul', { class: 'ovr' });
+  for (const o of p.operator_overrides) {
+    const m = o.match(/(\d{4})-(\d{2})-(\d{2})/); const date = m ? `${Number(m[3])} ${MON[Number(m[2]) - 1]}` : '';
+    const text = o.replace(/\s*\d{4}-\d{2}-\d{2}\s*/g, ' ').replace(/\s+/g, ' ').trim();
+    ul.append(h('li', {}, date ? h('b', {}, `${date} · `) : null, text[0].toUpperCase() + text.slice(1)));
+  }
+  return h('div', { class: 'sec' }, h('h3', {}, 'Your overrides'), ul);
+};
+const firstComment = p => {
+  if (!p.first_comment) return null;
+  const txt = p.first_comment.trim();
+  const url = (txt.match(/https?:\/\/\S+/) || [])[0];
+  const parts = url ? txt.split(url) : [txt];
+  const para = h('p', {}, parts[0], url ? extLink(url, url.replace(/^https?:\/\//, '').split('?')[0] + '?utm…') : null, parts[1] || '');
+  return h('div', { class: 'sec' }, h('h3', {}, 'First comment, posted right after the reel'), h('div', { class: 'soft fc' }, para, copyBtn(txt)));
+};
+const windowTable = p => {
+  const wins = windowsFor(p), labels = ['24 h', '72 h', '7 d'];
+  const done = p.metrics?.windows_done || [];
+  const t = h('table', { class: 'wt' });
+  const thead = h('tr', {}, h('th', {}, 'Measure'));
+  labels.forEach((l, i) => thead.append(h('th', {}, l, h('small', {}, done.includes(l.replace(' ', '')) ? 'in' : (wins[i] ? `arrives ${fmtDate(wins[i])} ${fmtTime(dt(wins[i]))}` : 'after it posts')))));
+  t.append(h('thead', {}, thead));
+  const tb = h('tbody');
+  for (const [m] of METRICS) tb.append(h('tr', {}, h('td', {}, m), ...labels.map((l, i) => h('td', { title: wins[i] ? `Arrives ${fmtDT(wins[i])}` : 'Numbers start after it posts' }, '—'))));
+  t.append(tb);
+  return h('div', { class: 'sec' }, h('h3', {}, 'Numbers at 24 h · 72 h · 7 d'), t);
+};
+
+/* the approval card's right column (§1.4 items 2–9), shared by the Approve card and the side panel */
+const detailColumn = (p, opts = {}) => {
+  const st = stateInfo(p);
+  const col = h('div', { class: 'apr' });
+  const whenEl = h('span', { class: 'when' }, p.published_at ? `Went out ${fmtDT(p.published_at)}` : `Posts ${fmtDT(p.scheduled_at)}`);
+  if (!p.published_at && ['NEEDS_APPROVAL', 'APPROVED', 'QUEUED'].includes(p.state)) whenEl.append(h('button', { type: 'button', 'aria-label': 'Change the time', html: I.pen, onclick: () => openReschedule(p) }));
+  const trow = h('div', { class: 'trow' }, h('h2', { id: opts.titleId }, `${title(p)} · ${lenS(p)}`), pill(p), whenEl);
+  if (p._sample) trow.append(h('span', { class: 'pill sample' }, 'Sample: shown as if waiting'));
+  col.append(trow);
+  if (st.second && p.state !== 'QUEUED') col.append(h('div', { class: 'meta2' }, st.second));
+  col.append(h('div', { class: 'meta2' }, `${p.pillar} · ${p.angle} · ${p.cta}`));
+  col.append(h('div', { class: 'meta3' }, `Trial: ${p.trial ? 'yes' : 'no'} · Experiment: ${p.experiment_id || 'none'} · Hook: ${p.hook_formula} · ${p.slot_id}`));
+  col.append(lifecycle(p));
+  const editable = ['NEEDS_APPROVAL', 'QUEUED', 'APPROVED'].includes(p.state);
+  col.append(captionEditor(p, editable));
+  const fc = firstComment(p); if (fc) col.append(fc);
+  if (p.state === 'MEASURING' || p.state === 'PUBLISHED' || p.state === 'ANALYZED') col.append(windowTable(p));
+  col.append(qaList(p));
+  const ov = overrides(p); if (ov) col.append(ov);
+  col.append(h('div', { class: 'meta3' }, `From ${p.source_asset} · ${p.engine}`));
+  return col;
+};
+const actionsFor = (p, where) => {
+  const acts = h('div', { class: 'acts' });
+  if (p.state === 'NEEDS_APPROVAL') {
+    acts.append(h('button', { class: 'btn p', type: 'button', onclick: () => approve(p) }, 'Approve'));
+    acts.append(h('button', { class: 'btn d', type: 'button', onclick: () => openReject(p) }, 'Send back'));
+  } else if (p.state === 'QUEUED' || p.state === 'APPROVED') {
+    acts.append(h('button', { class: 'btn s', type: 'button', onclick: () => openReschedule(p) }, 'Change time'));
+    acts.append(h('button', { class: 'btn d', type: 'button', onclick: () => openReject(p) }, 'Send back'));
+  } else if (p.state === 'NEEDS_INPUT') {
+    acts.append(h('button', { class: 'btn d', type: 'button', onclick: () => openReject(p) }, 'Send back with a note'));
+  }
+  acts.append(h('span', { class: 'sp' }));
+  if (p.permalink) acts.append(extLink(p.permalink, 'Open on Instagram'));
+  else if (where !== 'panel' && !acts.querySelector('.btn')) acts.append(h('span', { class: 'ro' }, 'Nothing to do until it posts'));
+  return acts;
+};
+
+/* ---------- side panel ---------- */
+let panelOpener = null;
+const openPanel = (id) => {
+  const p = byId(id); if (!p) return;
+  panelOpener = document.activeElement;
+  const st = stateInfo(p);
+  $('#pkind').textContent = st.words;
+  const body = $('#pbody'); body.innerHTML = '';
+  const v = h('div', { class: 'vid' });
+  if (p.files?.video) v.append(h('video', { controls: '', preload: 'metadata', playsinline: '', poster: mediaPath(p.cover_url), src: mediaPath(p.media_url), 'aria-label': `${title(p)} reel, ${lenS(p)}` }));
+  else v.append(h('div', { class: 'noimg' }, 'Video not rendered yet'));
+  v.append(h('div', { class: 'vm' }, `${lenS(p)} · 1080×1920 · ${p.engine}`));
+  body.append(v, detailColumn(p, { titleId: 'ptitle' }));
+  const foot = $('#pfoot'); foot.innerHTML = ''; foot.append(actionsFor(p, 'panel'));
+  $('#pveil').classList.add('on'); const pn = $('#panel'); pn.classList.add('on'); pn.setAttribute('aria-hidden', 'false');
+  pn.dataset.id = id;
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => $('#pclose').focus(), 30);
+};
+const closePanel = () => {
+  const pn = $('#panel'); if (!pn.classList.contains('on')) return;
+  pn.classList.remove('on'); pn.setAttribute('aria-hidden', 'true'); $('#pveil').classList.remove('on');
+  document.body.style.overflow = '';
+  pn.querySelectorAll('video').forEach(v => v.pause());
+  if (panelOpener && panelOpener.isConnected) panelOpener.focus();
+};
+$('#pclose').addEventListener('click', closePanel);
+$('#pveil').addEventListener('click', closePanel);
+$('#panel').addEventListener('keydown', e => { // focus trap
+  if (e.key !== 'Tab') return;
+  const f = [...$('#panel').querySelectorAll('button,a[href],textarea,input,select,video,[tabindex]:not([tabindex="-1"])')].filter(x => !x.disabled && x.offsetParent !== null);
+  if (!f.length) return;
+  if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+  else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+});
+
+/* ---------- popups ---------- */
+const dlg = $('#dlg');
+let dlgOpener = null;
+const popup = ({ title: t, sub, body, primary, onPrimary, danger, cancel = 'Cancel' }) => {
+  dlgOpener = document.activeElement;
+  dlg.innerHTML = '';
+  const err = h('p', { class: 'err', hidden: true });
+  const prim = primary ? h('button', { class: `btn ${danger ? 'd' : 'p'}`, type: 'button' }, primary) : null;
+  const mh = h('div', { class: 'mh' }, h('div', {}, h('h2', { id: 'dlgt' }, t), sub ? h('p', {}, sub) : null), h('button', { class: 'x', type: 'button', 'aria-label': 'Close', html: I.x, onclick: () => dlg.close() }));
+  const mb = h('div', { class: 'mb' }, ...[body].flat(), err);
+  const mf = h('div', { class: 'mf' }, h('button', { class: 'btn s', type: 'button', onclick: () => dlg.close() }, cancel), prim);
+  dlg.append(mh, mb, mf);
+  dlg.setAttribute('aria-labelledby', 'dlgt');
+  if (prim) prim.addEventListener('click', () => { const r = onPrimary ? onPrimary(err) : true; if (r !== false) dlg.close(); });
+  dlg.showModal();
+  const first = mb.querySelector('textarea,input,button') || prim; if (first) first.focus();
+};
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+dlg.addEventListener('close', () => { if (dlgOpener && dlgOpener.isConnected) dlgOpener.focus(); });
+
+const openReject = p => {
+  const ta = h('textarea', { rows: 3, required: '', placeholder: 'What should change in the script or the render?', 'aria-label': 'Your note' });
+  popup({
+    title: `Send back — ${title(p)}`, sub: 'Tell Claude what to change.',
+    body: [h('label', {}, 'Your note', ta), h('p', {}, 'The post returns to Script with your note. Nothing publishes until it comes back through QA and you approve it.')],
+    primary: 'Send back', danger: true,
+    onPrimary: err => {
+      if (!ta.value.trim()) { err.textContent = 'A note is required to send a post back.'; err.hidden = false; ta.focus(); return false; }
+      setState(p.slot_id, 'REJECTED', { note: ta.value.trim() });
+      toast(`${title(p)} sent back with your note.`, 'Mockup only: nothing is saved, reload resets.');
+      closePanel(); render();
+    }
+  });
+};
+const openReschedule = p => {
+  const d = dt(p.scheduled_at) || new Date(NOW.getTime() + 24 * 3600e3);
+  const val = x => `${x.getUTCFullYear()}-${p2(x.getUTCMonth() + 1)}-${p2(x.getUTCDate())}T${fmtTime(x)}`;
+  const inp = h('input', { type: 'datetime-local', value: val(d), 'aria-label': 'Date and time, UTC', step: 60 });
+  const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'House slots' });
+  SLOTS.forEach(s => {
+    const b = h('button', { type: 'button', 'aria-pressed': fmtTime(d) === s ? 'true' : 'false' }, `${s} UTC`);
+    b.addEventListener('click', () => { const cur = inp.value.slice(0, 10) || val(d).slice(0, 10); inp.value = `${cur}T${s}`; chips.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false')); });
+    chips.append(b);
+  });
+  popup({
+    title: `Change the time — ${title(p)}`, sub: `Now set for ${fmtDT(p.scheduled_at)}.`,
+    body: [h('label', {}, 'New date and time (UTC)', inp), chips, h('p', {}, 'Containers are made 24 h before the slot, so a time under 24 h away publishes on the next cron run.')],
+    primary: 'Save time',
+    onPrimary: err => {
+      if (!inp.value) { err.textContent = 'Pick a date and time.'; err.hidden = false; return false; }
+      const iso = new Date(inp.value + ':00Z').toISOString();
+      const real = S.posts.find(x => x.slot_id === p.slot_id); if (real) real.scheduled_at = iso;
+      toast(`${title(p)} now posts ${fmtDT(iso)}.`, 'Mockup only: nothing is saved, reload resets.');
+      render(); if ($('#panel').classList.contains('on')) openPanel(p.slot_id);
+    }
+  });
+};
+const openSample = () => popup({
+  title: 'Preview with a sample', sub: 'Nothing is waiting for approval today.',
+  body: [h('p', {}, 'This shows the ', h('b', {}, 'Favorites'), ' reel as if it were waiting for approval, so the approval card can be judged. It is already approved and scheduled; the sample changes nothing. The real view is the empty state.')],
+  primary: 'Show the sample', onPrimary: () => { S.sample = true; render(); }
+});
+const openStop = () => popup({
+  title: `Stop everything for ${C.display}?`,
+  body: [h('p', {}, `The queue halts. Nothing publishes until you resume. ${visiblePosts().filter(p => p.state === 'QUEUED').map(p => `The ${title(p).toLowerCase()} reel scheduled for ${fmtDT(p.scheduled_at)} will wait.`).join(' ')}`)],
+  primary: 'Stop publishing', danger: true,
+  onPrimary: () => { S.grants.emergency_stop = true; toast(`Publishing stopped for ${C.display}.`, 'Mockup only: nothing is saved, reload resets.'); render(); }
+});
+const openResume = () => popup({
+  title: `Resume publishing for ${C.display}?`, body: [h('p', {}, 'The queue runs again on the next cron tick (every 10 min).')],
+  primary: 'Resume', onPrimary: () => { S.grants.emergency_stop = false; toast(`Publishing resumed for ${C.display}.`, 'Mockup only: nothing is saved, reload resets.'); render(); }
+});
+const openFlag = (key, label) => popup({
+  title: `Let Claude ${label} on its own?`,
+  body: [h('p', {}, `Claude will ${label} without waiting for you. Every reply is still written to the journal. You can turn it off here any time.`)],
+  primary: 'Turn on', onPrimary: () => { S.grants.auto_reply[key] = true; toast(`Claude now ${label}s on its own.`, 'Mockup only: nothing is saved, reload resets.'); render(); }
+});
+
+/* ---------- writes (mockup) ---------- */
+const setState = (id, state, extra = {}) => { const real = S.posts.find(x => x.slot_id === id); if (!real) return; Object.assign(real, { state, updated_at: NOW.toISOString() }, extra); if (real.slot_id === '2026-w43-02') S.sample = false; };
+let undoFn = null;
+const approve = p => {
+  const prev = { state: S.posts.find(x => x.slot_id === p.slot_id).state, sample: S.sample };
+  setState(p.slot_id, 'APPROVED');
+  closePanel(); render();
+  toast(`Approved. Posts ${fmtDT(p.scheduled_at)}.`, 'Mockup only: nothing is saved, reload resets.', { label: 'Undo', fn: () => { const real = S.posts.find(x => x.slot_id === p.slot_id); real.state = prev.state; S.sample = prev.sample; render(); } });
+};
+const toastEl = $('#toast'); let toastT = null;
+const toast = (msg, sub, undo) => {
+  toastEl.innerHTML = ''; toastEl.append(h('div', {}, msg, sub ? h('small', {}, sub) : null));
+  if (undo) toastEl.append(h('button', { type: 'button', onclick: () => { undo.fn(); hideToast(); } }, undo.label));
+  toastEl.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(hideToast, 4000);
+};
+const hideToast = () => toastEl.classList.remove('on');
+const live = msg => { const s = $('#live') || document.body.appendChild(h('div', { id: 'live', class: 'sr', 'aria-live': 'polite' })); s.textContent = ''; setTimeout(() => s.textContent = msg, 20); };
+
+/* ---------- chips & board ---------- */
+const nextToFire = () => visiblePosts().filter(p => !p.published_at && dt(p.scheduled_at) > NOW).sort((a, b) => dt(a.scheduled_at) - dt(b.scheduled_at))[0];
+const chip = (p, { small = false } = {}) => {
+  const st = stateInfo(p), nf = nextToFire();
+  const b = h('button', { class: `chip ${nf && nf.slot_id === p.slot_id ? 'next' : ''}`, type: 'button', 'aria-label': `${title(p)}, ${st.words}. Open details`, onclick: () => openPanel(p.slot_id) });
+  const cv = cover(p); cv.append(h('span', { class: 'len' }, lenS(p))); b.append(cv);
+  const body = h('div', { class: 'cb' }, h('div', { class: 't' }, title(p)), pill(p));
+  const t = when(p); const d = dt(t);
+  const slot = slotOf(t); const house = slot != null ? SLOTS[slot] : null;
+  let line = '';
+  if (p.published_at) { body.append(h('div', { class: 's' }, `Went out ${fmtTime(d)}`)); if (house && fmtTime(d) !== house) body.append(h('div', { class: 's' }, `${house} slot, early`)); }
+  else if (p.scheduled_at) body.append(h('div', { class: 's' }, `${fmtTime(d)} · ${rel(t)}`));
+  if (small) body.append(h('div', { class: 's', style: 'white-space:normal' }, `${p.pillar} · ${p.hook_formula}`));
+  b.append(body);
+  return b;
+};
+const postsOn = (day, slot) => visiblePosts().filter(p => { const d = dt(when(p)); return d && utcDay(d).getTime() === day.getTime() && slotOf(when(p)) === slot; });
+const weekBoard = (monday, { small = false, label = null } = {}) => {
+  const wk = isoWeek(monday);
+  const grid = h('div', { class: small ? 'wk' : 'bgrid', role: 'grid', 'aria-label': `Week ${wk.week}` });
+  if (label) grid.append(h('div', { class: 'wl' }, label, h('span', {}, `${fmtDay(monday).slice(4)} – ${fmtDay(addDays(monday, 6)).slice(4)}`)));
+  const days = [...Array(7)].map((_, i) => addDays(monday, i));
+  const inWeek = visiblePosts().filter(p => { const d = dt(when(p)); return d && utcDay(d) >= monday && utcDay(d) < addDays(monday, 7); });
+  grid.append(h('div', { class: 'rl' }));
+  days.forEach(d => { const today = d.getTime() === TODAY.getTime(); grid.append(h('div', { class: `bh ${today ? 'today' : ''}`, role: 'columnheader' }, DAYS[d.getUTCDay()], h('span', { class: 'd' }, today ? `${d.getUTCDate()} ${MON[d.getUTCMonth()]} · Today` : `${d.getUTCDate()} ${MON[d.getUTCMonth()]}`))); });
+  if (!inWeek.length) {
+    let msg;
+    if (monday > TODAY) msg = h('p', { class: 'noplan' }, h('b', {}, `No plan for week ${wk.week} yet.`), ' Plan runs Monday and fills this week.');
+    else msg = h('p', { class: 'noplan' }, h('b', {}, `No reels in week ${wk.week}.`), ` ${C.display}'s first reel went out ${fmtDay(dt(S.posts.find(p => p.published_at)?.published_at) || NOW)}.`);
+    grid.append(msg);
+    return grid;
+  }
+  SLOTS.forEach((s, si) => {
+    grid.append(h('div', { class: 'rl', role: 'rowheader' }, s));
+    days.forEach(d => {
+      const today = d.getTime() === TODAY.getTime();
+      const cell = h('div', { class: `cell ${today ? 'today' : ''} ${si === SLOTS.length - 1 ? 'last' : ''}`, role: 'gridcell' });
+      const ps = postsOn(d, si);
+      if (ps.length) ps.forEach(p => cell.append(chip(p, { small })));
+      else cell.append(h('div', { class: 'empty', 'aria-label': `No reel ${DAYS[d.getUTCDay()]} ${s}` }));
+      grid.append(cell);
+    });
+  });
+  return grid;
+};
+const dayList = monday => { // 390: the board as a day list, today first
+  const list = h('div', { class: 'daylist' });
+  const days = [...Array(7)].map((_, i) => addDays(monday, i));
+  const ti = days.findIndex(d => d.getTime() === TODAY.getTime());
+  const order = ti >= 0 ? [...days.slice(ti), ...days.slice(0, ti)] : days;
+  const inWeek = visiblePosts().some(p => { const d = dt(when(p)); return d && utcDay(d) >= monday && utcDay(d) < addDays(monday, 7); });
+  if (!inWeek) { const wk = isoWeek(monday); list.append(h('p', { class: 'noplan' }, h('b', {}, monday > TODAY ? `No plan for week ${wk.week} yet.` : `No reels in week ${wk.week}.`), monday > TODAY ? ' Plan runs Monday and fills this week.' : '')); return list; }
+  const past = order.filter(d => d < TODAY && !SLOTS.some((_, si) => postsOn(d, si).length));
+  order.forEach(d => {
+    const today = d.getTime() === TODAY.getTime();
+    if (past.includes(d)) { if (d === past[0]) list.append(h('p', { class: 'small muted', style: 'padding:8px 0 0' }, past.length === 1 ? `${fmtDay(past[0])}: no reel.` : `${DAYS[past[0].getUTCDay()]} ${past[0].getUTCDate()} – ${DAYS[past[past.length - 1].getUTCDay()]} ${past[past.length - 1].getUTCDate()} ${MON[d.getUTCMonth()]}: no reels earlier this week.`)); return; }
+    const day = h('div', { class: `day ${today ? 'today' : ''}` }, h('h3', {}, DAYS[d.getUTCDay()], h('span', {}, `${d.getUTCDate()} ${MON[d.getUTCMonth()]}${today ? ' · Today' : ''}`)));
+    SLOTS.forEach((s, si) => {
+      const row = h('div', { class: 'slot' }, h('div', { class: 'rl' }, s));
+      const ps = postsOn(d, si);
+      if (ps.length) ps.forEach(p => {
+        const st = stateInfo(p), nf = nextToFire();
+        const b = h('button', { class: `chipr ${nf && nf.slot_id === p.slot_id ? 'next' : ''}`, type: 'button', onclick: () => openPanel(p.slot_id) }, cover(p), h('div', { class: 'cb' }, h('span', { class: 't' }, `${title(p)} · ${lenS(p)}`), pill(p), h('span', { class: 's' }, p.published_at ? `Went out ${fmtTime(dt(p.published_at))} UTC` : `${fmtTime(dt(p.scheduled_at))} UTC · ${rel(p.scheduled_at)}`)));
+        row.append(b);
+      });
+      else row.append(h('div', { class: 'empty' }));
+      day.append(row);
+    });
+    list.append(day);
+  });
+  return list;
+};
+
+/* ---------- account chart: one honest point ---------- */
+const accountChart = () => {
+  const rows = C.account_daily || [];
+  const w = 312, hgt = 120, pl = 28, pr = 8, pt = 30, pb = 26;
+  const days = [...Array(7)].map((_, i) => addDays(THIS.monday, i));
+  const x = i => pl + i * ((w - pl - pr) / 6);
+  const vals = rows.map(r => r.followers_count);
+  const max = Math.max(1, ...vals);
+  const y = v => pt + (hgt - pt - pb) * (1 - v / max);
+  let s = `<svg viewBox="0 0 ${w} ${hgt}" role="img" aria-label="Followers per day this week: ${rows.map(r => `${fmtDay(dt(r.date))} ${r.followers_count}`).join(', ') || 'no days yet'}">`;
+  s += `<line class="ax" x1="${pl}" y1="${y(0)}" x2="${w - pr}" y2="${y(0)}"/>`;
+  s += `<text x="${pl - 6}" y="${y(0) + 4}" text-anchor="end">0</text>`; if (rows.length >= 3) s += `<text x="${pl - 6}" y="${y(max) + 4}" text-anchor="end">${max}</text>`;
+  days.forEach((d, i) => { s += `<text x="${x(i)}" y="${hgt - 8}" text-anchor="middle" ${d.getTime() === TODAY.getTime() ? 'font-weight="700" fill="#4B5563"' : ''}>${DAYS[d.getUTCDay()]}</text>`; });
+  if (rows.length >= 3) {
+    s += `<polyline fill="none" stroke="#0F4C81" stroke-width="2" points="${rows.map(r => { const i = Math.round((utcDay(dt(r.date)) - THIS.monday) / 86400e3); return `${x(i)},${y(r.followers_count)}`; }).join(' ')}"/>`;
+  } else {
+    s += `<text class="note" x="${w - pr}" y="12" text-anchor="end">Followers · line draws from 3 days (${rows.length} of 3)</text>`;
+  }
+  rows.forEach(r => {
+    const i = Math.round((utcDay(dt(r.date)) - THIS.monday) / 86400e3); if (i < 0 || i > 6) return;
+    const label = `${fmtDay(dt(r.date))} · ${r.followers_count} followers · ${r.media_count} post${r.media_count === 1 ? '' : 's'}`;
+    const tw = label.length * 6.6 + 16, tx = Math.min(Math.max(x(i) - tw / 2, 0), w - tw);
+    s += `<g class="pt" tabindex="0" role="img" aria-label="${esc(label)}"><circle cx="${x(i)}" cy="${y(r.followers_count)}" r="5"/><g class="tip"><rect x="${tx}" y="${y(r.followers_count) - 34}" width="${tw}" height="24" rx="6"/><text x="${tx + tw / 2}" y="${y(r.followers_count) - 18}" text-anchor="middle">${esc(label)}</text></g></g>`;
+  });
+  return h('div', { class: 'chart', html: s + '</svg>' });
+};
+
+/* ---------- views ---------- */
+const V = {};
+V.overview = () => {
+  const root = $('#view-overview'); root.innerHTML = '';
+  const monday = addDays(THIS.monday, 7 * S.weekOffset), wk = isoWeek(monday);
+  const wait = waiting(), sched = visiblePosts().filter(p => ['APPROVED', 'QUEUED', 'PUBLISHING'].includes(p.state)), liveP = visiblePosts().filter(p => ['PUBLISHED', 'MEASURING'].includes(p.state));
+  const nf = nextToFire(); const firstNum = liveP.map(p => p.metrics?.next_window_at).filter(Boolean).sort()[0];
+  // band
+  const band = h('div', { class: 'card band', 'aria-label': 'This week in four numbers' });
+  const cellM = (lab, fig, ctx, cls = '') => h('div', { class: `m ${cls}` }, h('div', { class: 'lab' }, lab), typeof fig === 'number' ? h('div', { class: `fig ${fig === 0 ? 'z' : ''}`, 'data-count': fig }, String(fig)) : fig, h('div', { class: 'ctx', html: ctx }));
+  band.append(cellM('Needs you', wait.length, wait.length ? `<b>${esc(title(wait[0]))}</b> waits since ${esc(fmtDay(dt(wait[0].updated_at)))}` : (nf ? `Nothing. Next up: <b>${esc(title(nf))}</b>, ${esc(fmtDay(dt(nf.scheduled_at)).slice(0, 3))} ${esc(fmtTime(dt(nf.scheduled_at)))} UTC` : 'Nothing waits.'), wait.length ? 'wait' : ''));
+  band.append(cellM('Scheduled', sched.length, nf ? `<b>${esc(title(nf))}</b> · ${esc(fmtDay(dt(nf.scheduled_at)).slice(0, 3))} ${esc(fmtTime(dt(nf.scheduled_at)))} UTC · ${esc(rel(nf.scheduled_at))}` : 'Nothing in the queue.'));
+  band.append(cellM('Live', liveP.length, firstNum ? `First numbers <b>${esc(fmtDay(dt(firstNum)).slice(0, 3))} ${esc(fmtTime(dt(firstNum)))} UTC</b>` : 'Nothing live yet.'));
+  const fails = visiblePosts().filter(p => p.state === 'FAILED').length;
+  band.append(cellM('Publishing', h('div', { class: `fig word ${S.grants.emergency_stop ? 'off' : ''}` }, h('i', { 'aria-hidden': 'true' }), S.grants.emergency_stop ? 'Stopped' : 'Running'), S.grants.emergency_stop ? 'Emergency stop is on. <b>Resume in Settings.</b>' : `${liveP.length} of ${liveP.length + fails} went out · queue every 10 min`));
+  root.append(band);
+  // board
+  const board = h('div', { class: 'card board' });
+  board.append(weekBoard(monday), dayList(monday));
+  root.append(board);
+  // under the board
+  const row = h('div', { class: 'row3' });
+  const liveCard = h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', {}, 'Live this week', h('span', { class: `cnt ${liveP.length ? '' : 'z'}` }, liveP.length))));
+  if (!liveP.length) liveCard.append(h('p', { class: 'plain' }, 'Nothing is live yet.'));
+  liveP.forEach(p => {
+    const r = h('div', { class: 'lr' }, cover(p), h('div', {}, h('div', { class: 't' }, h('button', { class: 'nm', type: 'button', style: 'all:unset;cursor:pointer;font-weight:700', onclick: () => openPanel(p.slot_id) }, `${title(p)} · ${lenS(p)}`), pill(p)), h('div', { class: 's' }, `Went out ${fmtDT(p.published_at)}`)));
+    liveCard.append(r, metricList(p, METRICS.slice(0, 6)));
+    liveCard.append(h('div', { class: 'acts', style: 'margin-top:14px' }, h('span', { class: 'small muted' }, nextNumbers(p) ? `First numbers ${nextNumbers(p)}` : ''), h('span', { class: 'sp' }), p.permalink ? extLink(p.permalink, 'Open on Instagram') : null));
+  });
+  const hand = h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', {}, "Today's hand work", h('span', { class: 'cnt z' }, (C.listen.comments_waiting || 0) + (C.listen.dms_waiting || 0) + (C.engage.total || 0)))));
+  hand.append(h('div', { class: 'plain' },
+    h('p', {}, h('b', {}, 'Replies to send: none drafted.'), ' Comment and DM alerts start once the listener is deployed; Claude drafts replies every morning after that.'),
+    h('p', {}, h('b', {}, `Engagement round: none for ${fmtDay(TODAY)}.`), ' Plan writes one each day it runs; the first comes with week 44’s plan on Monday.'),
+    h('a', { class: 'lnk', href: '#today' }, 'Open Today')));
+  const qaCatches = visiblePosts().reduce((n, p) => n + warnsOf(p), 0);
+  const health = h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', {}, 'Health')));
+  const kv = h('div', { class: 'kv' },
+    h('div', {}, 'Publishes went out', h('b', {}, `${liveP.length} of ${liveP.length + visiblePosts().filter(p => p.state === 'FAILED').length}`)),
+    h('div', {}, 'QA catches this week', h('b', {}, qaCatches)),
+    h('div', {}, 'Emergency stop', h('b', {}, S.grants.emergency_stop ? 'On' : 'Off')),
+    h('div', {}, 'Cost per reel', h('b', { class: 'z' }, 'not recorded yet')),
+    h('div', {}, 'Token expiry', h('b', { class: 'z' }, 'not reported yet')));
+  health.append(kv);
+  const acc = C.account_latest;
+  health.append(h('div', { class: 'label', style: 'margin-top:20px' }, `@${C.handle}`), h('p', { class: 'plain', style: 'margin-top:4px' }, acc ? `${acc.followers_count} followers · ${acc.media_count} post${acc.media_count === 1 ? '' : 's'} · account numbers start tomorrow` : 'No account numbers yet'));
+  health.append(accountChart());
+  health.append(h('p', { class: 'plain small', style: 'margin-top:16px;color:var(--ink3)' }, 'Sessions per reel appear once GA4 is connected; the UTM links are already live (campaigns 2026-w43-01 and -02).'));
+  row.append(liveCard, hand, health);
+  root.append(row);
+  // title
+  setTitle(h('h1', { id: 'h-overview', tabindex: '-1' }, `Week ${wk.week}`), h('span', { class: 'sub' }, `${fmtDay(monday).slice(4)} – ${fmtDay(addDays(monday, 6)).slice(4)} ${monday.getUTCFullYear()}`),
+    h('span', { class: 'wnav' }, h('button', { class: 'ibtn', type: 'button', 'aria-label': 'Previous week', html: I.left, onclick: () => { S.weekOffset--; render(); } }), h('button', { class: 'ibtn', type: 'button', 'aria-label': 'Next week', html: I.right, onclick: () => { S.weekOffset++; render(); } }), S.weekOffset ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { S.weekOffset = 0; render(); } }, 'Today') : null));
+  countUp(root);
+};
+
+V.approve = () => {
+  const root = $('#view-approve'); root.innerHTML = '';
+  const wait = waiting(), week = visiblePosts().filter(p => !wait.some(w => w.slot_id === p.slot_id)).sort((a, b) => dt(when(a)) - dt(when(b)));
+  if (!S.sel || !byId(S.sel)) S.sel = (wait[0] || week[0])?.slot_id || null;
+  if (S.sample) root.append(h('div', { class: 'samplebar', role: 'status' }, h('span', { html: I.warn, style: 'width:18px;height:18px;display:inline-grid' }), 'Sample view: Favorites is shown as if it were waiting. It is really scheduled for Sun 25 Oct 06:30 UTC and nothing here is saved.', h('span', { class: 'sp', style: 'flex:1' }), h('button', { class: 'btn s', type: 'button', onclick: () => { S.sample = false; render(); } }, 'Back to the real view')));
+  const grid = h('div', { class: 'ap' });
+  const list = h('div', { class: 'card aplist' });
+  list.append(h('h2', {}, 'Waiting', h('span', { class: `cnt ${wait.length ? '' : 'z'}` }, wait.length)));
+  const rowsW = h('div', { class: 'rows', role: 'listbox', 'aria-label': 'Waiting for you' });
+  if (!wait.length) list.append(h('p', { class: 'none' }, 'No post is waiting. The next one appears here when QA passes it.'));
+  const aprow = p => {
+    const st = stateInfo(p);
+    const b = h('button', { class: 'aprow', type: 'button', role: 'option', 'aria-selected': S.sel === p.slot_id ? 'true' : 'false', 'data-id': p.slot_id, onclick: () => { S.sel = p.slot_id; if (innerWidth <= 760) openPanel(p.slot_id); else { V.approve(); $(`.aprow[data-id="${p.slot_id}"]`)?.focus(); } } },
+      cover(p), h('div', {}, h('div', { class: 't' }, `${title(p)} · ${lenS(p)}`), h('div', { class: 's' }, p.published_at ? `Went out ${fmtDay(dt(p.published_at))} ${fmtTime(dt(p.published_at))}` : `Posts ${fmtDay(dt(p.scheduled_at))} ${fmtTime(dt(p.scheduled_at))}`), pill(p)));
+    return b;
+  };
+  wait.forEach(p => rowsW.append(aprow(p))); list.append(rowsW);
+  list.append(h('h2', { style: 'margin-top:12px' }, 'This week', h('span', { class: 'cnt z' }, week.length)));
+  const rowsT = h('div', { class: 'rows', role: 'listbox', 'aria-label': 'This week' }); week.forEach(p => rowsT.append(aprow(p))); list.append(rowsT);
+  grid.append(list);
+  const right = h('div', { class: 'ap2' });
+  const sel = byId(S.sel);
+  if (sel && (wait.length || innerWidth > 760)) {
+    const card = h('div', { class: 'card apcard', tabindex: '-1', 'aria-label': `${title(sel)} details` });
+    const v = h('div', { class: 'vid' });
+    if (sel.files?.video) v.append(h('video', { controls: '', preload: 'metadata', playsinline: '', poster: mediaPath(sel.cover_url), src: mediaPath(sel.media_url), 'aria-label': `${title(sel)} reel, ${lenS(sel)}` }));
+    else v.append(h('div', { class: 'noimg' }, 'Video not rendered yet'));
+    v.append(h('div', { class: 'vm' }, `${lenS(sel)} · 1080×1920 · ${sel.engine}`));
+    const col = detailColumn(sel); col.append(actionsFor(sel, 'card'));
+    card.append(v, col);
+    if (!wait.length) right.append(h('p', { class: 'plain', style: 'color:var(--ink3)' }, h('b', { style: 'color:var(--ink2)' }, 'No post is waiting for approval.'), ' Both of this week’s reels are already approved: Showreel is live, Favorites posts Sun 06:30 UTC. Below is the selected one, read-only.'));
+    right.append(card);
+  } else if (!wait.length) {
+    right.append(h('p', { class: 'plain' }, h('b', {}, 'No post is waiting for approval.'), ' The next one appears here when QA passes it.'));
+  }
+  grid.append(right);
+  root.append(grid);
+  setTitle(h('h1', { tabindex: '-1' }, 'Approve'), h('span', { class: 'keys', 'aria-label': 'Keyboard: J and K move, A approves, R sends back' }, h('kbd', {}, 'J'), h('kbd', {}, 'K'), 'move', h('kbd', {}, 'A'), 'approve', h('kbd', {}, 'R'), 'send back'),
+    S.sample ? null : h('button', { class: 'btn ghost sm', type: 'button', onclick: openSample }, 'Preview with a sample'));
+};
+
+V.calendar = () => {
+  const root = $('#view-calendar'); root.innerHTML = '';
+  const start = addDays(THIS.monday, 7 * S.calOffset);
+  const card = h('div', { class: 'card board cal' });
+  for (let i = 0; i < 4; i++) {
+    const m = addDays(start, 7 * i); const wk = isoWeek(m); const label = `Week ${wk.week}${m.getTime() === THIS.monday.getTime() ? ' · this week' : ''}`;
+    card.append(weekBoard(m, { small: true, label }));
+    const dl = dayList(m); dl.prepend(h('div', { class: 'wl', style: 'font-size:15px;font-weight:700;padding:4px 0 2px' }, label, h('span', { class: 'small muted', style: 'font-weight:500;margin-left:8px' }, `${fmtDay(m).slice(4)} – ${fmtDay(addDays(m, 6)).slice(4)}`))); dl.classList.add('calday'); card.append(dl);
+  }
+  root.append(card);
+  const end = addDays(start, 27);
+  setTitle(h('h1', { tabindex: '-1' }, 'Calendar'), h('span', { class: 'sub' }, `${fmtDay(start).slice(4)} – ${fmtDay(end).slice(4)} ${end.getUTCFullYear()}`),
+    h('span', { class: 'wnav' }, h('button', { class: 'ibtn', type: 'button', 'aria-label': 'Earlier', html: I.left, onclick: () => { S.calOffset--; render(); } }), h('button', { class: 'ibtn', type: 'button', 'aria-label': 'Later', html: I.right, onclick: () => { S.calOffset++; render(); } }), S.calOffset ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { S.calOffset = 0; render(); } }, 'This week') : null));
+};
+
+V.posts = () => {
+  const root = $('#view-posts'); root.innerHTML = '';
+  const cols = [
+    { key: 'cover', lab: '', l: true, sortable: false },
+    { key: 'title', lab: 'Reel', l: true, val: p => title(p) },
+    { key: 'state', lab: 'State', l: true, val: p => stateInfo(p).words },
+    { key: 'when', lab: 'Published (UTC)', l: true, val: p => dt(when(p))?.getTime() || 0 },
+    ...['views', 'reach', 'sends_per_reach', 'saves_per_reach', 'follows_per_reach', 'skip', 'hold'].map((k, i) => ({ key: k, lab: ['Views', 'Reach', 'Sends/reach', 'Saves/reach', 'Follows/reach', 'Skip', 'Hold'][i], val: p => p.metrics?.latest?.[k] ?? null })),
+    { key: 'link', lab: '', sortable: false }
+  ];
+  const t = h('table', { class: 'posts' });
+  const tr = h('tr');
+  cols.forEach(c => {
+    const th = h('th', { class: c.l ? 'l' : '', scope: 'col' });
+    if (c.sortable === false) th.textContent = c.lab;
+    else {
+      if (S.sort.key === c.key) th.setAttribute('aria-sort', S.sort.dir > 0 ? 'ascending' : 'descending');
+      th.append(h('button', { type: 'button', onclick: () => { S.sort = { key: c.key, dir: S.sort.key === c.key ? -S.sort.dir : 1 }; V.posts(); } }, c.lab, h('span', { html: I.sort, 'aria-hidden': 'true' })));
+    }
+    tr.append(th);
+  });
+  t.append(h('thead', {}, tr));
+  const tb = h('tbody');
+  const sc = cols.find(c => c.key === S.sort.key);
+  const sorted = [...visiblePosts()].sort((a, b) => { const x = sc.val(a), y = sc.val(b); if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1; return (x > y ? 1 : x < y ? -1 : 0) * S.sort.dir; });
+  const groups = new Map();
+  sorted.forEach(p => { const w = isoWeek(dt(when(p)) || NOW); const k = `${w.year}-${w.week}`; if (!groups.has(k)) groups.set(k, { w, items: [] }); groups.get(k).items.push(p); });
+  for (const { w, items } of groups.values()) {
+    tb.append(h('tr', { class: 'g' }, h('td', { colspan: cols.length }, `Week ${w.week}`, h('span', {}, `· ${items.length} reel${items.length === 1 ? '' : 's'} · ${fmtDay(w.monday).slice(4)} – ${fmtDay(addDays(w.monday, 6)).slice(4)}`))));
+    items.forEach(p => {
+      const n = nextNumbers(p);
+      const row = h('tr', {}, h('td', { class: 'l' }, cover(p)),
+        h('td', { class: 'l' }, h('button', { class: 'nm', type: 'button', onclick: () => openPanel(p.slot_id) }, `${title(p)} · ${lenS(p)}`), h('span', { class: 'sub' }, p.pillar)),
+        h('td', { class: 'l', title: stateInfo(p).second }, pill(p)),
+        h('td', { class: 'l' }, p.published_at ? `${fmtDay(dt(p.published_at))} ${fmtTime(dt(p.published_at))}` : h('span', { class: 'muted' }, `Posts ${fmtDay(dt(p.scheduled_at))} ${fmtTime(dt(p.scheduled_at))}`)));
+      for (let i = 0; i < 7; i++) row.append(h('td', { class: 'dash', title: n ? `First numbers ${n}` : 'Numbers start after it posts' }, '—'));
+      row.append(h('td', {}, p.permalink ? extLink(p.permalink, 'Open') : ''));
+      tb.append(row);
+    });
+  }
+  t.append(tb);
+  const card = h('div', { class: 'card tbl' }, t);
+  if (!visiblePosts().length) card.append(h('p', { class: 'no' }, 'No reels yet.'));
+  root.append(card, h('p', { class: 'small muted', style: 'margin-top:12px' }, 'Sparklines appear per reel once three measurements exist; today there are none. Metric columns show the latest window.'));
+  setTitle(h('h1', { tabindex: '-1' }, 'Posts'), h('span', { class: 'sub' }, `${visiblePosts().length} reels · sort by any column`));
+};
+
+V.today = () => {
+  const root = $('#view-today'); root.innerHTML = '';
+  // the 24-hour ruler, drawn empty (planned comment times appear as ticks)
+  const w = innerWidth <= 760 ? 342 : 508, hgt = 72, pl = 20, pr = 20;
+  const x = hr => pl + (hr - 6) * ((w - pl - pr) / 16);
+  let s = `<svg viewBox="0 0 ${w} ${hgt}" role="img" aria-label="Engagement round on a 06:00 to 22:00 UTC ruler; no comments planned today"><line class="ax" x1="${pl}" y1="44" x2="${w - pr}" y2="44"/>`;
+  for (let hr = 6; hr <= 22; hr++) s += `<line class="ax" x1="${x(hr)}" y1="${hr % 4 ? 39 : 34}" x2="${x(hr)}" y2="44"/>${hr % 4 ? '' : `<text x="${x(hr)}" y="64" text-anchor="middle">${p2(hr)}:00</text>`}`;
+  [6.5, 18.5].forEach((hr, i) => { s += `<g class="pt" tabindex="0" role="img" aria-label="House slot ${SLOTS[i]} UTC"><rect x="${x(hr) - 2}" y="20" width="4" height="24" rx="2" fill="#87A6C0"/><text x="${x(hr)}" y="14" text-anchor="middle" fill="#4B5563" font-weight="600">${SLOTS[i]} reel</text></g>`; });
+  s += '</svg>';
+  const eng = h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', {}, 'Engagement round', h('span', { class: 'cnt z' }, `${C.engage.done} of ${C.engage.total}`)), h('span', { class: 'meta' }, '06:00 – 22:00 UTC')),
+    h('div', { class: 'chart ruler', html: s }),
+    h('p', { class: 'plain', style: 'margin-top:16px' }, h('b', {}, `No engagement round for ${fmtDay(TODAY)}.`), ' Plan writes one each day it runs; the first comes with week 44’s plan on Monday. Each row will be: account · post · planned time · the comment · Copy · tick.'));
+  const rep = h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', {}, 'Replies to send', h('span', { class: 'cnt z' }, C.listen.comments_waiting ?? 0))),
+    h('p', { class: 'plain' }, h('b', {}, 'No replies drafted.'), ' Comment and DM alerts start once the listener is deployed; Claude drafts replies every morning after that. Each will show the comment, the drafted reply, Copy and “Mark sent”.'));
+  root.append(h('div', { class: 'two' }, eng, rep));
+  setTitle(h('h1', { tabindex: '-1' }, 'Today'), h('span', { class: 'sub' }, `${fmtDay(TODAY)} · two hand jobs`));
+};
+
+V.learn = () => {
+  const root = $('#view-learn'); root.innerHTML = '';
+  root.append(h('div', { class: 'two' },
+    h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', {}, 'Weekly report')), h('p', { class: 'plain' }, h('b', {}, 'No weekly report yet.'), ' Learn runs on Sundays once a full week of numbers exists; the showreel’s 7-day numbers land 31 Oct, so the earliest report is Sun 1 Nov.')),
+    h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', {}, 'Experiments', h('span', { class: 'cnt z' }, C.experiments.length))), h('p', { class: 'plain' }, h('b', {}, 'No experiment this week.'), ' Both reels are existing clips; the first pre-registered test comes with week 44’s plan.')),
+    h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', {}, 'Targets', h('span', { class: 'cnt z' }, C.kpis.length))), h('div', { class: 'kv' }, ...C.kpis.map(k => h('div', {}, ({ '`app_install` + `push_optin_start`': 'App installs + push opt-ins', '`favorite_add` (lead)': 'Favorites added (lead)' })[k.kpi] || k.kpi.replace(/`/g, ''), h('b', {}, k.target))))),
+    h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', {}, 'Strategy changes')), h('p', { class: 'plain' }, h('b', {}, 'Nothing proposed.'), ' Learn proposes changes with the weekly report; each arrives here with Accept and Reject.'))));
+  setTitle(h('h1', { tabindex: '-1' }, 'Learn'), h('span', { class: 'sub' }, 'reports, experiments, lessons'));
+};
+
+V.settings = () => {
+  const root = $('#view-settings'); root.innerHTML = '';
+  const sw = (key, label, on) => h('li', {}, h('div', {}, label, h('span', {}, on ? 'Claude replies on its own; every reply is journaled.' : 'Off: Claude drafts, you send.')),
+    h('span', { class: 'switch' }, h('button', { type: 'button', role: 'switch', 'aria-checked': on ? 'true' : 'false', 'aria-label': label, onclick: () => on ? (S.grants.auto_reply[key] = false, toast(`${label}: off.`, 'Mockup only: nothing is saved, reload resets.'), render()) : openFlag(key, label.toLowerCase().replace('claude ', '')) }), on ? 'On' : 'Off'));
+  const board = h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', {}, 'Switchboard')), h('ul', { class: 'sw' },
+    sw('comments', 'Claude replies to comments', S.grants.auto_reply.comments),
+    sw('dm', 'Claude replies to DMs', S.grants.auto_reply.dm),
+    h('li', {}, h('div', {}, 'Auto-approve pillars', h('span', {}, S.grants.auto_approve_pillars.length ? S.grants.auto_approve_pillars.join(', ') : 'None: every reel waits for you.')))));
+  const stop = h('div', { class: 'card stopcard' }, h('div', { class: 'card-h', style: 'margin-bottom:0' }, h('h2', {}, 'Emergency stop')),
+    h('p', {}, S.grants.emergency_stop ? 'Publishing is stopped. Nothing goes out until you resume.' : 'Halts the queue for Rosa. Nothing publishes until you resume. Asks before it does anything.'),
+    S.grants.emergency_stop ? h('button', { class: 'btn p', type: 'button', onclick: openResume }, 'Resume publishing') : h('button', { class: 'btn dd', type: 'button', onclick: openStop }, 'Stop publishing'));
+  const last = C.journal_recent[0];
+  const acct = h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', {}, 'Account')), h('div', { class: 'kv' },
+    h('div', {}, 'Instagram', h('b', {}, `@${C.handle}`)),
+    h('div', {}, 'Instagram account id', h('span', { style: 'display:flex;gap:8px;align-items:center;justify-content:flex-end' }, h('b', {}, C.grants.ig_user_id), copyBtn(C.grants.ig_user_id, 'Copy'))),
+    h('div', {}, 'Facebook Page id', h('span', { style: 'display:flex;gap:8px;align-items:center;justify-content:flex-end' }, h('b', {}, C.grants.page_id), copyBtn(C.grants.page_id, 'Copy'))),
+    h('div', {}, 'Token expiry', h('b', { class: 'z' }, 'not reported yet')),
+    h('div', {}, 'Posting slots', h('b', {}, `${SLOTS.join(' and ')} UTC`)),
+    h('div', {}, 'Last journal entry', h('b', {}, last ? fmtDT(last.ts) : '—'))));
+  const links = h('div', { class: 'card' }, h('div', { class: 'card-h' }, h('h2', {}, 'Documents')), h('div', { class: 'plain' }, h('p', {}, extLink('../../../docs/PLAN.md', 'Plan')), h('p', {}, extLink('../../../docs/PLAYBOOK.md', 'Playbook')), h('p', {}, extLink('https://rosa.surf', 'rosa.surf'))));
+  root.append(h('div', { class: 'two' }, board, stop, acct, links));
+  setTitle(h('h1', { tabindex: '-1' }, 'Settings'), h('span', { class: 'sub' }, C.display));
+};
+
+/* ---------- shell ---------- */
+const VIEWS = [['overview', 'Overview'], ['calendar', 'Calendar'], ['approve', 'Approve'], ['posts', 'Posts'], ['today', 'Today'], ['learn', 'Learn'], ['settings', 'Settings']];
+const route = () => (location.hash.replace('#', '') || 'overview');
+const navHtml = (cur) => VIEWS.map(([k, lab]) => {
+  let tail = '';
+  if (k === 'approve') { const n = waiting().length; tail = n ? `<span class="badge">${n}</span>` : `<span class="n z">0</span>`; }
+  if (k === 'posts') tail = `<span class="n">${visiblePosts().length}</span>`;
+  if (k === 'today') { const n = (C.listen.comments_waiting || 0) + (C.engage.total || 0); tail = `<span class="n ${n ? '' : 'z'}">${n}</span>`; }
+  return `<a href="#${k}" ${cur === k ? 'aria-current="page"' : ''}>${I.nav[k]}${lab}${tail}</a>`;
+}).join('');
+const setTitle = (...els) => { const tl = $('#tl'); tl.innerHTML = ''; tl.append(...els.filter(Boolean)); };
+const countUp = root => {
+  if (reduced) return;
+  root.querySelectorAll('[data-count]').forEach(el => {
+    const to = Number(el.dataset.count); if (!to) return; const t0 = performance.now();
+    const step = t => { const k = Math.min(1, (t - t0) / 600); el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  });
+};
+const render = () => {
+  const r = VIEWS.some(([k]) => k === route()) ? route() : 'overview';
+  $('#nav').innerHTML = navHtml(r); $('#mnav').innerHTML = navHtml(r);
+  $('#mvn').textContent = `· ${VIEWS.find(([k]) => k === r)[1]}`;
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === `view-${r}`));
+  V[r]();
+  document.title = `Tachyon — ${VIEWS.find(([k]) => k === r)[1]}`;
+};
+addEventListener('hashchange', () => { closePanel(); if (dlg.open) dlg.close(); $('#navsheet').open && $('#navsheet').close(); render(); $('#tl h1')?.focus(); });
+$('#client').append(h('option', {}, C.display)); $('#client').value = C.display;
+$('#fresh').append(h('i', { 'aria-hidden': 'true' }), `Data ${fmtDT(D.generated_at)}`);
+$('#sidefoot').append(h('div', {}, h('b', {}, C.display), ` · @${C.handle}`), h('div', {}, `${S.posts.length} reels · ${C.journal_recent.length} journal lines`), h('div', {}, `Data ${fmtDate(D.generated_at)} ${fmtTime(NOW)} UTC`));
+$('#menubtn').addEventListener('click', () => $('#navsheet').showModal());
+$('#navsheet').addEventListener('click', e => { if (e.target === $('#navsheet')) $('#navsheet').close(); });
+$('#mnav').addEventListener('click', e => { if (e.target.closest('a')) $('#navsheet').close(); });
+
+/* keyboard: J K move · A approve · R send back · Esc · ? */
+addEventListener('keydown', e => {
+  if (e.target.matches('input,textarea,select') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === 'Escape') { if ($('#panel').classList.contains('on')) { e.preventDefault(); closePanel(); } return; }
+  if (route() !== 'approve') return;
+  const ids = [...document.querySelectorAll('.aprow')].map(b => b.dataset.id);
+  if (!ids.length) return;
+  const i = Math.max(0, ids.indexOf(S.sel));
+  if (e.key === 'j' || e.key === 'J') { e.preventDefault(); S.sel = ids[Math.min(ids.length - 1, i + 1)]; V.approve(); $(`.aprow[data-id="${S.sel}"]`)?.focus(); $('.apcard')?.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' }); }
+  else if (e.key === 'k' || e.key === 'K') { e.preventDefault(); S.sel = ids[Math.max(0, i - 1)]; V.approve(); $(`.aprow[data-id="${S.sel}"]`)?.focus(); }
+  else if (e.key === 'a' || e.key === 'A') { const p = byId(S.sel); if (p && p.state === 'NEEDS_APPROVAL') { e.preventDefault(); approve(p); } else toast('Only a post that is waiting for you can be approved.'); }
+  else if (e.key === 'r' || e.key === 'R') { const p = byId(S.sel); if (p && ['NEEDS_APPROVAL', 'QUEUED', 'APPROVED', 'NEEDS_INPUT'].includes(p.state)) { e.preventDefault(); openReject(p); } }
+  else if (e.key === '?') { toast('J K move · A approve · R send back · Esc close'); }
+});
+
+// ?view=approve (and ?sample=1) on load, for the shoot tool
+const qv = new URLSearchParams(location.search).get('view');
+if (qv && VIEWS.some(([k]) => k === qv)) history.replaceState(null, '', `#${qv}`);
+render();
+const qo = new URLSearchParams(location.search).get('open');
+if (qo && byId(qo)) setTimeout(() => openPanel(qo), 50);
+})();
+</script>
+</body>
+</html>

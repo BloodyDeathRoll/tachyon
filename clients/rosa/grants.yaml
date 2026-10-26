@@ -1,0 +1,19 @@
+display_name: Rosa
+ig_username: rosasurfapp
+tagline: Free surf forecast, worldwide
+# Identifiers and switches only. Tokens live in the environment (see token_env).
+page_id: "1450505061475499"  # Facebook Page "Rosa Surf", created 2026-10-24 (16 digits; 450505061475499 was a typo)
+ig_user_id: "17841452024696422"  # @rosasurfapp, from granular_scopes 2026-10-24
+token_env: TACHYON_ROSA_TOKEN  # long-lived Page token; see spine/publisher/auth.py
+ga4_property: null       # numeric GA4 property id for G-NKQNM6YLQ1 — to fill
+blob_bucket: null
+auto_approve_pillars: []
+auto_reply:
+  comments: false
+  dm: false
+emergency_stop: false
+bio_link:                 # the one Instagram bio link, fixed; publisher moves its target (spine/publisher/links.py)
+  public_url: https://rosa.surf/ig
+  edge_config_id: ecfg_9t46ooc6vd2at8fryihbvfzxu4ea   # Vercel Edge Config "tachyon-links"
+  team_id: team_jeHaUEFEe9q9CoUA71Vij1Kr
+  key: rosa_ig
