@@ -422,3 +422,25 @@ def test_clear_refusal_on_media_publish_goes_failed(client):
     db = DB.for_client(C.client_dir(client))
     assert db.post(SLOT)["state"] == "FAILED"
     db.close()
+
+
+@pytest.mark.parametrize("err,amb", [
+    (GraphError(1, None, "unknown", http_status=None), True),
+    (GraphError(10, None, "x", raw={"is_transient": True}, http_status=400), True),
+    (GraphError(100, None, "invalid", http_status=400), False),
+])
+def test_graph_error_ambiguity(err, amb):
+    assert err.ambiguous is amb
+
+
+def test_handoff_state_holds_even_if_file_write_fails(client, monkeypatch):
+    def nope(*a, **kw):
+        raise OSError("disk full")
+    monkeypatch.setattr(publish, "_write_handoff", nope)
+    with pytest.raises(publish.PublishError, match="may be live"):
+        publish.publish_slot(client, SLOT, graph=PublishRaises(TimeoutError("t")), sleep=lambda s: None)
+    db = DB.for_client(C.client_dir(client))
+    db.conn.execute("UPDATE posts SET scheduled_at='2000-01-01T00:00:00+00:00' WHERE slot_id=?", (SLOT,))
+    assert db.post(SLOT)["state"] == "MANUAL_HANDOFF"
+    db.close()
+    assert publish.run_queue(client) == []   # never picked up again
