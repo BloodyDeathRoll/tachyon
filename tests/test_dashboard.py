@@ -183,3 +183,21 @@ def test_week_plan_slots_and_registry(client_dir, tmp_path, monkeypatch):
     W.register("film-2026-w45-01"); W.register("film-2026-w45-01")
     idx = (tmp_path / "films" / "index.ts").read_text()
     assert idx.count('from "./film-2026-w45-01"') == 1 and 'id: "film-2026-w45-01"' in idx
+
+
+def test_instagram_track_plays_with_the_video(server, client_dir):
+    import json
+    sd = client_dir / "posts" / "w01-s1"
+    m = json.loads((sd / "meta.json").read_text()) if (sd / "meta.json").exists() else {}
+    m["audio_configuration"] = {"audio_id": "1", "audio_volume": 100, "video_volume": 1}
+    (sd / "meta.json").write_text(json.dumps(m))
+    (sd / "ig-track.m4a").write_bytes(b"\0" * 64)
+    status, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "id=igtrack" in body and "ig-track.m4a" in body
+    status, _, _ = req(server, "GET", "/demo/media/w01-s1/ig-track.m4a")
+    assert status == 200
+
+
+def test_no_track_element_without_instagram_track(server):
+    status, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "id=igtrack" not in body
