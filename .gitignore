@@ -43,3 +43,6 @@ clients/*/posts/*/versions/**/*.wav
 *.wav
 *.mp3
 *.m4a
+
+# film work files: local only
+clients/*/films/
