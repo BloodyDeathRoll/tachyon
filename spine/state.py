@@ -25,7 +25,7 @@ TRANSITIONS: dict[str, set[str]] = {
     "NEEDS_APPROVAL": {"APPROVED", "REJECTED", "MANUAL_HANDOFF"},
     "APPROVED": {"QUEUED", "REJECTED", "MANUAL_HANDOFF"},
     "QUEUED": {"PUBLISHING", "REJECTED", "MANUAL_HANDOFF"},   # posted by hand (music only the app has)
-    "PUBLISHING": {"PUBLISHED", "FAILED"},
+    "PUBLISHING": {"PUBLISHED", "FAILED", "MANUAL_HANDOFF"},   # media_publish unclear: maybe live, never retried
     "PUBLISHED": {"MEASURING"},
     "MEASURING": {"ANALYZED"},
     "ANALYZED": set(),

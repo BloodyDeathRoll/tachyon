@@ -146,11 +146,10 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
         media_id = pub.get("id") if isinstance(pub, dict) else None
         if not media_id:
             reason = f"media_publish gave no id ({pub.get('error') if isinstance(pub, dict) else pub}); it may be live: check Instagram and link it on the video page"
-            db.set_state(slot_id, "FAILED", note=reason)
-            db.set_state(slot_id, "MANUAL_HANDOFF", note=reason)   # the state is the safety; the file a convenience
+            db.set_state(slot_id, "MANUAL_HANDOFF", note=reason)   # one step: the state is the safety; the file a convenience
             try:
                 _write_handoff(slot, slot_id, caption, first_comment, reason, maybe_live=True)
-            except OSError:
+            except Exception:  # noqa: BLE001
                 pass
             raise PublishError(reason)
         # live on Instagram from here: never FAILED (FAILED -> QUEUED would post it twice)
@@ -179,7 +178,7 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
                 c = graph.write(f"{media_id}/comments", message=first_comment)
                 comment_id = c.get("id")
                 db.journal_outcome(j, c)
-            except GraphError as e:
+            except Exception as e:  # noqa: BLE001 — the reel is live; a missing comment is never fatal
                 db.journal_outcome(j, {"error": str(e)})
                 (slot / "handoff.md").write_text(f"# Post the first comment by hand\n\n{info.get('permalink')}\n\n```\n{first_comment}\n```\n")
         db.set_state(slot_id, "MEASURING")
