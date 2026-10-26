@@ -857,3 +857,17 @@ def test_week_prep_skips_ids_added_by_hand(client_dir):
 def test_calendar_open_slots_offer_add_new(server):
     _, body, _ = req(server, "GET", "/demo/calendar?w=2099-W02")
     assert "data-add='2099-01-05T06:30:00+00:00'" in body and "id=addnew" in body and "+ Add new" in body
+
+def test_formats_typecheck_timeout_unregisters(client_dir, fake_remotion, monkeypatch):
+    import subprocess
+    from spine import formats as F
+    _real_reel(client_dir)
+    run = F.subprocess.run
+
+    def slow(cmd, *a, **k):
+        if cmd[:2] == ["npx", "tsc"]:
+            raise subprocess.TimeoutExpired(cmd, 300)
+        return run(cmd, *a, **k)
+    monkeypatch.setattr(F.subprocess, "run", slow)
+    assert F.make("demo", "w01-s1", ["1x1"]) == 1
+    assert "S-1x1" not in (F.FILMS / "formats.ts").read_text()
