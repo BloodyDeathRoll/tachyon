@@ -237,3 +237,43 @@ def test_publish_moves_bio_link_after_publish(client):
     acts = [r["action"] for r in db.conn.execute("SELECT action FROM journal WHERE target=?", (SLOT,))]
     assert "bio_link.set" in acts
     db.close()
+
+
+class HandGraph:
+    """Two recent posts on the account; M9 is the one posted by hand."""
+    def get(self, path, **p):
+        assert path == "178/media"
+        return {"data": [{"id": "M9", "caption": "Caption here. Link in bio.", "timestamp": "2099-01-05T18:31:00+0000",
+                          "permalink": "https://instagram.test/p/M9"},
+                         {"id": "M8", "caption": "older", "timestamp": "2099-01-04T18:30:00+0000"}]}
+
+    def media(self, media_id):
+        return {"id": media_id, "permalink": f"https://instagram.test/p/{media_id}", "timestamp": "2099-01-05T18:31:00+0000"}
+
+
+def test_link_by_hand_attaches_post_and_measures(client):
+    out = publish.link_by_hand(client, SLOT, "M9", graph=HandGraph())
+    assert out["ig_media_id"] == "M9"
+    db = DB.for_client(C.client_dir(client))
+    row = db.post(SLOT)
+    assert row["state"] == "MEASURING" and row["ig_media_id"] == "M9"
+    assert row["published_at"].startswith("2099-01-05")
+    db.close()
+    # once linked, it is no longer offered for another slot
+    assert [c["id"] for c in publish.hand_candidates(client, graph=HandGraph())] == ["M8"]
+
+
+def test_link_by_hand_refuses_unknown_media(client):
+    with pytest.raises(publish.PublishError):
+        publish.link_by_hand(client, SLOT, "NOT_OURS", graph=HandGraph())
+    db = DB.for_client(C.client_dir(client))
+    assert db.post(SLOT)["state"] == "QUEUED"
+    db.close()
+
+
+def test_queue_skips_slot_linked_by_hand(client):
+    publish.link_by_hand(client, SLOT, "M9", graph=HandGraph())
+    g = FakeGraph()
+    with pytest.raises(publish.PublishError):
+        publish.publish_slot(client, SLOT, graph=g, sleep=lambda s: None)
+    assert not g.calls

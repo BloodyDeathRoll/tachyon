@@ -22,9 +22,9 @@ TRANSITIONS: dict[str, set[str]] = {
     "SCRIPTED": {"RENDERED", "REJECTED"},
     "RENDERED": {"QA"},
     "QA": {"NEEDS_APPROVAL", "SCRIPTED", "NEEDS_INPUT"},   # approved / revision / 2 rounds failed
-    "NEEDS_APPROVAL": {"APPROVED", "REJECTED"},
-    "APPROVED": {"QUEUED", "REJECTED"},
-    "QUEUED": {"PUBLISHING", "REJECTED"},
+    "NEEDS_APPROVAL": {"APPROVED", "REJECTED", "MANUAL_HANDOFF"},
+    "APPROVED": {"QUEUED", "REJECTED", "MANUAL_HANDOFF"},
+    "QUEUED": {"PUBLISHING", "REJECTED", "MANUAL_HANDOFF"},   # posted by hand (music only the app has)
     "PUBLISHING": {"PUBLISHED", "FAILED"},
     "PUBLISHED": {"MEASURING"},
     "MEASURING": {"ANALYZED"},
