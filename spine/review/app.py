@@ -269,7 +269,7 @@ h2{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
 .seg a{padding:6px 14px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--ink3)}
 .seg a.on{background:#8df0003d;color:#487b00}
 .seg,.filt{position:relative}.segind{position:absolute;left:0;top:0;border-radius:999px;background:#8df0003d;opacity:0;pointer-events:none;
-  transition:transform .24s cubic-bezier(.2,.8,.2,1),width .24s cubic-bezier(.2,.8,.2,1)}
+  transition:transform .34s cubic-bezier(.34,1.56,.64,1),width .34s cubic-bezier(.34,1.56,.64,1)}   /* overshoot, then snap */
 .js-ind>a,.js-ind>button{position:relative;z-index:1;transition:color .2s}.js-ind>a.on,.js-ind>button.on{background:transparent!important}
 @media (prefers-reduced-motion:reduce){.segind{transition:none}}
 .chk{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink2);cursor:pointer}
@@ -461,12 +461,15 @@ const place=(g,el,anim)=>{const i=g.querySelector(':scope>.segind');if(!i||!el)r
  i.style.width=el.offsetWidth+'px';i.style.height=el.offsetHeight+'px';i.style.transform=`translate(${el.offsetLeft}px,${el.offsetTop}px)`;i.style.opacity=1;};
 const init=g=>{if(g.querySelector(':scope>.segind'))return;const i=document.createElement('span');i.className='segind';g.prepend(i);g.classList.add('js-ind');
  place(g,g.querySelector(ON),false);
- g.addEventListener('click',e=>{const t=e.target.closest('a,button');if(!t||t.parentElement!==g)return;place(g,t,true);
-  g.querySelectorAll(':scope>a,:scope>button').forEach(x=>x.classList.toggle('on',x===t));
-  const h=t.tagName==='A'&&t.getAttribute('href');if(h&&!h.startsWith('#')&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey){e.preventDefault();setTimeout(()=>location.href=t.href,200);}});
+ g.addEventListener('click',e=>{const t=e.target.closest('a,button');if(!t||t.parentElement!==g)return;
+  if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||t.target==='_blank'||t.hasAttribute('download'))return;   // opens elsewhere: this page keeps its tab
+  place(g,t,true);g.querySelectorAll(':scope>a,:scope>button').forEach(x=>x.classList.toggle('on',x===t));
+  const h=t.tagName==='A'&&t.getAttribute('href');if(h&&!h.startsWith('#')){e.preventDefault();setTimeout(()=>location.href=t.href,260);}});
+ if(window.ResizeObserver)new ResizeObserver(()=>place(g,g.querySelector(ON),false)).observe(g);
  new MutationObserver(()=>place(g,g.querySelector(ON),true)).observe(g,{subtree:true,attributes:true,attributeFilter:['class']});};
 const all=()=>document.querySelectorAll('.seg,.filt').forEach(init);
-all();addEventListener('resize',()=>document.querySelectorAll('.js-ind').forEach(g=>place(g,g.querySelector(ON),false)));})();
+all();if(document.fonts)document.fonts.ready.then(()=>document.querySelectorAll('.js-ind').forEach(g=>place(g,g.querySelector(ON),false)));
+addEventListener('resize',()=>document.querySelectorAll('.js-ind').forEach(g=>place(g,g.querySelector(ON),false)));})();
 """
 
 
