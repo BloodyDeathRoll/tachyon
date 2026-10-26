@@ -15,7 +15,8 @@ Usage:
 
 Env file: $TACHYON_ENV (default ~/Projects/tachyon/.env.local), mode 600.
 Keys read:  META_APP_ID, META_APP_SECRET, FACEBOOK_ACCESS_TOKEN (short-lived)
-Key written: <token_env from grants.yaml>, e.g. TACHYON_ROSA_TOKEN
+Key written: <token_env from grants.yaml>, e.g. TACHYON_ROSA_TOKEN,
+             and <token_env>_DATA_EXPIRES (date Meta cuts data access; re-run exchange before it)
 The short-lived token is removed from the file after a successful exchange.
 Tokens are never printed; only their debug metadata is.
 """
@@ -113,13 +114,18 @@ def exchange(client: str) -> None:
     page = get(page_id, fields="id,name,access_token,instagram_business_account{id,username}",
                access_token=long_user)
     page_token = page["access_token"]
+    page_debug = debug(page_token, app_token)
     ig = page.get("instagram_business_account") or {}
     if str(ig.get("id")) != str(grants["ig_user_id"]):
         raise SystemExit(f"Page {page_id} is linked to IG {ig}, grants.yaml says {grants['ig_user_id']}")
-    print("page token:", describe(debug(page_token, app_token)))
+    print("page token:", describe(page_debug))
     print(f"page={page['name']} ({page['id']}) ig=@{ig.get('username')} ({ig.get('id')})")
 
     env[token_key] = page_token
+    # Meta cuts data access 90 days after the last login to the app; the dashboard warns before it.
+    if page_debug.get("data_access_expires_at"):
+        env[f"{token_key}_DATA_EXPIRES"] = datetime.fromtimestamp(
+            page_debug["data_access_expires_at"], timezone.utc).date().isoformat()
     env.pop("FACEBOOK_ACCESS_TOKEN", None)
     write_env(path, env)
     print(f"wrote {token_key} to {path}; removed FACEBOOK_ACCESS_TOKEN")

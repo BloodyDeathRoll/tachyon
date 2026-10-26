@@ -21,7 +21,7 @@ import json
 import mimetypes
 import re
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
@@ -478,7 +478,21 @@ def header(client: str, title: str) -> str:
         bits.append(ESC(d["tagline"]))
     stop = ("<div class='banner stop'>Emergency stop is on. Nothing publishes until it is turned off in Settings.</div>"
             if d["stop"] else "")
-    return f"{stop}<h1>{ESC(title)}</h1><p class=sub>{' · '.join(bits)}</p>"
+    renew = ""
+    exp = C.data_expires(client)
+    if exp and (exp - date.today()).days <= 14:
+        renew = ("<div class='banner'>Meta data access ends "
+                 f"{exp.isoformat()}. In Chrome, generate a new token at "
+                 "<a href='https://developers.facebook.com/tools/explorer/'>Graph API Explorer</a>, "
+                 "put it in ~/Projects/tachyon/.env.local as FACEBOOK_ACCESS_TOKEN, then run "
+                 f"<code>python -m spine.publisher.auth exchange {ESC(client)}</code>.</div>")
+    from spine.publisher.auth import env_path, read_env
+    if date.today() >= date(2026, 11, 22) and read_env(env_path()).get("META_APP_ID") == "1497581085764373":
+        renew += ("<div class='banner'>Switch back to the original Meta app (1150072321350463). "
+                  "In Firefox, open <a href='https://developers.facebook.com/apps/'>developers.facebook.com/apps</a> "
+                  "and enter the phone code. Then generate a token for that app in "
+                  "<a href='https://developers.facebook.com/tools/explorer/'>Graph API Explorer</a>.</div>")
+    return f"{stop}{renew}<h1>{ESC(title)}</h1><p class=sub>{' · '.join(bits)}</p>"
 
 
 # ── data ──────────────────────────────────────────────────────────────────────
