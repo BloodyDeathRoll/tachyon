@@ -33,7 +33,8 @@ VIDEO_EXT = {".mp4", ".mov", ".m4v", ".webm", ".mkv"}
 
 
 def new_slot(client: str, at: str) -> str:
-    """<year>-w<week>-<n>, n one past the highest id already used that week."""
+    """Claim <year>-w<week>-<n> (n one past the highest id used that week) by creating its
+    folder, so two adds at once never get the same id."""
     dt = datetime.fromisoformat(at)
     y, w, _ = dt.isocalendar()
     prefix = f"{y}-w{w:02d}"
@@ -45,28 +46,41 @@ def new_slot(client: str, at: str) -> str:
         db.close()
     used |= {p.name for p in (d / "posts").glob(f"{prefix}-*")}
     nums = [int(s.rsplit("-", 1)[1]) for s in used if s.startswith(prefix + "-") and s.rsplit("-", 1)[1].isdigit()]
-    return f"{prefix}-{max(nums, default=0) + 1:02d}"
+    n = max(nums, default=0) + 1
+    while True:
+        try:
+            (d / "posts" / f"{prefix}-{n:02d}").mkdir(parents=True)
+            return f"{prefix}-{n:02d}"
+        except FileExistsError:
+            n += 1
 
 
 def _check_slot(client: str, at: str) -> str:
     """The slot must be a future, free publishing slot (as the calendar showed it)."""
     from . import schedule as SCH
-    dt = datetime.fromisoformat(at)
+    try:
+        dt = datetime.fromisoformat(at.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        raise ValueError("not a slot time") from None
     if dt.tzinfo is None:
         raise ValueError("slot time needs a timezone")
+    dt = dt.astimezone(timezone.utc)
     if dt < datetime.now(timezone.utc) + SCH.LEAD:
         raise ValueError("that slot is in the past")
+    if dt.time().replace(second=0, microsecond=0) not in SCH._slots(C.load_grants(client)) or dt.second:
+        raise ValueError("that is not one of the publishing slots")
+    iso = dt.isoformat(timespec="seconds")
     db = DB.for_client(C.client_dir(client))
     try:
-        if at in SCH.taken_slots(db):
+        if iso in SCH.taken_slots(db):
             raise ValueError("that slot is taken")
     finally:
         db.close()
-    return dt.isoformat(timespec="seconds")
+    return iso
 
 
 def _run(cmd: list[str]) -> None:
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=20 * 60)
     if r.returncode != 0:
         raise RuntimeError(f"{cmd[0]} failed: {(r.stderr or r.stdout).strip()[-300:]}")
 
@@ -78,10 +92,9 @@ def add_upload(client: str, at: str, src: Path, name: str) -> str:
         raise ValueError(f"not a video file: {name}")
     slot = new_slot(client, at)
     sd = C.client_dir(client) / "posts" / slot
-    sd.mkdir(parents=True)
     try:
         has_audio = bool(subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index",
-                                         "-of", "csv=p=0", str(src)], capture_output=True, text=True).stdout.strip())
+                                         "-of", "csv=p=0", str(src)], capture_output=True, text=True, timeout=120).stdout.strip())
         audio = ["-map", "0:a:0", "-c:a", "aac", "-b:a", "128k", "-ar", "48000"] if has_audio else ["-an"]
         _run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-map", "0:v:0", *audio,
               "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30",
@@ -89,7 +102,7 @@ def add_upload(client: str, at: str, src: Path, name: str) -> str:
               "-map_metadata", "-1", "-movflags", "+faststart", str(sd / "video.mp4")])
         shutil.copy2(sd / "video.mp4", sd / "video-story.mp4")
         dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
-                                    str(sd / "video.mp4")], capture_output=True, text=True).stdout.strip() or 0)
+                                    str(sd / "video.mp4")], capture_output=True, text=True, timeout=120).stdout.strip() or 0)
         _run(["ffmpeg", "-v", "error", "-y", "-ss", f"{min(1.0, dur / 2):.2f}", "-i", str(sd / "video.mp4"),
               "-frames:v", "1", "-q:v", "3", str(sd / "cover.jpg")])
         UPLOADS.mkdir(parents=True, exist_ok=True)
@@ -125,6 +138,11 @@ def add_upload(client: str, at: str, src: Path, name: str) -> str:
     except Exception:
         shutil.rmtree(sd, ignore_errors=True)
         (UPLOADS / f"{slot}.mp4").unlink(missing_ok=True)
+        db = DB.for_client(C.client_dir(client))
+        try:
+            db.delete_post(slot)   # no orphan row if it got that far
+        finally:
+            db.close()
         raise
     return slot
 
@@ -137,7 +155,6 @@ def add_prompt(client: str, at: str, prompt: str) -> str:
         raise ValueError("write what the video should be")
     slot = new_slot(client, at)
     sd = C.client_dir(client) / "posts" / slot
-    sd.mkdir(parents=True)
     (sd / "prompt.txt").write_text(prompt + "\n")
     (sd / "meta.json").write_text(json.dumps({"slot_id": slot, "title": "New video", "source": "prompt", "plan": "manual"},
                                              indent=2) + "\n")
@@ -186,6 +203,7 @@ def produce(client: str, slot: str) -> int:
                 W.write_item(client, db, slot, it, 1, "manual")
             finally:
                 db.close()
+            out.unlink(missing_ok=True)   # the item lives in the slot now
         R._write_status(client, slot, step="making")
         W.produce(client, slot)
         R._write_status(client, slot, state="done", step="done")

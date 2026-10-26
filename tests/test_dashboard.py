@@ -871,3 +871,35 @@ def test_formats_typecheck_timeout_unregisters(client_dir, fake_remotion, monkey
     monkeypatch.setattr(F.subprocess, "run", slow)
     assert F.make("demo", "w01-s1", ["1x1"]) == 1
     assert "S-1x1" not in (F.FILMS / "formats.ts").read_text()
+
+
+def test_add_new_slot_checks(client_dir, tmp_path):
+    from spine import manual as M
+    f = tmp_path / "x.mp4"
+    f.write_bytes(b"x")
+    with pytest.raises(ValueError, match="not one of the publishing slots"):
+        M.add_upload("demo", "2099-01-05T07:00:00+00:00", f, "x.mp4")
+    db = DB.for_client(client_dir)
+    db.conn.execute("UPDATE posts SET scheduled_at=? WHERE slot_id='w01-s1'", (FUTURE,))
+    db.close()
+    with pytest.raises(ValueError, match="taken"):
+        M.add_upload("demo", "2099-01-05T06:30:00Z", f, "x.mp4")   # same slot, other spelling
+
+
+def test_new_slot_ids_never_collide(client_dir):
+    from spine import manual as M
+    assert [M.new_slot("demo", FUTURE) for _ in range(3)] == ["2099-w02-01", "2099-w02-02", "2099-w02-03"]
+
+
+def test_failed_upload_leaves_no_row_or_files(client_dir, tmp_path, monkeypatch):
+    from spine import manual as M
+    monkeypatch.setattr(M, "UPLOADS", tmp_path / "uploads")
+    f = tmp_path / "x.mp4"
+    f.write_bytes(b"not really a video")
+    with pytest.raises(Exception):
+        M.add_upload("demo", FUTURE, f, "x.mp4")
+    assert not (client_dir / "posts" / "2099-w02-01").exists()
+    db = DB.for_client(client_dir)
+    with pytest.raises(KeyError):
+        db.post("2099-w02-01")
+    db.close()

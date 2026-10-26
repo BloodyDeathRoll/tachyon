@@ -151,14 +151,25 @@ def _edit(client: str, slot: str, film: dict, notes: str, slot_dir: Path) -> str
 
 def _register_if_new(film: dict) -> None:
     """A film created by the edit (an upload's first one) must be registered before rendering."""
+    import fcntl
     from . import week as W
-    if (ROOT / film["source"]).exists() and f'"./{film["reel"]}"' not in (W.FILMS / "index.ts").read_text():
+    if not (ROOT / film["source"]).exists():
+        return
+    with open(W.FILMS / ".formats.lock", "w") as lk:   # the same lock the format layouts take
+        fcntl.flock(lk, fcntl.LOCK_EX)
+        if f'"./{film["reel"]}"' in (W.FILMS / "index.ts").read_text():
+            return
         before = (W.FILMS / "index.ts").read_text()
         W.register(film["reel"])
-        r = subprocess.run(["npx", "tsc", "--noEmit", "-p", "."], cwd=REMOTION, capture_output=True, text=True, timeout=300)
-        if r.returncode != 0:
+        try:
+            r = subprocess.run(["npx", "tsc", "--noEmit", "-p", "."], cwd=REMOTION, capture_output=True, text=True, timeout=300)
+            ok, out = r.returncode == 0, r.stdout
+        except subprocess.TimeoutExpired:
+            ok, out = False, "type check timed out"
+        if not ok:
             (W.FILMS / "index.ts").write_text(before)
-            raise RuntimeError(f"the film does not typecheck: {r.stdout[-300:]}")
+            (ROOT / film["source"]).unlink(missing_ok=True)   # a fresh start next time (an upload's first film)
+            raise RuntimeError(f"the film does not typecheck: {out[-300:]}")
 
 
 def _run(cmd: list[str], cwd: Path = ROOT) -> None:

@@ -19,7 +19,9 @@ from __future__ import annotations
 import html
 import json
 import mimetypes
+import os
 import re
+import subprocess
 import sys
 from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -1312,7 +1314,8 @@ def render_month(client: str, month: str | None, hl: str | None = None) -> bytes
                     cells.append(_cell(client, got[0][0], got[0][1], past, hl, mini=True, hm=hm))
                 elif not past:
                     iso_ = slot_dt.isoformat(timespec='seconds')
-                    cells.append(f"<div class='cell mini open' data-at='{iso_}' data-add='{iso_}' title='Open slot {hm}: add a video'>{hm}</div>")
+                    add_ = f" data-add='{iso_}'" if hm in times else ""
+                    cells.append(f"<div class='cell mini open' data-at='{iso_}'{add_} title='Open slot {hm}'>{hm}</div>")
             out = " out" if day.month != first.month else ""
             tod = " today" if day == today else ""
             drop = f" data-day='{day.isoformat()}'" if day >= today else ""
@@ -1456,7 +1459,8 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
                 else:
                     drop = "" if past else f" data-at='{iso}'"
                     g.append(f"<div class='cell open{' past' if past else ''}'{drop}>"
-                             + ("" if past else f"<span>Open slot</span><button type=button class=addnew data-add='{iso}'>+ Add new</button>")
+                             + ("" if past else "<span>Open slot</span>" + (f"<button type=button class=addnew data-add='{iso}'>+ Add new</button>"
+                                                                           if hm in times else ""))
                              + "</div>")
         g.append("</div>")
         st = W.status(client, week)
@@ -1674,11 +1678,16 @@ class Handler(BaseHTTPRequestHandler):
         """Calendar → Add new → Upload: the file is the raw request body (streamed to disk)."""
         import tempfile
         q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
-        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return self._send(400, b"bad Content-Length", "text/plain")
         if not length or length > self.UPLOAD_MAX:
             return self._send(413 if length else 400, b"empty or too large (2 GB max)", "text/plain")
         C.client_dir(name)   # unknown client: KeyError -> 404 below
-        tmp = Path(tempfile.mkstemp(suffix=Path(q.get("name") or "x.mp4").suffix or ".mp4")[1])
+        fd, tmp_ = tempfile.mkstemp(suffix=Path(q.get("name") or "x.mp4").suffix or ".mp4")
+        os.close(fd)
+        tmp = Path(tmp_)
         try:
             with tmp.open("wb") as f:
                 left = length
@@ -1694,6 +1703,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(400, str(e).encode(), "text/plain")
         except KeyError:
             return self._send(404, b"not found", "text/plain")
+        except (OSError, subprocess.TimeoutExpired) as e:   # ffmpeg missing, disk full, a stuck encode
+            return self._send(500, f"could not take the upload: {e}".encode(), "text/plain")
         finally:
             tmp.unlink(missing_ok=True)
 
