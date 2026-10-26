@@ -385,3 +385,40 @@ def test_permalink_backfilled_on_measure(client):
     db = DB.for_client(C.client_dir(client))
     assert db.post(SLOT)["permalink"] == "https://www.instagram.com/reel/x/"
     db.close()
+
+
+class PublishRaises(FakeGraph):
+    def __init__(self, exc):
+        super().__init__()
+        self.exc = exc
+
+    def write(self, path, **p):
+        if path.endswith("/media_publish"):
+            if isinstance(self.exc, Exception):
+                raise self.exc
+            return self.exc
+        return super().write(path, **p)
+
+
+@pytest.mark.parametrize("answer", [
+    GraphError(None, None, "Bad Gateway", http_status=502),          # gateway: no idea if it posted
+    GraphError(2, None, "unexpected, retry", http_status=500),       # Meta transient
+    {"success": True},                                               # 200 without an id
+])
+def test_ambiguous_media_publish_hands_off_with_file(client, answer):
+    with pytest.raises(publish.PublishError, match="may be live"):
+        publish.publish_slot(client, SLOT, graph=PublishRaises(answer), sleep=lambda s: None)
+    d = C.client_dir(client)
+    db = DB.for_client(d)
+    assert db.post(SLOT)["state"] == "MANUAL_HANDOFF"
+    db.close()
+    assert "may already be live" in (d / "posts" / SLOT / "handoff.md").read_text()
+
+
+def test_clear_refusal_on_media_publish_goes_failed(client):
+    with pytest.raises(GraphError):
+        publish.publish_slot(client, SLOT, graph=PublishRaises(GraphError(9007, 2207027, "not ready", http_status=400)),
+                             sleep=lambda s: None)
+    db = DB.for_client(C.client_dir(client))
+    assert db.post(SLOT)["state"] == "FAILED"
+    db.close()
