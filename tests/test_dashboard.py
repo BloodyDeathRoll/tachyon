@@ -646,3 +646,13 @@ def test_formats_stale_lock_is_taken_over(client_dir, monkeypatch):
     os.utime(lock, (1, 1))
     F.start("demo", "w01-s1", ["1x1"])
     assert len(calls) == 1 and not lock.exists()
+
+
+
+def test_formats_job_without_progress_for_10_min_reads_failed(client_dir, monkeypatch):
+    import os
+    from spine import formats as F
+    F.status_path("demo", "w01-s1").write_text(json.dumps({"state": "running", "pid": os.getpid(), "updated_at": "2020-01-01T00:00:00+00:00"}))
+    assert F.status("demo", "w01-s1")["state"] == "failed"
+    F.status_path("demo", "w01-s1").write_text("{broken")
+    assert F.status("demo", "w01-s1") == {}

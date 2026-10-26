@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 W, H = 1080, 1920
 SAFE_MID = round(H * (0.14 + (1 - 0.35)) / 2)   # centre of the safe box, y ≈ 758
 RATIOS = {"1x1": (1080, 1080), "4x5": (1080, 1350), "2x3": (1080, 1620), "16x9": (1920, 1080)}
+STALL = 600   # seconds without a status write before a running job counts as dead (one cut takes < 1 min)
 LABEL = {"1x1": "1:1", "4x5": "4:5", "2x3": "2:3", "16x9": "16:9"}
 
 
@@ -61,10 +62,14 @@ def _alive(pid) -> bool:
 def status(client: str, slot: str) -> dict:
     """formats.json; a job whose process is gone (restart, crash) reads as failed, not running."""
     p = status_path(client, slot)
-    st = json.loads(p.read_text()) if p.exists() else {}
+    try:
+        st = json.loads(p.read_text()) if p.exists() else {}
+    except ValueError:
+        st = {}
     if st.get("state") == "running":
         no_pid_for = (datetime.now(timezone.utc) - datetime.fromisoformat(st.get("updated_at") or now())).total_seconds()
-        if (st.get("pid") and not _alive(st["pid"])) or (not st.get("pid") and no_pid_for > 60):
+        if ((st.get("pid") and not _alive(st["pid"])) or (not st.get("pid") and no_pid_for > 60)
+                or no_pid_for > STALL):   # no progress for 10 min: killed (a zombie still answers kill 0)
             st.update(state="failed", error=st.get("error") or "stopped before it finished (restart or crash)")
     return st
 
@@ -135,7 +140,10 @@ def start(client: str, slot: str, ratios: list[str]) -> None:
         except FileNotFoundError:
             return
         lock.unlink(missing_ok=True)   # left by a killed request: take it over
-        fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        try:
+            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            return   # someone else took it over first
     try:
         if status(client, slot).get("state") == "running":
             return
