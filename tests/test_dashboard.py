@@ -939,7 +939,16 @@ def test_live_view_samples_once_a_minute(server, client_dir, monkeypatch):
     assert len(calls) == 1
     k = ("demo", "")
     app._LIVE[k] = [(t - 61, v) for t, v in app._LIVE[k]]
+    app._LIVE[k][0][1]["new-video"] = 0   # a video that left the set adds nothing
     d = json.loads(req(server, "GET", "/demo/live.json")[1])
     assert d["total"] == 13 and [p["v"] for p in d["points"]] == [3]
     _, page, _ = req(server, "GET", "/demo?g=live")
     assert "Views right now" in page and "/demo/live.json" in page and ">Live</a>" in page
+
+
+
+def test_live_view_no_spike_when_a_video_goes_live(client_dir):
+    import time
+    app._LIVE[("demo", "")] = [(1.0, {"a": 10}), (2.0, {"a": 12, "b": 500}), (time.time(), {"a": 12, "b": 503})]
+    d = app.live_views("demo", None)   # last sample is fresh: no Instagram call
+    assert [p["v"] for p in d["points"]] == [2, 3] and d["total"] == 515

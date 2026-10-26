@@ -642,31 +642,42 @@ _LIVE: dict[tuple[str, str], list[tuple[float, int]]] = {}   # (client, slot or 
 
 def live_views(client: str, slot: str | None) -> dict:
     """Views right now (sum of live videos, or one video), sampled from Instagram at most once a
-    minute while someone has the Live view open. Samples live in memory: a restart starts afresh."""
+    minute while someone has the Live view open. Each sample keeps per-video counts, so a video
+    going live adds no spike. Samples live in memory: a restart starts afresh."""
+    import threading
     import time as _t
-    key = (client, slot or "")
-    pts = _LIVE.setdefault(key, [])
-    now_ = _t.time()
-    if not pts or now_ - pts[-1][0] >= LIVE_EVERY - 1:
-        db = DB.for_client(C.client_dir(client))
-        try:
-            rows = [db.post(slot)] if slot else [r for r in db.posts() if r["ig_media_id"]]
-            from ..publisher.graph import Graph
-            g = Graph(C.token(client))
-            total = 0
-            for r in rows:
-                if not r["ig_media_id"]:
-                    continue
-                d = g.get(f"{r['ig_media_id']}/insights", metric="views")
-                total += int(((d.get("data") or [{}])[0].get("values") or [{}])[0].get("value") or 0)
-            pts.append((now_, total))
-        except Exception as e:  # noqa: BLE001 — no token or network: say so, keep the samples
-            return {"error": str(e)[:200], "points": [], "total": pts[-1][1] if pts else None}
-        finally:
-            db.close()
-    del pts[:-(LIVE_KEEP + 1)]
-    per_min = [{"t": int(b[0]), "v": max(0, b[1] - a[1])} for a, b in zip(pts, pts[1:])]
-    return {"total": pts[-1][1], "points": per_min, "since": int(pts[0][0]), "every": LIVE_EVERY}
+    with _LIVE_LOCK.setdefault(client, threading.Lock()):
+        key = (client, slot or "")
+        pts = _LIVE.setdefault(key, [])
+        now_ = _t.time()
+        err = None
+        if not pts or now_ - pts[-1][0] >= LIVE_EVERY - 1:
+            db = DB.for_client(C.client_dir(client))
+            try:
+                rows = [db.post(slot)] if slot else [r for r in db.posts() if r["ig_media_id"]]
+                from ..publisher.graph import Graph
+                g = Graph(C.token(client))
+                per = {}
+                for r in rows:
+                    if r["ig_media_id"]:
+                        d = g.get(f"{r['ig_media_id']}/insights", metric="views")
+                        per[r["slot_id"]] = int(((d.get("data") or [{}])[0].get("values") or [{}])[0].get("value") or 0)
+                pts.append((now_, per))
+            except Exception as e:  # noqa: BLE001 — no token or network: say so, keep the samples
+                err = str(e)[:200]
+            finally:
+                db.close()
+        del pts[:-(LIVE_KEEP + 1)]
+        per_min = [{"t": int(b_[0]), "v": sum(max(0, n - a_[1][k]) for k, n in b_[1].items() if k in a_[1])}
+                   for a_, b_ in zip(pts, pts[1:])]
+        out = {"total": sum(pts[-1][1].values()) if pts else None, "points": per_min,
+               "since": int(pts[0][0]) if pts else None, "every": LIVE_EVERY}
+        if err:
+            out["error"] = err
+        return out
+
+
+_LIVE_LOCK: dict = {}
 
 
 def live_block(base_json: str) -> str:
