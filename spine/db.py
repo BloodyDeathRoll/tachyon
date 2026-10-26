@@ -158,6 +158,10 @@ class DB:
             raise KeyError(slot_id)
         return row
 
+    def delete_post(self, slot_id: str) -> None:
+        """Drop a video from the plan (its journal history stays)."""
+        self.conn.execute("DELETE FROM posts WHERE slot_id=?", (slot_id,))   # autocommit
+
     def posts(self, state: str | None = None) -> list[sqlite3.Row]:
         if state:
             return self.conn.execute(

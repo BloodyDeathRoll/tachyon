@@ -271,6 +271,8 @@ textarea:focus,select:focus,.tfield input:focus{outline:none;border-color:var(--
 .btns{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
 .btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:10px;padding:11px 18px;font-weight:600;cursor:pointer;font-size:14.5px}
 .btn.pri{background:var(--lime);color:var(--ink)}.btn.pri:hover{background:var(--lime-h)}
+.btn.danger{background:#d92d20;color:#fff}.btn.danger:hover{background:#b42318}
+.btn.dangerline{color:#b42318}
 .btn.sec{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1px var(--rule)}.btn.sec:hover{box-shadow:inset 0 0 0 1px #BDBDBD}
 .btn.dark{background:var(--ink);color:#fff}.btn.dark:hover{background:var(--acc-h)}
 .btn:focus-visible,a:focus-visible,summary:focus-visible,.cell:focus-visible{outline:3px solid rgba(141,240,0,.8);outline-offset:2px}
@@ -409,6 +411,7 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .rgm{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:50;display:grid;place-items:center;padding:24px}
 .rgm[hidden]{display:none}
 .rgbox{background:#fff;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px;min-width:300px;animation:pop .18s ease-out}
+.rgbox.wide{width:min(560px,100%)}.rgbox textarea{min-height:130px}
 .rgbox label{display:flex;flex-direction:column;gap:6px;font-size:13.5px;color:var(--ink3)}
 .rgbox input{border:1px solid var(--rule);border-radius:9px;padding:8px 10px;font-size:15px;color:var(--ink)}
 .chips{position:absolute;left:10px;top:10px;z-index:2;display:flex;gap:4px;align-items:center}
@@ -704,6 +707,31 @@ def views_chart(series: list[tuple[datetime, int]], g: str, W: int = 600, H: int
     return "".join(out)
 
 
+def popup(trigger: str, box: str) -> str:
+    """A button that opens a centred box (`box` is the inner form). Esc, Cancel or a click
+    outside closes it."""
+    return (f"<span class=pop>{trigger}<div class=rgm hidden>{box}</div><script>(()=>{{"
+            "const w=document.currentScript.parentElement,m=w.querySelector('.rgm');"
+            "w.querySelector('[data-open]').addEventListener('click',e=>{e.preventDefault();m.hidden=false;"
+            "const f=m.querySelector('textarea,input:not([type=hidden]),button');if(f)f.focus();});"
+            "m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-close]'))m.hidden=true;});"
+            "document.addEventListener('keydown',e=>{if(e.key==='Escape')m.hidden=true;});})();</script></span>")
+
+
+def prepare_button(client: str, week: str, label: str) -> str:
+    base = f"/{ESC(quote(client))}"
+    last = W.last_instructions(client)
+    box = (f"<form method=post action='{base}/week' class='rgbox wide'><input type=hidden name=action value=prepare>"
+           f"<input type=hidden name=week value='{ESC(week)}'>"
+           f"<h2>{ESC(label)}</h2>"
+           f"<label>Instructions for this batch<textarea name=instructions rows=6 "
+           f"placeholder='e.g. Add our Rosa app particles to the empty dark areas. Try a light, airy style with new layouts.'>{ESC(last)}</textarea></label>"
+           f"<p class=hint style='margin:0'>Applies to every video in the batch. Leave empty for the usual style. "
+           f"{'Prefilled with the last batch&#39;s instructions.' if last else ''}</p>"
+           f"<div class=btns><button class='btn pri small'>Start</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>")
+    return popup(f"<button type=button class='btn pri small' data-open>{ESC(label)}</button>", box)
+
+
 def views_block(client: str, db: DB, slot: str | None, q: dict, base: str) -> str:
     g = q.get("g") if q.get("g") in GRANS else "day"
     eg, a, b = view_window(g, q.get("from"), q.get("to"))
@@ -790,8 +818,7 @@ def week_card(client: str) -> str:
         err = f"<div class=note>Last run failed: {ESC(st.get('error') or '')}</div>" if st.get("state") == "failed" else ""
         body = (f"{err}<p class=muted style='margin:0 0 14px'>{total} videos, one for each slot. Claude plans them, makes them and "
                 f"sends each one here for approval.</p>"
-                f"<form method=post action='{base}/week'><input type=hidden name=action value=prepare>"
-                f"<button class='btn pri small'>Prepare next week</button></form>")
+                + prepare_button(client, wk, "Prepare next week"))
     auto = (f"<form method=post action='{base}/week' class=autorow><input type=hidden name=action value=auto>"
             f"<input type=hidden name=value value='{0 if ws['auto'] else 1}'>"
             f"<span>Prepare automatically every {ESC(ws['day'])}</span>"
@@ -1032,7 +1059,7 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
 
         right = []
         # when it publishes, with a way to change it
-        at_ = row["published_at"] if cls == "live" else (row["scheduled_at"] or (SCH.slot_for_approval(db, row, C.load_grants(client)) if cls == "need" else None))
+        at_ = row["published_at"] if cls == "live" else (row["scheduled_at"] or (preview_slot(client, db, slot) if cls == "need" else None))
         cal = ""
         if at_:
             dt_ = parse(at_)
@@ -1051,6 +1078,10 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
                      f"<p class=big style='font-size:19px;margin-top:2px'>{ESC(wh)}</p></div>{act}</div>"
                      + (f"<p class=hint style='margin-top:8px'>{sub_}</p>" if sub_ else "") + replies_card(client, slot) + "</section>")
 
+        if row["state"] not in NO_DELETE and (st.get("state") != "running"):
+            right_end = delete_card(client, slot, title_of(client, row))
+        else:
+            right_end = ""
         if row["state"] in HAND_FROM:
             right.append(f"<section class=card><h2>Posted it by hand?</h2>"
                          f"<p class=hint>Used a song only the Instagram app has? Post it there, then link the post here so it gets tracked.</p>"
@@ -1092,6 +1123,8 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
             links.append(f"<a href='/{ESC(quote(client))}/v/{ESC(quote(slot))}/qa'>QA report</a>")
         if links:
             right.append(f"<div class=links>{''.join(links)}</div>")
+        if right_end:
+            right.append(right_end)
 
         body = (f"<a class=back href='/{ESC(quote(client))}'>{icon('back', 16)}Overview</a>"
                 f"<h1>{ESC(title_of(client, row))} <span class=hno>{ESC(' · '.join(x for x in slot_no(slot) if x))}</span></h1><p class=sub>{when_line}</p>"
@@ -1158,9 +1191,10 @@ let f0='all';try{f0=localStorage.getItem(FK)||'all'}catch(_){}setF(f0);
 
 def _cal_items(client: str, db: DB, first, last) -> dict:
     out: dict[tuple[str, str], list] = {}
+    preview = SCH.preview_slots(db, unslotted(client, db), C.load_grants(client))
     for row in db.posts():
         tag = tag_for(client, row)
-        ts = parse(row["published_at"] or row["scheduled_at"])
+        ts = parse(row["published_at"] or row["scheduled_at"] or preview.get(row["slot_id"]))
         if tag and ts and first <= ts.date() <= last:
             out.setdefault((ts.date().isoformat(), ts.strftime("%H:%M")), []).append((row, tag))
     return out
@@ -1243,6 +1277,51 @@ def render_month(client: str, month: str | None, hl: str | None = None) -> bytes
         db.close()
 
 
+NO_DELETE = {"PUBLISHING", "PUBLISHED", "MEASURING", "ANALYZED", "MANUAL_HANDOFF"}   # live, or maybe live
+
+
+def delete_video(client: str, slot: str) -> None:
+    """Remove a video from the plan and the dashboard. Its folder moves to clients/<c>/trash/,
+    so nothing is lost by accident. Refused once it is (or may be) on Instagram."""
+    import shutil
+    d = C.client_dir(client)
+    db = DB.for_client(d)
+    try:
+        row = db.post(slot)
+        if row["state"] in NO_DELETE:
+            raise ValueError("this video is on Instagram (or may be): it cannot be deleted here")
+        if (R.status(client, slot) or {}).get("state") == "running":
+            raise ValueError("a re-render is running: wait for it to finish")
+        src = d / "posts" / slot
+        if src.exists():
+            dst = d / "trash" / f"{slot}-{datetime.now(timezone.utc):%Y%m%dT%H%M%S}"
+            dst.parent.mkdir(exist_ok=True)
+            shutil.move(src, dst)
+        db.delete_post(slot)
+    finally:
+        db.close()
+
+
+def delete_card(client: str, slot: str, title: str) -> str:
+    act = f"/{ESC(quote(client))}/v/{ESC(quote(slot))}/delete"
+    box = (f"<form method=post action='{act}' class=rgbox><h2>Delete this video?</h2>"
+           f"<p class=muted style='margin:0;max-width:380px'>&ldquo;{ESC(title)}&rdquo; leaves the plan, the calendar and the dashboard. "
+           f"Its files move to clients/{ESC(client)}/trash, so they can be recovered by hand.</p>"
+           f"<div class=btns><button class='btn danger small'>Delete</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>")
+    return ("<section class=card><h2>Delete</h2><p class=hint>Not needed any more? Remove it from the plan.</p><div style='margin-top:12px'>"
+            + popup(f"<button type=button class='btn sec small dangerline' data-open>{icon('x', 15)}Delete video</button>", box) + "</div></section>")
+
+
+def unslotted(client: str, db: DB) -> list[str]:
+    """Videos waiting for approval that hold no slot yet (their slot is a preview)."""
+    return [r["slot_id"] for r in db.posts() if not r["scheduled_at"] and not r["published_at"]
+            and (tag_for(client, r) or ("", ""))[1] == "need"]
+
+
+def preview_slot(client: str, db: DB, slot: str) -> str | None:
+    return SCH.preview_slots(db, unslotted(client, db), C.load_grants(client)).get(slot)
+
+
 def render_calendar(client: str, week: str | None, hl: str | None = None) -> bytes:
     today = datetime.now(timezone.utc).date()
     if not week:
@@ -1255,9 +1334,10 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
     try:
         cells: dict[tuple[str, str], list] = {}
         extra_times = set()
+        preview = SCH.preview_slots(db, unslotted(client, db), C.load_grants(client))
         for row in db.posts():
             tag = tag_for(client, row)
-            ts = parse(row["published_at"] or row["scheduled_at"])
+            ts = parse(row["published_at"] or row["scheduled_at"] or preview.get(row["slot_id"]))
             if not tag or not ts or not (days[0] <= ts.date() <= days[-1]):
                 continue
             hm = ts.strftime("%H:%M")
@@ -1291,8 +1371,7 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
         st = W.status(client, week)
         note = ""
         if week == W.next_week() and not st:
-            note = (f"<form method=post action='/{ESC(quote(client))}/week' style='margin-top:20px'><input type=hidden name=action value=prepare>"
-                    f"<button class='btn pri small'>Prepare this week</button></form>")
+            note = f"<div style='margin-top:20px'>{prepare_button(client, week, 'Prepare this week')}</div>"
         body = (header(client, "Calendar") + f"<section class=card>{head}{''.join(g)}{note}</section>"
                 f"<div class=toast id=toast></div><script>{CAL_JS.replace('__C__', quote(client))}</script>")
         return shell(client, "calendar", body, "Calendar")
@@ -1575,12 +1654,18 @@ class Handler(BaseHTTPRequestHandler):
                 if form.get("action") == "prepare":
                     wk = form.get("week") or W.next_week()
                     if (W.status(name, wk) or {}).get("state") != "running":
-                        W.start(name, wk)
+                        W.start(name, wk, form.get("instructions") or "")
                 elif form.get("action") == "auto":
                     ws = W.settings(name)
                     C.set_value(name, "week_prep", {"auto": form.get("value") == "1", "day": ws["day"]})
                 return self._redirect(f"/{quote(name)}")
             # /<c>/v/<slot>/decide (dashboard) or /<c>/decide with slot= (older form)
+            if parts[1] == "v" and len(parts) == 4 and parts[3] == "delete":
+                try:
+                    delete_video(name, parts[2])
+                except ValueError as e:
+                    return self._send(409, str(e).encode(), "text/plain")
+                return self._redirect(f"/{quote(name)}")
             if parts[1] == "v" and len(parts) == 4 and parts[3] == "decide":
                 slot, back = parts[2], f"/{quote(name)}/v/{quote(parts[2])}"
             elif parts[1] == "decide":

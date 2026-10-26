@@ -92,9 +92,39 @@ def _status(client: str, week: str, **kw) -> dict:
     return cur
 
 
-def start(client: str, week: str) -> None:
-    """Dashboard button: spawn prepare detached."""
-    _status(client, week, state="running", step="planning", done=0, total=len(free_slot_times(client, week)), error=None, started_at=now())
+def last_instructions(client: str) -> str:
+    """The operator's brief from the most recent batch (prefills the next one)."""
+    best = ("", "")
+    for f in plans_dir(client).glob("*.json"):
+        try:
+            st = json.loads(f.read_text())
+        except ValueError:
+            continue
+        if st.get("instructions") is not None and (st.get("started_at") or "") >= best[0]:
+            best = (st.get("started_at") or "", st["instructions"])
+    return best[1]
+
+
+def instructions_block(text: str) -> str:
+    text = (text or "").strip()
+    if not text:
+        return ""
+    return f"""
+
+The operator's instructions for this batch. Follow them; where they conflict with the house
+style or the example films, they win (the safe box, real numbers and rule 13 still hold):
+---
+{text}
+---"""
+
+
+def start(client: str, week: str, instructions: str | None = None) -> None:
+    """Dashboard button: spawn prepare detached. `instructions` is the operator's brief for the
+    batch; None (the daily auto run) reuses the last batch's."""
+    if instructions is None:
+        instructions = last_instructions(client)
+    _status(client, week, state="running", step="planning", done=0, total=len(free_slot_times(client, week)), error=None,
+            started_at=now(), instructions=instructions.strip())
     log = (plans_dir(client) / f"{week}.log").open("a")
     subprocess.Popen([sys.executable, "-m", "spine.week", "prepare", client, week], cwd=ROOT,
                      stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
@@ -143,7 +173,8 @@ without a URL); no competitor names; the caption follows brand.md (data attribut
 three hashtags). The videos can only use these assets: app captures
 engines/remotion/public/captures/*.png (dark theme) and engines/remotion/public/captures-light/*.png
 (light theme, same file names), Pixabay footage engines/remotion/public/footage/*.mp4,
-the logo. Write the file and nothing else."""
+the logo.{instructions_block((status(client, week) or {}).get("instructions"))}
+Write the file and nothing else."""
 
 
 def plan(client: str, week: str) -> list[dict]:
@@ -244,7 +275,11 @@ under 38 px (lib MIN_TYPE), no small-caps eyebrow labels, no data attribution, n
 (attribution lives in the caption). Numbers only from clients/{client}/product.md.
 Never "comment for the link". Do not edit any other file. Run `npx tsc --noEmit -p .` in
 engines/remotion until it passes (you may temporarily add nothing to Root; it is registered for
-you afterwards). You may check frames with a scratch entry only if needed. Do not render, do not commit."""
+you afterwards). You may check frames with a scratch entry only if needed. Do not render, do not commit.{instructions_block(_batch_instructions(client, meta))}"""
+
+
+def _batch_instructions(client: str, meta: dict) -> str:
+    return (status(client, meta["plan"]) or {}).get("instructions") or "" if meta.get("plan") else ""
 
 
 def register(fid: str) -> None:

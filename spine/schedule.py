@@ -52,3 +52,16 @@ def slot_for_approval(db, row, grants: dict | None = None, at: datetime | None =
         if dt >= at + LEAD and planned not in taken:
             return planned
     return next_free(taken, grants, at)
+
+
+def preview_slots(db, slots: list[str], grants: dict | None = None, at: datetime | None = None) -> dict[str, str]:
+    """Where videos waiting for approval with no slot of their own would go if approved now:
+    the next free slots, handed out in slot order so two of them never share one. The video page
+    and the calendar both show this, so they agree."""
+    at = at or datetime.now(timezone.utc)
+    taken = taken_slots(db)
+    out = {}
+    for s in sorted(slots):
+        out[s] = next_free(taken, grants, at)
+        taken.add(out[s])
+    return out
