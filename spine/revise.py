@@ -29,6 +29,7 @@ from .db import DB
 ROOT = Path(__file__).resolve().parent.parent
 REMOTION = ROOT / "engines" / "remotion"
 EDIT_TIMEOUT = 25 * 60
+RENDER_TIMEOUT_MS = 180_000   # delayRender limit; large stock clips took > 28 s to fetch
 ALLOWED = "Read Edit Write Glob Grep Bash(npx tsc:*) Bash(npx remotion still:*)"
 
 
@@ -57,10 +58,50 @@ def start(client: str, slot: str, notes: str) -> None:
     prev = status(client, slot) or {}
     rounds = prev.get("rounds", [])
     rounds.append({"notes": notes, "at": now()})
-    _write_status(client, slot, state="running", step="queued", notes=notes, rounds=rounds, error=None)
+    _write_status(client, slot, state="running", step="queued", notes=notes, rounds=rounds, error=None,
+                  skip_edit=False, changes=None)
+    _spawn(client, slot)
+
+
+def _spawn(client: str, slot: str) -> None:
     log = (C.client_dir(client) / "posts" / slot / "revise.log").open("a")
     subprocess.Popen([sys.executable, "-m", "spine.revise", "run", client, slot], cwd=ROOT,
                      stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+
+
+def failed(client: str, slot: str) -> bool:
+    return (status(client, slot) or {}).get("state") == "failed"
+
+
+def settle(db: DB, client: str, slot: str) -> None:
+    """A failed re-render leaves the previous cut in place: put the slot back to NEEDS_APPROVAL so
+    the operator can approve it or send new notes (older failures left it stuck in REJECTED)."""
+    if failed(client, slot) and db.post(slot)["state"] == "REJECTED":
+        db.set_state(slot, "NEEDS_APPROVAL", note="re-render failed; the previous cut stands")
+
+
+def dismiss(client: str, slot: str) -> None:
+    if failed(client, slot):
+        _write_status(client, slot, state="dismissed")
+
+
+def retry(client: str, slot: str, db: DB) -> bool:
+    """Re-run the last failed job with the same notes. If it got past the edit, only render again
+    (the film source already has the change; editing twice would apply it twice)."""
+    st = status(client, slot) or {}
+    if st.get("state") != "failed":
+        return False
+    if db.post(slot)["state"] == "NEEDS_APPROVAL":
+        db.set_state(slot, "REJECTED", note="re-run after a failed render")
+    _write_status(client, slot, state="running", step="queued", error=None,
+                  skip_edit=st.get("step") in ("rendering", "finishing"))
+    try:
+        _spawn(client, slot)
+    except Exception as e:   # nothing is running: show the failure again, back to approval
+        _write_status(client, slot, state="failed", step=st.get("step"), error=f"could not start: {e}", failed_at=now())
+        settle(db, client, slot)
+        raise
+    return True
 
 
 def _prompt(client: str, slot: str, film: dict, notes: str, slot_dir: Path) -> str:
@@ -116,7 +157,7 @@ def render(client: str, slot: str) -> dict:
     out = {}
     for variant, comp in (("reel", film["reel"]), ("story", film["story"])):
         raw = tmp / f"{variant}.mp4"
-        _run(["npx", "remotion", "render", "src/index.ts", comp, str(raw), "--log=error"], cwd=REMOTION)
+        _run(["npx", "remotion", "render", "src/index.ts", comp, str(raw), "--log=error", f"--timeout={RENDER_TIMEOUT_MS}"], cwd=REMOTION)
         dst = tmp / f"{variant}-final.mp4"
         d = _duration(raw)
         if music:
@@ -179,10 +220,14 @@ def run(client: str, slot: str) -> int:
         film = json.loads((slot_dir / "meta.json").read_text())["film"]
         if db.post(slot)["state"] == "REJECTED":
             db.set_state(slot, "SCRIPTED", note=f"revising: {notes[:200]}")
-        _write_status(client, slot, step="editing")
-        changes = _edit(client, slot, film, notes, slot_dir) if notes else None
+        if st.get("skip_edit"):
+            changes = st.get("changes")
+        else:
+            _write_status(client, slot, step="editing")
+            changes = _edit(client, slot, film, notes, slot_dir) if notes else None
         _write_status(client, slot, step="rendering", changes=changes)
         verdicts = render(client, slot)
+        _write_status(client, slot, step="finishing")   # the new cut is in place from here on
         db.set_state(slot, "RENDERED")
         qa = _qa_md(slot, verdicts, changes, notes)
         (slot_dir / "qa.md").write_text(qa)
@@ -191,10 +236,16 @@ def run(client: str, slot: str) -> int:
         _write_status(client, slot, state="done", step="done", verdicts=verdicts)
         return 0
     except Exception as e:  # surface it on the video page
-        _write_status(client, slot, state="failed", error=str(e)[-600:])
-        try:
-            if db.post(slot)["state"] == "SCRIPTED":
+        _write_status(client, slot, state="failed", error=str(e)[-1500:], failed_at=now())
+        try:   # the previous cut is untouched (files move only on success): back to approval
+            cur = db.post(slot)["state"]
+            if cur == "SCRIPTED":
                 db.set_state(slot, "REJECTED", note=f"revision failed: {str(e)[:200]}")
+            elif cur == "RENDERED":   # failed after the new cut was in place: it still needs a look
+                db.set_state(slot, "QA", note=f"after-render step failed: {str(e)[:200]}")
+            if db.post(slot)["state"] == "QA":
+                db.set_state(slot, "NEEDS_APPROVAL")
+            settle(db, client, slot)
         except Exception:
             pass
         print(f"revise failed: {e}", file=sys.stderr)

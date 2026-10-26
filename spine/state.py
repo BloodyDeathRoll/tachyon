@@ -29,7 +29,7 @@ TRANSITIONS: dict[str, set[str]] = {
     "PUBLISHED": {"MEASURING"},
     "MEASURING": {"ANALYZED"},
     "ANALYZED": set(),
-    "REJECTED": {"SCRIPTED"},            # operator's note goes back to Script
+    "REJECTED": {"SCRIPTED", "NEEDS_APPROVAL"},   # note goes back to Script / re-render failed: previous cut stands
     "FAILED": {"QUEUED", "MANUAL_HANDOFF"},
     "NEEDS_INPUT": {"SCRIPTED", "REJECTED"},
     "MANUAL_HANDOFF": {"PUBLISHED", "REJECTED"},   # operator posted by hand and entered the id

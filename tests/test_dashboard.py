@@ -301,3 +301,124 @@ def test_edit_twice_and_from_queued(server, client_dir):
     db = DB.for_client(client_dir)
     assert db.post("w01-s1")["state"] == "NEEDS_APPROVAL"
     db.close()
+
+
+def _fail(client_dir, step="rendering"):
+    (client_dir / "posts" / "w01-s1" / "revise.json").write_text(json.dumps(
+        {"state": "failed", "step": step, "notes": "faster", "error": "delayRender() timed out",
+         "changes": "made it faster", "updated_at": "2026-10-26T18:48:50+00:00"}))
+
+
+def test_failed_rerender_shows_error_card_and_rerun(server, client_dir):
+    db = DB.for_client(client_dir)
+    db.set_state("w01-s1", "REJECTED", note="faster")   # how older failures were left: stuck
+    db.close()
+    _fail(client_dir)
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "Re-render failed" in body and "delayRender() timed out" in body
+    assert "value=retry" in body and "value=approve" in body
+
+
+def test_failed_rerender_does_not_block_approve(server, client_dir):
+    db = DB.for_client(client_dir)
+    db.set_state("w01-s1", "REJECTED", note="faster")
+    db.close()
+    _fail(client_dir)
+    status, _, _ = req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve"})
+    assert status == 303
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["state"] == "APPROVED"
+    db.close()
+    assert R.status("demo", "w01-s1")["state"] == "dismissed"
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "Re-render failed" not in body
+
+
+def test_failed_rerender_accepts_new_notes(server, client_dir, monkeypatch):
+    started = []
+    monkeypatch.setattr(R, "start", lambda c, s, n: started.append(n))
+    db = DB.for_client(client_dir)
+    db.set_state("w01-s1", "REJECTED", note="faster")
+    db.close()
+    _fail(client_dir)
+    status, _, _ = req(server, "POST", "/demo/v/w01-s1/decide", {"action": "reject", "notes": "slower"})
+    assert status == 303 and started == ["slower"]
+
+
+def test_rerun_renders_only_when_edit_was_done(server, client_dir, monkeypatch):
+    spawned = []
+    monkeypatch.setattr(R, "_spawn", lambda c, s: spawned.append(s))
+    _fail(client_dir, step="rendering")
+    status, _, _ = req(server, "POST", "/demo/v/w01-s1/decide", {"action": "retry"})
+    assert status == 303 and spawned == ["w01-s1"]
+    st = R.status("demo", "w01-s1")
+    assert st["state"] == "running" and st["skip_edit"] is True and st["notes"] == "faster"
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["state"] == "REJECTED"   # run() takes it REJECTED -> SCRIPTED
+    db.close()
+    status, _, _ = req(server, "POST", "/demo/v/w01-s1/decide", {"action": "retry"})   # second click: no-op
+    assert status == 303 and spawned == ["w01-s1"]
+
+
+def test_rerun_redoes_the_edit_when_it_failed_there(server, client_dir, monkeypatch):
+    monkeypatch.setattr(R, "_spawn", lambda c, s: None)
+    _fail(client_dir, step="editing")
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "retry"})
+    assert R.status("demo", "w01-s1")["skip_edit"] is False
+
+
+def test_failed_run_puts_the_previous_cut_back_to_approval(client_dir, monkeypatch):
+    db = DB.for_client(client_dir)
+    db.set_state("w01-s1", "REJECTED", note="faster")
+    db.close()
+    (client_dir / "posts" / "w01-s1" / "revise.json").write_text(json.dumps(
+        {"state": "running", "step": "queued", "notes": "faster", "skip_edit": True, "changes": "x"}))
+    def boom(c, s):
+        raise RuntimeError("npx failed: delayRender timeout")
+    monkeypatch.setattr(R, "render", boom)
+    assert R.run("demo", "w01-s1") == 1
+    st = R.status("demo", "w01-s1")
+    assert st["state"] == "failed" and "delayRender" in st["error"] and st["step"] == "rendering"
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["state"] == "NEEDS_APPROVAL"
+    db.close()
+
+
+def test_failure_after_render_still_lands_in_approval(client_dir, monkeypatch):
+    db = DB.for_client(client_dir)
+    db.set_state("w01-s1", "REJECTED", note="faster")
+    db.close()
+    (client_dir / "posts" / "w01-s1" / "revise.json").write_text(json.dumps(
+        {"state": "running", "step": "queued", "notes": "faster", "skip_edit": True, "changes": "x"}))
+    monkeypatch.setattr(R, "render", lambda c, s: {"reel": "VERDICT: PASS"})
+    monkeypatch.setattr(R, "_qa_md", lambda *a: (_ for _ in ()).throw(RuntimeError("qa broke")))
+    assert R.run("demo", "w01-s1") == 1
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["state"] == "NEEDS_APPROVAL"
+    db.close()
+
+
+def test_rerun_that_cannot_start_shows_the_failure_again(client_dir, monkeypatch):
+    def nope(c, s):
+        raise OSError("no python")
+    monkeypatch.setattr(R, "_spawn", nope)
+    _fail(client_dir)
+    db = DB.for_client(client_dir)
+    with pytest.raises(OSError):
+        R.retry("demo", "w01-s1", db)
+    assert db.post("w01-s1")["state"] == "NEEDS_APPROVAL"
+    db.close()
+    st = R.status("demo", "w01-s1")
+    assert st["state"] == "failed" and "could not start" in st["error"]
+
+
+def test_failure_after_render_says_the_new_cut_is_in_place(server, client_dir):
+    _fail(client_dir, step="finishing")
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "The new cut is in place" in body and "still the previous cut" not in body
+
+
+def test_failure_before_start_has_a_readable_step(server, client_dir):
+    _fail(client_dir, step="queued")
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "Failed before it started" in body and "still the previous cut" in body
