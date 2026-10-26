@@ -626,6 +626,7 @@ def test_formats_layout_that_does_not_typecheck_is_unregistered(client_dir, fake
                         if cmd[:2] == ["npx", "tsc"] else run(cmd, *a, **k))
     assert F.make("demo", "w01-s1", ["2x3"]) == 1
     assert "S-2x3" not in (F.FILMS / "formats.ts").read_text()
+    assert not (F.FILMS / "S-2x3.tsx").exists()   # the next run writes it afresh
     assert "does not typecheck" in F.status("demo", "w01-s1")["error"]
 
 
@@ -722,3 +723,21 @@ def test_formats_job_without_progress_for_10_min_reads_failed(client_dir, monkey
     assert F.status("demo", "w01-s1")["state"] == "failed"
     F.status_path("demo", "w01-s1").write_text("{broken")
     assert F.status("demo", "w01-s1") == {}
+
+
+
+def test_formats_failed_layout_write_leaves_nothing_registered(client_dir, fake_remotion, monkeypatch):
+    import subprocess
+    from spine import formats as F
+    _real_reel(client_dir)
+    run = F.subprocess.run
+
+    def claude_dies(cmd, *a, **k):
+        if cmd[0] == "claude":   # registers itself, then fails
+            (F.FILMS / "formats.ts").write_text((F.FILMS / "formats.ts").read_text().replace(
+                "// @imports", 'import x from "./S-1x1";\n// @imports'))
+            return subprocess.CompletedProcess(cmd, 1, "", "timeout")
+        return run(cmd, *a, **k)
+    monkeypatch.setattr(F.subprocess, "run", claude_dies)
+    assert F.make("demo", "w01-s1", ["1x1"]) == 1
+    assert "S-1x1" not in (F.FILMS / "formats.ts").read_text()

@@ -42,3 +42,10 @@ clients/*/posts/*/versions/**/*.wav
 
 # film work files: local only
 clients/*/films/
+
+# render locks and job state
+engines/remotion/src/films/.formats.lock
+clients/*/posts/*/formats.lock
+clients/*/posts/*/formats.json
+clients/*/posts/*/formats.log
+clients/*/trash/

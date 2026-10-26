@@ -77,7 +77,7 @@ def status(client: str, slot: str) -> dict:
     if st.get("state") == "running":
         no_pid_for = since
         if ((st.get("pid") and not _alive(st["pid"])) or (not st.get("pid") and no_pid_for > 60)
-                or no_pid_for > STALL):   # no progress for 10 min: killed (a zombie still answers kill 0)
+                or no_pid_for > STALL):   # no progress for STALL: killed (a zombie still answers kill 0)
             st.update(state="failed", error=st.get("error") or "stopped before it finished (restart or crash)")
     return st
 
@@ -137,6 +137,11 @@ def _register(fid: str, ratio: str) -> None:
     idx.write_text(s)
 
 
+def _drop(fid: str, ratio: str) -> None:
+    _unregister(fid, ratio)
+    (FILMS / f"{fid}-{ratio}.tsx").unlink(missing_ok=True)
+
+
 def _unregister(fid: str, ratio: str) -> None:
     idx = FILMS / "formats.ts"
     cid = f"{fid}-{ratio}"
@@ -145,6 +150,13 @@ def _unregister(fid: str, ratio: str) -> None:
 
 
 def make_one(client: str, slot: str, ratio: str) -> Path:
+    """One format at a time across all slots: the layouts and formats.ts are shared sources."""
+    with open(FILMS / ".formats.lock", "w") as lk:
+        fcntl.flock(lk, fcntl.LOCK_EX)
+        return _make_one(client, slot, ratio)
+
+
+def _make_one(client: str, slot: str, ratio: str) -> Path:
     sd = C.client_dir(client) / "posts" / slot
     src = sd / "video.mp4"
     src_mtime = src.stat().st_mtime
@@ -157,14 +169,19 @@ def make_one(client: str, slot: str, ratio: str) -> Path:
     if not ffile.exists() or (base.exists() and base.stat().st_mtime > ffile.stat().st_mtime):
         ffile.unlink(missing_ok=True)
         _status(client, slot, step="writing")
-        _run(["claude", "-p", prompt(fid, ratio), "--allowedTools", *ALLOWED.split(" "), "--permission-mode", "acceptEdits"],
-             cwd=REMOTION, timeout=WRITE_TIMEOUT)
+        try:
+            _run(["claude", "-p", prompt(fid, ratio), "--allowedTools", *ALLOWED.split(" "), "--permission-mode", "acceptEdits"],
+                 cwd=REMOTION, timeout=WRITE_TIMEOUT)
+        except Exception:
+            _drop(fid, ratio)   # claude may have registered a half-written layout
+            raise
         if not ffile.exists():
+            _drop(fid, ratio)
             raise RuntimeError(f"no {LABEL[ratio]} layout was written")
     _register(fid, ratio)
     r = subprocess.run(["npx", "tsc", "--noEmit", "-p", "."], cwd=REMOTION, capture_output=True, text=True)
     if r.returncode != 0:
-        _unregister(fid, ratio)   # never leave a broken film registered
+        _drop(fid, ratio)   # never leave a broken film registered; the next run writes it afresh
         raise RuntimeError(f"the {LABEL[ratio]} layout does not typecheck: {r.stdout[-300:]}")
     _status(client, slot, step="rendering")
     out = path(client, slot, ratio)
