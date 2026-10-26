@@ -289,7 +289,8 @@ details.full summary::-webkit-details-marker{display:none}
 details.full .more{display:inline-block;color:var(--ink);text-decoration:underline;text-underline-offset:3px;font-weight:600;font-size:14px;margin-top:8px}
 details.full[open] summary{display:none}
 .capfull{white-space:pre-line;color:var(--ink2);margin-top:12px}
-.links{display:flex;gap:22px;flex-wrap:wrap;font-size:14px;font-weight:600}
+.links{display:flex;gap:22px;flex-wrap:wrap;justify-content:flex-end;align-items:center;font-size:14px;font-weight:600}
+.linkbtn{border:0;background:none;padding:0;font:inherit;color:var(--ink3);cursor:pointer}.linkbtn:hover{color:#b42318}
 .links a{display:inline-flex;align-items:center;gap:6px;color:var(--ink3)}.links a:hover{color:var(--ink)}
 .banner{display:flex;gap:12px;align-items:center;padding:14px 18px;border-radius:12px;background:#FFF4D6;color:#8A4B00;font-weight:600;margin-bottom:24px}
 .banner.stop{background:#EF4444;color:#fff}
@@ -1158,10 +1159,10 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         links = []
         if (sdir / "qa.md").exists():
             links.append(f"<a href='/{ESC(quote(client))}/v/{ESC(quote(slot))}/qa'>QA report</a>")
+        if right_end:
+            links.append(right_end)
         if links:
             right.append(f"<div class=links>{''.join(links)}</div>")
-        if right_end:
-            right.append(right_end)
 
         body = (f"<a class=back href='/{ESC(quote(client))}'>{icon('back', 16)}Overview</a>"
                 f"<h1>{ESC(title_of(client, row))} <span class=hno>{ESC(' · '.join(x for x in slot_no(slot) if x))}</span></h1><p class=sub>{when_line}</p>"
@@ -1351,8 +1352,7 @@ def delete_card(client: str, slot: str, title: str) -> str:
            f"<p class=muted style='margin:0;max-width:380px'>&ldquo;{ESC(title)}&rdquo; leaves the plan, the calendar and the dashboard. "
            f"Its files move to clients/{ESC(client)}/trash, so they can be recovered by hand.</p>"
            f"<div class=btns><button class='btn danger small'>Delete</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>")
-    return ("<section class=card><h2>Delete</h2><p class=hint>Not needed any more? Remove it from the plan.</p><div style='margin-top:12px'>"
-            + popup(f"<button type=button class='btn sec small dangerline' data-open>{icon('x', 15)}Delete video</button>", box) + "</div></section>")
+    return popup(f"<button type=button class=linkbtn data-open>Delete video</button>", box)
 
 
 def unslotted(client: str, db: DB) -> list[str]:
