@@ -297,3 +297,39 @@ def test_link_by_hand_moves_bio_link_and_is_idempotent(client, monkeypatch):
     assert db.post(SLOT)["state"] == "MEASURING"
     db.close()
     assert publish.link_by_hand(client, SLOT, "M9", graph=HandGraph())["ig_media_id"] == "M9"   # second click
+
+
+def test_lookup_failure_after_publish_never_reposts(client):
+    """media_publish succeeded but the follow-up lookup failed: the slot is PUBLISHED with the id,
+    never FAILED (FAILED -> QUEUED would post the reel twice)."""
+    class LookupFails(FakeGraph):
+        def media(self, mid, fields=None):
+            raise GraphError(2, None, "transient")
+    g = LookupFails()
+    out = publish.publish_slot(client, SLOT, graph=g, sleep=lambda s: None)
+    assert out["ig_media_id"] == "M1"
+    db = DB.for_client(C.client_dir(client))
+    row = db.post(SLOT)
+    assert row["ig_media_id"] == "M1" and row["state"] == "MEASURING"
+    db.close()
+
+
+def test_queue_survives_one_bad_slot(client, monkeypatch):
+    def boom(c, s, **kw):
+        raise RuntimeError("unexpected")
+    monkeypatch.setattr(publish, "publish_slot", boom)
+    db = DB.for_client(C.client_dir(client))
+    db.conn.execute("UPDATE posts SET scheduled_at='2000-01-01T00:00:00+00:00' WHERE slot_id=?", (SLOT,))
+    db.close()
+    assert publish.run_queue(client) == [{"slot_id": SLOT, "error": "unexpected"}]
+
+
+@pytest.mark.parametrize("text,bad", [("Which spot next?", False), ("Get it at rosa.surf", True),
+                                      ("www.example.org", True), ("https://x.y/z", True)])
+def test_first_comment_url_guard(text, bad):
+    assert bool(publish.URLISH.search(text)) is bad
+
+
+def test_now_on_unknown_slot_says_so(client, capsys):
+    assert publish.main([client, "nope", "--now", "--dry-run"]) == 1
+    assert "no such slot" in capsys.readouterr().out
