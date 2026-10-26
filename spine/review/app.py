@@ -514,6 +514,25 @@ def media_latest(db: DB, slot: str) -> tuple[dict | None, str | None]:
     return s["metrics"], s["collected_at"]
 
 
+def views_7d(db: DB) -> int | None:
+    """Views our videos gained in the last 7 days, from their own counters, so the tile adds up
+    to the video cards (the account-level number lags behind)."""
+    cut = datetime.now(timezone.utc) - timedelta(days=7)
+    total, any_ = 0, False
+    for row in db.posts():
+        if not row["ig_media_id"]:
+            continue
+        snaps = sorted((x for x in db.snapshots(row["slot_id"]) if x["source"] == "ig_media"), key=lambda x: x["collected_at"])
+        if not snaps:
+            continue
+        any_ = True
+        latest = snaps[-1]["metrics"].get("views") or 0
+        before = [x for x in snaps if parse(x["collected_at"]) <= cut]
+        base = (before[-1]["metrics"].get("views") or 0) if before and parse(row["published_at"]) < cut else 0
+        total += max(latest - base, 0)
+    return total if any_ else None
+
+
 def refresh_live(client: str, db: DB, row) -> None:
     """Pull current numbers for a live video if the last pull is older than LIVE_TTL."""
     if not row["ig_media_id"]:
@@ -760,7 +779,9 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
                 refresh_live(client, db, row)
         days = account_days(db)
         week = days[-7:]
-        total = lambda k: sum((x.get(k) or 0) for x in week) if week else None  # noqa: E731
+        roll = next((x["metrics"] for x in db.snapshots(None) if x["source"] == "ig_account" and x["window"] == "7d"), None)
+        total = lambda k: (roll.get(k) if roll else sum((x.get(k) or 0) for x in week) if week else None)  # noqa: E731
+        vviews = views_7d(db)
         followers = days[-1].get("followers_count") if days else None
         rows = [(r, tag_for(client, r)) for r in db.posts()]
         rows = [(r, t) for r, t in rows if t]
@@ -773,7 +794,7 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
         stats = "".join(
             f"<div class=stat><span>{lab}</span><strong>{num(v)}</strong><small>{note}</small></div>"
             for lab, v, note in (
-                ("Views", total("views"), "last 7 days"),
+                ("Views", vviews if vviews is not None else total("views"), "last 7 days"),
                 ("Reached", total("reach"), "last 7 days"),
                 ("Followers", followers, f"as of {datetime.fromisoformat(days[-1]['date']).strftime('%-d %b')}" if days else "no data yet"),
                 ("Link taps", total("profile_links_taps"), "last 7 days"),

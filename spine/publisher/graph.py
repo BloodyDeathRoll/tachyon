@@ -74,8 +74,8 @@ class Graph:
                 for d in data}
 
     def account_insights(self, ig_user_id: str, metrics: list[str], period: str = "day",
-                         metric_type: str = "total_value") -> dict:
+                         metric_type: str = "total_value", **window) -> dict:
         data = self.get(f"{ig_user_id}/insights", metric=",".join(metrics), period=period,
-                        metric_type=metric_type)["data"]
+                        metric_type=metric_type, **window)["data"]
         return {d["name"]: d.get("total_value", {}).get("value", (d.get("values") or [{}])[0].get("value"))
                 for d in data}

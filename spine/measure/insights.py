@@ -152,6 +152,24 @@ def snapshot_hourly(client: str, *, graph: Graph | None = None, at: datetime | N
         db.close()
 
 
+def snapshot_account_7d(client: str, *, graph: Graph | None = None, at: datetime | None = None) -> dict:
+    """Account totals for the last 7 days up to now (window "7d"), replaced every run so the
+    overview tiles are never a day stale."""
+    at = at or datetime.now(timezone.utc)
+    g = C.load_grants(client)
+    graph = graph or Graph(C.token(client))
+    metrics = graph.account_insights(g["ig_user_id"], ACCOUNT_METRICS,
+                                     since=int((at - timedelta(days=7)).timestamp()), until=int(at.timestamp()))
+    metrics["as_of"] = at.isoformat(timespec="seconds")
+    db = DB.for_client(C.client_dir(client))
+    try:
+        db.conn.execute("DELETE FROM metric_snapshots WHERE post_id IS NULL AND source='ig_account' AND window='7d'")
+        db.add_snapshot(None, "ig_account", "7d", metrics)
+    finally:
+        db.close()
+    return metrics
+
+
 def run(client: str) -> dict:
     graph = Graph(C.token(client))
     done = {"media": [], "account": None, "hourly": []}
@@ -160,6 +178,7 @@ def run(client: str) -> dict:
         done["media"].append((slot_id, w))
     done["hourly"] = snapshot_hourly(client, graph=graph)
     done["account"] = snapshot_account(client, graph=graph) is not None
+    snapshot_account_7d(client, graph=graph)
     return done
 
 
