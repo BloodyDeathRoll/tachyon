@@ -416,3 +416,9 @@ def test_failure_after_render_says_the_new_cut_is_in_place(server, client_dir):
     _fail(client_dir, step="finishing")
     _, body, _ = req(server, "GET", "/demo/v/w01-s1")
     assert "The new cut is in place" in body and "still the previous cut" not in body
+
+
+def test_failure_before_start_has_a_readable_step(server, client_dir):
+    _fail(client_dir, step="queued")
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "Failed before it started" in body and "still the previous cut" in body
