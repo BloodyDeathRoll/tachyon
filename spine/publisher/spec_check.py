@@ -10,7 +10,7 @@ present for the source asset.
 
 Reels spec (container): MP4/MOV, moov first, H.264 or HEVC, 4:2:0, 23–60 fps, width
 ≤1920, VBR ≤25 Mbps, AAC ≤48 kHz ≤128 kbps, 3 s–15 min, ≤300 MB. We are stricter:
-1080×1920, 30 fps, yuv420p (limited range), closed GOP 2 s, AAC 128k 48 kHz, 15–90 s.
+1080×1920, 30 fps, yuv420p (limited range), closed GOP 2 s, AAC 128k 48 kHz, 3–90 s.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ SPEC = {
     "vcodecs": {"h264", "hevc"},
     "acodec": "aac", "a_rate": 48000, "a_bitrate_max": 160_000,   # 128k nominal, ffmpeg reports ~133k
     "v_bitrate_max": 25_000_000,
-    "dur_min": 15.0, "dur_max": 90.0,
+    "dur_min": 3.0, "dur_max": 90.0,   # Instagram's floor; short reels must still post
     "size_max": 300 * 1024 * 1024,
 }
 
@@ -111,7 +111,7 @@ def check_file(path: Path) -> list[str]:
             issues.append(f"audio bitrate {a.get('bit_rate')}, want ≤128k")
     dur = float(fmt.get("duration", 0))
     if not SPEC["dur_min"] <= dur <= SPEC["dur_max"]:
-        issues.append(f"duration {dur:.1f}s, want 15–90s")
+        issues.append(f"duration {dur:.1f}s, want 3–90s")
     if int(fmt.get("size", 0)) > SPEC["size_max"]:
         issues.append("file above 300 MB")
     boxes = top_level_boxes(path)

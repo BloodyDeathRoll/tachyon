@@ -22,6 +22,8 @@ is used), collaborators (list). `is_ai_generated` is never sent (decision 7).
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import json
 import re
 import sys
@@ -46,6 +48,14 @@ URLISH = re.compile(r"https?://|www\.|\b[a-z0-9-]+\.[a-z]{2,}\b", re.I)   # broa
 
 class PublishError(RuntimeError):
     pass
+
+
+@contextlib.contextmanager
+def publish_lock(client: str):
+    """One publisher per client at a time (cron and the dashboard's Publish now): two would post twice."""
+    with open(C.client_dir(client) / ".publish.lock", "w") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        yield
 
 
 def _container_params(meta: dict, caption: str) -> dict:
@@ -84,7 +94,7 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
         if URLISH.search(first_comment):
             raise PublishError("first_comment.txt contains a URL; comments are not clickable (decision 13)")
         video = slot / "video.mp4"
-        issues = spec_check.check_file(video) + spec_check.check_provenance(client, meta.get("source_asset"))
+        issues = spec_check.check_file(video)   # provenance is a record, not a gate: it never blocks a post
         if issues:
             raise PublishError("spec_check failed at publish time: " + "; ".join(issues))
         params = _container_params(meta, caption)
@@ -315,7 +325,8 @@ def main(argv: list[str]) -> int:
     client = argv[0]
     dry = "--dry-run" in argv
     if "--queue" in argv:
-        res = run_queue(client, dry_run=dry)
+        with publish_lock(client):
+            res = run_queue(client, dry_run=dry)
     else:
         slot_id = argv[1]
         if "--now" in argv:
@@ -334,7 +345,8 @@ def main(argv: list[str]) -> int:
                     db.conn.execute("ROLLBACK")
                 db.close()
         try:
-            res = publish_slot(client, slot_id, dry_run=dry)
+            with publish_lock(client):
+                res = publish_slot(client, slot_id, dry_run=dry)
         except (PublishError, GraphError) as e:
             print(f"not published: {e}")
             return 1

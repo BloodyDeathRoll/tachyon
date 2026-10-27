@@ -974,3 +974,24 @@ def test_times_show_in_local_zone(monkeypatch):
     assert app.day_slots({"slots": ["06:30", "23:00"]}, datetime(2026, 11, 2).date()) == \
         {"01:00": "2026-11-01T23:00:00+00:00", "08:30": "2026-11-02T06:30:00+00:00"}
     assert app.utc_iso(datetime(2026, 11, 2).date(), "08:30") == "2026-11-02T06:30:00+00:00"
+
+
+def test_custom_schedule_and_publish_now(server, client_dir, monkeypatch):
+    body = req(server, "GET", "/demo/v/w01-s1")[1]
+    assert "Custom schedule" in body and "Publish now" not in body     # not approved yet
+    status, _, _ = req(server, "POST", "/demo/v/w01-s1/decide", {"action": "custom", "at": "2030-05-04T09:17"})
+    assert status == 303
+    db = DB.for_client(client_dir)
+    want = datetime(2030, 5, 4, 9, 17, tzinfo=app.LOCAL).astimezone(timezone.utc).isoformat(timespec="seconds")
+    assert db.post("w01-s1")["scheduled_at"] == want
+    assert req(server, "POST", "/demo/v/w01-s1/decide", {"action": "custom", "at": "2001-01-01T00:00"})[0] == 400
+    assert req(server, "POST", "/demo/v/w01-s1/decide", {"action": "publish_now"})[0] == 409
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})
+    assert db.post("w01-s1")["scheduled_at"] == want                   # approval keeps the custom time
+    assert "Publish now" in req(server, "GET", "/demo/v/w01-s1")[1]
+    runs = []
+    monkeypatch.setattr(app.subprocess, "Popen", lambda cmd, **kw: runs.append(cmd))
+    assert req(server, "POST", "/demo/v/w01-s1/decide", {"action": "publish_now"})[0] == 303
+    assert app.parse(db.post("w01-s1")["scheduled_at"]) <= datetime.now(timezone.utc)
+    assert runs and runs[0][-2:] == ["demo", "--queue"]
+    db.close()

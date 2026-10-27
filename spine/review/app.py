@@ -119,6 +119,20 @@ def _shift(hm: str, to_local: bool) -> str:
     return t.strftime("%H:%M")
 
 
+def when_tools(client: str, slot: str, row, cal: str, at_: str | None) -> str:
+    """Publish now (approved only), Swap slot (the calendar), Custom schedule (any future time)."""
+    act = f"/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide"
+    now_btn = (f"<form method=post action='{act}' onsubmit=\"return confirm('Publish to Instagram now?')\">"
+               f"<button class='btn pri small' name=action value=publish_now>{icon('ext', 15)}Publish now</button></form>"
+               if row["state"] in ("APPROVED", "QUEUED") else "")
+    swap = f"<a class='btn sec small' href='{cal}'>{icon('cal', 15)}Swap slot</a>" if cal else ""
+    val = parse(at_).astimezone(LOCAL).strftime("%Y-%m-%dT%H:%M") if at_ else ""
+    custom = (f"<details class=cust><summary class='btn sec small'>{icon('cal', 15)}Custom schedule</summary>"
+              f"<form method=post action='{act}' class=btns><input type=datetime-local name=at value='{val}' required aria-label='Custom time'>"
+              f"<button class='btn dark small' name=action value=custom>Save time</button></form></details>")
+    return f"<div class='btns whentools'>{now_btn}{swap}{custom}</div>"
+
+
 CAPTION_LOCKED = ("PUBLISHING", "PUBLISHED", "MEASURING", "ANALYZED", "MANUAL_HANDOFF")
 
 
@@ -299,7 +313,7 @@ h2{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
 .back:hover{color:var(--ink)}
 .vpage{display:grid;grid-template-columns:minmax(280px,400px) minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:start}
 .hno{font-size:15px;font-weight:600;color:var(--ink3);vertical-align:middle;margin-left:6px}
-.whencard .btn{flex:none}
+.whencard .btn{flex:none}.whentools form{display:contents}details.cust{flex-basis:100%}details.cust summary{list-style:none;width:max-content}details.cust summary::-webkit-details-marker{display:none}details.cust input{border:1px solid var(--rule);border-radius:10px;padding:8px 10px;font:inherit}
 .player{position:sticky;top:24px}
 .frame{position:relative;border-radius:18px;overflow:hidden;background:#000}
 .frame video{width:100%;aspect-ratio:9/16;display:block}
@@ -1258,11 +1272,13 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         else:
             wtxt = {"sched": "Goes live", "need": "Planned for", "busy": "Planned for"}.get(cls, "Planned for")
             wh = when(at_) if at_ else "No slot yet"
-            act = f"<a class='btn sec small' href='{cal}'>{icon('cal', 15)}Change</a>" if cal else ""
+            act = ""
         sub_ = {"need": "Approving keeps this slot if it is still free.", "sched": "The bio link switches to it automatically."}.get(cls, "")
         right.append(f"<section class='card whencard'><div class=row><div><span class=muted style='font-size:13.5px'>{wtxt}</span>"
                      f"<p class=big style='font-size:19px;margin-top:2px'>{ESC(wh)}</p></div>{act}</div>"
-                     + (f"<p class=hint style='margin-top:8px'>{sub_}</p>" if sub_ else "") + replies_card(client, slot) + "</section>")
+                     + (f"<p class=hint style='margin-top:8px'>{sub_}</p>" if sub_ else "")
+                     + (when_tools(client, slot, row, cal, at_) if cls != "live" and row["state"] in DB.MOVABLE else "")
+                     + replies_card(client, slot) + "</section>")
 
         if row["state"] not in NO_DELETE and (st.get("state") != "running"):
             right_end = delete_card(client, slot, title_of(client, row))
@@ -2003,6 +2019,22 @@ class Handler(BaseHTTPRequestHandler):
                         return self._send(400, b"Instagram allows 2200 characters at most", "text/plain")
                     (d / "posts" / slot).mkdir(parents=True, exist_ok=True)
                     (d / "posts" / slot / "caption.txt").write_text(text + "\n")
+                elif form.get("action") == "publish_now":
+                    if db.post(slot)["state"] not in ("APPROVED", "QUEUED"):
+                        return self._send(409, b"approve it first", "text/plain")
+                    db.move(slot, datetime.now(timezone.utc).isoformat(timespec="seconds"))
+                    logs = Path.home() / ".tachyon" / "logs"
+                    logs.mkdir(parents=True, exist_ok=True)
+                    with open(logs / "publish.log", "a") as log:   # the queue run posts it (locked against cron)
+                        subprocess.Popen([sys.executable, "-m", "spine.publisher.publish", name, "--queue"],
+                                         cwd=Path(__file__).resolve().parents[2], stdout=log, stderr=log, start_new_session=True)
+                elif form.get("action") == "custom":
+                    at = datetime.fromisoformat(form["at"]).replace(tzinfo=LOCAL).astimezone(timezone.utc).isoformat(timespec="seconds")
+                    if parse(at) <= datetime.now(timezone.utc):
+                        return self._send(400, b"pick a time in the future", "text/plain")
+                    if at in SCH.taken_slots(db, exclude=slot):
+                        return self._send(409, b"another video holds that time", "text/plain")
+                    db.move(slot, at)
                 elif form.get("action") == "revoke":
                     if db.post(slot)["state"] != "NEEDS_APPROVAL":   # a second click is a no-op
                         try:
