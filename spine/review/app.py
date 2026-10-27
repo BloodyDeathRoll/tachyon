@@ -598,6 +598,8 @@ details.cust input{border:1px solid #d1d5db;border-radius:9px;padding:10px 12px;
 .perf .stat{padding:0 14px}.perf .stat:first-child{padding-left:0}
 .perf .stat strong{font-size:44px;line-height:1.15}
 .perf .views{margin-top:0}
+.vhd span{display:block;color:var(--ink3);font-size:13.5px}.vhd small{display:block;color:var(--ink3);font-size:12.5px}
+.vhd strong{display:block;font-size:22px;font-weight:800;letter-spacing:-.02em;line-height:1.2;margin-top:2px}
 .grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
 .thumb{aspect-ratio:1/1}
 .thumb .tt{font-size:16px;bottom:38px}
@@ -991,8 +993,7 @@ def views_block(client: str, db: DB, slot: str | None, q: dict, base: str, W: in
                   f"<a href='#' data-range class='{'on' if g == x else ''}'>Custom</a>" for x in GRANS)
     if g == "live":
         src = f"/{quote(client)}/live.json" + (f"?slot={quote(slot)}" if slot else "")
-        return (f"<div id=views class=views><div class=row style='flex-wrap:wrap;gap:10px'><div><span class=muted style='font-size:13.5px'>"
-                f"Views, live</span></div><div class='seg sm'>{seg.replace(chr(39) + '#' + chr(39) + ' data-range', chr(39) + base + '?g=custom#views' + chr(39))}</div></div>"
+        return (f"<div id=views class=views><div class=row style='flex-wrap:wrap;gap:10px'><div class=vhd><span>Views</span><small>live</small></div><div class='seg sm'>{seg.replace(chr(39) + '#' + chr(39) + ' data-range', chr(39) + base + '?g=custom#views' + chr(39))}</div></div>"
                 f"{live_block(src)}</div>")
     eg, a, b = view_window(g, q.get("from"), q.get("to"))
     series = views_series(db, slot, eg, a, b)
@@ -1011,8 +1012,8 @@ def views_block(client: str, db: DB, slot: str | None, q: dict, base: str, W: in
     span = {"hour": "last 48 hours", "day": "last 30 days", "month": "last 12 months"}.get(g, f"{a:%-d %b} – {(b - timedelta(seconds=1)):%-d %b %Y}")
     body = (f"<div class=chart>{views_chart(series, eg, W=W, H=H)}</div>" if total else
             "<p class=muted style='margin:14px 0 4px'>No views in this period yet.</p>")
-    return (f"<div id=views class=views><div class=row style='flex-wrap:wrap;gap:10px'><div><span class=muted style='font-size:13.5px'>Views, {span}</span>"
-            f"<p class=big style='font-size:22px;font-weight:800;margin:0'>{num(total)}</p></div><div class='seg sm'>{seg}</div></div>{custom}{body}</div>")
+    return (f"<div id=views class=views><div class=row style='flex-wrap:wrap;gap:10px'><div class=vhd><span>Views</span><small>{span}</small>"
+            f"<strong>{num(total)}</strong></div><div class='seg sm'>{seg}</div></div>{custom}{body}</div>")
 
 
 # ── overview ──────────────────────────────────────────────────────────────────
