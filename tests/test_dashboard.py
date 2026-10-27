@@ -1020,14 +1020,19 @@ def test_followers_who_dropped_from_two_uploaded_exports(server, client_dir, tmp
         return r.status, r.read().decode()
 
     assert "Upload your Instagram export" in req(server, "GET", "/demo")[1]
-    assert up(export(tmp_path / "1.zip", ["ann", "bob"]))[0] == 200
-    assert "First list saved: 2 followers" in req(server, "GET", "/demo")[1]
-    assert up(export(tmp_path / "2.zip", ["ann"]))[0] == 200
+    status, reply = up(export(tmp_path / "1.zip", ["ann", "bob"]))
+    assert status == 200 and "Export read: 2 followers." in json.loads(reply)["html"]   # the card comes back with the result
+    assert "First export saved: <b>2</b> followers" in req(server, "GET", "/demo")[1]
+    assert "already in" in json.loads(up(tmp_path / "1.zip")[1])["html"]
+    status, reply = up(export(tmp_path / "2.zip", ["ann"]))
+    assert status == 200 and "1 dropped" in json.loads(reply)["html"]
     body = req(server, "GET", "/demo")[1]
-    assert "1 since" in body and "@bob" in body and "@ann" not in body
+    assert "<b class=dnum>1</b> follower dropped since" in body and "See the list" in body
+    assert "<dialog class=dlg id=droplist>" in body and "@bob" in body and "@ann" not in body
     bad = tmp_path / "bad.json"
     bad.write_text("{}")
-    assert up(bad)[0] == 400
+    status, reply = up(bad)
+    assert status == 400 and json.loads(reply)["error"]   # shown in the card
     lone = tmp_path / "followers_1.json"   # the followers file on its own, not the zip
     lone.write_text('[{"title": "", "string_list_data": [{"value": "ann"}]}]')
     c = http.client.HTTPConnection("127.0.0.1", server)
