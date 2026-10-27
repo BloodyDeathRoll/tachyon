@@ -1954,7 +1954,7 @@ class Handler(BaseHTTPRequestHandler):
         if not length or length > self.UPLOAD_MAX:
             return self._send(413 if length else 400, b"empty or too large", "text/plain")
         ext = ".zip" if (q.get("name") or "").lower().endswith(".zip") else ".json"
-        dst = d / "exports" / f"{datetime.now(timezone.utc):%Y%m%dT%H%M%S}{ext}"
+        dst = d / "exports" / f"{datetime.now(timezone.utc):%Y%m%dT%H%M%S}-{os.urandom(3).hex()}{ext}"
         dst.parent.mkdir(parents=True, exist_ok=True)
         with dst.open("wb") as f:
             left = length

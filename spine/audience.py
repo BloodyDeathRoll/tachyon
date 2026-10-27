@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import sqlite3
 import sys
 import zipfile
 from datetime import datetime, timezone
@@ -121,7 +122,7 @@ def scan(client: str) -> list[int]:
     for f in sorted((x for x in d.glob("*") if x.suffix in (".zip", ".json") or x.is_dir()), key=lambda x: x.stat().st_mtime) if d.exists() else []:
         try:
             sid = import_export(client, f)
-        except ValueError as e:   # one bad file must not stop the rest
+        except (ValueError, OSError, sqlite3.Error) as e:   # one bad file must not stop the rest
             print(f"{f.name}: {e}", file=sys.stderr)
             continue
         if sid:
