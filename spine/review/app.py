@@ -590,12 +590,11 @@ details.cust input{border:1px solid #d1d5db;border-radius:9px;padding:10px 12px;
 .inuse{cursor:default}.inuse i{width:10px;height:10px;border-radius:50%;background:var(--green)}
 
 /* overview: performance (numbers | graph) and videos on the left, side cards on the right, square thumbs */
-.ovgrid{grid-template-columns:minmax(0,1fr) minmax(320px,400px)}
+.ovgrid{grid-template-columns:minmax(0,1fr) minmax(400px,520px)}
 .side{grid-template-columns:1fr}
-.maincol .perf{margin-bottom:28px;position:relative}
-.perf .views .seg{position:absolute;top:30px;right:30px}   /* the range selector sits across the title */
-.perfin{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:36px;align-items:start;margin-top:20px}
-.perf .stats{grid-template-columns:repeat(4,minmax(0,1fr));margin:0;padding:0;border-bottom:0}
+.maincol .perf{margin-bottom:28px}
+.perfin{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:36px;align-items:start}
+.perf .stats{grid-template-columns:repeat(4,minmax(0,1fr));margin:24px 0 0;padding:0;border-bottom:0}
 .perf .stat{padding:0 14px}.perf .stat:first-child{padding-left:0}
 .perf .stat strong{font-size:28px}
 .perf .views{margin-top:0}
@@ -1117,7 +1116,7 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
                 ("Link taps", total("profile_links_taps"), "last 7 days"),
             ))
         chart = views_block(client, db, None, q or {}, f"/{quote(client)}", W=900, H=150)   # the wide column: keep text at its size
-        perf = f"<section class='card perf'><h2>Performance</h2><div class=perfin><div class=stats>{stats}</div><div>{chart}</div></div></section>"
+        perf = f"<section class='card perf'><div class=perfin><div><h2>Performance</h2><div class=stats>{stats}</div></div><div>{chart}</div></div></section>"
 
         shown = {c: sum(1 for _, t in rows if t[1] == c) for c in ORDER}
         filt = "".join(
