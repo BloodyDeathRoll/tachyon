@@ -1129,11 +1129,7 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
 
 def dropped_card(client: str) -> str:
     """Followers who dropped between the last two Instagram exports (spine/audience.py)."""
-    try:
-        AU.scan(client)   # anything left in clients/<c>/exports/
-    except (ValueError, OSError):
-        pass
-    r = AU.dropped(client)
+    r = AU.dropped(client)   # the upload imports; files left in clients/<c>/exports/ come in with the daily cron
     up = (f"<label class='btn sec'>{icon('plus', 16)}Upload export<input type=file accept='.zip,.json' hidden "
           f"onchange=\"const f=this.files[0];if(!f)return;const p=this.closest('.card').querySelector('.hint');p.textContent='Reading…';"
           f"fetch('/{ESC(quote(client))}/audience/upload?name='+encodeURIComponent(f.name),{{method:'POST',body:f}})"
@@ -1968,8 +1964,9 @@ class Handler(BaseHTTPRequestHandler):
                 f.write(chunk)
                 left -= len(chunk)
         try:
-            AU.import_export(name, dst)
-        except (ValueError, OSError, json.JSONDecodeError) as e:
+            if AU.import_export(name, dst) is None:
+                dst.unlink(missing_ok=True)   # already in
+        except (ValueError, OSError) as e:
             dst.unlink(missing_ok=True)
             return self._send(400, str(e).encode(), "text/plain")
         return self._send(200, b"ok", "text/plain")
