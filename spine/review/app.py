@@ -21,6 +21,7 @@ import json
 import mimetypes
 import os
 import re
+import sqlite3
 import subprocess
 import sys
 from datetime import date, datetime, time, timedelta, timezone
@@ -1966,7 +1967,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if AU.import_export(name, dst) is None:
                 dst.unlink(missing_ok=True)   # already in
-        except (ValueError, OSError) as e:
+        except (ValueError, OSError, sqlite3.Error) as e:
             dst.unlink(missing_ok=True)
             return self._send(400, str(e).encode(), "text/plain")
         return self._send(200, b"ok", "text/plain")

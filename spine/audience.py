@@ -58,8 +58,9 @@ def _files(path: Path):
                         yield i.filename, z.read(i), datetime(*i.date_time, tzinfo=timezone.utc)
         except (zipfile.BadZipFile, EOFError) as e:
             raise ValueError(f"the zip is damaged: download it again ({e})") from e
-    elif path.name.endswith(".json"):
-        yield path.name, path.read_bytes(), datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
+    elif path.name.endswith(".json"):   # one file on its own: the followers list unless it is named following
+        name = path.name if FOLLOWING.search(path.name) else "followers_1.json"
+        yield name, path.read_bytes(), datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
     else:
         raise ValueError("not an export: upload the .zip (or its followers JSON)")
 

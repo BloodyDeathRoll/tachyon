@@ -1028,3 +1028,8 @@ def test_followers_who_dropped_from_two_uploaded_exports(server, client_dir, tmp
     bad = tmp_path / "bad.json"
     bad.write_text("{}")
     assert up(bad)[0] == 400
+    lone = tmp_path / "followers_1.json"   # the followers file on its own, not the zip
+    lone.write_text('[{"title": "", "string_list_data": [{"value": "ann"}]}]')
+    c = http.client.HTTPConnection("127.0.0.1", server)
+    c.request("POST", "/demo/audience/upload?name=followers_1.json", body=lone.read_bytes())
+    assert c.getresponse().status == 200
