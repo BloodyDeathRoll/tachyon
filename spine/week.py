@@ -157,7 +157,7 @@ items:
   - at: <slot timestamp from the list>
     title: <2-4 words, how the operator will recognise it>
     pillar: <one of the strategy's content pillars>
-    brief: <3-5 sentences: what the 8-15 s video shows, beat by beat, using the real app>
+    brief: <3-5 sentences: what the 15-30 s video shows, beat by beat, using the real app>
     hook: <the first on-screen line, max 6 words>
     theme: <light or dark: which app theme the captures use; alternate so about half are light>
     voiceover: <optional, on about 1 item in 4: 2-3 short spoken lines, 6-9 s. A surfer friend
@@ -283,7 +283,7 @@ def film_prompt(client: str, slot: str) -> str:
 Brief: {(sd / 'brief.md').read_text()}
 App theme: {theme}. Use staticFile("{cdir}/<name>.png") for every app screen.{vo}
 
-Create engines/remotion/src/films/{fid}.tsx that exports `export const SECONDS = <8..15>;` and
+Create engines/remotion/src/films/{fid}.tsx that exports `export const SECONDS = <15..30>;` and
 `export default` a React component `({{ variant }}: {{ variant: Variant }}) => ...`.
 Study engines/remotion/src/Showreel.tsx, Favorites.tsx and lib.tsx first and use the same
 language: footage beds, the 3D floating Phone with real app Screens, H1/Sub type, rise
