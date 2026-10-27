@@ -1033,3 +1033,16 @@ def test_followers_who_dropped_from_two_uploaded_exports(server, client_dir, tmp
     c = http.client.HTTPConnection("127.0.0.1", server)
     c.request("POST", "/demo/audience/upload?name=followers_1.json", body=lone.read_bytes())
     assert c.getresponse().status == 200
+
+
+def test_cut_off_export_upload_is_not_imported(server, client_dir):
+    import socket
+    s = socket.create_connection(("127.0.0.1", server))
+    body = b'[{"string_list_data": [{"value": "ann"}]}]'
+    s.sendall(b"POST /demo/audience/upload?name=followers_1.json HTTP/1.1\r\nHost: x\r\n"
+              + f"Content-Length: {len(body) + 500}\r\n\r\n".encode() + body)
+    s.shutdown(socket.SHUT_WR)   # the client goes away mid-upload
+    reply = s.recv(4096).decode()
+    s.close()
+    assert " 400 " in reply.split("\r\n")[0] and "cut off" in reply
+    assert "Upload your Instagram export" in req(server, "GET", "/demo")[1]

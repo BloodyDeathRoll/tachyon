@@ -593,10 +593,10 @@ details.cust input{border:1px solid #d1d5db;border-radius:9px;padding:10px 12px;
 .ovgrid{grid-template-columns:minmax(0,1fr) minmax(400px,520px)}
 .side{grid-template-columns:1fr}
 .maincol .perf{margin-bottom:28px}
-.perfin{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:36px;align-items:start}
+.perfin{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:36px;align-items:start}
 .perf .stats{grid-template-columns:repeat(4,minmax(0,1fr));margin:24px 0 0;padding:0;border-bottom:0}
 .perf .stat{padding:0 14px}.perf .stat:first-child{padding-left:0}
-.perf .stat strong{font-size:28px}
+.perf .stat strong{font-size:44px;line-height:1.15}
 .perf .views{margin-top:0}
 .grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
 .thumb{aspect-ratio:1/1}
@@ -985,8 +985,8 @@ def prepare_button(client: str, week: str, label: str) -> str:
     return popup(f"<button type=button class='btn pri small' data-open>{ESC(label)}</button>", box)
 
 
-def views_block(client: str, db: DB, slot: str | None, q: dict, base: str, W: int = 600, H: int = 200) -> str:
-    g = q.get("g") if q.get("g") in GRANS else "day"
+def views_block(client: str, db: DB, slot: str | None, q: dict, base: str, W: int = 600, H: int = 200, default: str = "day") -> str:
+    g = q.get("g") if q.get("g") in GRANS else default
     seg = "".join(f"<a href='{base}?g={x}#views' class='{'on' if g == x else ''}'>{x.capitalize()}</a>" if x != "custom" else
                   f"<a href='#' data-range class='{'on' if g == x else ''}'>Custom</a>" for x in GRANS)
     if g == "live":
@@ -1052,7 +1052,7 @@ def schedule_card(client: str) -> str:
             f"<p class=muted style='margin:4px 0 0;font-size:14px'>{per}, every day.</p>"
             f"<form method=post action='{base}'><div class=times>{rows}</div>"
             f"<div class=btns style='margin-top:0'><button class='btn dark small' name=save value=1>Save</button>{add}</div></form>"
-            f"<p class=hint>Changes apply to new plans and newly approved videos. The calendar follows.</p></section>")
+            "</section>")
 
 
 def week_card(client: str) -> str:
@@ -1115,7 +1115,7 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
                 ("Followers", followers, f"as of {datetime.fromisoformat(days[-1]['date']).strftime('%-d %b')}" if days else "no data yet"),
                 ("Link taps", total("profile_links_taps"), "last 7 days"),
             ))
-        chart = views_block(client, db, None, q or {}, f"/{quote(client)}", W=900, H=150)   # the wide column: keep text at its size
+        chart = views_block(client, db, None, q or {}, f"/{quote(client)}", W=600, H=170, default="hour")   # the wide column: keep text at its size
         perf = f"<section class='card perf'><div class=perfin><div><h2>Performance</h2><div class=stats>{stats}</div></div><div>{chart}</div></div></section>"
 
         shown = {c: sum(1 for _, t in rows if t[1] == c) for c in ORDER}
@@ -1977,6 +1977,9 @@ class Handler(BaseHTTPRequestHandler):
                     break
                 f.write(chunk)
                 left -= len(chunk)
+        if left:
+            dst.unlink(missing_ok=True)
+            return self._send(400, b"the upload was cut off: try again", "text/plain")
         try:
             if AU.import_export(name, dst) is None:
                 dst.unlink(missing_ok=True)   # already in
