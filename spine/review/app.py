@@ -251,6 +251,7 @@ def icon(name: str, size: int = 18) -> str:
         "edit": '<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a1 1 0 0 1 3 3l-9 9a2 2 0 0 1-.85.5l-2.87.84a.5.5 0 0 1-.62-.62l.84-2.87a2 2 0 0 1 .5-.85z"/>',
         "clock": '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
         "link": '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+        "timer": '<line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/>',
         "pause": '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
     }
     return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
@@ -266,6 +267,7 @@ CSS = """
 --acc:#111;--acc-h:#2A2A2A;--green:#22C55E;--amber:#E0A100;--blue:#3B82F6;--grey-bg:#EFEFEF;
 --shadow:0 1px 2px rgba(0,0,0,.04);--r:16px}
 *{box-sizing:border-box}
+html{scroll-behavior:smooth}@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 html,body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 button,textarea,input,select{font:inherit}
@@ -317,6 +319,7 @@ h2{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
 .thumb:after{content:"";position:absolute;inset:70% 0 0;background:linear-gradient(transparent,rgba(0,0,0,.78));pointer-events:none}
 .thumb .tt{position:absolute;left:16px;right:16px;bottom:40px;color:#fff;font-weight:800;font-size:19px;line-height:1.15;letter-spacing:-.01em;z-index:1}
 .thumb .tag{position:absolute;left:16px;bottom:12px;z-index:1}
+.stw{position:absolute;left:16px;bottom:12px;z-index:1;width:26px;height:26px;border-radius:50%;background:#000;color:var(--blue);display:grid;place-items:center}   /* the live tag's look and height */
 .vid h3{font-size:15px;margin:10px 2px 0;font-weight:600}
 .vid p{margin:1px 2px 0;color:var(--ink3);font-size:13px}
 .tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:#000;color:#fff;white-space:nowrap}
@@ -440,7 +443,7 @@ pre{white-space:pre-wrap;font:13px/1.55 ui-monospace,monospace;color:var(--ink2)
 .grip{width:28px;height:28px;border-radius:8px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);color:#fff;display:grid;place-items:center;cursor:grab}
 .cell .no{left:6px;top:6px;font-size:10.5px;padding:2px 6px}
 .cell .cb{position:absolute;left:0;right:0;bottom:0;padding:26px 8px 8px;background:linear-gradient(transparent,rgba(0,0,0,.82));display:flex;flex-direction:column;gap:5px;align-items:flex-start}
-.cell .cb .tag{position:static}
+.cell .cb .tag{position:static}.cell .cb .stw{position:static;width:20px;height:20px}
 .cell .cb .ct{position:static;padding:0;background:none}
 .cell.hl{outline-color:var(--lime);animation:hl 1.4s ease-in-out 3}
 @keyframes hl{50%{outline-color:transparent}}
@@ -593,13 +596,18 @@ details.cust input{border:1px solid #d1d5db;border-radius:9px;padding:10px 12px;
 .ovgrid{grid-template-columns:minmax(0,1fr) minmax(400px,520px)}
 .side{grid-template-columns:1fr}
 .maincol .perf{margin-bottom:28px}
-.perfin{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:36px;align-items:start}
-.perf .stats{grid-template-columns:repeat(4,minmax(0,1fr));margin:24px 0 0;padding:0;border-bottom:0}
+.perfin{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:36px;align-items:stretch}
+.perfin>div:first-child{display:flex;flex-direction:column}.perfin>div:first-child .stats{margin:auto 0}   /* numbers centred against the graph */
+.perf .stats{grid-template-columns:repeat(4,minmax(0,1fr));padding:0;border-bottom:0}
 .perf .stat{padding:0 14px;text-align:center}.perf .stat:first-child{padding-left:0}
 .perf .stat strong{font-size:44px;line-height:1.15}
 .perf .views{margin-top:0}
-.vhd span{display:block;color:var(--ink3);font-size:13.5px}.vhd small{display:block;color:var(--ink3);font-size:12.5px}
-.vhd strong{display:block;font-size:22px;font-weight:800;letter-spacing:-.02em;line-height:1.2;margin-top:2px}
+.vhd{display:flex;align-items:center;gap:12px}.seg a svg{display:block}.seg a[data-range]{display:inline-flex;align-items:center}
+.vhd strong{font-size:32px;font-weight:800;letter-spacing:-.02em;line-height:1}
+.vhd span{display:block;color:var(--ink);font-size:14px;font-weight:600}.vhd small{display:block;color:var(--ink3);font-size:12.5px}
+.vbody{height:200px;margin-top:14px}.perf .vbody{height:170px}   /* same height in every range: switching never moves the page */
+.vbody .chart{height:100%;margin:0}.vbody .chart svg{height:100%;width:100%}
+.vbody .live{height:100%;display:flex;flex-direction:column}.vbody .lvbars{flex:1;height:auto}.vbody .live .hint{margin-top:6px}
 .grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
 .thumb{aspect-ratio:1/1}
 .thumb .tt{font-size:16px;bottom:38px}
@@ -631,6 +639,14 @@ const all=()=>document.querySelectorAll('.seg,.filt').forEach(init);
 all();if(document.fonts)document.fonts.ready.then(()=>document.querySelectorAll('.js-ind').forEach(g=>place(g,g.querySelector(ON),false)));
 addEventListener('pageshow',e=>{if(e.persisted)location.reload();});   // Back: show the page's real tab, not the one clicked
 addEventListener('resize',()=>document.querySelectorAll('.js-ind').forEach(g=>place(g,g.querySelector(ON),false)));})();
+// a selector, a form or a button that reloads this page brings it back where it was: never a jump to the top or an anchor
+(()=>{const K='tachyon.keep',save=()=>{try{sessionStorage.setItem(K,JSON.stringify([location.pathname,scrollY]))}catch(_){}};
+document.addEventListener('click',e=>{const a=e.target.closest('a[href]');if(!a||a.target==='_blank'||a.hasAttribute('download'))return;
+ const u=new URL(a.href,location.href);if(u.origin===location.origin&&u.pathname===location.pathname)save();},true);
+document.addEventListener('submit',save,true);
+const back=()=>{try{const v=JSON.parse(sessionStorage.getItem(K)||'null');sessionStorage.removeItem(K);
+ if(v&&v[0]===location.pathname)scrollTo({top:v[1],behavior:'instant'});}catch(_){}};
+if(document.readyState==='loading')addEventListener('DOMContentLoaded',back);else back();})();
 """
 
 
@@ -864,17 +880,14 @@ _LIVE_LOCK: dict = {}
 
 
 def live_block(base_json: str) -> str:
-    return (f"<div class=live data-src='{ESC(base_json)}'><div class=row style='gap:28px;margin:6px 0 10px'>"
-            f"<div><span class=muted style='font-size:13.5px'>Views right now</span><p class=big id=lvtot style='font-size:22px;font-weight:800;margin:0'>…</p></div>"
-            f"<div><span class=muted style='font-size:13.5px'>New in the last 30 min</span><p class=big id=lvnew style='font-size:22px;font-weight:800;margin:0'>…</p></div>"
-            f"<span class='tag gen' id=lvdot>Live · every minute</span></div>"
-            f"<div class=lvbars id=lvbars></div><p class=hint id=lvnote>Collecting: one bar per minute while this page is open. "
+    """Live views: one bar per minute; the header's #lvnew shows the last 30 minutes."""
+    return (f"<div class=live data-src='{ESC(base_json)}'>"
+            f"<div class=lvbars id=lvbars></div><p class=hint id=lvnote>One bar per minute while this page is open. "
             f"Instagram's counter can lag a few minutes.</p>"
-            "<script>(()=>{const w=document.currentScript.parentElement,b=w.querySelector('#lvbars');"
+            "<script>(()=>{const w=document.currentScript.parentElement,b=w.querySelector('#lvbars'),v=w.closest('.views')||w;"
             "const draw=d=>{if(d.error){w.querySelector('#lvnote').textContent='Instagram did not answer: '+d.error;return}"
-            "w.querySelector('#lvtot').textContent=(d.total??'–').toLocaleString();"
-            "const s=d.points.reduce((a,p)=>a+p.v,0);w.querySelector('#lvnew').textContent=s.toLocaleString();"
-            "const pts=Array(30-d.points.length).fill(null).concat(d.points.slice(-30));const mx=Math.max(1,...d.points.map(p=>p.v));"
+            "const s=d.points.reduce((a,p)=>a+p.v,0),n=v.querySelector('#lvnew');if(n)n.textContent=s.toLocaleString();"
+            "const pts=Array(Math.max(0,30-d.points.length)).fill(null).concat(d.points.slice(-30));const mx=Math.max(1,...d.points.map(p=>p.v));"
             "b.innerHTML=pts.map(p=>p?`<i style='height:${Math.max(4,p.v/mx*100)}%' title='${new Date(p.t*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}: ${p.v}'></i>`:'<i class=e></i>').join('');};"
             "const go=()=>fetch(w.dataset.src).then(r=>r.json()).then(draw).catch(()=>{});go();setInterval(go,60000);})();</script></div>")
 
@@ -988,32 +1001,31 @@ def prepare_button(client: str, week: str, label: str) -> str:
 
 
 def views_block(client: str, db: DB, slot: str | None, q: dict, base: str, W: int = 600, H: int = 200, default: str = "day") -> str:
+    """Number | Views + period, the range selector across, then a fixed-height body (switching never moves the page)."""
     g = q.get("g") if q.get("g") in GRANS else default
-    seg = "".join(f"<a href='{base}?g={x}#views' class='{'on' if g == x else ''}'>{x.capitalize()}</a>" if x != "custom" else
-                  f"<a href='#' data-range class='{'on' if g == x else ''}'>Custom</a>" for x in GRANS)
+    seg = "".join(f"<a href='{base}?g={x}' class='{'on' if g == x else ''}'>{x.capitalize()}</a>" if x != "custom" else
+                  f"<a href='#' data-range class='{'on' if g == x else ''}' title='Custom range' aria-label='Custom range'>{icon('cal', 16)}</a>" for x in GRANS)
+    head = lambda n, lab, per: (f"<div class=row style='flex-wrap:wrap;gap:10px'><div class=vhd><strong{' id=lvnew' if g == 'live' else ''}>{n}</strong>"  # noqa: E731
+                                f"<div><span>{lab}</span><small>{per}</small></div></div><div class='seg sm'>{seg}</div></div>")
+    today = today_local()
+    custom = (f"<div class=rgm hidden><form method=get action='{base}' class=rgbox><input type=hidden name=g value=custom>"
+              f"<h2>Custom range</h2><label>From<input type=date name=from value='{ESC(q.get('from') or (today - timedelta(days=13)).isoformat())}'></label>"
+              f"<label>To<input type=date name=to value='{ESC(q.get('to') or today.isoformat())}'></label>"
+              f"<div class=btns><button class='btn dark small'>Show</button><button type=button class='btn sec small' data-rgclose>Cancel</button></div></form></div>")
+    keep = ("<script>(()=>{const v=document.currentScript.closest('.views'),m=v.querySelector('.rgm');"
+            "v.querySelector('[data-range]').addEventListener('click',e=>{e.preventDefault();m.hidden=false;m.querySelector('input[type=date]').focus();});"
+            "m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-rgclose]'))m.hidden=true;});"
+            "document.addEventListener('keydown',e=>{if(e.key==='Escape')m.hidden=true;});})();</script>")
     if g == "live":
         src = f"/{quote(client)}/live.json" + (f"?slot={quote(slot)}" if slot else "")
-        return (f"<div id=views class=views><div class=row style='flex-wrap:wrap;gap:10px'><div class=vhd><span>Views</span><small>live</small></div><div class='seg sm'>{seg.replace(chr(39) + '#' + chr(39) + ' data-range', chr(39) + base + '?g=custom#views' + chr(39))}</div></div>"
-                f"{live_block(src)}</div>")
+        return f"<div id=views class=views>{head('…', 'Views', 'last 30 min')}{custom}<div class=vbody>{live_block(src)}</div>{keep}</div>"
     eg, a, b = view_window(g, q.get("from"), q.get("to"))
     series = views_series(db, slot, eg, a, b)
     total = sum(v for _, v in series)
-    seg = "".join(f"<a href='{base}?g={x}#views' class='{'on' if g == x else ''}'>{x.capitalize()}</a>" if x != "custom" else
-                  f"<a href='#' data-range class='{'on' if g == x else ''}'>Custom</a>" for x in GRANS)
-    today = today_local()
-    custom = (f"<div class=rgm hidden><form method=get action='{base}#views' class=rgbox><input type=hidden name=g value=custom>"
-              f"<h2>Custom range</h2><label>From<input type=date name=from value='{ESC(q.get('from') or (today - timedelta(days=13)).isoformat())}'></label>"
-              f"<label>To<input type=date name=to value='{ESC(q.get('to') or today.isoformat())}'></label>"
-              f"<div class=btns><button class='btn dark small'>Show</button><button type=button class='btn sec small' data-rgclose>Cancel</button></div></form></div>"
-              "<script>(()=>{const v=document.currentScript.closest('.views'),m=v.querySelector('.rgm');"
-              "v.querySelector('[data-range]').addEventListener('click',e=>{e.preventDefault();m.hidden=false;m.querySelector('input[type=date]').focus();});"
-              "m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-rgclose]'))m.hidden=true;});"
-              "document.addEventListener('keydown',e=>{if(e.key==='Escape')m.hidden=true;});})();</script>")
-    span = {"hour": "last 48 hours", "day": "last 30 days", "month": "last 12 months"}.get(g, f"{a:%-d %b} – {(b - timedelta(seconds=1)):%-d %b %Y}")
+    span = {"hour": "last 48 hr", "day": "last 30 days", "month": "last 12 mon"}.get(g, "custom")
     body = (f"<div class=chart>{views_chart(series, eg, W=W, H=H)}</div>" if total else
             "<p class=muted style='margin:14px 0 4px'>No views in this period yet.</p>")
-    return (f"<div id=views class=views><div class=row style='flex-wrap:wrap;gap:10px'><div class=vhd><span>Views</span><small>{span}</small>"
-            f"<strong>{num(total)}</strong></div><div class='seg sm'>{seg}</div></div>{custom}{body}</div>")
+    return f"<div id=views class=views>{head(num(total), 'Views', span)}{custom}<div class=vbody>{body}</div>{keep}</div>"
 
 
 # ── overview ──────────────────────────────────────────────────────────────────
@@ -1035,7 +1047,8 @@ def video_card(client: str, row, tag: tuple[str, str], db: DB) -> str:
     return (f"<a class=vid data-cls='{cls}' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}'><div class=thumb>{img}"
             f"<span class=chips><span class=no title='{ESC(wk)} video {ESC(no)}'>{ESC(wk + ' · ' if wk else '')}#{ESC(no)}</span>{vo_pill(client, slot)}</span>"
             f"{pv_button(client, slot)}{dl_button(client, slot)}"
-            f"<span class='tag {cls}'>{ESC(label)}</span></div>"
+            + (f"<span class=stw title='Scheduled' aria-label='Scheduled'>{icon('timer', 14)}</span>" if cls == "sched"
+               else f"<span class='tag {cls}'>{ESC(label)}</span>") + "</div>"
             f"<h3>{ESC(title_of(client, row))}</h3>{'' if cls == 'need' else f'<p>{ESC(line)}</p>'}</a>")
 
 
@@ -1197,11 +1210,11 @@ def music_card(client: str, slot: str, cls: str, src: str = "file", q: str = "")
     else:
         err = (getattr(T, "last_error", lambda c: None)(client) if src == "instagram" and not lib else None)
     base = f"/{ESC(quote(client))}/v/{ESC(quote(slot))}"
-    seg = (f"<div class=seg><a href='{base}#music' class='{'on' if src == 'file' else ''}'>Library</a>"
-           f"<a href='{base}?music=ig#music' class='{'on' if src == 'instagram' else ''}'>Instagram</a></div>")
+    seg = (f"<div class=seg><a href='{base}' class='{'on' if src == 'file' else ''}'>Library</a>"
+           f"<a href='{base}?music=ig' class='{'on' if src == 'instagram' else ''}'>Instagram</a></div>")
     search = ""
     if src == "instagram":
-        search = (f"<form method=get action='{base}#music' class=srch><input type=hidden name=music value=ig>"
+        search = (f"<form method=get action='{base}' class=srch><input type=hidden name=music value=ig>"
                   f"{icon('search', 16)}<input name=q value='{ESC(q)}' placeholder='Search Instagram music' aria-label='Search Instagram music'>"
                   f"</form><p class=hint style='margin:8px 0 0'>{'Results for “' + ESC(q) + '”' if q else 'Trending on Instagram'}. "
                   f"The track is attached on Instagram when it publishes; here it plays with the video so you can hear the mix.</p>")
@@ -1510,7 +1523,7 @@ const end=async e=>{if(!st||e.pointerId!==st.id)return;clearTimeout(st.timer);co
  setTimeout(()=>location.reload(),560);};
 document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&st&&st.on){st.g.remove();st.el.classList.remove('dragging');document.body.classList.remove('dnd');if(st.over)st.over.classList.remove('over');st=null;}});
-const hl=document.querySelector('.cell.hl');if(hl)hl.scrollIntoView({block:'center'});
+const hl=document.querySelector('.cell.hl');if(hl)hl.scrollIntoView({block:'center',behavior:'smooth'});
 // status filter: non-matching videos fade out, the grid keeps its shape (remembered)
 const FK='tachyon.calfilter',setF=f=>{document.querySelectorAll('.cell[data-cls]').forEach(c=>c.classList.toggle('dim',f!=='all'&&c.dataset.cls!==f));
  document.querySelectorAll('.calfilt button').forEach(b=>b.classList.toggle('on',b.dataset.f===f));try{localStorage.setItem(FK,f)}catch(_){}};
@@ -1542,12 +1555,14 @@ def _cell(client: str, row, tag, past: bool, hl: str | None, mini: bool = False,
     grip = f"<span class=grip title='Drag to move or swap'>{icon('grip', 14)}</span>" if movable else ""
     _, no = slot_no(slot)
     t = ESC(title_of(client, row))
+    badge = (f"<span class=stw title='Scheduled' aria-label='Scheduled'>{icon('timer', 12)}</span>" if cls == "sched"
+             else f"<span class='tag {cls}'>{ESC(label)}</span>")   # scheduled: the stopwatch, as on the overview
     if mini:
         return (f"<a class='cell mini{' hl' if slot == hl else ''}' data-cls='{cls}' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}' title='{hm} · {t}'{dnd}>{img}"
                 f"<span class=chips><span class=no>#{ESC(no)}</span></span><span class='mdot {cls}'></span><span class=mt>{hm}</span>{pv_button(client, slot)}</a>")
     return (f"<a class='cell{' hl' if slot == hl else ''}' data-cls='{cls}' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}' title='{t}'{dnd}>{img}"
             f"<span class=chips><span class=no>#{ESC(no)}</span>{vo_pill(client, slot)}</span><span class=tools>{grip}{pv_button(client, slot)}</span>"
-            f"<span class=cb><span class='tag {cls}'>{ESC(label)}</span><span class=ct>{t}</span></span></a>")
+            f"<span class=cb>{badge}<span class=ct>{t}</span></span></a>")
 
 
 def _cal_head(client: str, view: str, title: str, prev: str, today_q: str, nxt: str, label: str = "Today") -> str:
@@ -2091,7 +2106,7 @@ class Handler(BaseHTTPRequestHandler):
                     g = C.load_grants(name)   # start from the project's current setting
                     kw = {"custom": True, "comments": bool(g["auto_reply"]["comments"]), "dm": bool(g["auto_reply"]["dm"])}
                 C.set_video_replies(name, parts[2], **kw)
-                return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}#replies")
+                return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}")
             if parts[1] == "v" and len(parts) == 4 and parts[3] == "byhand":
                 from spine.publisher.publish import PublishError, link_by_hand
                 try:
@@ -2105,7 +2120,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(400, b"no track library", "text/plain")
                 T.set_track(name, parts[2], form["track"])
                 ig = "?music=ig" if form.get("src") == "instagram" else ""
-                return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}{ig}#music")
+                return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}{ig}")
             if parts[1] == "week":
                 if form.get("action") == "prepare":
                     wk = form.get("week") or W.next_week()

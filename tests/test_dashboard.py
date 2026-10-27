@@ -943,7 +943,7 @@ def test_live_view_samples_once_a_minute(server, client_dir, monkeypatch):
     d = json.loads(req(server, "GET", "/demo/live.json")[1])
     assert d["total"] == 13 and [p["v"] for p in d["points"]] == [3]
     _, page, _ = req(server, "GET", "/demo?g=live")
-    assert "Views right now" in page and "/demo/live.json" in page and ">Live</a>" in page
+    assert "last 30 min" in page and "/demo/live.json" in page and ">Live</a>" in page
 
 
 
@@ -1049,3 +1049,18 @@ def test_cut_off_export_upload_is_not_imported(server, client_dir):
     s.close()
     assert " 400 " in reply.split("\r\n")[0] and "cut off" in reply
     assert "Upload your Instagram export" in req(server, "GET", "/demo")[1]
+
+
+def test_overview_views_header_and_scheduled_stopwatch(server, client_dir):
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})
+    body = req(server, "GET", "/demo?g=hour")[1]
+    assert "last 48 hr" in body and "aria-label='Custom range'" in body and ">Custom</a>" not in body
+    assert "class=stw title='Scheduled'" in body and "<span class='tag sched'>" not in body   # thumbs: stopwatch, not the tag
+    assert "custom" in req(server, "GET", "/demo?g=custom&from=2026-01-01&to=2026-01-31")[1]
+    assert "last 12 mon" in req(server, "GET", "/demo?g=month")[1]
+    db = DB.for_client(client_dir)
+    at = db.post("w01-s1")["scheduled_at"]
+    db.close()
+    y, w, _ = app.parse(at).astimezone(app.LOCAL).isocalendar()
+    cal = req(server, "GET", f"/demo/calendar?w={y}-W{w:02d}")[1]
+    assert "class=stw title='Scheduled'" in cal and "<span class='tag sched'>" not in cal   # calendar cells too
