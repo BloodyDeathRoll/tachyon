@@ -52,3 +52,6 @@ clients/*/trash/
 engines/remotion/public/uploads/
 clients/*/.add.lock
 clients/*/.publish.lock
+
+# Instagram data exports (followers / following): personal data, local only
+clients/*/exports/

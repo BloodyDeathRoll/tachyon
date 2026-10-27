@@ -21,6 +21,7 @@ import json
 import mimetypes
 import os
 import re
+import sqlite3
 import subprocess
 import sys
 from datetime import date, datetime, time, timedelta, timezone
@@ -29,6 +30,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 from zoneinfo import ZoneInfo
 
+from .. import audience as AU
 from .. import clients as C
 from .. import formats as F
 from .. import manual as M
@@ -249,6 +251,7 @@ def icon(name: str, size: int = 18) -> str:
         "edit": '<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a1 1 0 0 1 3 3l-9 9a2 2 0 0 1-.85.5l-2.87.84a.5.5 0 0 1-.62-.62l.84-2.87a2 2 0 0 1 .5-.85z"/>',
         "clock": '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
         "link": '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+        "timer": '<line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/>',
         "pause": '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
     }
     return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
@@ -264,6 +267,7 @@ CSS = """
 --acc:#111;--acc-h:#2A2A2A;--green:#22C55E;--amber:#E0A100;--blue:#3B82F6;--grey-bg:#EFEFEF;
 --shadow:0 1px 2px rgba(0,0,0,.04);--r:16px}
 *{box-sizing:border-box}
+html{scroll-behavior:smooth}@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 html,body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 button,textarea,input,select{font:inherit}
@@ -315,6 +319,7 @@ h2{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
 .thumb:after{content:"";position:absolute;inset:70% 0 0;background:linear-gradient(transparent,rgba(0,0,0,.78));pointer-events:none}
 .thumb .tt{position:absolute;left:16px;right:16px;bottom:40px;color:#fff;font-weight:800;font-size:19px;line-height:1.15;letter-spacing:-.01em;z-index:1}
 .thumb .tag{position:absolute;left:16px;bottom:12px;z-index:1}
+.stw{position:absolute;left:16px;bottom:12px;z-index:1;width:26px;height:26px;border-radius:50%;background:#000;color:var(--blue);display:grid;place-items:center}   /* the live tag's look and height */
 .vid h3{font-size:15px;margin:10px 2px 0;font-weight:600}
 .vid p{margin:1px 2px 0;color:var(--ink3);font-size:13px}
 .tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:#000;color:#fff;white-space:nowrap}
@@ -438,7 +443,7 @@ pre{white-space:pre-wrap;font:13px/1.55 ui-monospace,monospace;color:var(--ink2)
 .grip{width:28px;height:28px;border-radius:8px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);color:#fff;display:grid;place-items:center;cursor:grab}
 .cell .no{left:6px;top:6px;font-size:10.5px;padding:2px 6px}
 .cell .cb{position:absolute;left:0;right:0;bottom:0;padding:26px 8px 8px;background:linear-gradient(transparent,rgba(0,0,0,.82));display:flex;flex-direction:column;gap:5px;align-items:flex-start}
-.cell .cb .tag{position:static}
+.cell .cb .tag{position:static}.cell .cb .stw{position:static;width:20px;height:20px}
 .cell .cb .ct{position:static;padding:0;background:none}
 .cell.hl{outline-color:var(--lime);animation:hl 1.4s ease-in-out 3}
 @keyframes hl{50%{outline-color:transparent}}
@@ -476,6 +481,8 @@ body.dnd .addnew{display:none}
 .art{width:36px;height:36px;border-radius:6px;object-fit:cover;flex:none}
 .pl.off{background:#D4D4D4;cursor:default}
 @media (max-width:1400px){.vpage{grid-template-columns:minmax(260px,360px) minmax(0,1fr)}.vpage .c3{grid-column:2}.vpage>.player{grid-row:span 2}}
+.drops{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto}
+.crow .btn{white-space:nowrap;flex:none}.drops a{font-weight:600}.drops a:hover{text-decoration:underline}
 .ghost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;box-shadow:0 24px 48px rgba(0,0,0,.35);border-radius:12px;opacity:.95;transition:none}
 .cell[data-slot]{touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .grip{touch-action:none}
@@ -513,7 +520,6 @@ body.dnd .addnew{display:none}
 .cell.dim{opacity:.18;filter:grayscale(1);transition:opacity .2s}
 .tdo{font-size:14px;font-weight:600;color:var(--ink3);margin-left:6px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
-@media (min-width:1700px){.ovgrid{grid-template-columns:minmax(0,2fr) minmax(400px,1fr)}}
 @media (max-width:1100px){.ovgrid{grid-template-columns:1fr}}
 @media (max-width:900px){.shell{grid-template-columns:minmax(0,1fr)}nav{overflow-x:auto;max-width:100%}nav a{padding:8px 10px;white-space:nowrap}aside{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:14px 16px}
  .foot{display:none}nav{flex-direction:row}main{padding:20px 16px 48px}.vpage{grid-template-columns:1fr}.player{position:static}.vpage .c3{grid-column:auto}.month{gap:3px}.mday{min-height:70px;padding:4px}.mcells{grid-template-columns:1fr}
@@ -585,6 +591,28 @@ details.cust input{border:1px solid #d1d5db;border-radius:9px;padding:10px 12px;
 .trk .tn b{font-size:16px;font-weight:700;color:#111}.trk .tn small{display:block;margin-top:3px;font-size:14px;color:#999}
 .pl{width:36px;height:36px;background:#2d2d2d}
 .inuse{cursor:default}.inuse i{width:10px;height:10px;border-radius:50%;background:var(--green)}
+
+/* overview: performance (numbers | graph) and videos on the left, side cards on the right, square thumbs */
+.ovgrid{grid-template-columns:minmax(0,1fr) minmax(400px,520px)}
+.side{grid-template-columns:1fr}
+.maincol .perf{margin-bottom:28px}
+.perfin{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:36px;align-items:stretch}
+.perfin>div:first-child{display:flex;flex-direction:column}.perfin>div:first-child .stats{margin:auto 0}   /* numbers centred against the graph */
+.perf .stats{grid-template-columns:repeat(4,minmax(0,1fr));padding:0;border-bottom:0}
+.perf .stat{padding:0 14px;text-align:center}.perf .stat:first-child{padding-left:0}
+.perf .stat strong{font-size:44px;line-height:1.15}
+.perf .views{margin-top:0}
+.vhd{display:flex;align-items:center;gap:12px}.seg a svg{display:block}.seg a[data-range]{display:inline-flex;align-items:center}
+.vhd strong{font-size:32px;font-weight:800;letter-spacing:-.02em;line-height:1}
+.vhd span{display:block;color:var(--ink);font-size:14px;font-weight:600}.vhd small{display:block;color:var(--ink3);font-size:12.5px}
+.vbody{height:200px;margin-top:14px}.perf .vbody{height:170px}   /* same height in every range: switching never moves the page */
+.vbody .chart{height:100%;margin:0}.vbody .chart svg{height:100%;width:100%}
+.vbody .live{height:100%;display:flex;flex-direction:column}.vbody .lvbars{flex:1;height:auto}.vbody .live .hint{margin-top:6px}
+.grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.thumb{aspect-ratio:1/1}
+.thumb .tt{font-size:16px;bottom:38px}
+@media (max-width:1900px){.perfin{grid-template-columns:1fr;gap:24px}}
+@media (max-width:1100px){.ovgrid{grid-template-columns:1fr}}
 """
 
 
@@ -611,6 +639,14 @@ const all=()=>document.querySelectorAll('.seg,.filt').forEach(init);
 all();if(document.fonts)document.fonts.ready.then(()=>document.querySelectorAll('.js-ind').forEach(g=>place(g,g.querySelector(ON),false)));
 addEventListener('pageshow',e=>{if(e.persisted)location.reload();});   // Back: show the page's real tab, not the one clicked
 addEventListener('resize',()=>document.querySelectorAll('.js-ind').forEach(g=>place(g,g.querySelector(ON),false)));})();
+// a selector, a form or a button that reloads this page brings it back where it was: never a jump to the top or an anchor
+(()=>{const K='tachyon.keep',save=()=>{try{sessionStorage.setItem(K,JSON.stringify([location.pathname,scrollY]))}catch(_){}};
+document.addEventListener('click',e=>{const a=e.target.closest('a[href]');if(!a||a.target==='_blank'||a.hasAttribute('download'))return;
+ const u=new URL(a.href,location.href);if(u.origin===location.origin&&u.pathname===location.pathname)save();},true);
+document.addEventListener('submit',save,true);
+const back=()=>{try{const v=JSON.parse(sessionStorage.getItem(K)||'null');sessionStorage.removeItem(K);
+ if(v&&v[0]===location.pathname)scrollTo({top:v[1],behavior:'instant'});}catch(_){}};
+if(document.readyState==='loading')addEventListener('DOMContentLoaded',back);else back();})();
 """
 
 
@@ -844,17 +880,14 @@ _LIVE_LOCK: dict = {}
 
 
 def live_block(base_json: str) -> str:
-    return (f"<div class=live data-src='{ESC(base_json)}'><div class=row style='gap:28px;margin:6px 0 10px'>"
-            f"<div><span class=muted style='font-size:13.5px'>Views right now</span><p class=big id=lvtot style='font-size:22px;font-weight:800;margin:0'>…</p></div>"
-            f"<div><span class=muted style='font-size:13.5px'>New in the last 30 min</span><p class=big id=lvnew style='font-size:22px;font-weight:800;margin:0'>…</p></div>"
-            f"<span class='tag gen' id=lvdot>Live · every minute</span></div>"
-            f"<div class=lvbars id=lvbars></div><p class=hint id=lvnote>Collecting: one bar per minute while this page is open. "
+    """Live views: one bar per minute; the header's #lvnew shows the last 30 minutes."""
+    return (f"<div class=live data-src='{ESC(base_json)}'>"
+            f"<div class=lvbars id=lvbars></div><p class=hint id=lvnote>One bar per minute while this page is open. "
             f"Instagram's counter can lag a few minutes.</p>"
-            "<script>(()=>{const w=document.currentScript.parentElement,b=w.querySelector('#lvbars');"
+            "<script>(()=>{const w=document.currentScript.parentElement,b=w.querySelector('#lvbars'),v=w.closest('.views')||w;"
             "const draw=d=>{if(d.error){w.querySelector('#lvnote').textContent='Instagram did not answer: '+d.error;return}"
-            "w.querySelector('#lvtot').textContent=(d.total??'–').toLocaleString();"
-            "const s=d.points.reduce((a,p)=>a+p.v,0);w.querySelector('#lvnew').textContent=s.toLocaleString();"
-            "const pts=Array(30-d.points.length).fill(null).concat(d.points.slice(-30));const mx=Math.max(1,...d.points.map(p=>p.v));"
+            "const s=d.points.reduce((a,p)=>a+p.v,0),n=v.querySelector('#lvnew');if(n)n.textContent=s.toLocaleString();"
+            "const pts=Array(Math.max(0,30-d.points.length)).fill(null).concat(d.points.slice(-30));const mx=Math.max(1,...d.points.map(p=>p.v));"
             "b.innerHTML=pts.map(p=>p?`<i style='height:${Math.max(4,p.v/mx*100)}%' title='${new Date(p.t*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}: ${p.v}'></i>`:'<i class=e></i>').join('');};"
             "const go=()=>fetch(w.dataset.src).then(r=>r.json()).then(draw).catch(()=>{});go();setInterval(go,60000);})();</script></div>")
 
@@ -967,34 +1000,32 @@ def prepare_button(client: str, week: str, label: str) -> str:
     return popup(f"<button type=button class='btn pri small' data-open>{ESC(label)}</button>", box)
 
 
-def views_block(client: str, db: DB, slot: str | None, q: dict, base: str) -> str:
-    g = q.get("g") if q.get("g") in GRANS else "day"
-    seg = "".join(f"<a href='{base}?g={x}#views' class='{'on' if g == x else ''}'>{x.capitalize()}</a>" if x != "custom" else
-                  f"<a href='#' data-range class='{'on' if g == x else ''}'>Custom</a>" for x in GRANS)
+def views_block(client: str, db: DB, slot: str | None, q: dict, base: str, W: int = 600, H: int = 200, default: str = "day") -> str:
+    """Number | Views + period, the range selector across, then a fixed-height body (switching never moves the page)."""
+    g = q.get("g") if q.get("g") in GRANS else default
+    seg = "".join(f"<a href='{base}?g={x}' class='{'on' if g == x else ''}'>{x.capitalize()}</a>" if x != "custom" else
+                  f"<a href='#' data-range class='{'on' if g == x else ''}' title='Custom range' aria-label='Custom range'>{icon('cal', 16)}</a>" for x in GRANS)
+    head = lambda n, lab, per: (f"<div class=row style='flex-wrap:wrap;gap:10px'><div class=vhd><strong{' id=lvnew' if g == 'live' else ''}>{n}</strong>"  # noqa: E731
+                                f"<div><span>{lab}</span><small>{per}</small></div></div><div class='seg sm'>{seg}</div></div>")
+    today = today_local()
+    custom = (f"<div class=rgm hidden><form method=get action='{base}' class=rgbox><input type=hidden name=g value=custom>"
+              f"<h2>Custom range</h2><label>From<input type=date name=from value='{ESC(q.get('from') or (today - timedelta(days=13)).isoformat())}'></label>"
+              f"<label>To<input type=date name=to value='{ESC(q.get('to') or today.isoformat())}'></label>"
+              f"<div class=btns><button class='btn dark small'>Show</button><button type=button class='btn sec small' data-rgclose>Cancel</button></div></form></div>")
+    keep = ("<script>(()=>{const v=document.currentScript.closest('.views'),m=v.querySelector('.rgm');"
+            "v.querySelector('[data-range]').addEventListener('click',e=>{e.preventDefault();m.hidden=false;m.querySelector('input[type=date]').focus();});"
+            "m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-rgclose]'))m.hidden=true;});"
+            "document.addEventListener('keydown',e=>{if(e.key==='Escape')m.hidden=true;});})();</script>")
     if g == "live":
         src = f"/{quote(client)}/live.json" + (f"?slot={quote(slot)}" if slot else "")
-        return (f"<div id=views class=views><div class=row style='flex-wrap:wrap;gap:10px'><div><span class=muted style='font-size:13.5px'>"
-                f"Views, live</span></div><div class='seg sm'>{seg.replace(chr(39) + '#' + chr(39) + ' data-range', chr(39) + base + '?g=custom#views' + chr(39))}</div></div>"
-                f"{live_block(src)}</div>")
+        return f"<div id=views class=views>{head('…', 'Views', 'last 30 min')}{custom}<div class=vbody>{live_block(src)}</div>{keep}</div>"
     eg, a, b = view_window(g, q.get("from"), q.get("to"))
     series = views_series(db, slot, eg, a, b)
     total = sum(v for _, v in series)
-    seg = "".join(f"<a href='{base}?g={x}#views' class='{'on' if g == x else ''}'>{x.capitalize()}</a>" if x != "custom" else
-                  f"<a href='#' data-range class='{'on' if g == x else ''}'>Custom</a>" for x in GRANS)
-    today = today_local()
-    custom = (f"<div class=rgm hidden><form method=get action='{base}#views' class=rgbox><input type=hidden name=g value=custom>"
-              f"<h2>Custom range</h2><label>From<input type=date name=from value='{ESC(q.get('from') or (today - timedelta(days=13)).isoformat())}'></label>"
-              f"<label>To<input type=date name=to value='{ESC(q.get('to') or today.isoformat())}'></label>"
-              f"<div class=btns><button class='btn dark small'>Show</button><button type=button class='btn sec small' data-rgclose>Cancel</button></div></form></div>"
-              "<script>(()=>{const v=document.currentScript.closest('.views'),m=v.querySelector('.rgm');"
-              "v.querySelector('[data-range]').addEventListener('click',e=>{e.preventDefault();m.hidden=false;m.querySelector('input[type=date]').focus();});"
-              "m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-rgclose]'))m.hidden=true;});"
-              "document.addEventListener('keydown',e=>{if(e.key==='Escape')m.hidden=true;});})();</script>")
-    span = {"hour": "last 48 hours", "day": "last 30 days", "month": "last 12 months"}.get(g, f"{a:%-d %b} – {(b - timedelta(seconds=1)):%-d %b %Y}")
-    body = (f"<div class=chart>{views_chart(series, eg)}</div>" if total else
+    span = {"hour": "last 48 hr", "day": "last 30 days", "month": "last 12 mon"}.get(g, "custom")
+    body = (f"<div class=chart>{views_chart(series, eg, W=W, H=H)}</div>" if total else
             "<p class=muted style='margin:14px 0 4px'>No views in this period yet.</p>")
-    return (f"<div id=views class=views><div class=row style='flex-wrap:wrap;gap:10px'><div><span class=muted style='font-size:13.5px'>Views, {span}</span>"
-            f"<p class=big style='font-size:22px;font-weight:800;margin:0'>{num(total)}</p></div><div class='seg sm'>{seg}</div></div>{custom}{body}</div>")
+    return f"<div id=views class=views>{head(num(total), 'Views', span)}{custom}<div class=vbody>{body}</div>{keep}</div>"
 
 
 # ── overview ──────────────────────────────────────────────────────────────────
@@ -1016,7 +1047,8 @@ def video_card(client: str, row, tag: tuple[str, str], db: DB) -> str:
     return (f"<a class=vid data-cls='{cls}' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}'><div class=thumb>{img}"
             f"<span class=chips><span class=no title='{ESC(wk)} video {ESC(no)}'>{ESC(wk + ' · ' if wk else '')}#{ESC(no)}</span>{vo_pill(client, slot)}</span>"
             f"{pv_button(client, slot)}{dl_button(client, slot)}"
-            f"<span class='tag {cls}'>{ESC(label)}</span></div>"
+            + (f"<span class=stw title='Scheduled' aria-label='Scheduled'>{icon('timer', 14)}</span>" if cls == "sched"
+               else f"<span class='tag {cls}'>{ESC(label)}</span>") + "</div>"
             f"<h3>{ESC(title_of(client, row))}</h3>{'' if cls == 'need' else f'<p>{ESC(line)}</p>'}</a>")
 
 
@@ -1034,7 +1066,7 @@ def schedule_card(client: str) -> str:
             f"<p class=muted style='margin:4px 0 0;font-size:14px'>{per}, every day.</p>"
             f"<form method=post action='{base}'><div class=times>{rows}</div>"
             f"<div class=btns style='margin-top:0'><button class='btn dark small' name=save value=1>Save</button>{add}</div></form>"
-            f"<p class=hint>Changes apply to new plans and newly approved videos. The calendar follows.</p></section>")
+            "</section>")
 
 
 def week_card(client: str) -> str:
@@ -1053,20 +1085,19 @@ def week_card(client: str) -> str:
         body += "<div class=prog><i></i></div><p class=hint>Each one lands in Needs approval when it is ready.</p>"
     elif st.get("state") == "done":
         bad = len(st.get("failed") or [])
-        body = (f"<p class=big>{st.get('total', total) - bad} of {st.get('total', total)} videos ready</p>"
-                f"<p class=hint>{'Approve them before Monday.' if not bad else f'{bad} could not be made; see the calendar.'}</p>"
-                f"<a class='btn sec small' href='{base}/calendar?w={wk}'>Open the week</a>")
+        body = (f"<div class=crow><p><b>{st.get('total', total) - bad} of {st.get('total', total)} videos ready.</b> "
+                f"{'Approve them before Monday.' if not bad else f'{bad} could not be made; see the calendar.'}</p>"
+                f"<a class='btn sec' href='{base}/calendar?w={wk}'>Open the week</a></div>")
     else:
         err = f"<div class=note>Last run failed: {ESC(st.get('error') or '')}</div>" if st.get("state") == "failed" else ""
-        body = (f"{err}<p class=muted style='margin:0 0 14px'>{total} videos, one for each slot. Claude plans them, makes them and "
-                f"sends each one here for approval.</p>"
-                + prepare_button(client, wk, "Prepare next week"))
+        body = (f"{err}<div class=crow><p>{total} videos, one for each slot. Claude plans them, makes them and "
+                f"sends each one here for approval.</p>{prepare_button(client, wk, 'Prepare next week')}</div>")
     auto = (f"<form method=post action='{base}/week' class=autorow><input type=hidden name=action value=auto>"
             f"<input type=hidden name=value value='{0 if ws['auto'] else 1}'>"
             f"<span>Prepare automatically every {ESC(ws['day'])}</span>"
             f"<button class='toggle {'on' if ws['auto'] else ''}' aria-pressed={'true' if ws['auto'] else 'false'} aria-label='Prepare automatically'><i></i></button></form>")
     return (f"<section class=card><div class=row><h2>Next week</h2><span class=muted>{span}</span></div>"
-            f"<div style='margin-top:14px'>{body}</div>{auto}</section>")
+            f"<div style='margin-top:16px'>{body}</div>{auto}</section>")
 
 
 def render_overview(client: str, q: dict | None = None) -> bytes:
@@ -1098,8 +1129,8 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
                 ("Followers", followers, f"as of {datetime.fromisoformat(days[-1]['date']).strftime('%-d %b')}" if days else "no data yet"),
                 ("Link taps", total("profile_links_taps"), "last 7 days"),
             ))
-        chart = views_block(client, db, None, q or {}, f"/{quote(client)}")
-        perf = f"<section class='card perf'><h2>Performance</h2><div class=stats>{stats}</div>{chart}</section>"
+        chart = views_block(client, db, None, q or {}, f"/{quote(client)}", W=600, H=170, default="hour")   # the wide column: keep text at its size
+        perf = f"<section class='card perf'><div class=perfin><div><h2>Performance</h2><div class=stats>{stats}</div></div><div>{chart}</div></div></section>"
 
         shown = {c: sum(1 for _, t in rows if t[1] == c) for c in ORDER}
         filt = "".join(
@@ -1117,11 +1148,30 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
                 "document.querySelectorAll('.filt button').forEach(b=>b.addEventListener('click',()=>set(b.dataset.f)));"
                 "let f='all';try{f=localStorage.getItem(K)||'all'}catch(_){}if(!document.querySelector(`.filt [data-f='${f}']`))f='all';set(f);})();</script>")
         body = (header(client, "Overview") +
-                f"<div class=ovgrid><div class=maincol>{vids}</div>"
-                f"<div class=side>{perf}{schedule_card(client)}{week_card(client)}</div></div>")
+                f"<div class=ovgrid><div class=maincol>{perf}{vids}</div>"
+                f"<div class=side>{schedule_card(client)}{week_card(client)}{dropped_card(client)}</div></div>")
         return shell(client, "overview", body, "Overview", refresh=30 if count["busy"] else None)
     finally:
         db.close()
+
+
+def dropped_card(client: str) -> str:
+    """Followers who dropped between the last two Instagram exports (spine/audience.py)."""
+    r = AU.dropped(client)   # the upload imports; files left in clients/<c>/exports/ come in with the daily cron
+    up = (f"<label class='btn sec'>{icon('plus', 16)}Upload export<input type=file accept='.zip,.json' hidden "
+          f"onchange=\"const f=this.files[0];if(!f)return;const p=this.closest('.card').querySelector('.crow p');p.textContent='Reading…';"
+          f"fetch('/{ESC(quote(client))}/audience/upload?name='+encodeURIComponent(f.name),{{method:'POST',body:f}})"
+          f".then(async r=>r.ok?location.reload():p.textContent=await r.text())\"></label>")
+    if r["snapshots"] < 2:
+        msg = ("Upload your Instagram export (JSON, Followers and following) to start." if not r["snapshots"] else
+               f"First list saved: {num(r['followers'])} followers. Upload the next export to see who dropped.")
+        body = f"<div class=crow><p>{msg}</p>{up}</div>"
+    else:
+        since = parse(r["since"]).astimezone(LOCAL).strftime("%-d %b")
+        names = "".join(f"<li><a href='https://www.instagram.com/{ESC(quote(u))}/' target=_blank rel=noopener>@{ESC(u)}</a></li>"
+                        for u in r["dropped"])
+        body = (f"<div class=crow><p>{len(r['dropped'])} since {since}.</p>{up}</div>" + (f"<ul class=drops>{names}</ul>" if names else ""))
+    return f"<section class=card id=dropped><h2>Followers who dropped</h2>{body}</section>"
 
 
 # ── music ─────────────────────────────────────────────────────────────────────
@@ -1160,11 +1210,11 @@ def music_card(client: str, slot: str, cls: str, src: str = "file", q: str = "")
     else:
         err = (getattr(T, "last_error", lambda c: None)(client) if src == "instagram" and not lib else None)
     base = f"/{ESC(quote(client))}/v/{ESC(quote(slot))}"
-    seg = (f"<div class=seg><a href='{base}#music' class='{'on' if src == 'file' else ''}'>Library</a>"
-           f"<a href='{base}?music=ig#music' class='{'on' if src == 'instagram' else ''}'>Instagram</a></div>")
+    seg = (f"<div class=seg><a href='{base}' class='{'on' if src == 'file' else ''}'>Library</a>"
+           f"<a href='{base}?music=ig' class='{'on' if src == 'instagram' else ''}'>Instagram</a></div>")
     search = ""
     if src == "instagram":
-        search = (f"<form method=get action='{base}#music' class=srch><input type=hidden name=music value=ig>"
+        search = (f"<form method=get action='{base}' class=srch><input type=hidden name=music value=ig>"
                   f"{icon('search', 16)}<input name=q value='{ESC(q)}' placeholder='Search Instagram music' aria-label='Search Instagram music'>"
                   f"</form><p class=hint style='margin:8px 0 0'>{'Results for “' + ESC(q) + '”' if q else 'Trending on Instagram'}. "
                   f"The track is attached on Instagram when it publishes; here it plays with the video so you can hear the mix.</p>")
@@ -1473,7 +1523,7 @@ const end=async e=>{if(!st||e.pointerId!==st.id)return;clearTimeout(st.timer);co
  setTimeout(()=>location.reload(),560);};
 document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&st&&st.on){st.g.remove();st.el.classList.remove('dragging');document.body.classList.remove('dnd');if(st.over)st.over.classList.remove('over');st=null;}});
-const hl=document.querySelector('.cell.hl');if(hl)hl.scrollIntoView({block:'center'});
+const hl=document.querySelector('.cell.hl');if(hl)hl.scrollIntoView({block:'center',behavior:'smooth'});
 // status filter: non-matching videos fade out, the grid keeps its shape (remembered)
 const FK='tachyon.calfilter',setF=f=>{document.querySelectorAll('.cell[data-cls]').forEach(c=>c.classList.toggle('dim',f!=='all'&&c.dataset.cls!==f));
  document.querySelectorAll('.calfilt button').forEach(b=>b.classList.toggle('on',b.dataset.f===f));try{localStorage.setItem(FK,f)}catch(_){}};
@@ -1505,12 +1555,14 @@ def _cell(client: str, row, tag, past: bool, hl: str | None, mini: bool = False,
     grip = f"<span class=grip title='Drag to move or swap'>{icon('grip', 14)}</span>" if movable else ""
     _, no = slot_no(slot)
     t = ESC(title_of(client, row))
+    badge = (f"<span class=stw title='Scheduled' aria-label='Scheduled'>{icon('timer', 12)}</span>" if cls == "sched"
+             else f"<span class='tag {cls}'>{ESC(label)}</span>")   # scheduled: the stopwatch, as on the overview
     if mini:
         return (f"<a class='cell mini{' hl' if slot == hl else ''}' data-cls='{cls}' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}' title='{hm} · {t}'{dnd}>{img}"
                 f"<span class=chips><span class=no>#{ESC(no)}</span></span><span class='mdot {cls}'></span><span class=mt>{hm}</span>{pv_button(client, slot)}</a>")
     return (f"<a class='cell{' hl' if slot == hl else ''}' data-cls='{cls}' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}' title='{t}'{dnd}>{img}"
             f"<span class=chips><span class=no>#{ESC(no)}</span>{vo_pill(client, slot)}</span><span class=tools>{grip}{pv_button(client, slot)}</span>"
-            f"<span class=cb><span class='tag {cls}'>{ESC(label)}</span><span class=ct>{t}</span></span></a>")
+            f"<span class=cb>{badge}<span class=ct>{t}</span></span></a>")
 
 
 def _cal_head(client: str, view: str, title: str, prev: str, today_q: str, nxt: str, label: str = "Today") -> str:
@@ -1920,6 +1972,38 @@ class Handler(BaseHTTPRequestHandler):
 
     UPLOAD_MAX = 2 * 1024 ** 3
 
+    def _audience(self, name: str):
+        """Overview → Followers who dropped → Upload export: raw body, kept in clients/<c>/exports/."""
+        q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            d = C.client_dir(name)
+        except (ValueError, KeyError):
+            return self._send(400, b"bad request", "text/plain")
+        if not length or length > self.UPLOAD_MAX:
+            return self._send(413 if length else 400, b"empty or too large", "text/plain")
+        ext = ".zip" if (q.get("name") or "").lower().endswith(".zip") else ".json"
+        dst = d / "exports" / f"{datetime.now(timezone.utc):%Y%m%dT%H%M%S}-{os.urandom(3).hex()}{ext}"
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        with dst.open("wb") as f:
+            left = length
+            while left:
+                chunk = self.rfile.read(min(1 << 20, left))
+                if not chunk:
+                    break
+                f.write(chunk)
+                left -= len(chunk)
+        if left:
+            dst.unlink(missing_ok=True)
+            return self._send(400, b"the upload was cut off: try again", "text/plain")
+        try:
+            if AU.import_export(name, dst) is None:
+                dst.unlink(missing_ok=True)   # already in
+        except (ValueError, OSError, sqlite3.Error) as e:
+            dst.unlink(missing_ok=True)
+            return self._send(400, str(e).encode(), "text/plain")
+        return self._send(200, b"ok", "text/plain")
+
     def _upload(self, name: str):
         """Calendar → Add new → Upload: the file is the raw request body (streamed to disk)."""
         import tempfile
@@ -1963,6 +2047,8 @@ class Handler(BaseHTTPRequestHandler):
         parts = [p for p in urlparse(self.path).path.split("/") if p]
         if len(parts) == 3 and parts[1:] == ["new", "upload"]:
             return self._upload(parts[0])
+        if len(parts) == 3 and parts[1:] == ["audience", "upload"]:
+            return self._audience(parts[0])
         length = int(self.headers.get("Content-Length") or 0)
         self._multi = parse_qs(self.rfile.read(length).decode(), keep_blank_values=True)
         form = {k: v[0] for k, v in self._multi.items()}
@@ -2020,7 +2106,7 @@ class Handler(BaseHTTPRequestHandler):
                     g = C.load_grants(name)   # start from the project's current setting
                     kw = {"custom": True, "comments": bool(g["auto_reply"]["comments"]), "dm": bool(g["auto_reply"]["dm"])}
                 C.set_video_replies(name, parts[2], **kw)
-                return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}#replies")
+                return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}")
             if parts[1] == "v" and len(parts) == 4 and parts[3] == "byhand":
                 from spine.publisher.publish import PublishError, link_by_hand
                 try:
@@ -2034,7 +2120,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(400, b"no track library", "text/plain")
                 T.set_track(name, parts[2], form["track"])
                 ig = "?music=ig" if form.get("src") == "instagram" else ""
-                return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}{ig}#music")
+                return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}{ig}")
             if parts[1] == "week":
                 if form.get("action") == "prepare":
                     wk = form.get("week") or W.next_week()

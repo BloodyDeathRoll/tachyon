@@ -943,7 +943,7 @@ def test_live_view_samples_once_a_minute(server, client_dir, monkeypatch):
     d = json.loads(req(server, "GET", "/demo/live.json")[1])
     assert d["total"] == 13 and [p["v"] for p in d["points"]] == [3]
     _, page, _ = req(server, "GET", "/demo?g=live")
-    assert "Views right now" in page and "/demo/live.json" in page and ">Live</a>" in page
+    assert "last 30 min" in page and "/demo/live.json" in page and ">Live</a>" in page
 
 
 
@@ -1008,3 +1008,59 @@ def test_publish_now_turns_into_publishing(server, client_dir):
     body = req(server, "GET", "/demo/v/w01-s1")[1]
     assert "Publishing…" in body and "value=publish_now" not in body
     db.close()
+
+
+def test_followers_who_dropped_from_two_uploaded_exports(server, client_dir, tmp_path):
+    from tests.test_audience import export
+
+    def up(path):
+        c = http.client.HTTPConnection("127.0.0.1", server)
+        c.request("POST", "/demo/audience/upload?name=x.zip", body=path.read_bytes())
+        r = c.getresponse()
+        return r.status, r.read().decode()
+
+    assert "Upload your Instagram export" in req(server, "GET", "/demo")[1]
+    assert up(export(tmp_path / "1.zip", ["ann", "bob"]))[0] == 200
+    assert "First list saved: 2 followers" in req(server, "GET", "/demo")[1]
+    assert up(export(tmp_path / "2.zip", ["ann"]))[0] == 200
+    body = req(server, "GET", "/demo")[1]
+    assert "1 since" in body and "@bob" in body and "@ann" not in body
+    bad = tmp_path / "bad.json"
+    bad.write_text("{}")
+    assert up(bad)[0] == 400
+    lone = tmp_path / "followers_1.json"   # the followers file on its own, not the zip
+    lone.write_text('[{"title": "", "string_list_data": [{"value": "ann"}]}]')
+    c = http.client.HTTPConnection("127.0.0.1", server)
+    c.request("POST", "/demo/audience/upload?name=followers_1.json", body=lone.read_bytes())
+    assert c.getresponse().status == 200
+
+
+def test_cut_off_export_upload_is_not_imported(server, client_dir):
+    import socket
+    s = socket.create_connection(("127.0.0.1", server))
+    body = b'[{"string_list_data": [{"value": "ann"}]}]'
+    s.sendall(b"POST /demo/audience/upload?name=followers_1.json HTTP/1.1\r\nHost: x\r\n"
+              + f"Content-Length: {len(body) + 500}\r\n\r\n".encode() + body)
+    s.shutdown(socket.SHUT_WR)   # the client goes away mid-upload
+    reply = b""
+    while chunk := s.recv(4096):   # headers and body may arrive apart
+        reply += chunk
+    reply = reply.decode()
+    s.close()
+    assert " 400 " in reply.split("\r\n")[0] and "cut off" in reply
+    assert "Upload your Instagram export" in req(server, "GET", "/demo")[1]
+
+
+def test_overview_views_header_and_scheduled_stopwatch(server, client_dir):
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})
+    body = req(server, "GET", "/demo?g=hour")[1]
+    assert "last 48 hr" in body and "aria-label='Custom range'" in body and ">Custom</a>" not in body
+    assert "class=stw title='Scheduled'" in body and "<span class='tag sched'>" not in body   # thumbs: stopwatch, not the tag
+    assert "custom" in req(server, "GET", "/demo?g=custom&from=2026-01-01&to=2026-01-31")[1]
+    assert "last 12 mon" in req(server, "GET", "/demo?g=month")[1]
+    db = DB.for_client(client_dir)
+    at = db.post("w01-s1")["scheduled_at"]
+    db.close()
+    y, w, _ = app.parse(at).astimezone(app.LOCAL).isocalendar()
+    cal = req(server, "GET", f"/demo/calendar?w={y}-W{w:02d}")[1]
+    assert "class=stw title='Scheduled'" in cal and "<span class='tag sched'>" not in cal   # calendar cells too
