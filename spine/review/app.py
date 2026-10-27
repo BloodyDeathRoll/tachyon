@@ -589,18 +589,20 @@ details.cust input{border:1px solid #d1d5db;border-radius:9px;padding:10px 12px;
 .pl{width:36px;height:36px;background:#2d2d2d}
 .inuse{cursor:default}.inuse i{width:10px;height:10px;border-radius:50%;background:var(--green)}
 
-/* overview: side column on the left, performance (numbers | graph) above the videos, square thumbs */
-.ovgrid{grid-template-columns:minmax(320px,400px) minmax(0,1fr)}
+/* overview: performance (numbers | graph) and videos on the left, side cards on the right, square thumbs */
+.ovgrid{grid-template-columns:minmax(0,1fr) minmax(320px,400px)}
 .side{grid-template-columns:1fr}
-.maincol .perf{margin-bottom:28px}
-.perfin{display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,2fr);gap:36px;align-items:start;margin-top:20px}
-.perf .stats{grid-template-columns:1fr 1fr;row-gap:20px;margin:0;padding:0;border-bottom:0}
-.perf .stat:nth-child(3){border-left:0;padding-left:0}
+.maincol .perf{margin-bottom:28px;position:relative}
+.perf .views .seg{position:absolute;top:30px;right:30px}   /* the range selector sits across the title */
+.perfin{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:36px;align-items:start;margin-top:20px}
+.perf .stats{grid-template-columns:repeat(4,minmax(0,1fr));margin:0;padding:0;border-bottom:0}
+.perf .stat{padding:0 14px}.perf .stat:first-child{padding-left:0}
+.perf .stat strong{font-size:28px}
 .perf .views{margin-top:0}
 .grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
 .thumb{aspect-ratio:1/1}
 .thumb .tt{font-size:16px;bottom:38px}
-@media (max-width:1900px){.perfin{grid-template-columns:1fr;gap:24px}.perf .stats{grid-template-columns:repeat(4,minmax(0,1fr))}.perf .stat:nth-child(3){border-left:1px solid var(--rule);padding-left:18px}}
+@media (max-width:1900px){.perfin{grid-template-columns:1fr;gap:24px}}
 @media (max-width:1100px){.ovgrid{grid-template-columns:1fr}}
 """
 
@@ -984,7 +986,7 @@ def prepare_button(client: str, week: str, label: str) -> str:
     return popup(f"<button type=button class='btn pri small' data-open>{ESC(label)}</button>", box)
 
 
-def views_block(client: str, db: DB, slot: str | None, q: dict, base: str, W: int = 600) -> str:
+def views_block(client: str, db: DB, slot: str | None, q: dict, base: str, W: int = 600, H: int = 200) -> str:
     g = q.get("g") if q.get("g") in GRANS else "day"
     seg = "".join(f"<a href='{base}?g={x}#views' class='{'on' if g == x else ''}'>{x.capitalize()}</a>" if x != "custom" else
                   f"<a href='#' data-range class='{'on' if g == x else ''}'>Custom</a>" for x in GRANS)
@@ -1008,7 +1010,7 @@ def views_block(client: str, db: DB, slot: str | None, q: dict, base: str, W: in
               "m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-rgclose]'))m.hidden=true;});"
               "document.addEventListener('keydown',e=>{if(e.key==='Escape')m.hidden=true;});})();</script>")
     span = {"hour": "last 48 hours", "day": "last 30 days", "month": "last 12 months"}.get(g, f"{a:%-d %b} – {(b - timedelta(seconds=1)):%-d %b %Y}")
-    body = (f"<div class=chart>{views_chart(series, eg, W=W)}</div>" if total else
+    body = (f"<div class=chart>{views_chart(series, eg, W=W, H=H)}</div>" if total else
             "<p class=muted style='margin:14px 0 4px'>No views in this period yet.</p>")
     return (f"<div id=views class=views><div class=row style='flex-wrap:wrap;gap:10px'><div><span class=muted style='font-size:13.5px'>Views, {span}</span>"
             f"<p class=big style='font-size:22px;font-weight:800;margin:0'>{num(total)}</p></div><div class='seg sm'>{seg}</div></div>{custom}{body}</div>")
@@ -1114,7 +1116,7 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
                 ("Followers", followers, f"as of {datetime.fromisoformat(days[-1]['date']).strftime('%-d %b')}" if days else "no data yet"),
                 ("Link taps", total("profile_links_taps"), "last 7 days"),
             ))
-        chart = views_block(client, db, None, q or {}, f"/{quote(client)}", W=900)   # the wide column: keep text at its size
+        chart = views_block(client, db, None, q or {}, f"/{quote(client)}", W=900, H=150)   # the wide column: keep text at its size
         perf = f"<section class='card perf'><h2>Performance</h2><div class=perfin><div class=stats>{stats}</div><div>{chart}</div></div></section>"
 
         shown = {c: sum(1 for _, t in rows if t[1] == c) for c in ORDER}
@@ -1133,8 +1135,8 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
                 "document.querySelectorAll('.filt button').forEach(b=>b.addEventListener('click',()=>set(b.dataset.f)));"
                 "let f='all';try{f=localStorage.getItem(K)||'all'}catch(_){}if(!document.querySelector(`.filt [data-f='${f}']`))f='all';set(f);})();</script>")
         body = (header(client, "Overview") +
-                f"<div class=ovgrid><div class=side>{schedule_card(client)}{week_card(client)}{dropped_card(client)}</div>"
-                f"<div class=maincol>{perf}{vids}</div></div>")
+                f"<div class=ovgrid><div class=maincol>{perf}{vids}</div>"
+                f"<div class=side>{schedule_card(client)}{week_card(client)}{dropped_card(client)}</div></div>")
         return shell(client, "overview", body, "Overview", refresh=30 if count["busy"] else None)
     finally:
         db.close()
