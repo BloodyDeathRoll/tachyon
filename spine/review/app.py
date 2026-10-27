@@ -2020,13 +2020,16 @@ class Handler(BaseHTTPRequestHandler):
                     (d / "posts" / slot).mkdir(parents=True, exist_ok=True)
                     (d / "posts" / slot / "caption.txt").write_text(text + "\n")
                 elif form.get("action") == "publish_now":
-                    if db.post(slot)["state"] not in ("APPROVED", "QUEUED"):
+                    state_ = db.post(slot)["state"]
+                    if state_ not in ("APPROVED", "QUEUED"):
                         return self._send(409, b"approve it first", "text/plain")
                     db.move(slot, datetime.now(timezone.utc).isoformat(timespec="seconds"))
+                    if state_ == "APPROVED":
+                        db.set_state(slot, "QUEUED")
                     logs = Path.home() / ".tachyon" / "logs"
                     logs.mkdir(parents=True, exist_ok=True)
-                    with open(logs / "publish.log", "a") as log:   # the queue run posts it (locked against cron)
-                        subprocess.Popen([sys.executable, "-m", "spine.publisher.publish", name, "--queue"],
+                    with open(logs / "publish.log", "a") as log:   # this video only (locked against cron)
+                        subprocess.Popen([sys.executable, "-m", "spine.publisher.publish", name, slot],
                                          cwd=Path(__file__).resolve().parents[2], stdout=log, stderr=log, start_new_session=True)
                 elif form.get("action") == "custom":
                     at = datetime.fromisoformat(form["at"]).replace(tzinfo=LOCAL).astimezone(timezone.utc).isoformat(timespec="seconds")

@@ -993,5 +993,5 @@ def test_custom_schedule_and_publish_now(server, client_dir, monkeypatch):
     monkeypatch.setattr(app.subprocess, "Popen", lambda cmd, **kw: runs.append(cmd))
     assert req(server, "POST", "/demo/v/w01-s1/decide", {"action": "publish_now"})[0] == 303
     assert app.parse(db.post("w01-s1")["scheduled_at"]) <= datetime.now(timezone.utc)
-    assert runs and runs[0][-2:] == ["demo", "--queue"]
+    assert runs and runs[0][-2:] == ["demo", "w01-s1"] and db.post("w01-s1")["state"] == "QUEUED"
     db.close()
