@@ -501,3 +501,11 @@ def test_vercel_found_under_nvm_when_cron_path_lacks_it(tmp_path, monkeypatch):
     monkeypatch.setenv("PATH", "/usr/bin:/bin")
     exe, env = links._vercel()
     assert exe.endswith("v24.14.0/bin/vercel") and env["PATH"].startswith(str(tmp_path / ".nvm/versions/node/v24.14.0/bin"))
+
+
+def test_vercel_missing_everywhere_is_a_link_error(tmp_path, monkeypatch):
+    from spine.publisher import links
+    monkeypatch.setattr(links.Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(links.shutil, "which", lambda n: None)
+    with pytest.raises(links.LinkError, match="not found"):
+        links._vercel()

@@ -46,7 +46,7 @@ def _vercel() -> tuple[str, dict]:
 
 
 def _api(path: str, method: str, body: dict | None = None, *, runner=subprocess.run) -> dict:
-    exe, env = _vercel()
+    exe, env = _vercel() if runner is subprocess.run else ("vercel", None)   # a test runner needs no CLI
     cmd = [exe, "api", path, "--method", method]
     tmp = None
     if body is not None:
