@@ -481,6 +481,14 @@ body.dnd .addnew{display:none}
 .art{width:36px;height:36px;border-radius:6px;object-fit:cover;flex:none}
 .pl.off{background:#D4D4D4;cursor:default}
 @media (max-width:1400px){.vpage{grid-template-columns:minmax(260px,360px) minmax(0,1fr)}.vpage .c3{grid-column:2}.vpage>.player{grid-row:span 2}}
+.upst[hidden]{display:none}.upst{margin-top:16px;display:flex;flex-direction:column;gap:8px;font-size:14px;color:var(--ink2)}
+.upbar{height:6px;background:var(--grey-bg);border-radius:6px;overflow:hidden}.upbar i{display:block;height:100%;width:0;background:var(--lime);transition:width .2s}
+.upst.busy .upbar i{width:40%!important;animation:pg 1.6s ease-in-out infinite}.upst.err{color:#b42318}.upst.err .upbar{display:none}
+label.btn.off{opacity:.5;pointer-events:none}
+.upok{display:flex;align-items:center;gap:8px;margin:14px 0 0;color:#2e7d32;font-weight:600;font-size:14px}
+.dnum{font-size:22px;font-weight:800}.lnk{font-weight:600;text-decoration:underline;text-underline-offset:3px}
+dialog.dlg{border:0;border-radius:18px;padding:28px 30px;width:min(480px,92vw);max-height:80vh;box-shadow:0 24px 48px rgba(0,0,0,.25)}
+dialog.dlg::backdrop{background:rgba(0,0,0,.5);backdrop-filter:blur(4px)}dialog.dlg .drops{max-height:60vh}
 .drops{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto}
 .crow .btn{white-space:nowrap;flex:none}.drops a{font-weight:600}.drops a:hover{text-decoration:underline}
 .ghost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;box-shadow:0 24px 48px rgba(0,0,0,.35);border-radius:12px;opacity:.95;transition:none}
@@ -1155,23 +1163,45 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
         db.close()
 
 
-def dropped_card(client: str) -> str:
-    """Followers who dropped between the last two Instagram exports (spine/audience.py)."""
+UPLOAD_JS = """window.tUp=window.tUp||function(inp){const f=inp.files[0];if(!f)return;inp.value='';
+const c=inp.closest('.card'),st=c.querySelector('.upst'),bar=st.querySelector('i'),t=st.querySelector('span'),lab=inp.closest('label');
+const fail=m=>{st.className='upst err';t.textContent=m;lab.classList.remove('off');};
+st.hidden=false;st.className='upst';bar.style.width='0';t.textContent='Uploading… 0%';lab.classList.add('off');
+const x=new XMLHttpRequest();x.open('POST',inp.dataset.url+'?name='+encodeURIComponent(f.name));
+x.upload.onprogress=e=>{if(e.lengthComputable){const p=Math.round(e.loaded/e.total*100);bar.style.width=p+'%';t.textContent='Uploading… '+p+'%';}};
+x.upload.onload=()=>{st.className='upst busy';t.textContent='Reading the export…';};
+x.onload=()=>{let d={};try{d=JSON.parse(x.responseText)}catch(_){}
+ if(x.status===200&&d.html)c.outerHTML=d.html;else fail(d.error||x.responseText||'The upload failed. Try again.');};
+x.onerror=()=>fail('The upload failed: check the connection and try again.');x.send(f);};"""
+
+
+def dropped_card(client: str, note: str = "") -> str:
+    """Followers who dropped between the last two Instagram exports (spine/audience.py).
+    Upload shows its progress, then 'Reading the export…', then this card again with the result (and `note`)."""
     r = AU.dropped(client)   # the upload imports; files left in clients/<c>/exports/ come in with the daily cron
     up = (f"<label class='btn sec'>{icon('plus', 16)}Upload export<input type=file accept='.zip,.json' hidden "
-          f"onchange=\"const f=this.files[0];if(!f)return;const p=this.closest('.card').querySelector('.crow p');p.textContent='Reading…';"
-          f"fetch('/{ESC(quote(client))}/audience/upload?name='+encodeURIComponent(f.name),{{method:'POST',body:f}})"
-          f".then(async r=>r.ok?location.reload():p.textContent=await r.text())\"></label>")
-    if r["snapshots"] < 2:
-        msg = ("Upload your Instagram export (JSON, Followers and following) to start." if not r["snapshots"] else
-               f"First list saved: {num(r['followers'])} followers. Upload the next export to see who dropped.")
-        body = f"<div class=crow><p>{msg}</p>{up}</div>"
+          f"data-url='/{ESC(quote(client))}/audience/upload' onchange='tUp(this)'></label>")
+    status = "<div class=upst hidden><div class=upbar><i></i></div><span></span></div>"
+    done = f"<p class=upok>{icon('check', 15)}{ESC(note)}</p>" if note else ""
+    if not r["snapshots"]:
+        body = f"<div class=crow><p>Upload your Instagram export (JSON, Followers and following) to start.</p>{up}</div>"
+    elif r["snapshots"] == 1:
+        body = (f"<div class=crow><p>First export saved: <b>{num(r['followers'])}</b> followers. "
+                f"Upload the next one to see who dropped.</p>{up}</div>")
     else:
         since = parse(r["since"]).astimezone(LOCAL).strftime("%-d %b")
+        n = len(r["dropped"])
         names = "".join(f"<li><a href='https://www.instagram.com/{ESC(quote(u))}/' target=_blank rel=noopener>@{ESC(u)}</a></li>"
                         for u in r["dropped"])
-        body = (f"<div class=crow><p>{len(r['dropped'])} since {since}.</p>{up}</div>" + (f"<ul class=drops>{names}</ul>" if names else ""))
-    return f"<section class=card id=dropped><h2>Followers who dropped</h2>{body}</section>"
+        lst = f" <a href='#' class=lnk onclick='event.preventDefault();document.getElementById(\"droplist\").showModal()'>See the list</a>" if n else ""
+        dlg = (f"<dialog class=dlg id=droplist><div class=row><h2>{n} followers dropped since {since}</h2>"
+               f"<button class=x onclick='this.closest(\"dialog\").close()' aria-label='Close'>{icon('x', 16)}</button></div>"
+               f"<ul class=drops>{names}</ul></dialog>") if n else ""   # outside the <p>: a dialog cannot sit in one
+        body = (f"<div class=crow><p><b class=dnum>{n}</b> {'follower' if n == 1 else 'followers'} dropped since {since}.{lst}</p>{up}</div>{dlg}")
+    at = parse(r["at"]).astimezone(LOCAL).strftime("%-d %b, %H:%M") if r["at"] else ""
+    last = f"<p class=hint>Last export {at} · {num(r['followers'])} followers.</p>" if at else ""
+    return (f"<section class=card id=dropped><h2>Followers who dropped</h2>{body}{status}{done}{last}"
+            f"<script>{UPLOAD_JS}</script></section>")
 
 
 # ── music ─────────────────────────────────────────────────────────────────────
@@ -1997,12 +2027,18 @@ class Handler(BaseHTTPRequestHandler):
             dst.unlink(missing_ok=True)
             return self._send(400, b"the upload was cut off: try again", "text/plain")
         try:
-            if AU.import_export(name, dst) is None:
-                dst.unlink(missing_ok=True)   # already in
+            sid = AU.import_export(name, dst)
         except (ValueError, OSError, sqlite3.Error) as e:
             dst.unlink(missing_ok=True)
-            return self._send(400, str(e).encode(), "text/plain")
-        return self._send(200, b"ok", "text/plain")
+            return self._send(400, json.dumps({"error": str(e)}).encode(), "application/json")
+        if sid is None:
+            dst.unlink(missing_ok=True)
+            note = "This export was already in: nothing changed."
+        else:
+            r = AU.dropped(name)
+            note = (f"Export read: {num(r['followers'])} followers." if r["snapshots"] < 2 else
+                    f"Export read: {num(r['followers'])} followers, {len(r['dropped'])} dropped.")
+        return self._send(200, json.dumps({"html": dropped_card(name, note)}).encode(), "application/json")
 
     def _upload(self, name: str):
         """Calendar → Add new → Upload: the file is the raw request body (streamed to disk)."""
