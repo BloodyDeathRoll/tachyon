@@ -84,7 +84,7 @@ def _zone():
     try:
         name = os.environ.get("TACHYON_TZ") or os.path.realpath("/etc/localtime").split("/zoneinfo/", 1)[1]
         return ZoneInfo(name)
-    except (IndexError, ValueError, OSError):
+    except (IndexError, KeyError, ValueError, OSError):   # unknown zone → UTC
         return timezone.utc
 
 
@@ -1304,7 +1304,7 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
                          f"<details class=full><summary><div class=cap>{ESC(' '.join(cap.split())) or 'No text yet.'}</div>"
                          f"<span class=more>Read the full text and edit</span></summary>"
                          f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' style='margin-top:12px'>"
-                         f"<textarea name=caption rows=14 aria-label='Post text'>{ESC(cap)}</textarea>"
+                         f"<textarea name=caption rows=14 maxlength=2200 aria-label='Post text'>{ESC(cap)}</textarea>"
                          f"<div class=btns><button class='btn dark small' name=action value=caption>Save text</button></div></form></details></section>")
         elif cap:
             right.append(f"<section class=card><h2>Post text</h2>"
@@ -1998,8 +1998,11 @@ class Handler(BaseHTTPRequestHandler):
                     row_ = db.post(slot)
                     if row_["state"] in CAPTION_LOCKED or row_["published_at"]:
                         return self._send(409, b"too late: it is already publishing or live", "text/plain")
+                    text = form.get("caption", "").replace("\r\n", "\n").strip()
+                    if len(text) > 2200:
+                        return self._send(400, b"Instagram allows 2200 characters at most", "text/plain")
                     (d / "posts" / slot).mkdir(parents=True, exist_ok=True)
-                    (d / "posts" / slot / "caption.txt").write_text(form.get("caption", "").replace("\r\n", "\n").strip() + "\n")
+                    (d / "posts" / slot / "caption.txt").write_text(text + "\n")
                 elif form.get("action") == "revoke":
                     if db.post(slot)["state"] != "NEEDS_APPROVAL":   # a second click is a no-op
                         try:
