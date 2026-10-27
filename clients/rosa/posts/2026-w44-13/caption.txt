@@ -1,9 +1,7 @@
-Put Rosa on your home screen, straight from the browser. rosa.surf, it's free.
-
 Open rosa.surf, add it to your home screen, and it opens like an app. The last forecast stays on your phone, so the car park with no signal isn't a problem.
 
-No store, no account, no price. 3,056 spots, 16 days out.
-
-Waves: NOAA GFS-Wave + ECMWF open data (CC-BY 4.0) · Peak periods: DWD GWAM (CC-BY 4.0) · Weather by Open-Meteo.com (CC-BY 4.0) · Sea temp: NOAA OISST · Tides: EOT20 (CC-BY 4.0)
-
+Free, no account, no price. 3,056 spots, 16 days out.
+.
+.
+.
 #surfforecast #surfapp #dawnpatrol

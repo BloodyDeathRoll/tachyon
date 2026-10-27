@@ -3,7 +3,7 @@ From open ocean to your break in three taps. Start at rosa.surf/charts, link in 
 The swell map shows the swell. The spot map shows the coast it lands on, every break pinned and rated. Tap one and you get the week, hour by hour.
 
 Free, worldwide, 3,056 spots.
-
-Waves: NOAA GFS-Wave + ECMWF open data (CC-BY 4.0) · Peak periods: DWD GWAM (CC-BY 4.0) · Weather by Open-Meteo.com (CC-BY 4.0) · Sea temp: NOAA OISST · Tides: EOT20 (CC-BY 4.0)
-
+.
+.
+.
 #northshore #swellmap #surfforecast
