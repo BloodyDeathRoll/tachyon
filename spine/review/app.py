@@ -595,7 +595,7 @@ details.cust input{border:1px solid #d1d5db;border-radius:9px;padding:10px 12px;
 .maincol .perf{margin-bottom:28px}
 .perfin{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:36px;align-items:start}
 .perf .stats{grid-template-columns:repeat(4,minmax(0,1fr));margin:24px 0 0;padding:0;border-bottom:0}
-.perf .stat{padding:0 14px}.perf .stat:first-child{padding-left:0}
+.perf .stat{padding:0 14px;text-align:center}.perf .stat:first-child{padding-left:0}
 .perf .stat strong{font-size:44px;line-height:1.15}
 .perf .views{margin-top:0}
 .vhd span{display:block;color:var(--ink3);font-size:13.5px}.vhd small{display:block;color:var(--ink3);font-size:12.5px}
