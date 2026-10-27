@@ -479,7 +479,7 @@ body.dnd .addnew{display:none}
 .pl.off{background:#D4D4D4;cursor:default}
 @media (max-width:1400px){.vpage{grid-template-columns:minmax(260px,360px) minmax(0,1fr)}.vpage .c3{grid-column:2}.vpage>.player{grid-row:span 2}}
 .drops{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto}
-#dropped .btn{white-space:nowrap;flex:none}.drops a{font-weight:600}.drops a:hover{text-decoration:underline}
+#dropped .btn{white-space:nowrap}#dropped .dup{margin-top:16px}.drops a{font-weight:600}.drops a:hover{text-decoration:underline}
 .ghost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;box-shadow:0 24px 48px rgba(0,0,0,.35);border-radius:12px;opacity:.95;transition:none}
 .cell[data-slot]{touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .grip{touch-action:none}
@@ -1144,7 +1144,7 @@ def dropped_card(client: str) -> str:
         names = "".join(f"<li><a href='https://www.instagram.com/{ESC(quote(u))}/' target=_blank rel=noopener>@{ESC(u)}</a></li>"
                         for u in r["dropped"])
         body = (f"<p class=hint>{len(r['dropped'])} since {since}.</p>" + (f"<ul class=drops>{names}</ul>" if names else ""))
-    return (f"<section class=card id=dropped><div class=row><h2>Followers who dropped</h2>{up}</div>{body}</section>")
+    return f"<section class=card id=dropped><h2>Followers who dropped</h2><div class=dup>{up}</div>{body}</section>"
 
 
 # ── music ─────────────────────────────────────────────────────────────────────
