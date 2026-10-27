@@ -382,7 +382,7 @@ pre.errlog{background:var(--ground);border-radius:12px;padding:14px 16px;margin:
 .prog i{display:block;height:100%;background:var(--lime);border-radius:6px;animation:pg 1.6s ease-in-out infinite;width:40%}
 @keyframes pg{0%{margin-left:-40%}100%{margin-left:100%}}
 pre{white-space:pre-wrap;font:13px/1.55 ui-monospace,monospace;color:var(--ink2);margin:0}
-.switch{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-top:1px solid var(--rule)}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 0;border-top:1px solid var(--rule)}
 .switch:first-of-type{border-top:0}
 .ovgrid{display:grid;grid-template-columns:minmax(0,2fr) minmax(320px,1fr);gap:28px;align-items:start}
 .side{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;align-items:start}
@@ -475,7 +475,7 @@ body.dnd .addnew{display:none}
 .srch:focus-within{border-color:var(--ink)}
 .art{width:36px;height:36px;border-radius:6px;object-fit:cover;flex:none}
 .pl.off{background:#D4D4D4;cursor:default}
-@media (max-width:1400px){.vpage{grid-template-columns:minmax(260px,360px) minmax(0,1fr)}.vpage .c3{grid-column:2}}
+@media (max-width:1400px){.vpage{grid-template-columns:minmax(260px,360px) minmax(0,1fr)}.vpage .c3{grid-column:2}.vpage>.player{grid-row:span 2}}
 .ghost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;box-shadow:0 24px 48px rgba(0,0,0,.35);border-radius:12px;opacity:.95;transition:none}
 .cell[data-slot]{touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .grip{touch-action:none}
@@ -547,11 +547,12 @@ h2{font-size:20px;line-height:24px}
 .btn.plain{background:none;color:#374151}.btn.plain:hover{background:#f3f4f6}
 .btn:disabled{opacity:.6;cursor:default}
 .seg{background:#efefef;padding:0}
-.seg a{padding:12px 16px;font-size:18px;line-height:22px;font-weight:600;color:#6b6b6b}
-.seg a.on,.segind{background:linear-gradient(#8df0003d,#8df0003d),#fff;color:#487b00}
+.seg a,.filt button{padding:12px 16px;font-weight:600;color:#6b6b6b}
+.seg a.on,.filt button.on,.segind{background:linear-gradient(#8df0003d,#8df0003d),#fff;color:#487b00}
 .seg.sm a{padding:6px 12px;font-size:13.5px;line-height:18px}
 .vpage{grid-template-columns:minmax(280px,480px) minmax(0,808fr) minmax(0,816fr);gap:28px}
 .vpage>.player{padding-right:14px}
+@media (max-width:1800px){.vpage{grid-template-columns:minmax(260px,min(480px,30vw)) minmax(0,1fr)}.vpage .c3{grid-column:2}.vpage>.player{grid-row:span 2}}
 .vpage .stack{gap:28px}
 .fmtseg{margin-bottom:23px}
 .frame{border-radius:14px}
@@ -559,7 +560,7 @@ h2{font-size:20px;line-height:24px}
 .pdiv{border:0;border-top:1px solid #e5e7eb;margin:23px 0}
 .chk.big{padding:0 16px;gap:16px;font-size:16px;line-height:20px;font-weight:500;color:#374151}.chk.big input{width:20px;height:20px}
 .crow{display:flex;gap:14px;align-items:center;margin-top:16px}
-.crow p{flex:1;min-width:0;margin:0;font-size:18px;line-height:27px;color:#333}
+.crow p{flex:1;min-width:0;margin:0;color:#333}
 .crow p.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal}
 details.capedit>summary{list-style:none;cursor:pointer}details.capedit>summary::-webkit-details-marker{display:none}
 details.capedit[open]>summary{display:none}
@@ -1783,11 +1784,11 @@ def render_settings(client: str) -> bytes:
                     f"<button class='btn {'pri' if on else 'sec'}'>{'On' if on else 'Off'}</button></form>")
     stop = g["emergency_stop"]
     rows.append(f"<form class=switch method=post action='/{ESC(quote(client))}/flag'><div><b>Emergency stop</b>"
-                f"<div class=muted style='font-size:14px'>Stops every publish and reply for this project.</div></div>"
+                f"<div class=muted style='font-size:14px'>Stops every publish and reply for this project. "
+                f"Any video can override the two reply switches on its own page (Replies, Custom for this video).</div></div>"
                 f"<input type=hidden name=flag value=emergency_stop><input type=hidden name=value value='{0 if stop else 1}'>"
                 f"<button class='btn {'sec' if stop else 'pri'}'>{'Resume' if stop else 'Stop everything'}</button></form>")
-    body = (header(client, "Settings") + f"<section class=card>{''.join(rows)}"
-            "<p class=hint>Any video can override the two reply switches on its own page (Replies, Custom for this video).</p></section>")
+    body = header(client, "Settings") + f"<section class=card>{''.join(rows)}</section>"
     return shell(client, "settings", body, "Settings")
 
 
