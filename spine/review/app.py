@@ -23,10 +23,11 @@ import os
 import re
 import subprocess
 import sys
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
+from zoneinfo import ZoneInfo
 
 from .. import clients as C
 from .. import formats as F
@@ -78,9 +79,52 @@ def parse(ts: str | None) -> datetime | None:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)   # naive timestamps are UTC
 
 
+def _zone():
+    """The machine's time zone (TACHYON_TZ overrides). Times are stored in UTC and shown in this zone."""
+    try:
+        name = os.environ.get("TACHYON_TZ") or os.path.realpath("/etc/localtime").split("/zoneinfo/", 1)[1]
+        return ZoneInfo(name)
+    except (IndexError, KeyError, ValueError, OSError):   # unknown zone → UTC
+        return timezone.utc
+
+
+LOCAL = _zone()
+
+
+def today_local() -> date:
+    return datetime.now(LOCAL).date()
+
+
+def day_slots(grants: dict, day: date) -> dict[str, str]:
+    """{local "HH:MM": UTC ISO} for the daily slots that fall on this local day."""
+    out = {}
+    for dd in (day - timedelta(days=1), day, day + timedelta(days=1)):
+        for t in SCH._slots(grants):
+            u = datetime.combine(dd, t, tzinfo=timezone.utc)
+            if u.astimezone(LOCAL).date() == day:
+                out[u.astimezone(LOCAL).strftime("%H:%M")] = u.isoformat(timespec="seconds")
+    return dict(sorted(out.items()))
+
+
+def utc_iso(day: date, hm: str) -> str:
+    """A local day + "HH:MM" as the UTC ISO slot key."""
+    dt = datetime.combine(day, time.fromisoformat(hm), tzinfo=LOCAL)
+    return dt.astimezone(timezone.utc).isoformat(timespec="seconds")
+
+
+def _shift(hm: str, to_local: bool) -> str:
+    """A daily slot time between UTC and local, at today's offset."""
+    off = datetime.now(LOCAL).utcoffset() or timedelta(0)
+    t = datetime.combine(date(2000, 1, 2), time.fromisoformat(hm)) + (off if to_local else -off)
+    return t.strftime("%H:%M")
+
+
+CAPTION_LOCKED = ("PUBLISHING", "PUBLISHED", "MEASURING", "ANALYZED", "MANUAL_HANDOFF")
+
+
 def when(ts: str | None) -> str:
     dt = parse(ts)
-    return dt.strftime("%a %-d %b, %H:%M UTC") if dt else ""
+    return dt.astimezone(LOCAL).strftime("%a %-d %b, %H:%M") if dt else ""
 
 
 def ago(ts: str | None) -> str:
@@ -738,10 +782,10 @@ def _next(dt: datetime, g: str) -> datetime:
 
 def view_window(g: str, frm: str | None, to: str | None) -> tuple[str, datetime, datetime]:
     """(granularity, start, end) for the chart. Custom picks hour/day/month from the span."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(LOCAL)
     if g == "custom" and frm and to:
-        a = datetime.fromisoformat(frm).replace(tzinfo=timezone.utc)
-        b = datetime.fromisoformat(to).replace(tzinfo=timezone.utc) + timedelta(days=1)
+        a = datetime.fromisoformat(frm).replace(tzinfo=LOCAL)
+        b = datetime.fromisoformat(to).replace(tzinfo=LOCAL) + timedelta(days=1)
         if b <= a:
             a, b = b - timedelta(days=1), a + timedelta(days=1)
         span = (b - a).days
@@ -764,8 +808,8 @@ def views_series(db: DB, slot: str | None, g: str, start: datetime, end: datetim
     for r in posts:
         if not r["published_at"]:
             continue
-        pts = [(parse(r["published_at"]), 0)]
-        pts += sorted((parse(s["collected_at"]), int(s["metrics"].get("views") or 0))
+        pts = [(parse(r["published_at"]).astimezone(LOCAL), 0)]
+        pts += sorted((parse(s["collected_at"]).astimezone(LOCAL), int(s["metrics"].get("views") or 0))
                       for s in db.snapshots(r["slot_id"]) if s["source"] == "ig_media")
         for (t0, v0), (t1, v1) in zip(pts, pts[1:]):
             if v1 > v0:
@@ -842,7 +886,7 @@ def views_block(client: str, db: DB, slot: str | None, q: dict, base: str) -> st
     total = sum(v for _, v in series)
     seg = "".join(f"<a href='{base}?g={x}#views' class='{'on' if g == x else ''}'>{x.capitalize()}</a>" if x != "custom" else
                   f"<a href='#' data-range class='{'on' if g == x else ''}'>Custom</a>" for x in GRANS)
-    today = datetime.now(timezone.utc).date()
+    today = today_local()
     custom = (f"<div class=rgm hidden><form method=get action='{base}#views' class=rgbox><input type=hidden name=g value=custom>"
               f"<h2>Custom range</h2><label>From<input type=date name=from value='{ESC(q.get('from') or (today - timedelta(days=13)).isoformat())}'></label>"
               f"<label>To<input type=date name=to value='{ESC(q.get('to') or today.isoformat())}'></label>"
@@ -882,7 +926,7 @@ def video_card(client: str, row, tag: tuple[str, str], db: DB) -> str:
 
 
 def schedule_card(client: str) -> str:
-    times = [t.strftime("%H:%M") for t in SCH._slots(C.load_grants(client))]
+    times = sorted(_shift(t.strftime("%H:%M"), True) for t in SCH._slots(C.load_grants(client)))
     base = f"/{ESC(quote(client))}/schedule"
     n = len(times)
     rows = "".join(
@@ -891,7 +935,7 @@ def schedule_card(client: str) -> str:
         for i, t in enumerate(times))
     per = {1: "Once a day", 2: "Twice a day", 3: "Three times a day"}.get(n, f"{n} times a day")
     add = (f"<button class='btn sec small' name=add value=1 {'disabled' if n >= MAX_SLOTS else ''}>{icon('plus', 15)}Add a post</button>")
-    return (f"<section class=card><div class=row><h2>Publishing schedule</h2><span class=muted>UTC</span></div>"
+    return (f"<section class=card><div class=row><h2>Publishing schedule</h2><span class=muted>{ESC(datetime.now(LOCAL).tzname() or "")}</span></div>"
             f"<p class=muted style='margin:4px 0 0;font-size:14px'>{per}, every day.</p>"
             f"<form method=post action='{base}'><div class=times>{rows}</div>"
             f"<div class=btns style='margin-top:0'><button class='btn dark small' name=save value=1>Save</button>{add}</div></form>"
@@ -1255,7 +1299,14 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
 
         # post text: two lines, then a clear way to read it all
         cap = read(sdir / "caption.txt").strip()
-        if cap:
+        if row["state"] not in CAPTION_LOCKED and not row["published_at"]:   # editable until it goes out
+            right.append(f"<section class=card><h2>Post text</h2>"
+                         f"<details class=full><summary><div class=cap>{ESC(' '.join(cap.split())) or 'No text yet.'}</div>"
+                         f"<span class=more>Read the full text and edit</span></summary>"
+                         f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' style='margin-top:12px'>"
+                         f"<textarea name=caption rows=14 maxlength=2200 aria-label='Post text'>{ESC(cap)}</textarea>"
+                         f"<div class=btns><button class='btn dark small' name=action value=caption>Save text</button></div></form></details></section>")
+        elif cap:
             right.append(f"<section class=card><h2>Post text</h2>"
                           f"<details class=full><summary><div class=cap>{ESC(' '.join(cap.split()))}</div><span class=more>Read the full text</span></summary>"
                           f"<div class=capfull>{ESC(cap)}</div></details></section>")
@@ -1338,6 +1389,7 @@ def _cal_items(client: str, db: DB, first, last) -> dict:
     for row in db.posts():
         tag = tag_for(client, row)
         ts = parse(row["published_at"] or row["scheduled_at"] or preview.get(row["slot_id"]))
+        ts = ts and ts.astimezone(LOCAL)
         if tag and ts and first <= ts.date() <= last:
             out.setdefault((ts.date().isoformat(), ts.strftime("%H:%M")), []).append((row, tag))
     return out
@@ -1363,7 +1415,7 @@ def _cell(client: str, row, tag, past: bool, hl: str | None, mini: bool = False,
 
 def _cal_head(client: str, view: str, title: str, prev: str, today_q: str, nxt: str, label: str = "Today") -> str:
     base = f"/{quote(client)}/calendar"
-    t = datetime.now(timezone.utc).date()
+    t = today_local()
     y, w, _ = t.isocalendar()
     seg = (f"<div class=seg><a href='{base}?w={y}-W{w:02d}' class='{'on' if view == 'week' else ''}'>Week</a>"
            f"<a href='{base}?view=month&m={t:%Y-%m}' class='{'on' if view == 'month' else ''}'>Month</a></div>")
@@ -1379,14 +1431,14 @@ def _cal_head(client: str, view: str, title: str, prev: str, today_q: str, nxt: 
 
 
 def render_month(client: str, month: str | None, hl: str | None = None) -> bytes:
-    today = datetime.now(timezone.utc).date()
+    today = today_local()
     first = (datetime.strptime(month, "%Y-%m").date() if month else today.replace(day=1))
     nxt_m = (first.replace(day=28) + timedelta(days=4)).replace(day=1)
     prv_m = (first - timedelta(days=1)).replace(day=1)
     start = first - timedelta(days=first.weekday())
     end = nxt_m - timedelta(days=1)
     end = end + timedelta(days=6 - end.weekday())
-    times = [t.strftime("%H:%M") for t in SCH._slots(C.load_grants(client))]
+    grants = C.load_grants(client)
     d = C.client_dir(client)
     db = DB.for_client(d)
     try:
@@ -1395,16 +1447,16 @@ def render_month(client: str, month: str | None, hl: str | None = None) -> bytes
         g = ["<div class=month>"] + [f"<div class=mh>{x}</div>" for x in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")]
         day = start
         while day <= end:
+            times = day_slots(grants, day)
             hms = sorted(set(times) | {hm for (dd, hm) in items if dd == day.isoformat()})
             cells = []
             for hm in hms:
-                slot_dt = datetime.combine(day, datetime.strptime(hm, "%H:%M").time(), tzinfo=timezone.utc)
-                past = slot_dt < now_ + SCH.LEAD
+                iso_ = utc_iso(day, hm)
+                past = parse(iso_) < now_ + SCH.LEAD
                 got = items.get((day.isoformat(), hm))
                 if got:
                     cells.append(_cell(client, got[0][0], got[0][1], past, hl, mini=True, hm=hm))
                 elif not past:
-                    iso_ = slot_dt.isoformat(timespec='seconds')
                     add_ = f" data-add='{iso_}'" if hm in times else ""
                     cells.append(f"<div class='cell mini open' data-at='{iso_}'{add_} title='Open slot {hm}'>{hm}</div>")
             out = " out" if day.month != first.month else ""
@@ -1483,7 +1535,7 @@ def add_new_box(client: str) -> str:
 ADD_JS = """(()=>{const m=document.getElementById('addnew');if(!m)return;const up=document.getElementById('addup'),gen=document.getElementById('addgen'),
 prog=document.getElementById('addprog');let at='';
 const open=a=>{at=a;gen.at.value=a;const d=new Date(a);document.getElementById('addat').textContent=d.toLocaleString(undefined,
-{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'UTC'})+' UTC';prog.textContent='';m.hidden=false;};
+{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});prog.textContent='';m.hidden=false;};
 document.addEventListener('click',e=>{const b=e.target.closest('[data-add]');if(b&&!document.body.classList.contains('dnd')){e.preventDefault();open(b.dataset.add);}});
 m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-close]'))m.hidden=true;});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')m.hidden=true;});
@@ -1505,12 +1557,14 @@ def preview_slot(client: str, db: DB, slot: str) -> str | None:
 
 
 def render_calendar(client: str, week: str | None, hl: str | None = None) -> bytes:
-    today = datetime.now(timezone.utc).date()
+    today = today_local()
     if not week:
         y, w, _ = today.isocalendar()
         week = f"{y}-W{w:02d}"
     days = W.week_days(week)
-    times = [t.strftime("%H:%M") for t in SCH._slots(C.load_grants(client))]
+    grants = C.load_grants(client)
+    slots_on = {day: day_slots(grants, day) for day in days}
+    times = set().union(*slots_on.values())
     d = C.client_dir(client)
     db = DB.for_client(d)
     try:
@@ -1520,6 +1574,7 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
         for row in db.posts():
             tag = tag_for(client, row)
             ts = parse(row["published_at"] or row["scheduled_at"] or preview.get(row["slot_id"]))
+            ts = ts and ts.astimezone(LOCAL)
             if not tag or not ts or not (days[0] <= ts.date() <= days[-1]):
                 continue
             hm = ts.strftime("%H:%M")
@@ -1542,16 +1597,15 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
             g.append(f"<div class=th>{hm}</div>")
             for day in days:
                 items = cells.get((day.isoformat(), hm)) or []
-                slot_dt = datetime.combine(day, datetime.strptime(hm, "%H:%M").time(), tzinfo=timezone.utc)
-                iso = slot_dt.isoformat(timespec="seconds")
-                past = slot_dt < now_ + SCH.LEAD
+                iso = utc_iso(day, hm)
+                past = parse(iso) < now_ + SCH.LEAD
                 if items:
                     g.append(_cell(client, items[0][0], items[0][1], past, hl))
                 else:
                     drop = "" if past else f" data-at='{iso}'"
                     g.append(f"<div class='cell open{' past' if past else ''}'{drop}>"
                              + ("" if past else "<span>Open slot</span>" + (f"<button type=button class=addnew data-add='{iso}'>+ Add new</button>"
-                                                                           if hm in times else ""))
+                                                                           if hm in slots_on[day] else ""))
                              + "</div>")
         g.append("</div>")
         st = W.status(client, week)
@@ -1641,10 +1695,8 @@ def render_settings(client: str) -> bytes:
 def _first_free_on(db: DB, day: str, grants: dict, exclude: str) -> str | None:
     taken = SCH.taken_slots(db, exclude=exclude)
     lim = datetime.now(timezone.utc) + SCH.LEAD
-    for t in SCH._slots(grants):
-        dt = datetime.combine(datetime.fromisoformat(day).date(), t, tzinfo=timezone.utc)
-        iso = dt.isoformat(timespec="seconds")
-        if dt >= lim and iso not in taken:
+    for iso in day_slots(grants, date.fromisoformat(day)).values():
+        if parse(iso) >= lim and iso not in taken:
             return iso
     return None
 
@@ -1837,7 +1889,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(400, b"keep at least one post a day", "text/plain")
                 if len(set(ts)) != len(ts):
                     return self._send(400, b"two posts cannot share a time", "text/plain")
-                C.set_value(name, "slots", sorted(ts))
+                C.set_value(name, "slots", sorted(_shift(t, False) for t in ts))   # shown local, stored UTC
                 return self._redirect(f"/{quote(name)}")
             if parts[1] == "move":
                 db = DB.for_client(d)
@@ -1942,6 +1994,15 @@ class Handler(BaseHTTPRequestHandler):
                           or SCH.slot_for_approval(db, row_, C.load_grants(name)))   # the slot the calendar showed
                     db.set_state(slot, "APPROVED", note=notes or None, scheduled_at=at)
                     R.dismiss(name, slot)
+                elif form.get("action") == "caption":
+                    row_ = db.post(slot)
+                    if row_["state"] in CAPTION_LOCKED or row_["published_at"]:
+                        return self._send(409, b"too late: it is already publishing or live", "text/plain")
+                    text = form.get("caption", "").replace("\r\n", "\n").strip()
+                    if len(text) > 2200:
+                        return self._send(400, b"Instagram allows 2200 characters at most", "text/plain")
+                    (d / "posts" / slot).mkdir(parents=True, exist_ok=True)
+                    (d / "posts" / slot / "caption.txt").write_text(text + "\n")
                 elif form.get("action") == "revoke":
                     if db.post(slot)["state"] != "NEEDS_APPROVAL":   # a second click is a no-op
                         try:
