@@ -125,17 +125,23 @@ def publishing(row) -> bool:
     return row["state"] == "PUBLISHING" or bool(due)
 
 
+def on_slot(client: str, at: str) -> bool:
+    """At one of the daily slots (Auto), or a time picked by hand (Custom time)."""
+    dt = parse(at).astimezone(LOCAL)
+    return at in day_slots(C.load_grants(client), dt.date()).values()
+
+
 def when_tools(client: str, slot: str, row, cal: str, at_: str | None) -> str:
     """Publish now (approved only), Swap slot (the calendar), Custom schedule (any future time)."""
     act = f"/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide"
     now_btn = (f"<form method=post action='{act}' onsubmit=\"return confirm('Publish to Instagram now?')\">"
-               f"<button class='btn pri small' name=action value=publish_now>{icon('ext', 15)}Publish now</button></form>"
+               f"<button class='btn pri' name=action value=publish_now>{icon('ext', 16)}Publish now</button></form>"
                if row["state"] in ("APPROVED", "QUEUED") else "")
-    swap = f"<a class='btn sec small' href='{cal}'>{icon('cal', 15)}Swap slot</a>" if cal else ""
+    swap = f"<a class='btn sec' href='{cal}'>{icon('cal', 16)}Swap slot</a>" if cal else ""
     val = parse(at_).astimezone(LOCAL).strftime("%Y-%m-%dT%H:%M") if at_ else ""
-    custom = (f"<details class=cust><summary class='btn sec small'>{icon('cal', 15)}Custom schedule</summary>"
+    custom = (f"<details class=cust><summary class='btn sec'>{icon('clock', 16)}Custom time</summary>"
               f"<form method=post action='{act}' class=btns><input type=datetime-local name=at value='{val}' required aria-label='Custom time'>"
-              f"<button class='btn dark small' name=action value=custom>Save time</button></form></details>")
+              f"<button class='btn dark' name=action value=custom>Save</button></form></details>")
     return f"<div class='btns whentools'>{now_btn}{swap}{custom}</div>"
 
 
@@ -240,6 +246,9 @@ def icon(name: str, size: int = 18) -> str:
         "plus": '<path d="M5 12h14"/><path d="M12 5v14"/>',
         "x": '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
         "music": '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+        "edit": '<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a1 1 0 0 1 3 3l-9 9a2 2 0 0 1-.85.5l-2.87.84a.5.5 0 0 1-.62-.62l.84-2.87a2 2 0 0 1 .5-.85z"/>',
+        "clock": '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+        "link": '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
         "pause": '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
     }
     return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
@@ -510,6 +519,71 @@ body.dnd .addnew{display:none}
  .foot{display:none}nav{flex-direction:row}main{padding:20px 16px 48px}.vpage{grid-template-columns:1fr}.player{position:static}.vpage .c3{grid-column:auto}.month{gap:3px}.mday{min-height:70px;padding:4px}.mcells{grid-template-columns:1fr}
  .cal{gap:4px}.cal .ct{display:none}.cell .tag{font-size:0;padding:4px}.cell .tag:before{margin:0}
  .stats{grid-template-columns:repeat(2,1fr);row-gap:18px}.stat:nth-child(3){border-left:0;padding-left:0}.grid{grid-template-columns:repeat(2,1fr);gap:12px}.thumb .tt{font-size:15px;left:10px;right:10px;bottom:36px}.thumb .tag{left:10px}}
+/* Figma (Tachyon file, screens / video screen): the source of truth for these components */
+.shell{grid-template-columns:288px minmax(0,1fr)}
+aside{background:#111;padding:0 16px 20px;gap:8px}
+.brand{height:88px;display:flex;align-items:center;padding:0 16px}
+.proj{margin:0}
+.proj summary{height:80px;padding:0 16px;gap:10px;background:#222;border:0;border-radius:10px}
+.proj summary .av{width:36px;height:36px;border-radius:50%;font-size:15px;font-weight:700;color:#1a1a1a}
+.proj b{font-size:14px;font-weight:600}.proj small{font-size:12px;color:#999}
+nav{padding:16px 0;gap:4px}
+nav a{height:48px;padding:0 16px;gap:14px;border-radius:8px;color:#888;font-weight:400;font-size:14px}
+nav a.on{background:#fff;color:#111;font-weight:600}
+.foot{border-top:0;padding:0 4px;font-size:12px;color:#888}.foot .dot{width:10px;height:10px;margin-right:8px}
+main{padding:18px 48px 64px}
+.back{font-size:14px;margin:0 0 34px}
+h1{font-size:32px;line-height:39px;font-weight:700}
+.hno{font-size:18px;font-weight:400;color:#999;margin-left:14px}
+.sub{margin:8px 0 30px;font-size:14px;color:#888}
+.sub .tag.sched{background:#e8f5e9;color:#2e7d32;font-weight:500;padding:4px 10px;margin-right:6px}.sub .tag.sched:before{background:#2e7d32;width:8px;height:8px}
+.card{border-radius:18px;border-color:#e5e7eb;padding:36px 30px}
+h2{font-size:20px;line-height:24px}
+#music h2{font-size:24px;line-height:29px}
+.btn,.btn.small{display:inline-flex;align-items:center;justify-content:center;gap:10px;border:1px solid transparent;border-radius:9px;
+  padding:11px 15px;font-size:16px;line-height:20px;font-weight:500;box-shadow:none}
+.btn.sec{background:#fff;color:#374151;border-color:#d1d5db;box-shadow:none}.btn.sec:hover{border-color:#9ca3af;box-shadow:none}
+.btn.pri{background:var(--lime);color:#111827;font-weight:700}
+.btn.plain{background:none;color:#374151}.btn.plain:hover{background:#f3f4f6}
+.btn:disabled{opacity:.6;cursor:default}
+.seg{background:#efefef;padding:0}
+.seg a{padding:12px 16px;font-size:18px;line-height:22px;font-weight:600;color:#6b6b6b}
+.seg a.on,.segind{background:linear-gradient(#8df0003d,#8df0003d),#fff;color:#487b00}
+.seg.sm a{padding:6px 12px;font-size:13.5px;line-height:18px}
+.vpage{grid-template-columns:minmax(280px,480px) minmax(0,808fr) minmax(0,816fr);gap:28px}
+.vpage>.player{padding-right:14px}
+.vpage .stack{gap:28px}
+.fmtseg{margin-bottom:23px}
+.frame{border-radius:14px}
+.pctl{margin-top:23px;justify-content:space-between}
+.pdiv{border:0;border-top:1px solid #e5e7eb;margin:23px 0}
+.chk.big{padding:0 16px;gap:16px;font-size:16px;line-height:20px;font-weight:500;color:#374151}.chk.big input{width:20px;height:20px}
+.crow{display:flex;gap:14px;align-items:center;margin-top:16px}
+.crow p{flex:1;min-width:0;margin:0;font-size:18px;line-height:27px;color:#333}
+.crow p.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal}
+details.capedit>summary{list-style:none;cursor:pointer}details.capedit>summary::-webkit-details-marker{display:none}
+details.capedit[open]>summary{display:none}
+.whencard{padding-bottom:28px}
+.whencard>.row{flex-wrap:wrap;row-gap:16px}
+.whenl{display:flex;flex-direction:column;gap:8px}
+.whenl .wl{font-size:16px;line-height:20px;color:#9ca3af}
+.whenl .big{font-size:24px;line-height:29px;font-weight:700;color:#111827;margin:0}
+.whenl .wm{font-size:16px;line-height:20px;color:#6b7280}
+.whentools{margin:0;gap:14px;align-items:center}
+details.cust{position:relative;flex-basis:auto}details.cust>summary{list-style:none}details.cust>summary::-webkit-details-marker{display:none}
+details.cust form{position:absolute;right:0;top:calc(100% + 8px);z-index:10;background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+  padding:14px;margin:0;box-shadow:0 12px 28px rgba(0,0,0,.12);flex-wrap:nowrap}
+details.cust input{border:1px solid #d1d5db;border-radius:9px;padding:10px 12px;font:inherit}
+.rblock{margin-top:20px;border-top:1px solid #e5e7eb;padding-top:18px}
+.rrow b{font-size:18px;line-height:22px;font-weight:700;color:#111827}.rrow small{display:block;margin-top:8px;font-size:16px;line-height:20px;color:#9ca3af}
+.rblock .rrow:first-child{padding-top:0}
+.links{gap:16px}
+.tracks{gap:8px;margin-top:36px;max-height:440px}
+.trk{height:80px;padding:0 12px;gap:14px;border-radius:18px;border:1px solid #e8e8e8;flex:none}
+.trk.on{background:rgba(141,240,0,.24);border-color:#8df000}
+.trk .tn b{font-size:16px;font-weight:700;color:#111}.trk .tn small{display:block;margin-top:3px;font-size:14px;color:#999}
+.pl{width:36px;height:36px;background:#2d2d2d}
+.inuse{cursor:default}.inuse i{width:10px;height:10px;border-radius:50%;background:var(--green)}
 """
 
 
@@ -1098,19 +1172,19 @@ def music_card(client: str, slot: str, cls: str, src: str = "file", q: str = "")
         on = t["id"] == cur
         prev_src = (t.get("preview") if str(t.get("preview") or "").startswith("http")
                     else f"/{quote(client)}/track/{quote(t['id'])}" if (t.get("preview") or t.get("path")) else None)
-        prev = (f"<button type=button class=pl data-src='{ESC(prev_src)}' aria-label='Play {ESC(t['title'])}'>{icon('play', 14)}</button>"
+        prev = (f"<button type=button class=pl data-src='{ESC(prev_src)}' aria-label='Play {ESC(t['title'])}'>{icon('play', 16)}</button>"
                 if prev_src else f"<span class='pl off' title='No preview available'>{icon('music', 14)}</span>")
         art = f"<img class=art src='{ESC(t['cover'])}' alt=''>" if t.get("cover") else ""
         who = ESC(t.get("artist") or "")
         mood = f" · {ESC(t['mood'])}" if t.get("mood") else ""
         dur = f" · {int(t['duration']) // 60}:{int(t['duration']) % 60:02d}" if t.get("duration") else ""
-        btn = ("<span class='tag sched' style='font-size:12px'>In use</span>" if on else
-               f"<button class='btn sec small' name=track value='{ESC(t['id'])}'>Use</button>")
+        btn = ("<span class='btn sec inuse'><i></i>In use</span>" if on else
+               f"<button class='btn sec' name=track value='{ESC(t['id'])}'>Use</button>")
         rows.append(f"<div class='trk{' on' if on else ''}'>{prev}{art}<div class=tn><b>{ESC(t['title'])}</b><small>{who}{mood}{dur}</small></div>{btn}</div>")
     if not rows:
         msg = ("Instagram music is not reachable right now: " + ESC(err)) if err else "Nothing found."
         rows.append(f"<p class=muted style='margin:6px 0 0'>{msg}</p>")
-    icons_ = f"<template id=i-play>{icon('play', 14)}</template><template id=i-pause>{icon('pause', 14)}</template>"
+    icons_ = f"<template id=i-play>{icon('play', 16)}</template><template id=i-pause>{icon('pause', 16)}</template>"
     return (f"<section class=card id=music><div class=row><h2>Music</h2>{seg}</div>{search}"
             f"<form method=post action='{base}/track' class=tracks><input type=hidden name=src value='{src}'>{''.join(rows)}</form>"
             f"{icons_}<script>{AUDIO_JS}</script></section>")
@@ -1154,7 +1228,7 @@ def formats_button(client: str, slot: str, have: list[str]) -> str:
            f"of this film (same words, beats and footage, placed for that size), rendered with the reel's sound. "
            f"A few minutes per format. A video with an Instagram track comes out without that music.</p>{err}{boxes}"
            f"<div class=btns><button class='btn pri small'>Generate</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>")
-    return popup(f"<button type=button class='btn sec small' data-open>Generate new version</button>", box)
+    return popup(f"<button type=button class='btn plain' data-open>Generate new version</button>", box)
 
 
 # ── video page ────────────────────────────────────────────────────────────────
@@ -1189,10 +1263,10 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         opts = [("reel", "Reel", base)] + ([("story", "Story", f"{base}?as=story")] if has_story else []) \
             + [(r, F.LABEL[r], f"{base}?as={r}") for r in fmts]
         cur = "story" if is_story else variant if is_fmt else "reel"
-        seg = ("<div class='seg sm fmtseg'>" + "".join(f"<a href='{h}' class='{'on' if k == cur else ''}'>{lab}</a>" for k, lab, h in opts)
+        seg = ("<div class='seg fmtseg'>" + "".join(f"<a href='{h}' class='{'on' if k == cur else ''}'>{lab}</a>" for k, lab, h in opts)
                + "</div>") if len(opts) > 1 else ""
         what = "story" if is_story else F.LABEL[variant] if is_fmt else "reel"
-        dls = (f"<a class=dl href='{media_url(client, slot, vfile)}&dl=1' download>{icon('download', 15)}Download {what}</a>"
+        dls = (f"<a class='btn sec' href='{media_url(client, slot, vfile)}&dl=1' download>{icon('download', 16)}Download {what}</a>"
                if (sdir / vfile).exists() else "")
         player = seg + player
         if not is_fmt:
@@ -1200,10 +1274,9 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         m_ = meta_of(client, slot)
         film_src = (m_.get("film") or {}).get("source")
         can_fmt = not (m_.get("upload") and not (film_src and (ROOT / film_src).exists()))   # an upload until its first edit
-        player += (f"<div class=pctl><span>{formats_button(client, slot, fmts) if can_fmt else ''}</span>{dls}"
-                   + ("" if is_fmt else "<label class=chk><input type=checkbox "
-                      "onchange=\"document.getElementById('frame').classList.toggle('showui',this.checked)\">Show what Instagram covers</label>")
-                   + "</div>")
+        player += (f"<div class=pctl><span>{formats_button(client, slot, fmts) if can_fmt else ''}</span>{dls}</div>"
+                   + ("" if is_fmt else "<hr class=pdiv><label class='chk big'><input type=checkbox "
+                      "onchange=\"document.getElementById('frame').classList.toggle('showui',this.checked)\">Show what Instagram covers</label>"))
 
         # status line under the title
         if cls == "live":
@@ -1249,9 +1322,9 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         elif row["state"] in ("APPROVED", "QUEUED"):
             blocks.append(
                 f"<section class=card><h2>Your call</h2>"
-                f"<p class=hint>Approved. Something came up? Take the approval back and keep editing; it stays off Instagram until you approve again.</p>"
-                f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' style='margin-top:16px'>"
-                f"<div class=btns><button class='btn sec' name=action value=revoke>{icon('redo')}Edit</button></div>"
+                f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' class=crow>"
+                f"<p>Approved. Something came up? Take the approval back and keep editing; it stays off Instagram until you approve again.</p>"
+                f"<button class='btn sec' name=action value=revoke>{icon('edit', 16)}Edit</button>"
                 f"</form></section>")
         elif cls == "busy" and label == "In production":
             blocks.append(f"<section class=card><h2>Being made</h2><div class=prog><i></i></div>"
@@ -1273,29 +1346,28 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
             cal = f"/{ESC(quote(client))}/calendar?w={y_}-W{w_:02d}&hl={ESC(quote(slot))}"
         if cls == "live":
             wtxt, wh = "Published", when(at_)
-            act = (f"<a class='btn sec small' href='{ESC(row['permalink'])}' target=_blank rel=noopener>{icon('ext', 15)}Open on Instagram</a>"
+            act = (f"<a class='btn sec' href='{ESC(row['permalink'])}' target=_blank rel=noopener>{icon('ext', 16)}Open on Instagram</a>"
                    if row["permalink"] else "")
         else:
             wtxt = {"sched": "Goes live", "need": "Planned for", "busy": "Planned for"}.get(cls, "Planned for")
             wh = when(at_) if at_ else "No slot yet"
             act = ""
-        sub_ = {"need": "Approving keeps this slot if it is still free.", "sched": "The bio link switches to it automatically."}.get(cls, "")
-        right.append(f"<section class='card whencard'><div class=row><div><span class=muted style='font-size:13.5px'>{wtxt}</span>"
-                     f"<p class=big style='font-size:19px;margin-top:2px'>{ESC(wh)}</p></div>{act}</div>"
-                     + (f"<p class=hint style='margin-top:8px'>{sub_}</p>" if sub_ else "")
-                     + (f"<div class='btns whentools'><button class='btn pri small' disabled>{icon('ext', 15)}Publishing…</button></div>"
-                        if publishing(row) else when_tools(client, slot, row, cal, at_) if cls != "live" and row["state"] in DB.MOVABLE else "")
+        if not act:
+            act = (f"<div class='btns whentools'><button class='btn pri' disabled>{icon('ext', 16)}Publishing…</button></div>"
+                   if publishing(row) else when_tools(client, slot, row, cal, at_) if cls != "live" and row["state"] in DB.MOVABLE else "")
+        mode = "" if cls == "live" or not at_ else "Auto" if on_slot(client, at_) else "Custom"
+        right.append(f"<section class='card whencard'><div class=row><div class=whenl><span class=wl>{wtxt}</span>"
+                     f"<p class=big>{ESC(wh)}</p>{f'<span class=wm>{mode}</span>' if mode else ''}</div>{act}</div>"
                      + replies_card(client, slot) + "</section>")
 
         if row["state"] not in NO_DELETE and (st.get("state") != "running"):
             right_end = delete_card(client, slot, title_of(client, row))
         else:
             right_end = ""
-        if row["state"] in HAND_FROM:
-            right.append(f"<section class=card><h2>Posted it by hand?</h2>"
-                         f"<p class=hint>Used a song only the Instagram app has? Post it there, then link the post here so it gets tracked.</p>"
-                         f"<a class='btn sec small' style='margin-top:12px' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}/byhand'>"
-                         f"{icon('ext', 15)}Link the Instagram post</a></section>")
+        byhand = (f"<section class=card><h2>Posted it by hand?</h2><div class=crow>"
+                  f"<p>Want to use a song only the Instagram app has? Post manually in the app, then link the post here so it gets tracked.</p>"
+                  f"<a class='btn sec' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}/byhand'>{icon('link', 16)}Link</a></div></section>"
+                  if row["state"] in HAND_FROM else "")
 
         # performance
         m, at = media_latest(db, slot)
@@ -1320,23 +1392,27 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         if row["published_at"]:
             blocks.insert(0, perf_card)   # published: performance leads the middle column
 
-        # post text: two lines, then a clear way to read it all
+        # post text: two lines, then Edit (until it goes out) or Read
         cap = read(sdir / "caption.txt").strip()
+        short = ESC(' '.join(cap.split())) or "No text yet."
         if row["state"] not in CAPTION_LOCKED and not row["published_at"]:   # editable until it goes out
             right.append(f"<section class=card><h2>Post text</h2>"
-                         f"<details class=full><summary><div class=cap>{ESC(' '.join(cap.split())) or 'No text yet.'}</div>"
-                         f"<span class=more>Read the full text and edit</span></summary>"
-                         f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' style='margin-top:12px'>"
+                         f"<details class=capedit><summary class=crow><p class=clamp>{short}</p>"
+                         f"<span class='btn sec' title='Read the full text and edit'>{icon('edit', 16)}Edit</span></summary>"
+                         f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' style='margin-top:16px'>"
                          f"<textarea name=caption rows=14 maxlength=2200 aria-label='Post text'>{ESC(cap)}</textarea>"
-                         f"<div class=btns><button class='btn dark small' name=action value=caption>Save text</button></div></form></details></section>")
+                         f"<div class=btns><button class='btn dark' name=action value=caption>Save text</button>"
+                         f"<button type=button class='btn sec' onclick=\"this.closest('details').open=false\">Cancel</button></div></form></details></section>")
         elif cap:
             right.append(f"<section class=card><h2>Post text</h2>"
-                          f"<details class=full><summary><div class=cap>{ESC(' '.join(cap.split()))}</div><span class=more>Read the full text</span></summary>"
-                          f"<div class=capfull>{ESC(cap)}</div></details></section>")
+                         f"<details class=capedit><summary class=crow><p class=clamp>{short}</p>"
+                         f"<span class='btn sec' title='Read the full text'>Read</span></summary>"
+                         f"<div class=capfull>{ESC(cap)}</div></details></section>")
+        right.append(byhand)
 
         links = []
         if (sdir / "qa.md").exists():
-            links.append(f"<a href='/{ESC(quote(client))}/v/{ESC(quote(slot))}/qa'>QA report</a>")
+            links.append(f"<a class='btn plain' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}/qa'>QA report</a>")
         if right_end:
             links.append(right_end)
         if links:
@@ -1533,7 +1609,7 @@ def delete_card(client: str, slot: str, title: str) -> str:
            f"<p class=muted style='margin:0;max-width:380px'>&ldquo;{ESC(title)}&rdquo; leaves the plan, the calendar and the dashboard. "
            f"Its files move to clients/{ESC(client)}/trash, so they can be recovered by hand.</p>"
            f"<div class=btns><button class='btn danger small'>Delete</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>")
-    return popup(f"<button type=button class='btn sec small dangerline' data-open>{icon('x', 15)}Delete video</button>", box)
+    return popup(f"<button type=button class='btn sec' data-open>{icon('x', 16)}Delete video</button>", box)
 
 
 def add_new_box(client: str) -> str:

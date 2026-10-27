@@ -978,7 +978,7 @@ def test_times_show_in_local_zone(monkeypatch):
 
 def test_custom_schedule_and_publish_now(server, client_dir, monkeypatch):
     body = req(server, "GET", "/demo/v/w01-s1")[1]
-    assert "Custom schedule" in body and "Publish now" not in body     # not approved yet
+    assert "Custom time" in body and "Publish now" not in body     # not approved yet
     status, _, _ = req(server, "POST", "/demo/v/w01-s1/decide", {"action": "custom", "at": "2030-05-04T09:17"})
     assert status == 303
     db = DB.for_client(client_dir)
@@ -1003,7 +1003,7 @@ def test_publish_now_turns_into_publishing(server, client_dir):
     db.set_state("w01-s1", "QUEUED")
     db.conn.execute("UPDATE posts SET scheduled_at='2020-01-01T00:00:00+00:00' WHERE slot_id='w01-s1'")   # due: the publisher's next run takes it
     body = req(server, "GET", "/demo/v/w01-s1")[1]
-    assert "Publishing…" in body and "value=publish_now" not in body and "Custom schedule" not in body
+    assert "Publishing…" in body and "value=publish_now" not in body and "Custom time" not in body
     db.set_state("w01-s1", "PUBLISHING")
     body = req(server, "GET", "/demo/v/w01-s1")[1]
     assert "Publishing…" in body and "value=publish_now" not in body
