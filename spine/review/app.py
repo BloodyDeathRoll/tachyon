@@ -119,6 +119,12 @@ def _shift(hm: str, to_local: bool) -> str:
     return t.strftime("%H:%M")
 
 
+def publishing(row) -> bool:
+    """The publisher has it, or will on its next run (queued and due)."""
+    due = row["state"] == "QUEUED" and row["scheduled_at"] and parse(row["scheduled_at"]) <= datetime.now(timezone.utc)
+    return row["state"] == "PUBLISHING" or bool(due)
+
+
 def when_tools(client: str, slot: str, row, cal: str, at_: str | None) -> str:
     """Publish now (approved only), Swap slot (the calendar), Custom schedule (any future time)."""
     act = f"/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide"
@@ -1277,7 +1283,8 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         right.append(f"<section class='card whencard'><div class=row><div><span class=muted style='font-size:13.5px'>{wtxt}</span>"
                      f"<p class=big style='font-size:19px;margin-top:2px'>{ESC(wh)}</p></div>{act}</div>"
                      + (f"<p class=hint style='margin-top:8px'>{sub_}</p>" if sub_ else "")
-                     + (when_tools(client, slot, row, cal, at_) if cls != "live" and row["state"] in DB.MOVABLE else "")
+                     + (f"<div class='btns whentools'><button class='btn pri small' disabled>{icon('ext', 15)}Publishing…</button></div>"
+                        if publishing(row) else when_tools(client, slot, row, cal, at_) if cls != "live" and row["state"] in DB.MOVABLE else "")
                      + replies_card(client, slot) + "</section>")
 
         if row["state"] not in NO_DELETE and (st.get("state") != "running"):
@@ -1340,7 +1347,7 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
                 f"<div class=vpage><div class=player>{player}</div><div class='stack c2'>{''.join(blocks)}</div>"
                 f"<div class='stack c3'>{''.join(right)}</div></div>")
         making = F.status(client, slot).get("state") == "running"
-        return shell(client, "overview", body, title_of(client, row), refresh=15 if cls == "busy" else 5 if making else None)
+        return shell(client, "overview", body, title_of(client, row), refresh=15 if cls == "busy" or publishing(row) else 5 if making else None)
     finally:
         db.close()
 

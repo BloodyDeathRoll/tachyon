@@ -995,3 +995,16 @@ def test_custom_schedule_and_publish_now(server, client_dir, monkeypatch):
     assert app.parse(db.post("w01-s1")["scheduled_at"]) <= datetime.now(timezone.utc)
     assert runs and runs[0][-2:] == ["demo", "w01-s1"] and db.post("w01-s1")["state"] == "QUEUED"
     db.close()
+
+
+def test_publish_now_turns_into_publishing(server, client_dir):
+    db = DB.for_client(client_dir)
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})
+    db.set_state("w01-s1", "QUEUED")
+    db.conn.execute("UPDATE posts SET scheduled_at='2020-01-01T00:00:00+00:00' WHERE slot_id='w01-s1'")   # due: the publisher's next run takes it
+    body = req(server, "GET", "/demo/v/w01-s1")[1]
+    assert "Publishing…" in body and "value=publish_now" not in body and "Custom schedule" not in body
+    db.set_state("w01-s1", "PUBLISHING")
+    body = req(server, "GET", "/demo/v/w01-s1")[1]
+    assert "Publishing…" in body and "value=publish_now" not in body
+    db.close()
