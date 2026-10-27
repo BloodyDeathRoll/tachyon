@@ -19,6 +19,8 @@ Every change is journaled by the caller.
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -28,8 +30,24 @@ class LinkError(RuntimeError):
     pass
 
 
+def _vercel() -> tuple[str, dict]:
+    """The vercel CLI and an env that runs it. Cron's PATH has neither vercel nor node (both live
+    under nvm), so fall back to the newest ~/.nvm node and put its bin first on PATH."""
+    env = dict(os.environ)
+    found = "vercel" if shutil.which("vercel") else None
+    if not found:
+        bins = sorted(Path.home().glob(".nvm/versions/node/*/bin/vercel"),
+                      key=lambda p: [int(x) if x.isdigit() else 0 for x in p.parent.parent.name.lstrip("v").split(".")])
+        if not bins:
+            raise LinkError("vercel CLI not found (PATH or ~/.nvm)")
+        found = str(bins[-1])
+        env["PATH"] = f"{bins[-1].parent}{os.pathsep}{env.get('PATH', '')}"   # its shebang needs node
+    return found, env
+
+
 def _api(path: str, method: str, body: dict | None = None, *, runner=subprocess.run) -> dict:
-    cmd = ["vercel", "api", path, "--method", method]
+    exe, env = _vercel()
+    cmd = [exe, "api", path, "--method", method]
     tmp = None
     if body is not None:
         tmp = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
@@ -37,7 +55,7 @@ def _api(path: str, method: str, body: dict | None = None, *, runner=subprocess.
         tmp.close()
         cmd += ["--input", tmp.name]
     try:
-        r = runner(cmd, capture_output=True, text=True, timeout=60)
+        r = runner(cmd, capture_output=True, text=True, timeout=60, env=env)
     finally:
         if tmp:
             Path(tmp.name).unlink(missing_ok=True)

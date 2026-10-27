@@ -488,3 +488,16 @@ def test_unclear_publish_never_passes_through_failed(client):
         "SELECT intent FROM journal WHERE target=? AND action='post.state'", (SLOT,))]
     db.close()
     assert tos[-2:] == ["PUBLISHING", "MANUAL_HANDOFF"] and "FAILED" not in tos
+
+
+def test_vercel_found_under_nvm_when_cron_path_lacks_it(tmp_path, monkeypatch):
+    from spine.publisher import links
+    for v in ("v9.1.0", "v24.14.0", "v18.2.0"):
+        b = tmp_path / ".nvm" / "versions" / "node" / v / "bin"
+        b.mkdir(parents=True)
+        (b / "vercel").write_text("")
+    monkeypatch.setattr(links.Path, "home", lambda: tmp_path)
+    monkeypatch.setattr(links.shutil, "which", lambda n: None)
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+    exe, env = links._vercel()
+    assert exe.endswith("v24.14.0/bin/vercel") and env["PATH"].startswith(str(tmp_path / ".nvm/versions/node/v24.14.0/bin"))
