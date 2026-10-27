@@ -952,3 +952,25 @@ def test_live_view_no_spike_when_a_video_goes_live(client_dir):
     app._LIVE[("demo", "")] = [(1.0, {"a": 10}), (2.0, {"a": 12, "b": 500}), (time.time(), {"a": 12, "b": 503})]
     d = app.live_views("demo", None)   # last sample is fresh: no Instagram call
     assert [p["v"] for p in d["points"]] == [2, 3] and d["total"] == 515
+
+
+def test_post_text_is_editable_until_it_goes_out(server, client_dir):
+    assert "Save text" in req(server, "GET", "/demo/v/w01-s1")[1]
+    status, _, _ = req(server, "POST", "/demo/v/w01-s1/decide", {"action": "caption", "caption": "new text\r\n\r\nline two "})
+    assert status == 303
+    assert (client_dir / "posts" / "w01-s1" / "caption.txt").read_text() == "new text\n\nline two\n"
+    db = DB.for_client(client_dir)
+    db.conn.execute("UPDATE posts SET published_at='2026-01-01T00:00:00+00:00' WHERE slot_id='w01-s1'")
+    db.conn.commit()
+    db.close()
+    assert "Save text" not in req(server, "GET", "/demo/v/w01-s1")[1]
+    assert req(server, "POST", "/demo/v/w01-s1/decide", {"action": "caption", "caption": "x"})[0] == 409
+
+
+def test_times_show_in_local_zone(monkeypatch):
+    from zoneinfo import ZoneInfo
+    monkeypatch.setattr(app, "LOCAL", ZoneInfo("Asia/Jerusalem"))
+    assert app.when("2026-11-01T18:30:00+00:00") == "Sun 1 Nov, 20:30"
+    assert app.day_slots({"slots": ["06:30", "23:00"]}, datetime(2026, 11, 2).date()) == \
+        {"01:00": "2026-11-01T23:00:00+00:00", "08:30": "2026-11-02T06:30:00+00:00"}
+    assert app.utc_iso(datetime(2026, 11, 2).date(), "08:30") == "2026-11-02T06:30:00+00:00"
