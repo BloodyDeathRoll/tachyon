@@ -1042,7 +1042,10 @@ def test_cut_off_export_upload_is_not_imported(server, client_dir):
     s.sendall(b"POST /demo/audience/upload?name=followers_1.json HTTP/1.1\r\nHost: x\r\n"
               + f"Content-Length: {len(body) + 500}\r\n\r\n".encode() + body)
     s.shutdown(socket.SHUT_WR)   # the client goes away mid-upload
-    reply = s.recv(4096).decode()
+    reply = b""
+    while chunk := s.recv(4096):   # headers and body may arrive apart
+        reply += chunk
+    reply = reply.decode()
     s.close()
     assert " 400 " in reply.split("\r\n")[0] and "cut off" in reply
     assert "Upload your Instagram export" in req(server, "GET", "/demo")[1]
