@@ -479,7 +479,7 @@ body.dnd .addnew{display:none}
 .pl.off{background:#D4D4D4;cursor:default}
 @media (max-width:1400px){.vpage{grid-template-columns:minmax(260px,360px) minmax(0,1fr)}.vpage .c3{grid-column:2}.vpage>.player{grid-row:span 2}}
 .drops{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto}
-#dropped .btn{white-space:nowrap}#dropped .dup{margin-top:16px}.drops a{font-weight:600}.drops a:hover{text-decoration:underline}
+.crow .btn{white-space:nowrap;flex:none}.drops a{font-weight:600}.drops a:hover{text-decoration:underline}
 .ghost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;box-shadow:0 24px 48px rgba(0,0,0,.35);border-radius:12px;opacity:.95;transition:none}
 .cell[data-slot]{touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .grip{touch-action:none}
@@ -1057,20 +1057,19 @@ def week_card(client: str) -> str:
         body += "<div class=prog><i></i></div><p class=hint>Each one lands in Needs approval when it is ready.</p>"
     elif st.get("state") == "done":
         bad = len(st.get("failed") or [])
-        body = (f"<p class=big>{st.get('total', total) - bad} of {st.get('total', total)} videos ready</p>"
-                f"<p class=hint>{'Approve them before Monday.' if not bad else f'{bad} could not be made; see the calendar.'}</p>"
-                f"<a class='btn sec small' href='{base}/calendar?w={wk}'>Open the week</a>")
+        body = (f"<div class=crow><p><b>{st.get('total', total) - bad} of {st.get('total', total)} videos ready.</b> "
+                f"{'Approve them before Monday.' if not bad else f'{bad} could not be made; see the calendar.'}</p>"
+                f"<a class='btn sec' href='{base}/calendar?w={wk}'>Open the week</a></div>")
     else:
         err = f"<div class=note>Last run failed: {ESC(st.get('error') or '')}</div>" if st.get("state") == "failed" else ""
-        body = (f"{err}<p class=muted style='margin:0 0 14px'>{total} videos, one for each slot. Claude plans them, makes them and "
-                f"sends each one here for approval.</p>"
-                + prepare_button(client, wk, "Prepare next week"))
+        body = (f"{err}<div class=crow><p>{total} videos, one for each slot. Claude plans them, makes them and "
+                f"sends each one here for approval.</p>{prepare_button(client, wk, 'Prepare next week')}</div>")
     auto = (f"<form method=post action='{base}/week' class=autorow><input type=hidden name=action value=auto>"
             f"<input type=hidden name=value value='{0 if ws['auto'] else 1}'>"
             f"<span>Prepare automatically every {ESC(ws['day'])}</span>"
             f"<button class='toggle {'on' if ws['auto'] else ''}' aria-pressed={'true' if ws['auto'] else 'false'} aria-label='Prepare automatically'><i></i></button></form>")
     return (f"<section class=card><div class=row><h2>Next week</h2><span class=muted>{span}</span></div>"
-            f"<div style='margin-top:14px'>{body}</div>{auto}</section>")
+            f"<div style='margin-top:16px'>{body}</div>{auto}</section>")
 
 
 def render_overview(client: str, q: dict | None = None) -> bytes:
@@ -1132,19 +1131,19 @@ def dropped_card(client: str) -> str:
     """Followers who dropped between the last two Instagram exports (spine/audience.py)."""
     r = AU.dropped(client)   # the upload imports; files left in clients/<c>/exports/ come in with the daily cron
     up = (f"<label class='btn sec'>{icon('plus', 16)}Upload export<input type=file accept='.zip,.json' hidden "
-          f"onchange=\"const f=this.files[0];if(!f)return;const p=this.closest('.card').querySelector('.hint');p.textContent='Reading…';"
+          f"onchange=\"const f=this.files[0];if(!f)return;const p=this.closest('.card').querySelector('.crow p');p.textContent='Reading…';"
           f"fetch('/{ESC(quote(client))}/audience/upload?name='+encodeURIComponent(f.name),{{method:'POST',body:f}})"
           f".then(async r=>r.ok?location.reload():p.textContent=await r.text())\"></label>")
     if r["snapshots"] < 2:
         msg = ("Upload your Instagram export (JSON, Followers and following) to start." if not r["snapshots"] else
                f"First list saved: {num(r['followers'])} followers. Upload the next export to see who dropped.")
-        body = f"<p class=hint>{msg}</p>"
+        body = f"<div class=crow><p>{msg}</p>{up}</div>"
     else:
         since = parse(r["since"]).astimezone(LOCAL).strftime("%-d %b")
         names = "".join(f"<li><a href='https://www.instagram.com/{ESC(quote(u))}/' target=_blank rel=noopener>@{ESC(u)}</a></li>"
                         for u in r["dropped"])
-        body = (f"<p class=hint>{len(r['dropped'])} since {since}.</p>" + (f"<ul class=drops>{names}</ul>" if names else ""))
-    return f"<section class=card id=dropped><h2>Followers who dropped</h2><div class=dup>{up}</div>{body}</section>"
+        body = (f"<div class=crow><p>{len(r['dropped'])} since {since}.</p>{up}</div>" + (f"<ul class=drops>{names}</ul>" if names else ""))
+    return f"<section class=card id=dropped><h2>Followers who dropped</h2>{body}</section>"
 
 
 # ── music ─────────────────────────────────────────────────────────────────────
