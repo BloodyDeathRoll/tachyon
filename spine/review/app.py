@@ -29,6 +29,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 from zoneinfo import ZoneInfo
 
+from .. import audience as AU
 from .. import clients as C
 from .. import formats as F
 from .. import manual as M
@@ -476,6 +477,8 @@ body.dnd .addnew{display:none}
 .art{width:36px;height:36px;border-radius:6px;object-fit:cover;flex:none}
 .pl.off{background:#D4D4D4;cursor:default}
 @media (max-width:1400px){.vpage{grid-template-columns:minmax(260px,360px) minmax(0,1fr)}.vpage .c3{grid-column:2}.vpage>.player{grid-row:span 2}}
+.drops{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto}
+#dropped .btn{white-space:nowrap;flex:none}.drops a{font-weight:600}.drops a:hover{text-decoration:underline}
 .ghost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;box-shadow:0 24px 48px rgba(0,0,0,.35);border-radius:12px;opacity:.95;transition:none}
 .cell[data-slot]{touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .grip{touch-action:none}
@@ -1118,10 +1121,33 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
                 "let f='all';try{f=localStorage.getItem(K)||'all'}catch(_){}if(!document.querySelector(`.filt [data-f='${f}']`))f='all';set(f);})();</script>")
         body = (header(client, "Overview") +
                 f"<div class=ovgrid><div class=maincol>{vids}</div>"
-                f"<div class=side>{perf}{schedule_card(client)}{week_card(client)}</div></div>")
+                f"<div class=side>{perf}{schedule_card(client)}{week_card(client)}{dropped_card(client)}</div></div>")
         return shell(client, "overview", body, "Overview", refresh=30 if count["busy"] else None)
     finally:
         db.close()
+
+
+def dropped_card(client: str) -> str:
+    """Followers who dropped between the last two Instagram exports (spine/audience.py)."""
+    try:
+        AU.scan(client)   # anything left in clients/<c>/exports/
+    except (ValueError, OSError):
+        pass
+    r = AU.dropped(client)
+    up = (f"<label class='btn sec'>{icon('plus', 16)}Upload export<input type=file accept='.zip,.json' hidden "
+          f"onchange=\"const f=this.files[0];if(!f)return;const p=this.closest('.card').querySelector('.hint');p.textContent='Reading…';"
+          f"fetch('/{ESC(quote(client))}/audience/upload?name='+encodeURIComponent(f.name),{{method:'POST',body:f}})"
+          f".then(async r=>r.ok?location.reload():p.textContent=await r.text())\"></label>")
+    if r["snapshots"] < 2:
+        msg = ("Upload your Instagram export (JSON, Followers and following) to start." if not r["snapshots"] else
+               f"First list saved: {num(r['followers'])} followers. Upload the next export to see who dropped.")
+        body = f"<p class=hint>{msg}</p>"
+    else:
+        since = parse(r["since"]).astimezone(LOCAL).strftime("%-d %b")
+        names = "".join(f"<li><a href='https://www.instagram.com/{ESC(quote(u))}/' target=_blank rel=noopener>@{ESC(u)}</a></li>"
+                        for u in r["dropped"])
+        body = (f"<p class=hint>{len(r['dropped'])} since {since}.</p>" + (f"<ul class=drops>{names}</ul>" if names else ""))
+    return (f"<section class=card id=dropped><div class=row><h2>Followers who dropped</h2>{up}</div>{body}</section>")
 
 
 # ── music ─────────────────────────────────────────────────────────────────────
@@ -1920,6 +1946,34 @@ class Handler(BaseHTTPRequestHandler):
 
     UPLOAD_MAX = 2 * 1024 ** 3
 
+    def _audience(self, name: str):
+        """Overview → Followers who dropped → Upload export: raw body, kept in clients/<c>/exports/."""
+        q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            d = C.client_dir(name)
+        except (ValueError, KeyError):
+            return self._send(400, b"bad request", "text/plain")
+        if not length or length > self.UPLOAD_MAX:
+            return self._send(413 if length else 400, b"empty or too large", "text/plain")
+        ext = ".zip" if (q.get("name") or "").lower().endswith(".zip") else ".json"
+        dst = d / "exports" / f"{datetime.now(timezone.utc):%Y%m%dT%H%M%S}{ext}"
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        with dst.open("wb") as f:
+            left = length
+            while left:
+                chunk = self.rfile.read(min(1 << 20, left))
+                if not chunk:
+                    break
+                f.write(chunk)
+                left -= len(chunk)
+        try:
+            AU.import_export(name, dst)
+        except (ValueError, OSError, json.JSONDecodeError) as e:
+            dst.unlink(missing_ok=True)
+            return self._send(400, str(e).encode(), "text/plain")
+        return self._send(200, b"ok", "text/plain")
+
     def _upload(self, name: str):
         """Calendar → Add new → Upload: the file is the raw request body (streamed to disk)."""
         import tempfile
@@ -1963,6 +2017,8 @@ class Handler(BaseHTTPRequestHandler):
         parts = [p for p in urlparse(self.path).path.split("/") if p]
         if len(parts) == 3 and parts[1:] == ["new", "upload"]:
             return self._upload(parts[0])
+        if len(parts) == 3 and parts[1:] == ["audience", "upload"]:
+            return self._audience(parts[0])
         length = int(self.headers.get("Content-Length") or 0)
         self._multi = parse_qs(self.rfile.read(length).decode(), keep_blank_values=True)
         form = {k: v[0] for k, v in self._multi.items()}

@@ -89,6 +89,20 @@ CREATE TABLE IF NOT EXISTS costs (
   unit       TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS follower_snapshots (   -- one Instagram data export (spine/audience.py)
+  id          INTEGER PRIMARY KEY,
+  taken_at    TEXT NOT NULL,
+  file_sha    TEXT NOT NULL UNIQUE,
+  source      TEXT,
+  n_followers INTEGER NOT NULL,
+  n_following INTEGER
+);
+CREATE TABLE IF NOT EXISTS follower_members (
+  snapshot_id INTEGER NOT NULL REFERENCES follower_snapshots(id) ON DELETE CASCADE,
+  kind        TEXT NOT NULL,        -- follower | following
+  username    TEXT NOT NULL,
+  PRIMARY KEY (snapshot_id, kind, username)
+);
 CREATE TABLE IF NOT EXISTS journal (
   id      INTEGER PRIMARY KEY,
   ts      TEXT NOT NULL,

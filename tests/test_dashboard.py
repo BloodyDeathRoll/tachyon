@@ -1008,3 +1008,23 @@ def test_publish_now_turns_into_publishing(server, client_dir):
     body = req(server, "GET", "/demo/v/w01-s1")[1]
     assert "Publishing…" in body and "value=publish_now" not in body
     db.close()
+
+
+def test_followers_who_dropped_from_two_uploaded_exports(server, client_dir, tmp_path):
+    from tests.test_audience import export
+
+    def up(path):
+        c = http.client.HTTPConnection("127.0.0.1", server)
+        c.request("POST", "/demo/audience/upload?name=x.zip", body=path.read_bytes())
+        r = c.getresponse()
+        return r.status, r.read().decode()
+
+    assert "Upload your Instagram export" in req(server, "GET", "/demo")[1]
+    assert up(export(tmp_path / "1.zip", ["ann", "bob"]))[0] == 200
+    assert "First list saved: 2 followers" in req(server, "GET", "/demo")[1]
+    assert up(export(tmp_path / "2.zip", ["ann"]))[0] == 200
+    body = req(server, "GET", "/demo")[1]
+    assert "1 since" in body and "@bob" in body and "@ann" not in body
+    bad = tmp_path / "bad.json"
+    bad.write_text("{}")
+    assert up(bad)[0] == 400
