@@ -120,3 +120,13 @@ def test_same_hook_different_caption_does_not_link(client):
     (d / "posts" / "2099-w01-01" / "caption.txt").write_text("Same hook.\n\nPart one.\n")
     out = PK.pickup(name, graph=FakeGraph([reel(5, "Same hook.\n\nPart two.")]), opener=lambda u, timeout: Resp(video))
     assert out[0]["linked"] is False and out[0]["slot_id"] != "2099-w01-01"
+
+
+def test_reel_without_a_file_is_still_picked_up(client):
+    # Instagram leaves media_url out for a reel with a licensed song
+    name, _ = client
+    r = {k: v for k, v in reel(6, "With a song. rosa.surf").items() if k != "media_url"}
+    out = PK.pickup(name, graph=FakeGraph([r]), opener=lambda u, timeout: Resp(b"jpg"))
+    sd = C.client_dir(name) / "posts" / out[0]["slot_id"]
+    assert not (sd / "video.mp4").exists() and (sd / "cover.jpg").exists()
+    assert json.loads((sd / "meta.json").read_text())["duration_s"] is None
