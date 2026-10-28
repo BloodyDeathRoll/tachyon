@@ -740,10 +740,23 @@ def media_latest(db: DB, slot: str) -> tuple[dict | None, str | None]:
     return s["metrics"], s["collected_at"]
 
 
+_TRIED: dict[tuple[str, str], datetime] = {}   # (client, slot or "") -> last pull attempt
+
+
+def _due(client: str, key: str, at: str | None) -> bool:
+    """A pull is due when the last snapshot and the last attempt are both older than LIVE_TTL,
+    so a failing Instagram is asked once a minute, not on every render."""
+    now_ = datetime.now(timezone.utc)
+    if (at and now_ - parse(at) < LIVE_TTL) or now_ - _TRIED.get((client, key), datetime.min.replace(tzinfo=timezone.utc)) < LIVE_TTL:
+        return False
+    _TRIED[(client, key)] = now_
+    return True
+
+
 def refresh_account(client: str, db: DB) -> None:
     """Pull the account's 7-day totals and followers if the last pull is older than LIVE_TTL."""
     roll = next((x for x in db.snapshots(None) if x["source"] == "ig_account" and x["window"] == "7d"), None)
-    if roll and datetime.now(timezone.utc) - parse(roll["collected_at"]) < LIVE_TTL:
+    if not _due(client, "", roll and roll["collected_at"]):
         return
     try:
         from ..measure.insights import snapshot_account_7d
@@ -757,7 +770,7 @@ def refresh_live(client: str, db: DB, row) -> None:
     if not row["ig_media_id"] or row["state"] == "REMOVED":
         return
     _, at = media_latest(db, row["slot_id"])
-    if at and datetime.now(timezone.utc) - parse(at) < LIVE_TTL:
+    if not _due(client, row["slot_id"], at):
         return
     try:
         from ..measure.insights import derived, fetch_media
