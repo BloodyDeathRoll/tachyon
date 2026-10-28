@@ -1077,9 +1077,11 @@ def test_look_for_manual_posts_runs_pickup_now(server, monkeypatch):
     assert "Look for manual posts" in body and "formaction='/demo/pickup'" in body
     monkeypatch.setattr(PK, "pickup", lambda c: [{"media": "M1", "slot_id": "s", "linked": False}, {"media": "M2", "error": "x"}])
     status, _, loc = req(server, "POST", "/demo/pickup", {})
-    assert status == 303 and loc == "/demo?picked=1"
-    _, body, _ = req(server, "GET", "/demo?picked=1")
-    assert "1 post added" in body
+    assert status == 303 and loc == "/demo?picked=1-1"
+    _, body, _ = req(server, "GET", "/demo?picked=1-1")
+    assert "1 post found · 1 could not be added" in body
+    _, body, _ = req(server, "GET", "/demo?picked=0-0")
+    assert "Nothing new" in body
     monkeypatch.setattr(PK, "pickup", lambda c: (_ for _ in ()).throw(RuntimeError("no token")))
     assert req(server, "POST", "/demo/pickup", {})[2] == "/demo?picked=err"
     _, body, _ = req(server, "GET", "/demo?picked=err")

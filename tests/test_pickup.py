@@ -94,3 +94,29 @@ def test_failed_download_leaves_nothing_behind(client):
     assert db.posts() == []
     db.close()
     assert list((C.client_dir(name) / "posts").iterdir()) == []
+
+
+def test_reels_older_than_the_oldest_linked_one_are_left_alone(client):
+    name, video = client
+    old = {**reel(1, "made before Tachyon"), "timestamp": "2020-01-01T10:00:00+0000"}
+    assert PK.pickup(name, graph=FakeGraph([old]), opener=lambda u, timeout: Resp(video)) == []
+
+
+def test_at_most_five_imports_per_run(client):
+    name, video = client
+    rows = [{**reel(1, f"r{i}"), "id": f"M{i}", "timestamp": f"2099-01-01T10:{i:02d}:00+0000"} for i in range(6, -1, -1)]   # newest first, as the API
+    opener = lambda url, timeout: Resp(video)  # noqa: E731
+    assert len(PK.pickup(name, graph=FakeGraph(rows), opener=opener)) == 5
+    assert len(PK.pickup(name, graph=FakeGraph(rows), opener=opener)) == 2
+
+
+def test_same_hook_different_caption_does_not_link(client):
+    name, video = client
+    d = C.client_dir(name)
+    db = DB.for_client(d)
+    db.create_post("2099-w01-01", name, scheduled_at="2099-01-03T06:30:00+00:00")
+    db.close()
+    (d / "posts" / "2099-w01-01").mkdir()
+    (d / "posts" / "2099-w01-01" / "caption.txt").write_text("Same hook.\n\nPart one.\n")
+    out = PK.pickup(name, graph=FakeGraph([reel(5, "Same hook.\n\nPart two.")]), opener=lambda u, timeout: Resp(video))
+    assert out[0]["linked"] is False and out[0]["slot_id"] != "2099-w01-01"

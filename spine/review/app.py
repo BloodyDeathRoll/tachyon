@@ -1062,6 +1062,18 @@ def video_card(client: str, row, tag: tuple[str, str], db: DB) -> str:
             f"<h3>{ESC(title_of(client, row))}</h3>{'' if cls == 'need' else f'<p>{ESC(line)}</p>'}</a>")
 
 
+def pick_text(picked: str) -> str:
+    """'<found>-<failed>' from the last "Look for manual posts" → words for the card."""
+    m = re.fullmatch(r"(\d+)-(\d+)", picked)
+    if not m:
+        return "Could not reach Instagram"
+    found, failed = int(m[1]), int(m[2])
+    parts = [("Nothing new" if not failed else "") if not found else ("1 post found" if found == 1 else f"{found} posts found")]
+    if failed:
+        parts.append(f"{failed} could not be added")
+    return " · ".join(p for p in parts if p)
+
+
 def schedule_card(client: str, picked: str | None = None) -> str:
     times = sorted(_shift(t.strftime("%H:%M"), True) for t in SCH._slots(C.load_grants(client)))
     base = f"/{ESC(quote(client))}/schedule"
@@ -1074,7 +1086,7 @@ def schedule_card(client: str, picked: str | None = None) -> str:
     add = (f"<button class='btn sec small' name=add value=1 {'disabled' if n >= MAX_SLOTS else ''}>{icon('plus', 15)}Add a post</button>")
     pick_note = ""
     if picked is not None:   # the result of the last "Look for manual posts"
-        pick_note = f"<p class='muted picknote'>{ESC({'0': 'Nothing new', '1': '1 post added'}.get(picked, f'{picked} posts added' if picked.isdigit() else 'Could not reach Instagram'))}</p>"
+        pick_note = f"<p class='muted picknote'>{ESC(pick_text(picked))}</p>"
     return (f"<section class=card><div class=row><h2>Publishing schedule</h2><span class=muted>{ESC(datetime.now(LOCAL).tzname() or "")}</span></div>"
             f"<p class=muted style='margin:4px 0 0;font-size:14px'>{per}, every day.</p>"
             f"<form method=post action='{base}'><div class=times>{rows}</div>"
@@ -2121,7 +2133,7 @@ class Handler(BaseHTTPRequestHandler):
                 from spine import pickup as PK
                 try:
                     res = PK.pickup(name)
-                    n = str(sum(1 for r in res if "slot_id" in r))
+                    n = f"{sum(1 for r in res if 'slot_id' in r)}-{sum(1 for r in res if 'error' in r)}"
                 except Exception:  # noqa: BLE001 — no token or network: say so on the card
                     n = "err"
                 return self._redirect(f"/{quote(name)}?picked={n}")

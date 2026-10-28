@@ -19,7 +19,7 @@ import shutil
 import subprocess
 import sys
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from . import clients as C
 from .db import DB
@@ -28,10 +28,12 @@ from .publisher.graph import Graph
 
 FIELDS = "id,caption,timestamp,permalink,media_product_type,media_url,thumbnail_url"
 MAX_BYTES = 300 * 1024 * 1024
+PER_RUN = 5                      # new imports per run: the publish lock is held while downloading
+FIRST_LOOK = timedelta(days=7)   # an account with nothing linked yet: only the last week
 
 
 def _key(text: str | None) -> str:
-    return re.sub(r"\s+", " ", (text or "").strip().lower())[:80]
+    return re.sub(r"\s+", " ", (text or "").strip().lower())
 
 
 def _get(url: str, opener=None) -> bytes:
@@ -48,16 +50,20 @@ def _title(caption: str) -> str:
     return " ".join(words[:5])[:40] or "Posted on Instagram"
 
 
-def _new_slot(client: str, r: dict, graph: Graph, opener=None) -> str:
+def _when(ts: str) -> datetime:
+    return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S%z")
+
+
+def _new_slot(client: str, r: dict, opener=None) -> str:
     from . import manual as M
     d = C.client_dir(client)
-    at = datetime.strptime(r["timestamp"], "%Y-%m-%dT%H:%M:%S%z").isoformat(timespec="seconds")
+    at = _when(r["timestamp"]).isoformat(timespec="seconds")
     slot = M.new_slot(client, at)
     sd = d / "posts" / slot
     db = DB.for_client(d)
     try:
-        db.create_post(slot, client, scheduled_at=at, angle=_title(r.get("caption")), engine="instagram")
         try:
+            db.create_post(slot, client, scheduled_at=at, angle=_title(r.get("caption")), engine="instagram")
             (sd / "video.mp4").write_bytes(_get(r["media_url"], opener))
             if r.get("thumbnail_url"):
                 (sd / "cover.jpg").write_bytes(_get(r["thumbnail_url"], opener))
@@ -75,8 +81,15 @@ def _new_slot(client: str, r: dict, graph: Graph, opener=None) -> str:
             db.set_state(slot, "PUBLISHED", ig_media_id=r["id"], permalink=r.get("permalink"), published_at=r["timestamp"])
             db.set_state(slot, "MEASURING")
         except Exception:
-            if db.post(slot)["state"] not in ("PUBLISHED", "MEASURING"):   # nothing half-made stays behind
-                db.delete_post(slot)
+            try:
+                live = db.post(slot)["state"] in ("PUBLISHED", "MEASURING")
+            except KeyError:
+                live = False
+            if not live:   # nothing half-made stays behind
+                try:
+                    db.delete_post(slot)
+                except KeyError:
+                    pass
                 shutil.rmtree(sd, ignore_errors=True)
             raise
     finally:
@@ -85,7 +98,8 @@ def _new_slot(client: str, r: dict, graph: Graph, opener=None) -> str:
 
 
 def pickup(client: str, *, graph: Graph | None = None, opener=None, link_runner=None) -> list[dict]:
-    """Link or import every unlinked recent Reel. Returns what was done, one entry per reel."""
+    """Link or import every unlinked recent Reel posted since the oldest linked one (an account
+    with nothing linked: the last week), at most PER_RUN imports. One entry per reel."""
     g = C.load_grants(client)
     graph = graph or Graph(C.token(client))
     out = []
@@ -97,6 +111,8 @@ def pickup(client: str, *, graph: Graph | None = None, opener=None, link_runner=
         finally:
             db.close()
         linked = {p["ig_media_id"] for p in posts if p["ig_media_id"]}
+        since = min((_when(p["published_at"]) for p in posts if p["ig_media_id"] and p["published_at"]),
+                    default=datetime.now(timezone.utc) - FIRST_LOOK)   # never older reels (made before, or deleted here)
         waiting = {}
         d = C.client_dir(client)
         for p in posts:
@@ -105,15 +121,15 @@ def pickup(client: str, *, graph: Graph | None = None, opener=None, link_runner=
                 if k:
                     waiting.setdefault(k, p["slot_id"])
         for r in reversed(rows):   # oldest first: slot numbers follow posting order
-            if r["id"] in linked or r.get("media_product_type") != "REELS":
+            if r["id"] in linked or r.get("media_product_type") != "REELS" or _when(r["timestamp"]) < since:
                 continue
             try:
                 slot = waiting.pop(_key(r.get("caption")), None)
                 if slot:
                     P.link_by_hand(client, slot, r["id"], graph=graph, link_runner=link_runner)
                     out.append({"media": r["id"], "slot_id": slot, "linked": True})
-                else:
-                    out.append({"media": r["id"], "slot_id": _new_slot(client, r, graph, opener), "linked": False})
+                elif sum(1 for o in out if o.get("linked") is False) < PER_RUN:
+                    out.append({"media": r["id"], "slot_id": _new_slot(client, r, opener), "linked": False})
             except Exception as e:  # noqa: BLE001 — one bad reel must not stop the others
                 out.append({"media": r["id"], "error": str(e)[:300]})
     return out
