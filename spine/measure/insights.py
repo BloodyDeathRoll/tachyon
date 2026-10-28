@@ -160,6 +160,7 @@ def snapshot_account_7d(client: str, *, graph: Graph | None = None, at: datetime
     graph = graph or Graph(C.token(client))
     metrics = graph.account_insights(g["ig_user_id"], ACCOUNT_METRICS,
                                      since=int((at - timedelta(days=7)).timestamp()), until=int(at.timestamp()))
+    metrics["followers_count"] = graph.get(g["ig_user_id"], fields="followers_count").get("followers_count")
     metrics["as_of"] = at.isoformat(timespec="seconds")
     db = DB.for_client(C.client_dir(client))
     try:
