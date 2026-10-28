@@ -72,3 +72,36 @@ def test_set_instagram_track_stores_audio_configuration(client, monkeypatch):
     assert m["audio_configuration"] == {"audio_id": "987", "audio_volume": 100, "video_volume": 1}
     assert T.current_track("demo", "s1") == "ig:987"
     assert any(t["id"] == "ig:987" for t in T.list_tracks("demo"))                       # both sources, cache only
+
+
+def test_apply_bakes_the_picked_instagram_song_into_the_video(client, monkeypatch):
+    import subprocess
+    from spine.publisher import spec_check
+    sd = client / "posts" / "s1"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=black:size=108x192:rate=30:duration=3",
+                    "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-shortest", "-c:v", "libx264", "-c:a", "aac",
+                    str(sd / "video.mp4")], check=True)
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:duration=10",
+                    str(sd / T.IG_PREVIEW)], check=True)
+    (sd / "meta.json").write_text(json.dumps({"track": "ig:987", "track_info": {"preview_of": "ig:987"},
+                                              "audio_configuration": {"audio_id": "987"}}))
+    T.apply("demo", "s1")
+    assert spec_check.max_volume(sd / "video.mp4") > -20
+
+
+def test_ig_song_refetches_a_missing_copy_or_refuses(client, monkeypatch):
+    T.ig_tracks("demo", graph=FakeGraph([ROW]))
+    (client / "posts" / "s1" / "meta.json").write_text(json.dumps({"track": "ig:987", "track_info": {"title": "Sunny Days"}}))
+    got = []
+
+    def fetch(c, s, url):
+        got.append(url)
+        f = client / "posts" / s / T.IG_PREVIEW
+        f.write_bytes(b"abc")
+        return f
+    monkeypatch.setattr(T, "fetch_ig_preview", fetch)
+    assert T.ig_song("demo", "s1").read_bytes() == b"abc" and got == ["https://cdn/x.mp3"]
+    (client / "posts" / "s1" / T.IG_PREVIEW).unlink()
+    monkeypatch.setattr(T, "fetch_ig_preview", lambda c, s, url: None)
+    with pytest.raises(RuntimeError, match="could not download"):
+        T.ig_song("demo", "s1")

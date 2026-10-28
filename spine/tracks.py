@@ -6,8 +6,8 @@
 
 Library: clients/<c>/assets/music/tracks.yaml (id, title, artist, mood, source, file, start,
 lufs, licence, page). "file" tracks are baked into the MP4. "instagram" tracks come from the
-Instagram Audio API (Sound Collection) and are attached at publish via audio_configuration;
-the MP4 then carries only the voice-over (or silence).
+Instagram Audio API (Sound Collection); the song is downloaded and baked into the MP4 like a
+file track (audio_configuration at publish left w44-10 silent on 2026-10-28, so it is not sent).
 
 Mix (apply): video stream copied untouched, music from the track's start point, levelled to
 MUSIC_LUFS, ducked DUCK_DB under the voice-over while it speaks, 1.2 s fade out at the end.
@@ -202,7 +202,7 @@ def _mux(video: Path, track: dict | None, vo: Path | None, vo_start: float, musi
         chains.append(f"[{idx}:a]aresample=48000,aformat=channel_layouts=stereo,adelay={ms}|{ms}[v]")
         mixin.append("[v]")
         idx += 1
-    if not mixin:   # silent video (instagram track, no voice): Instagram adds the audio
+    if not mixin:   # no track and no voice: a silent bed (spec_check refuses to publish it)
         cmd += ["-f", "lavfi", "-t", f"{dur:.3f}", "-i", "anullsrc=r=48000:cl=stereo"]
         chains.append(f"[{idx}:a]anull[m]")
         mixin.append("[m]")
@@ -224,6 +224,9 @@ def apply(client: str, slot: str) -> None:
     track = next((t for t in _library(client) if t["id"] == tid), None)
     if track and track.get("source", "file") != "file":
         track = None
+    if tid and tid.startswith(IG_PREFIX):   # the Instagram song the operator picked, baked in
+        song = ig_song(client, slot)
+        track = {"file": str(song), "start": 0.0, "lufs": _measure(song)[1]}
     vo_meta = m.get("voiceover") or {}
     vo = sd / vo_meta["file"] if vo_meta.get("file") and (sd / vo_meta["file"]).exists() else None
     for f in VIDEOS:
@@ -265,6 +268,26 @@ def fetch_ig_preview(client: str, slot: str, url: str | None, opener=None) -> Pa
     tmp.write_bytes(data)
     tmp.replace(f)
     return f
+
+
+def ig_song(client: str, slot: str) -> Path:
+    """The picked Instagram song as a local file: the copy taken at pick time, else downloaded
+    again (from the cached list, or a search by its title). Raises if it cannot be had: a video
+    never goes out without the song that was picked."""
+    f = ig_preview(client, slot)
+    if f:
+        return f
+    p, m = _meta(client, slot)
+    tid = m.get("track") or ""
+    t = _ig_known(client).get(tid)
+    if not (t and t.get("preview")):
+        title = (m.get("track_info") or {}).get("title")
+        t = next((x for x in (ig_tracks(client, title) if title else []) if x["id"] == tid), None)
+    if not (t and t.get("preview")) or not fetch_ig_preview(client, slot, t["preview"]):
+        raise RuntimeError(f"could not download the Instagram song {tid} for {slot}")
+    m.setdefault("track_info", {})["preview_of"] = tid
+    p.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
+    return C.client_dir(client) / "posts" / slot / IG_PREVIEW
 
 
 def set_track(client: str, slot: str, track_id: str) -> None:

@@ -60,7 +60,7 @@ def snapshot_media(client: str, slot_id: str, window: str, *, graph: Graph | Non
     db = DB.for_client(d)
     try:
         post = db.post(slot_id)
-        if not post["ig_media_id"]:
+        if not post["ig_media_id"] or post["state"] == "REMOVED":
             return None
         if any(s["window"] == window and s["source"] == "ig_media" for s in db.snapshots(slot_id)):
             return None
@@ -107,7 +107,7 @@ def due(client: str, at: datetime | None = None) -> list[tuple[str, str]]:
     try:
         out = []
         for p in db.posts():
-            if not p["ig_media_id"] or not p["published_at"]:
+            if not p["ig_media_id"] or not p["published_at"] or p["state"] == "REMOVED":
                 continue
             pub = datetime.fromisoformat(p["published_at"].replace("Z", "+00:00"))
             have = {s["window"] for s in db.snapshots(p["slot_id"]) if s["source"] == "ig_media"}
@@ -136,7 +136,7 @@ def snapshot_hourly(client: str, *, graph: Graph | None = None, at: datetime | N
     try:
         key = hour_key(at)
         for p in db.posts():
-            if not p["ig_media_id"] or not p["published_at"]:
+            if not p["ig_media_id"] or not p["published_at"] or p["state"] == "REMOVED":
                 continue
             pub = datetime.fromisoformat(p["published_at"].replace("Z", "+00:00"))
             if at - pub > timedelta(days=HOURLY_DAYS):
@@ -176,7 +176,7 @@ def backfill_permalinks(client: str, *, graph: Graph) -> list[str]:
     done = []
     try:
         for p in db.posts():
-            if p["ig_media_id"] and not p["permalink"]:
+            if p["ig_media_id"] and not p["permalink"] and p["state"] != "REMOVED":
                 try:
                     link = graph.media(p["ig_media_id"]).get("permalink")
                 except Exception:  # noqa: BLE001 — try again next run

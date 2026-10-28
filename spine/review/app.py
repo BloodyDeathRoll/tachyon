@@ -57,6 +57,7 @@ TAG = {  # state → (label, css class)
     "NEEDS_INPUT": ("Needs approval", "need"),
     "APPROVED": ("Scheduled", "sched"), "QUEUED": ("Scheduled", "sched"), "PUBLISHING": ("Scheduled", "sched"),
     "PUBLISHED": ("Live", "live"), "MEASURING": ("Live", "live"), "ANALYZED": ("Live", "live"),
+    "REMOVED": ("Removed", "live"),
     "MANUAL_HANDOFF": ("Needs approval", "need"),
     "BRIEFED": ("In production", "busy"), "SCRIPTED": ("In production", "busy"),
     "RENDERED": ("In production", "busy"), "QA": ("In production", "busy"),
@@ -759,7 +760,7 @@ def views_7d(db: DB) -> int | None:
 
 def refresh_live(client: str, db: DB, row) -> None:
     """Pull current numbers for a live video if the last pull is older than LIVE_TTL."""
-    if not row["ig_media_id"]:
+    if not row["ig_media_id"] or row["state"] == "REMOVED":
         return
     _, at = media_latest(db, row["slot_id"])
     if at and datetime.now(timezone.utc) - parse(at) < LIVE_TTL:
@@ -861,7 +862,7 @@ def live_views(client: str, slot: str | None) -> dict:
         if not pts or now_ - pts[-1][0] >= LIVE_EVERY - 1:
             db = DB.for_client(C.client_dir(client))
             try:
-                rows = [db.post(slot)] if slot else [r for r in db.posts() if r["ig_media_id"]]
+                rows = [r for r in ([db.post(slot)] if slot else db.posts()) if r["ig_media_id"] and r["state"] != "REMOVED"]
                 from ..publisher.graph import Graph
                 g = Graph(C.token(client))
                 per = {}
@@ -1425,7 +1426,9 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
             dt_ = parse(at_)
             y_, w_, _ = dt_.isocalendar()
             cal = f"/{ESC(quote(client))}/calendar?w={y_}-W{w_:02d}&hl={ESC(quote(slot))}"
-        if cls == "live":
+        if row["state"] == "REMOVED":
+            wtxt, wh, act = "Removed from Instagram", when(at_), ""
+        elif cls == "live":
             wtxt, wh = "Published", when(at_)
             act = (f"<a class='btn sec' href='{ESC(row['permalink'])}' target=_blank rel=noopener>{icon('ext', 16)}Open on Instagram</a>"
                    if row["permalink"] else "")
@@ -1443,6 +1446,8 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
 
         if row["state"] not in NO_DELETE and (st.get("state") != "running"):
             right_end = delete_card(client, slot, title_of(client, row))
+        elif row["state"] in LIVE and row["ig_media_id"]:
+            right_end = remove_card(client, slot, title_of(client, row))
         else:
             right_end = ""
         byhand = (f"<section class=card><h2>Posted it by hand?</h2><div class=crow>"
@@ -1693,6 +1698,18 @@ def delete_card(client: str, slot: str, title: str) -> str:
            f"Its files move to clients/{ESC(client)}/trash, so they can be recovered by hand.</p>"
            f"<div class=btns><button class='btn danger small'>Delete</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>")
     return popup(f"<button type=button class='btn sec' data-open>{icon('x', 16)}Delete video</button>", box)
+
+
+LIVE = {"PUBLISHED", "MEASURING", "ANALYZED"}
+
+
+def remove_card(client: str, slot: str, title: str) -> str:
+    act = f"/{ESC(quote(client))}/v/{ESC(quote(slot))}/remove"
+    box = (f"<form method=post action='{act}' class=rgbox><h2>Remove from Instagram?</h2>"
+           f"<p class=muted style='margin:0;max-width:380px'>&ldquo;{ESC(title)}&rdquo; is deleted from Instagram for good, "
+           f"with its likes, comments and views. Its numbers so far stay here. This cannot be undone.</p>"
+           f"<div class=btns><button class='btn danger small'>Remove</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>")
+    return popup(f"<button type=button class='btn sec' data-open>{icon('x', 16)}Remove from Instagram</button>", box)
 
 
 def add_new_box(client: str) -> str:
@@ -2180,6 +2197,15 @@ class Handler(BaseHTTPRequestHandler):
                 finally:
                     db.close()
                 F.start(name, parts[2], self._multi.get("r") or [])
+                return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}")
+            if parts[1] == "v" and len(parts) == 4 and parts[3] == "remove":
+                from spine.publisher.publish import PublishError, remove_live
+                try:
+                    remove_live(name, parts[2])
+                except KeyError:
+                    return self._send(404, b"no such video", "text/plain")
+                except PublishError as e:
+                    return self._send(409, str(e).encode(), "text/plain")
                 return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}")
             if parts[1] == "v" and len(parts) == 4 and parts[3] == "delete":
                 try:

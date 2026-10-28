@@ -35,6 +35,7 @@ SPEC = {
     "v_bitrate_max": 25_000_000,
     "dur_min": 10.0, "dur_max": 90.0,
     "size_max": 300 * 1024 * 1024,
+    "silent_db": -50.0,   # loudest peak below this = no sound (w44-10 went out silent at -91 dB)
 }
 
 # byte markers that mean "provenance or generative metadata present"
@@ -73,6 +74,14 @@ def scan_markers(path: Path) -> list[str]:
     return [m.decode("latin1") for m in MARKERS if m in data]
 
 
+def max_volume(path: Path) -> float:
+    """Loudest peak of the audio in dB (-91 = digital silence)."""
+    out = subprocess.run(["ffmpeg", "-nostats", "-i", str(path), "-vn", "-af", "volumedetect", "-f", "null", "-"],
+                         capture_output=True, text=True).stderr
+    m = re.search(r"max_volume: (-?[0-9.]+|-inf) dB", out)
+    return float(m.group(1)) if m and m.group(1) != "-inf" else -91.0
+
+
 def _fps(stream: dict) -> float:
     n, d = stream.get("r_frame_rate", "0/1").split("/")
     return float(n) / float(d) if float(d) else 0.0
@@ -109,6 +118,9 @@ def check_file(path: Path) -> list[str]:
             issues.append(f"audio rate {a.get('sample_rate')}, want 48000")
         if int(a.get("bit_rate", 0) or 0) > SPEC["a_bitrate_max"]:
             issues.append(f"audio bitrate {a.get('bit_rate')}, want ≤128k")
+        peak = max_volume(path)
+        if peak < SPEC["silent_db"]:   # an Instagram track attached at publish is not trusted to play
+            issues.append(f"audio is silent (peak {peak:g} dB): bake the music into the file")
     dur = float(fmt.get("duration", 0))
     if not SPEC["dur_min"] <= dur <= SPEC["dur_max"]:
         issues.append(f"duration {dur:.1f}s, want 10–90s")
