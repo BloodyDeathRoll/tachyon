@@ -72,7 +72,8 @@ vs URL on screen, by sessions per UTM. No link in a comment, ever: Instagram com
   licence needs none); every clip listed in `assets/footage/SOURCES.md`.
 - Small print on screen (operator, 2026-10-25): no text under 34 px at 1080×1920, no small-caps
   labels, no data attribution or footage credit in the video. Only our messages, large and
-  readable. The data attribution line lives in the caption, on every post.
+  readable. No data attribution in the caption either (operator, 2026-10-28): the app credits
+  its sources itself. Caption structure: spine/caption.py.
 - Watermarks, third-party logos, other apps' UI.
 - Numbers not in `product.md`.
 

@@ -24,6 +24,7 @@ from pathlib import Path
 
 import yaml
 
+from . import caption as CAP
 from . import clients as C
 from . import revise as R
 from . import schedule as SCH
@@ -165,12 +166,13 @@ items:
       never a newsreader. Talk like speech: "okay so", "honestly", "dude" at most once; short
       bits, contractions, plain words, no em dashes. Omit the key on the others.>
     caption: |
-      <the full post text in the brand voice>
+      <the full post text in the brand voice, in the caption structure below>
 
 Rules: vary pillars and hooks across the week, no two items alike; numbers only from
 product.md; never "comment for the link" (link in bio, rosa.surf on screen, or a first comment
-without a URL); no competitor names; the caption follows brand.md (data attribution line,
-three hashtags). The videos can only use these assets: app captures
+without a URL); no competitor names.
+{CAP.RULES}
+The videos can only use these assets: app captures
 engines/remotion/public/captures/*.png (dark theme) and engines/remotion/public/captures-light/*.png
 (light theme, same file names), Pixabay footage engines/remotion/public/footage/*.mp4,
 the logo.{instructions_block((status(client, week) or {}).get("instructions"))}
@@ -194,6 +196,7 @@ def plan(client: str, week: str) -> list[dict]:
                 raise ValueError(f"plan item {t} has no {k}")
         if re.search(r"comment\s+\S+\s+(for|to get)", it["caption"], re.I):
             raise ValueError(f"plan item {t} asks people to comment for the link (rule 13)")
+        it["caption"] = CAP.ensure(client, it["caption"])   # the one caption structure, no credits
     return items
 
 
@@ -291,8 +294,8 @@ animations, an end card with the logo and "rosa.surf →", fast and fun pacing. 
 use: staticFile("{cdir}/<name>.png") for the files in engines/remotion/public/{cdir},
 staticFile("footage/<name>.mp4") for engines/remotion/public/footage, staticFile("fonts/rosa-icon.svg").
 Every text and UI element stays inside SAFE[variant]. Only our messages, large: no on-screen text
-under 38 px (lib MIN_TYPE), no small-caps eyebrow labels, no data attribution, no "Footage" credit
-(attribution lives in the caption). Numbers only from clients/{client}/product.md.
+under 38 px (lib MIN_TYPE), no small-caps eyebrow labels, no data attribution, no "Footage" credit.
+Numbers only from clients/{client}/product.md.
 Never "comment for the link". Do not edit any other file. Run `npx tsc --noEmit -p .` in
 engines/remotion until it passes (you may temporarily add nothing to Root; it is registered for
 you afterwards). You may check frames with a scratch entry only if needed. Do not render, do not commit.{instructions_block(_batch_instructions(client, meta))}"""

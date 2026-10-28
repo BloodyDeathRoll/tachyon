@@ -22,6 +22,7 @@ from pathlib import Path
 
 import yaml
 
+from . import caption as CAP
 from . import clients as C
 from . import revise as R
 from . import week as W
@@ -166,7 +167,16 @@ def add_upload(client: str, at: str, src: Path, name: str) -> str:
     except Exception:
         _unclaim(client, slot)   # no files, no row: the slot is free again
         raise
+    write_caption(client, slot)
     return slot
+
+
+def write_caption(client: str, slot: str) -> None:
+    """Background: Claude watches the upload (frames + speech) and writes its caption."""
+    log = (C.client_dir(client) / "posts" / slot / "revise.log").open("a")
+    subprocess.Popen([sys.executable, "-m", "spine.caption", "write", client, slot], cwd=ROOT,
+                     stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    log.close()
 
 
 def add_prompt(client: str, at: str, prompt: str) -> str:
@@ -222,6 +232,7 @@ def produce(client: str, slot: str) -> int:
             for k in ("title", "brief", "hook", "caption"):
                 if not str(it.get(k) or "").strip():
                     raise ValueError(f"the plan has no {k}")
+            it["caption"] = CAP.ensure(client, it["caption"])
             db = DB.for_client(d)
             try:
                 W.write_item(client, db, slot, it, 1, "manual")
