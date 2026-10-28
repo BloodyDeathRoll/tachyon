@@ -49,7 +49,7 @@ ICON = ROOT / "dashboard" / "brand" / "tachyon-icon.svg"
 MAX_SLOTS = 6
 MEDIA_FILES = {"video.mp4", "video-story.mp4", "cover.jpg", "ig-track.m4a",
                "video-1x1.mp4", "video-4x5.mp4", "video-2x3.mp4", "video-16x9.mp4"}
-LIVE_TTL = timedelta(minutes=15)
+LIVE_TTL = timedelta(seconds=60)   # same pace as the Live view (LIVE_EVERY)
 
 # ── tags ──────────────────────────────────────────────────────────────────────
 TAG = {  # state → (label, css class)
@@ -740,23 +740,29 @@ def media_latest(db: DB, slot: str) -> tuple[dict | None, str | None]:
     return s["metrics"], s["collected_at"]
 
 
-def views_7d(db: DB) -> int | None:
-    """Views our videos gained in the last 7 days, from their own counters, so the tile adds up
-    to the video cards (the account-level number lags behind)."""
-    cut = datetime.now(timezone.utc) - timedelta(days=7)
-    total, any_ = 0, False
-    for row in db.posts():
-        if not row["ig_media_id"]:
-            continue
-        snaps = sorted((x for x in db.snapshots(row["slot_id"]) if x["source"] == "ig_media"), key=lambda x: x["collected_at"])
-        if not snaps:
-            continue
-        any_ = True
-        latest = snaps[-1]["metrics"].get("views") or 0
-        before = [x for x in snaps if parse(x["collected_at"]) <= cut]
-        base = (before[-1]["metrics"].get("views") or 0) if before and parse(row["published_at"]) < cut else 0
-        total += max(latest - base, 0)
-    return total if any_ else None
+_TRIED: dict[tuple[str, str], datetime] = {}   # (client, slot or "") -> last pull attempt
+
+
+def _due(client: str, key: str, at: str | None) -> bool:
+    """A pull is due when the last snapshot and the last attempt are both older than LIVE_TTL,
+    so a failing Instagram is asked once a minute, not on every render."""
+    now_ = datetime.now(timezone.utc)
+    if (at and now_ - parse(at) < LIVE_TTL) or now_ - _TRIED.get((client, key), datetime.min.replace(tzinfo=timezone.utc)) < LIVE_TTL:
+        return False
+    _TRIED[(client, key)] = now_
+    return True
+
+
+def refresh_account(client: str, db: DB) -> None:
+    """Pull the account's 7-day totals and followers if the last pull is older than LIVE_TTL."""
+    roll = next((x for x in db.snapshots(None) if x["source"] == "ig_account" and x["window"] == "7d"), None)
+    if not _due(client, "", roll and roll["collected_at"]):
+        return
+    try:
+        from ..measure.insights import snapshot_account_7d
+        snapshot_account_7d(client)
+    except Exception:   # no token, no network: show what we have
+        pass
 
 
 def refresh_live(client: str, db: DB, row) -> None:
@@ -764,7 +770,7 @@ def refresh_live(client: str, db: DB, row) -> None:
     if not row["ig_media_id"] or row["state"] == "REMOVED":
         return
     _, at = media_latest(db, row["slot_id"])
-    if at and datetime.now(timezone.utc) - parse(at) < LIVE_TTL:
+    if not _due(client, row["slot_id"], at):
         return
     try:
         from ..measure.insights import derived, fetch_media
@@ -1134,12 +1140,12 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
         for row in db.posts():
             if TAG.get(row["state"], ("", ""))[1] == "live":
                 refresh_live(client, db, row)
+        refresh_account(client, db)
         days = account_days(db)
         week = days[-7:]
         roll = next((x["metrics"] for x in db.snapshots(None) if x["source"] == "ig_account" and x["window"] == "7d"), None)
         total = lambda k: (roll.get(k) if roll else sum((x.get(k) or 0) for x in week) if week else None)  # noqa: E731
-        vviews = views_7d(db)
-        followers = days[-1].get("followers_count") if days else None
+        followers = (roll or {}).get("followers_count") or (days[-1].get("followers_count") if days else None)
         rows = [(r, tag_for(client, r)) for r in db.posts()]
         rows = [(r, t) for r, t in rows if t]
         key = lambda r: parse(r["published_at"] or r["scheduled_at"] or r["updated_at"]).timestamp()  # noqa: E731
@@ -1151,9 +1157,9 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
         stats = "".join(
             f"<div class=stat><span>{lab}</span><strong>{num(v)}</strong><small>{note}</small></div>"
             for lab, v, note in (
-                ("Views", vviews if vviews is not None else total("views"), "last 7 days"),
+                ("Views", total("views"), "last 7 days"),
                 ("Reached", total("reach"), "last 7 days"),
-                ("Followers", followers, f"as of {datetime.fromisoformat(days[-1]['date']).strftime('%-d %b')}" if days else "no data yet"),
+                ("Followers", followers, "now" if roll and roll.get("followers_count") is not None else f"as of {datetime.fromisoformat(days[-1]['date']).strftime('%-d %b')}" if days else "no data yet"),
                 ("Link taps", total("profile_links_taps"), "last 7 days"),
             ))
         chart = views_block(client, db, None, q or {}, f"/{quote(client)}", W=600, H=170, default="hour")   # the wide column: keep text at its size
