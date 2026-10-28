@@ -191,7 +191,12 @@ def backfill_permalinks(client: str, *, graph: Graph) -> list[str]:
 
 def run(client: str) -> dict:
     graph = Graph(C.token(client))
-    done = {"media": [], "account": None, "hourly": []}
+    done = {"media": [], "account": None, "hourly": [], "pickup": []}
+    try:   # reels posted straight to Instagram join the dashboard (spine/pickup.py)
+        from spine import pickup as PK
+        done["pickup"] = PK.pickup(client, graph=graph)
+    except Exception as e:  # noqa: BLE001 — never stops the measuring
+        done["pickup"] = [{"error": str(e)[:300]}]
     backfill_permalinks(client, graph=graph)
     for slot_id, w in due(client):
         snapshot_media(client, slot_id, w, graph=graph)
