@@ -65,9 +65,8 @@ def _container_params(meta: dict, caption: str) -> dict:
         p["thumb_offset"] = str(int(meta["thumb_offset"]))
     if meta.get("trial"):
         p["trial_params"] = json.dumps({"graduation_strategy": "SS_PERFORMANCE"})
-    audio = meta.get("audio_configuration") or meta.get("audio")   # spine/tracks.py writes audio_configuration
-    if audio:
-        p["audio_configuration"] = json.dumps(audio)
+    # never audio_configuration: the picked Instagram song is baked into the file (spine/tracks.py);
+    # sent at publish, Instagram dropped it and w44-10 went out silent (2026-10-28)
     if meta.get("collaborators"):
         p["collaborators"] = json.dumps(meta["collaborators"])
     if meta.get("location_id"):
@@ -271,6 +270,43 @@ def link_by_hand(client: str, slot_id: str, media_id: str, *, graph: Graph | Non
         return {"slot_id": slot_id, "ig_media_id": media_id, "permalink": info.get("permalink")}
     finally:
         db.close()
+
+
+LIVE = {"PUBLISHED", "MEASURING", "ANALYZED"}
+
+
+def remove_live(client: str, slot_id: str, *, graph: Graph | None = None) -> dict:
+    """Take a live reel down from Instagram (irreversible). Already gone (removed by hand in the
+    app) counts as removed. The slot keeps its numbers and stops being measured."""
+    d = C.client_dir(client)
+    db = DB.for_client(d)
+    try:
+        row = db.post(slot_id)
+        if row["state"] not in LIVE or not row["ig_media_id"]:
+            raise PublishError(f"{slot_id} is {row['state']}, not live")
+        graph = graph or Graph(C.token(client))
+        j = db.journal("meta.media.delete", slot_id, {"media": row["ig_media_id"]})
+        try:
+            out = graph.delete(row["ig_media_id"])
+        except GraphError as e:
+            if not _gone(graph, row["ig_media_id"]):
+                db.journal_outcome(j, {"error": str(e)})
+                raise PublishError(f"Instagram refused: {e}") from e
+            out = {"already_gone": True, "error": str(e)}   # taken down by hand in the app
+        db.journal_outcome(j, out)
+        db.set_state(slot_id, "REMOVED", note="removed from Instagram")
+        return {"slot_id": slot_id, "ig_media_id": row["ig_media_id"], **out}
+    finally:
+        db.close()
+
+
+def _gone(graph: Graph, media_id: str) -> bool:
+    """Meta answers 100/33 ("does not exist") for a reel that was deleted."""
+    try:
+        graph.media(media_id)
+    except GraphError as e:
+        return e.code == 100 and e.subcode == 33
+    return False
 
 
 def _fail(db: DB, slot: Path, slot_id: str, caption: str, first_comment: str, reason: str) -> None:

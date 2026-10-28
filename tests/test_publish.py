@@ -509,3 +509,85 @@ def test_vercel_missing_everywhere_is_a_link_error(tmp_path, monkeypatch):
     monkeypatch.setattr(links.shutil, "which", lambda n: None)
     with pytest.raises(links.LinkError, match="not found"):
         links._vercel()
+
+
+def test_spec_check_refuses_silent_audio(tmp_path):
+    # w44-10 went out silent: the Instagram track sent with audio_configuration never played
+    raw, silent = tmp_path / "raw.mp4", tmp_path / "silent.mp4"
+    make_clip(raw)
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-af", "volume=0", "-c:v", "copy", str(silent)], check=True)
+    assert any("audio is silent" in i for i in spec_check.check_file(silent))
+
+
+def test_publish_refuses_silent_video_and_stays_queued(client, tmp_path):
+    d = C.client_dir(client)
+    v = d / "posts" / SLOT / "video.mp4"
+    tmp = tmp_path / "s.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(v), "-af", "volume=0", "-c:v", "copy", str(tmp)], check=True)
+    shutil.move(tmp, v)
+    g = FakeGraph()
+    with pytest.raises(publish.PublishError, match="silent"):
+        publish.publish_slot(client, SLOT, graph=g, sleep=lambda s: None, link_runner=lambda *a, **k: None)
+    assert g.calls == []
+    db = DB.for_client(d)
+    assert db.post(SLOT)["state"] == "QUEUED"
+    db.close()
+
+
+class DeleteGraph(FakeGraph):
+    def __init__(self, delete_error=None, gone=False):
+        super().__init__()
+        self.delete_error, self.gone = delete_error, gone
+
+    def delete(self, path):
+        self.calls.append(("delete", path))
+        if self.delete_error:
+            raise self.delete_error
+        return {"success": True}
+
+    def media(self, mid, fields=None):
+        if self.gone:
+            raise GraphError(100, 33, "does not exist")
+        return super().media(mid, fields)
+
+
+def _live(client):
+    publish.publish_slot(client, SLOT, graph=FakeGraph(), sleep=lambda s: None, link_runner=lambda *a, **k: None)
+
+
+def test_remove_live_deletes_on_instagram_and_stops_measuring(client):
+    _live(client)
+    g = DeleteGraph()
+    out = publish.remove_live(client, SLOT, graph=g)
+    assert ("delete", "M1") in g.calls and out["success"]
+    db = DB.for_client(C.client_dir(client))
+    assert db.post(SLOT)["state"] == "REMOVED"
+    db.close()
+    assert insights.due(client) == []
+
+
+def test_remove_live_already_removed_by_hand_counts(client):
+    _live(client)
+    publish.remove_live(client, SLOT, graph=DeleteGraph(delete_error=GraphError(100, 33, "does not exist"), gone=True))
+    db = DB.for_client(C.client_dir(client))
+    assert db.post(SLOT)["state"] == "REMOVED"
+    db.close()
+
+
+def test_remove_live_refusal_keeps_it_live(client):
+    _live(client)
+    with pytest.raises(publish.PublishError, match="refused"):
+        publish.remove_live(client, SLOT, graph=DeleteGraph(delete_error=GraphError(10, None, "no permission")))
+    db = DB.for_client(C.client_dir(client))
+    assert db.post(SLOT)["state"] == "MEASURING"
+    db.close()
+
+
+def test_remove_live_refuses_unpublished(client):
+    with pytest.raises(publish.PublishError, match="not live"):
+        publish.remove_live(client, SLOT, graph=DeleteGraph())
+
+
+def test_publish_never_sends_audio_configuration(client):
+    p = publish._container_params({"audio_configuration": {"audio_id": "1"}}, "c")
+    assert "audio_configuration" not in p

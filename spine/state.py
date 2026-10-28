@@ -10,7 +10,7 @@ MAIN = [
     "IDEA", "BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL",
     "APPROVED", "QUEUED", "PUBLISHING", "PUBLISHED", "MEASURING", "ANALYZED",
 ]
-EXCEPTIONS = ["REJECTED", "FAILED", "NEEDS_INPUT", "MANUAL_HANDOFF"]
+EXCEPTIONS = ["REJECTED", "FAILED", "NEEDS_INPUT", "MANUAL_HANDOFF", "REMOVED"]
 STATES = MAIN + EXCEPTIONS
 
 MAX_QA_ROUNDS = 2  # after this, QA sends the slot to NEEDS_INPUT
@@ -26,16 +26,17 @@ TRANSITIONS: dict[str, set[str]] = {
     "APPROVED": {"QUEUED", "REJECTED", "MANUAL_HANDOFF", "NEEDS_APPROVAL"},   # operator revokes to keep editing
     "QUEUED": {"PUBLISHING", "REJECTED", "MANUAL_HANDOFF", "NEEDS_APPROVAL"},   # posted by hand (music only the app has)
     "PUBLISHING": {"PUBLISHED", "FAILED", "MANUAL_HANDOFF"},   # media_publish unclear: maybe live, never retried
-    "PUBLISHED": {"MEASURING"},
-    "MEASURING": {"ANALYZED"},
-    "ANALYZED": set(),
+    "PUBLISHED": {"MEASURING", "REMOVED"},
+    "MEASURING": {"ANALYZED", "REMOVED"},
+    "ANALYZED": {"REMOVED"},   # taken down from Instagram (dashboard or by hand)
     "REJECTED": {"SCRIPTED", "NEEDS_APPROVAL"},   # note goes back to Script / re-render failed: previous cut stands
     "FAILED": {"QUEUED", "MANUAL_HANDOFF"},
     "NEEDS_INPUT": {"SCRIPTED", "REJECTED"},
     "MANUAL_HANDOFF": {"PUBLISHED", "REJECTED"},   # operator posted by hand and entered the id
+    "REMOVED": set(),
 }
 
-TERMINAL = {"ANALYZED"}
+TERMINAL = {"ANALYZED", "REMOVED"}
 WAITING_ON_HUMAN = {"NEEDS_APPROVAL", "NEEDS_INPUT", "MANUAL_HANDOFF"}
 
 

@@ -3,9 +3,8 @@ The ocean data is public. So the forecast is free. rosa.surf, it's free.
 Rosa blends open wave models, open weather and open tide data, and credits every source on every forecast. No paywall, no trial, nothing to unlock later.
 
 Fast and lean too: the whole app loads like a web page, because it is one.
-
-3,056 spots, 16 days out, four updates a day.
-
-Waves: NOAA GFS-Wave + ECMWF open data (CC-BY 4.0) · Peak periods: DWD GWAM (CC-BY 4.0) · Weather by Open-Meteo.com (CC-BY 4.0) · Sea temp: NOAA OISST · Tides: EOT20 (CC-BY 4.0)
-
+3,056 spots, 16 days out, four updates a day. FREE.
+.
+.
+.
 #surfforecast #opendata #surfing

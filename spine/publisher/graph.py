@@ -55,6 +55,9 @@ class Graph:
         params["access_token"] = self.token
         return _request("POST", f"{GRAPH}/{path}", urllib.parse.urlencode(params).encode())
 
+    def delete(self, path: str) -> dict:
+        return _request("DELETE", f"{GRAPH}/{path}?{urllib.parse.urlencode({'access_token': self.token})}")
+
     def upload(self, container_id: str, video: bytes) -> dict:
         """Resumable upload of the whole file in one request (files here are < 100 MB)."""
         return _request("POST", f"{RUPLOAD}/{container_id}", video, {
