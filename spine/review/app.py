@@ -1358,7 +1358,10 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         poster = "" if is_fmt else f" poster='{media_url(client, slot, 'cover.jpg')}'"
         player = (f"<div class=frame id=frame><video controls playsinline preload=metadata{poster} style='aspect-ratio:{ar}' "
                   f"src='{media_url(client, slot, vfile)}'></video>{'' if is_fmt else ui}</div>") if (sdir / vfile).exists() else \
-            "<div class=empty>No video file yet.</div>"
+            (f"<div class=frame id=frame><img src='{media_url(client, slot, 'cover.jpg')}' alt='' style='aspect-ratio:9/16;width:100%;object-fit:cover;display:block'>"
+             f"<p class=muted style='margin:8px 0 0;font-size:13px'>Instagram does not share this reel's file (licensed song): cover only.</p></div>"
+             if not is_fmt and (sdir / "cover.jpg").exists() and meta_of(client, slot).get("source") == "instagram" else
+             "<div class=empty>No video file yet.</div>")
         base = f"/{quote(client)}/v/{quote(slot)}"
         opts = [("reel", "Reel", base)] + ([("story", "Story", f"{base}?as=story")] if has_story else []) \
             + [(r, F.LABEL[r], f"{base}?as={r}") for r in fmts]

@@ -45,9 +45,14 @@ def _get(url: str, opener=None) -> bytes:
 
 
 def _title(caption: str) -> str:
-    first = (caption or "").strip().split("\n")[0]
-    words = re.sub(r"[^\w\s',?!.-]", "", first).split()
-    return " ".join(words[:5])[:40] or "Posted on Instagram"
+    """The caption's first sentence when it is short, else its first words (quotes kept whole)."""
+    first = (caption or "").strip().split("\n")[0].strip()
+    sentence = re.split(r"(?<=[.?!])\s", first)[0].rstrip(".")
+    if 0 < len(sentence) <= 64:
+        return sentence
+    words = first.split()[:6]
+    out = " ".join(words)
+    return (out.replace('"', "") if out.count('"') % 2 else out)[:64] or "Posted on Instagram"
 
 
 def _when(ts: str) -> datetime:
@@ -64,13 +69,15 @@ def _new_slot(client: str, r: dict, opener=None) -> str:
     try:
         try:
             db.create_post(slot, client, scheduled_at=at, angle=_title(r.get("caption")), engine="instagram")
-            (sd / "video.mp4").write_bytes(_get(r["media_url"], opener))
+            dur = ""
+            if r.get("media_url"):   # Instagram gives no file for a reel with a licensed song
+                (sd / "video.mp4").write_bytes(_get(r["media_url"], opener))
+                dur = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
+                                      str(sd / "video.mp4")], capture_output=True, text=True).stdout.strip()
             if r.get("thumbnail_url"):
                 (sd / "cover.jpg").write_bytes(_get(r["thumbnail_url"], opener))
             caption = (r.get("caption") or "").strip()
             (sd / "caption.txt").write_text(caption + "\n" if caption else "")
-            dur = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
-                                  str(sd / "video.mp4")], capture_output=True, text=True).stdout.strip()
             meta = {"slot_id": slot, "title": _title(caption), "source": "instagram", "plan": "pickup",
                     "story": False, "permalink": r.get("permalink"),
                     "duration_s": round(float(dur), 2) if dur else None}
