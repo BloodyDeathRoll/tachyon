@@ -357,6 +357,7 @@ h2{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
 textarea{width:100%;min-height:110px;border:1px solid var(--rule);border-radius:12px;padding:14px 16px;resize:vertical;color:var(--ink);background:#fff;font-size:15px}
 textarea:focus,select:focus,.tfield input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px rgba(0,0,0,.06)}
 .btns{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+.pickup{margin-left:auto;white-space:nowrap;font-size:14px}.picknote{margin:8px 0 0;text-align:right;font-size:13px}.linkbtn{background:none;border:0;padding:0;cursor:pointer;color:inherit;font:inherit;font-weight:600}
 .btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:10px;padding:11px 18px;font-weight:600;cursor:pointer;font-size:14.5px}
 .btn.pri{background:var(--lime);color:var(--ink)}.btn.pri:hover{background:var(--lime-h)}
 .btn.danger{background:#d92d20;color:#fff}.btn.danger:hover{background:#b42318}
@@ -1061,7 +1062,7 @@ def video_card(client: str, row, tag: tuple[str, str], db: DB) -> str:
             f"<h3>{ESC(title_of(client, row))}</h3>{'' if cls == 'need' else f'<p>{ESC(line)}</p>'}</a>")
 
 
-def schedule_card(client: str) -> str:
+def schedule_card(client: str, picked: str | None = None) -> str:
     times = sorted(_shift(t.strftime("%H:%M"), True) for t in SCH._slots(C.load_grants(client)))
     base = f"/{ESC(quote(client))}/schedule"
     n = len(times)
@@ -1071,10 +1072,15 @@ def schedule_card(client: str) -> str:
         for i, t in enumerate(times))
     per = {1: "Once a day", 2: "Twice a day", 3: "Three times a day"}.get(n, f"{n} times a day")
     add = (f"<button class='btn sec small' name=add value=1 {'disabled' if n >= MAX_SLOTS else ''}>{icon('plus', 15)}Add a post</button>")
+    pick_note = ""
+    if picked is not None:   # the result of the last "Look for manual posts"
+        pick_note = f"<p class='muted picknote'>{ESC({'0': 'Nothing new', '1': '1 post added'}.get(picked, f'{picked} posts added' if picked.isdigit() else 'Could not reach Instagram'))}</p>"
     return (f"<section class=card><div class=row><h2>Publishing schedule</h2><span class=muted>{ESC(datetime.now(LOCAL).tzname() or "")}</span></div>"
             f"<p class=muted style='margin:4px 0 0;font-size:14px'>{per}, every day.</p>"
             f"<form method=post action='{base}'><div class=times>{rows}</div>"
-            f"<div class=btns style='margin-top:0'><button class='btn dark small' name=save value=1>Save</button>{add}</div></form>"
+            f"<div class=btns style='margin-top:0;align-items:center;flex-wrap:nowrap'><button class='btn dark small' name=save value=1>Save</button>{add}"
+            f"<button class='lnk linkbtn pickup' formaction='/{ESC(quote(client))}/pickup' formnovalidate>"
+            f"Look for manual posts</button></div>{pick_note}</form>"
             "</section>")
 
 
@@ -1158,7 +1164,7 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
                 "let f='all';try{f=localStorage.getItem(K)||'all'}catch(_){}if(!document.querySelector(`.filt [data-f='${f}']`))f='all';set(f);})();</script>")
         body = (header(client, "Overview") +
                 f"<div class=ovgrid><div class=maincol>{perf}{vids}</div>"
-                f"<div class=side>{schedule_card(client)}{week_card(client)}{dropped_card(client)}</div></div>")
+                f"<div class=side>{schedule_card(client, (q or {}).get('picked'))}{week_card(client)}{dropped_card(client)}</div></div>")
         return shell(client, "overview", body, "Overview", refresh=30 if count["busy"] else None)
     finally:
         db.close()
@@ -2111,6 +2117,14 @@ class Handler(BaseHTTPRequestHandler):
             if parts[1] == "flag":
                 C.set_flag(name, form["flag"], form["value"] == "1")
                 return self._redirect(f"/{quote(name)}/settings")
+            if parts[1] == "pickup":   # "Look for manual posts": the hourly pickup, now
+                from spine import pickup as PK
+                try:
+                    res = PK.pickup(name)
+                    n = str(sum(1 for r in res if "slot_id" in r))
+                except Exception:  # noqa: BLE001 — no token or network: say so on the card
+                    n = "err"
+                return self._redirect(f"/{quote(name)}?picked={n}")
             if parts[1] == "schedule":
                 ts = [t for t in self._multi.get("t", []) if t] or \
                     [form[k] for k in sorted((k for k in form if re.fullmatch(r"t\d+", k)), key=lambda k: int(k[1:])) if form[k]]

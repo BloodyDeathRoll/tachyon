@@ -1069,3 +1069,18 @@ def test_overview_views_header_and_scheduled_stopwatch(server, client_dir):
     y, w, _ = app.parse(at).astimezone(app.LOCAL).isocalendar()
     cal = req(server, "GET", f"/demo/calendar?w={y}-W{w:02d}")[1]
     assert "class=stw title='Scheduled'" in cal and "<span class='tag sched'>" not in cal   # calendar cells too
+
+
+def test_look_for_manual_posts_runs_pickup_now(server, monkeypatch):
+    from spine import pickup as PK
+    _, body, _ = req(server, "GET", "/demo")
+    assert "Look for manual posts" in body and "formaction='/demo/pickup'" in body
+    monkeypatch.setattr(PK, "pickup", lambda c: [{"media": "M1", "slot_id": "s", "linked": False}, {"media": "M2", "error": "x"}])
+    status, _, loc = req(server, "POST", "/demo/pickup", {})
+    assert status == 303 and loc == "/demo?picked=1"
+    _, body, _ = req(server, "GET", "/demo?picked=1")
+    assert "1 post added" in body
+    monkeypatch.setattr(PK, "pickup", lambda c: (_ for _ in ()).throw(RuntimeError("no token")))
+    assert req(server, "POST", "/demo/pickup", {})[2] == "/demo?picked=err"
+    _, body, _ = req(server, "GET", "/demo?picked=err")
+    assert "Could not reach Instagram" in body
