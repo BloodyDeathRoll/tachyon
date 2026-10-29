@@ -519,7 +519,7 @@ def test_spec_check_refuses_silent_audio(tmp_path):
     assert any("audio is silent" in i for i in spec_check.check_file(silent))
 
 
-def test_publish_refuses_silent_video_and_stays_queued(client, tmp_path):
+def test_publish_refuses_silent_video_and_sends_it_back_for_approval(client, tmp_path):
     d = C.client_dir(client)
     v = d / "posts" / SLOT / "video.mp4"
     tmp = tmp_path / "s.mp4"
@@ -530,7 +530,8 @@ def test_publish_refuses_silent_video_and_stays_queued(client, tmp_path):
         publish.publish_slot(client, SLOT, graph=g, sleep=lambda s: None, link_runner=lambda *a, **k: None)
     assert g.calls == []
     db = DB.for_client(d)
-    assert db.post(SLOT)["state"] == "QUEUED"
+    assert db.post(SLOT)["state"] == "NEEDS_APPROVAL"   # not left QUEUED past its time (w44-16, 2026-10-29)
+    assert "silent" in db.post(SLOT)["note"]
     db.close()
 
 
