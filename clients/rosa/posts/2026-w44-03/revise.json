@@ -1,18 +1,47 @@
 {
  "state": "done",
  "step": "done",
- "notes": "Add our Rosa particle animation to the empty bottom of the screen",
+ "notes": "Remove \"rosa.surf\", keep \"its free.\"",
  "rounds": [
   {
    "notes": "Add our Rosa particle animation to the empty bottom of the screen",
    "at": "2026-10-26T18:41:04+00:00"
+  },
+  {
+   "notes": "Logic problem with the script - it says no account, and then the VO says it opened its spots - and you need an account for spots. Rethink this",
+   "at": "2026-10-29T05:34:56+00:00"
+  },
+  {
+   "notes": "New idea, replace the concept: \"Everything's free\". Drop every mention of accounts, sign-up and sign-in, on screen and in the voice-over (favorites need an account, so we never claim \"no account\").\nHook card: \"All of it.\" / \"Free.\" (accent on Free.)\nThen the phone, one beat per swipe: search.png \"3,056 spots\" / spot-supertubos.png \"16-day forecast\" / a text-only beat \"Live cams\" (no number of cams, no cam capture) / charts.png \"Swell map\".\nCard: \"Price? Zero.\" with \"No paywall. No trial.\" under it. Keep the particles and the end card as they are.\nVoice-over script, replace it with exactly: \"Three thousand spots. Sixteen days out. Live cams. Swell map. And the price? Zero. Rosa's free.\"\nTime the beats to that line.",
+   "at": "2026-10-29T05:56:59+00:00"
+  },
+  {
+   "notes": "Live cams do not show anything. Place a live clip from pixabay full screen for that section.\r\nWhen the VO ends with \"Rosa's free\", it swallows up the word free - this needs fixing.\r\nEnding: Lets make the text \"rosa.surf, its free.\" a little bigger, full white, and a little closer to the textual logo.\r\n\r\nMake the rosa surf button a little glowing with a white label, and make the \"link in bio\" text white as well",
+   "at": "2026-10-29T06:33:49+00:00"
+  },
+  {
+   "notes": "You got me wrong - full screen for web cams was supposed to be a full screen inside of the phone mockup, not the entire video.\r\nThe closing card looks good - just split rosa.surf & it's free to two lines, and then add some space from the button + link in bio block",
+   "at": "2026-10-29T06:43:26+00:00"
+  },
+  {
+   "notes": "VO needs a tiny break before live cams, just like before any other item on the list",
+   "at": "2026-10-29T06:51:58+00:00"
+  },
+  {
+   "notes": "Remove \"rosa.surf\", keep \"its free.\"",
+   "at": "2026-10-29T07:07:08+00:00"
   }
  ],
  "error": null,
- "updated_at": "2026-10-26T18:43:49+00:00",
- "changes": "I made the change, but it is unchecked. Permission settings blocked `npx tsc --noEmit -p .` and I didn't look at a single frame.\n\n- **Film change:** `engines/remotion/src/films/film-2026-w44-03.tsx` has a new `RosaParticles` layer. It is Rosa's real bottom effect, copied from `~/Projects/rosa/web/src/components/particles.ts` and `BottomGlow.tsx` (dark theme): a blue/green glow with specks drifting up. It covers the band from y 1280 to 1920, below the safe box, sits behind the phone and all text, and runs for the whole film.\n- **Brightness:** I raised it to 0.35 from the app's 0.08 so it shows up on video.\n\nApprove the command (or run `npx tsc --noEmit -p .` in `engines/remotion`) and I'll check a frame next.",
+ "updated_at": "2026-10-29T07:09:22+00:00",
+ "changes": "I removed \"rosa.surf\" from the end-card line and kept \"it's free.\" I couldn't run the type check or render the still to look at it, because both commands need approval in this session.\n\nThe orange end-card button still says \"rosa.surf \u2192\" (`film-2026-w44-03.tsx:134`). I read the note as being about the \"rosa.surf / it's free\" text pair only. Tell me if the button should go too.\n\nThe voice-over script never says \"rosa.surf\", so `meta.json` is unchanged.\n\nChanges:\n- `engines/remotion/src/films/film-2026-w44-03.tsx:132`: the end-card text is now only \"it's free.\"\n- `engines/remotion/src/films/film-2026-w44-03.tsx:11`: updated the header comment to match.",
  "verdicts": {
-  "reel": "VERDICT: PASS (worst band 0.01x; text or UI in a band shows as > 0.6x)",
-  "story": "VERDICT: PASS (worst band 0.01x; text or UI in a band shows as > 0.6x)"
- }
+  "reel": "VERDICT: PASS (worst band 0.02x; text or UI in a band shows as > 0.6x)",
+  "story": "VERDICT: PASS (worst band 0.02x; text or UI in a band shows as > 0.6x)"
+ },
+ "skip_edit": false,
+ "kind": null,
+ "revoice": false,
+ "no_change": false,
+ "vo_before": "Three thousand spots. Sixteen days out... Live cams. Swell map. And the price? Zero. Rosa is free, for real."
 }

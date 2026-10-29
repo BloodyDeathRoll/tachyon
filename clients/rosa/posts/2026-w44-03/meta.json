@@ -1,9 +1,9 @@
 {
   "slot_id": "2026-w44-03",
-  "title": "No account needed",
+  "title": "Everything's free",
   "pillar": "Free, and why",
-  "angle": "Hook on a black card in Inter, fast cut to the phone showing home.png: the Ollie's Point card with its rating, no sign-in screen in sight. Swipe to spot-supertubos.png, then to search.png, each landing on a beat. A card reads \"No paywall. No trial.\" End card: logo, \"rosa.surf, it's free\".",
-  "hook_formula": "No account. No paywall.",
+  "angle": "Hook card \"All of it. Free.\", then the phone, one beat per swipe: search \"3,056 spots\", Supertubos \"16-day forecast\", text-only \"Live cams\" (no count), charts \"Swell map\". Card \"Price? Zero. No paywall. No trial.\" End card: logo, \"rosa.surf, it's free\". No account claims (favorites need sign-in).",
+  "hook_formula": "All of it. Free.",
   "cta": "link in bio (rosa.surf on the end card)",
   "audio_type": "Upbeat Groove (Sub_Clair), file",
   "engine": "remotion 4 (engines/remotion)",
@@ -21,12 +21,12 @@
   "landing": "https://rosa.surf/",
   "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w44-03",
   "plan": "2026-W44",
-  "duration_s": 13.06,
+  "duration_s": 11.05,
   "voiceover": {
-    "script": "No sign-up. No paywall. Nothing! I just open Rosa, my spot's right there, and I'm out the door before my coffee's cold.",
+    "script": "Three thousand spots. Sixteen days out... Live cams. Swell map. And the price? Zero. Rosa is free, for real.",
     "voice": "dia:seed8",
     "speed": 1.08,
-    "start": 0.5,
+    "start": 1.1,
     "file": "vo.wav",
     "engine": "dia-1.6b (Nari Labs, Apache-2.0), local GPU"
   },

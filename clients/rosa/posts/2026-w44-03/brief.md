@@ -1,5 +1,5 @@
-# No account needed
+# Everything's free
 
-Hook: No account. No paywall.
+Hook: All of it. Free.
 
-Hook on a black card in Inter, fast cut to the phone showing home.png: the Ollie's Point card with its rating, no sign-in screen in sight. Swipe to spot-supertubos.png, then to search.png, each landing on a beat. A card reads "No paywall. No trial." End card: logo, "rosa.surf, it's free".
+Hook card "All of it. Free.", then the phone, one beat per swipe: search "3,056 spots", Supertubos "16-day forecast", text-only "Live cams" (no count), charts "Swell map". Card "Price? Zero. No paywall. No trial." End card: logo, "rosa.surf, it's free". No account claims (favorites need sign-in).

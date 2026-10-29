@@ -1,0 +1,15 @@
+revise failed: the film does not typecheck: src/Root.tsx(3,44): error TS2307: Cannot find module './Showreel' or its corresponding type declarations.
+
+revise failed: the film does not typecheck: src/Root.tsx(3,44): error TS2307: Cannot find module './Showreel' or its corresponding type declarations.
+
+revise failed: I made no edits. The fix for this note is already in `film-2026-w44-04.tsx`, but I couldn't confirm it works: every shell command (tsc, stills) needed approval and wasn't run.
+
+- **Already in the file:** lines 25–28, 118–119 and 125–127 cut the menu out of the scrolling page (capture px 777–864) and pin a copy of it to the screen bottom (y 785). I checked those numbers against the capture and they line up with the baked-in menu.
+- **Why the last attempt failed:** `revise.log` shows it stopped at the typecheck because `./Showreel` was missing. `src/Showreel.tsx` exists now, so that error should be gone, but I haven't confirmed it.
+- **Possible leftover:** the pinned menu sits inside the zoom layer, so it grows and shifts with the zoom on the "Best session" tag (about 0:04.3–0:06). If the operator meant that, the fix is to move the menu block (lines 125–127) out of the zoom layer.
+
+To finish, approve these two commands (frame 200 is mid-scroll):
+```
+npx tsc --noEmit -p .
+npx remotion still src/index.ts film-2026-w44-04 /home/shahar/Projects/tachyon/clients/rosa/posts/2026-w44-04/.still.png --frame=200
+```

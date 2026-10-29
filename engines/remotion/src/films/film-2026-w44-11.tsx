@@ -6,7 +6,7 @@ import { C, Credit, Eyebrow, Footage, H1, Phone, SAFE, Screen, Sub, Variant, fon
   Swell filling in, 13 s. Hook "New swell filling in." over Pixabay sunrise footage (310248). The phone
   rises on the Supertubos spot page (captures/spot-supertubos.png) and pushes in on "New swell filling in"
   under Today. Then it pulls back to the day strip: the bars climb from Mon into Tue and Wed and stay
-  dark green. Card: "Get the alert. Clear the morning." End card: logo, rosa.surf →, link in bio, Footage: Pixabay.
+  dark green. Card: "Get the alert. Clear the morning." End card (as W44 · 03): logo, "it's free.", glowing rosa.surf →, link in bio, Footage: Pixabay.
   No numbers on screen outside the capture. Screen coordinates are the capture (1170×2532) scaled to 400 px.
 */
 
@@ -144,13 +144,14 @@ const Film: React.FC<{ variant: Variant }> = ({ variant }) => {
 
       {/* end card */}
       <div style={{ position: "absolute", left: B.x, top: B.y + 120, width: B.w, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 34 }}>
-        <Img src={staticFile("fonts/rosa-icon.svg")} style={{ width: 168, height: 168, opacity: win(t, T.end, T.out + 1, 0.7, 0.01), transform: `scale(${lerp(0.6, 1, outBack(seg(t, T.end, T.end + 0.8)))})` }} />
-        <div style={{ ...font, fontWeight: 800, fontSize: 150, letterSpacing: "-.05em", lineHeight: 1, ...rise(t, T.end + 0.15, T.out + 1) }}>rosa<span style={{ color: C.acc }}>.</span></div>
-        <Sub size={40} style={rise(t, T.end + 0.3, T.out + 1)}>Free surf forecast, worldwide.</Sub>
-        <div style={{ ...font, display: "inline-flex", alignItems: "center", gap: 18, padding: "22px 44px", borderRadius: 999, background: C.acc, color: "#02131c", fontWeight: 800, fontSize: 40, ...rise(t, T.end + 0.45, T.out + 1) }}>rosa.surf <span>→</span></div>
-        <Sub size={30} style={rise(t, T.end + 0.6, T.out + 1)}>link in bio</Sub>
+        <Img src={staticFile("fonts/rosa-icon.svg")} style={{ width: 168, height: 168, opacity: win(t, T.end, T.out + 1, 0.5, 0.01), transform: `scale(${lerp(0.6, 1, outBack(seg(t, T.end, T.end + 0.6)))})` }} />
+        <div style={{ ...font, fontWeight: 800, fontSize: 150, letterSpacing: "-.05em", lineHeight: 1, ...rise(t, T.end + 0.12, T.out + 1) }}>rosa<span style={{ color: C.acc }}>.</span></div>
+        <Sub size={50} style={{ color: "#fff", marginTop: -16, ...rise(t, T.end + 0.25, T.out + 1) }}>it's free.</Sub>
+        <div style={{ ...font, display: "inline-flex", alignItems: "center", gap: 18, padding: "22px 44px", borderRadius: 999, background: C.acc, color: "#fff", fontWeight: 800, fontSize: 40, marginTop: 36,
+          boxShadow: `0 0 ${36 + 14 * Math.sin(t * 3)}px rgba(17,183,242,.75), 0 0 90px rgba(17,183,242,.35)`, ...rise(t, T.end + 0.4, T.out + 1) }}>rosa.surf <span>→</span></div>
+        <Sub size={30} style={{ color: "#fff", ...rise(t, T.end + 0.55, T.out + 1) }}>link in bio</Sub>
       </div>
-      <Credit t={t} from={T.end + 0.8} />
+      <Credit t={t} from={T.end + 0.6} />
     </AbsoluteFill>
   );
 };

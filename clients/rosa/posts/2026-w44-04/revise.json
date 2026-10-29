@@ -1,18 +1,32 @@
 {
  "state": "done",
  "step": "done",
- "notes": "Add the particles animation we use in the Rosa app loading screen. Keep the exact animation we use in the app itself, particles rising up and fading away as they rise",
+ "notes": "We have a bug in the animation: as you start scrolling on 0:03 until the mobile is out of the screen - you scroll the bottom menu as well - which stays stick on the app. Needs fixing",
  "rounds": [
   {
    "notes": "Add the particles animation we use in the Rosa app loading screen. Keep the exact animation we use in the app itself, particles rising up and fading away as they rise",
    "at": "2026-10-26T18:46:57+00:00"
+  },
+  {
+   "notes": "Closing titles - same concepts as in W44 \u00b7 03:\r\n\"Uluwatu, every 3 hours\" needs to be white\r\nThe button needs to be a little further down, with white text and a little glowing, and link in bio should be white as well",
+   "at": "2026-10-29T07:27:13+00:00"
+  },
+  {
+   "notes": "We have a bug in the animation: as you start scrolling on 0:03 until the mobile is out of the screen - you scroll the bottom menu as well - which stays stick on the app. Needs fixing",
+   "at": "2026-10-29T07:41:37+00:00"
   }
  ],
  "error": null,
- "updated_at": "2026-10-26T18:51:30+00:00",
- "changes": "I added the Rosa loading-screen particles to the film, but I couldn't type-check it or look at a frame. Both `npx tsc` and `npx remotion still` were blocked by permission settings.\n\n- **Particles added** in `engines/remotion/src/films/film-2026-w44-04.tsx`: the app's splash animation, with specks rising up off the bottom of the screen and fading as they climb. They run for the whole film, behind the phone and text.\n- **Same animation as the app:** I checked the colours, density 1.4 and alpha 0.3 against `~/Projects/rosa/web/src/main.tsx` (`splashParticles`). The code is copied from the version already in film-2026-w44-07.\n- **Import added:** `random` from `remotion`.\n\nTo finish the check, approve the commands or run them yourself:\n```\ncd engines/remotion && npx tsc --noEmit -p . && npx remotion still src/index.ts film-2026-w44-04 /tmp/x.png --frame=150\n```",
+ "updated_at": "2026-10-29T07:53:21+00:00",
+ "changes": "I didn't run the typecheck or render any stills. Every shell command needed approval that never came, so this fix isn't checked.\n\nThe code that cuts the baked-in menu out of the scrolling page and pins a copy to the screen bottom is already in the file. The pinned menu still sat inside the layer that zooms in on the \"Best session\" tag (0:04.3\u20130:06), so it grew and moved with the page there. I took it out of that layer. If the operator was seeing something else, this won't fix it.\n\n- `film-2026-w44-04.tsx:125-129`: moved the pinned bottom menu out of the zoom layer so it stays fixed on the phone screen while the page scrolls and zooms.\n\nTo check it, approve these (frame 150 is mid-zoom):\n```\nnpx tsc --noEmit -p .\nnpx remotion still src/index.ts film-2026-w44-04 /home/shahar/Projects/tachyon/clients/rosa/posts/2026-w44-04/.still.png --frame=150\n```",
  "verdicts": {
   "reel": "VERDICT: PASS (worst band 0.00x; text or UI in a band shows as > 0.6x)",
   "story": "VERDICT: PASS (worst band 0.00x; text or UI in a band shows as > 0.6x)"
- }
+ },
+ "skip_edit": false,
+ "revoice": false,
+ "kind": null,
+ "no_change": true,
+ "vo_before": null,
+ "failed_at": "2026-10-29T07:48:57+00:00"
 }

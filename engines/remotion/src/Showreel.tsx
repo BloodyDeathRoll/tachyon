@@ -68,7 +68,7 @@ const ShowreelBody: React.FC<{ variant: Variant }> = ({ variant }) => {
         <Eyebrow style={rise(t, 0.1, CH.fast - 0.1)}>Uluwatu · today</Eyebrow>
         <H1 style={{ marginTop: 26, ...rise(t, 0.25, CH.fast - 0.1) }}>Should</H1>
         <H1 style={{ ...rise(t, 0.4, CH.fast - 0.1) }}>I surf?</H1>
-        <Sub style={{ marginTop: 34, maxWidth: 760, ...rise(t, 0.6, CH.fast - 0.1) }}>One tap says yes or no, and why.</Sub>
+        <H1 style={{ marginTop: 34, color: C.acc, ...rise(t, 0.6, CH.fast - 0.1) }}>One tap says<br />yes or no,<br />and why.</H1>
       </div>
 
       {/* ── phone ── */}
@@ -113,9 +113,10 @@ const ShowreelBody: React.FC<{ variant: Variant }> = ({ variant }) => {
       <div style={{ position: "absolute", left: B.x, top: B.y + 120, width: B.w, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 34 }}>
         <Img src={staticFile("fonts/rosa-icon.svg")} style={{ width: 168, height: 168, opacity: win(t, CH.end, CH.out + 1, 0.7, 0.01), transform: `scale(${lerp(0.6, 1, outBack(seg(t, CH.end, CH.end + 0.8)))})` }} />
         <div style={{ ...font, fontWeight: 800, fontSize: 150, letterSpacing: "-.05em", lineHeight: 1, ...rise(t, CH.end + 0.15, CH.out + 1) }}>rosa<span style={{ color: C.acc }}>.</span></div>
-        <Sub size={40} style={rise(t, CH.end + 0.3, CH.out + 1)}>Free surf forecast, worldwide.</Sub>
-        <div style={{ ...font, display: "inline-flex", alignItems: "center", gap: 18, padding: "22px 44px", borderRadius: 999, background: C.acc, color: "#02131c", fontWeight: 800, fontSize: 40, ...rise(t, CH.end + 0.45, CH.out + 1) }}>rosa.surf <span>→</span></div>
-        <Sub size={30} style={rise(t, CH.end + 0.6, CH.out + 1)}>link in bio</Sub>
+        <Sub size={40} style={{ color: "#fff", ...rise(t, CH.end + 0.3, CH.out + 1) }}>Free surf forecast, worldwide.</Sub>
+        <div style={{ ...font, display: "inline-flex", alignItems: "center", gap: 18, padding: "22px 44px", borderRadius: 999, background: C.acc, color: "#fff", fontWeight: 800, fontSize: 40, marginTop: 36,
+          boxShadow: `0 0 ${36 + 14 * Math.sin(t * 3)}px rgba(17,183,242,.75), 0 0 90px rgba(17,183,242,.35)`, ...rise(t, CH.end + 0.45, CH.out + 1) }}>rosa.surf <svg width="22" height="34" viewBox="0 0 22 34"><path d="M4 4l13 13L4 30" fill="none" stroke="#fff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /></svg></div>
+        <Sub size={30} style={{ color: "#fff", ...rise(t, CH.end + 0.6, CH.out + 1) }}>link in bio</Sub>
       </div>
       <Credit t={t} from={CH.end + 0.8} />
     </AbsoluteFill>
