@@ -1,19 +1,27 @@
 {
  "state": "done",
  "step": "done",
- "notes": "Add the particles animation we use in the Rosa app loading screen. Keep the exact animation we use in the app itself, particles rising up and fading away as they rise",
+ "notes": "Change closing titles:\r\nButton text should be white, the button should be a little glowing like on W44 \u00b7 01, and the text on the bottom needs to be white",
  "rounds": [
   {
    "notes": "Add the particles animation we use in the Rosa app loading screen. Keep the exact animation we use in the app itself, particles rising up and fading away as they rise",
    "at": "2026-10-26T18:45:50+00:00"
+  },
+  {
+   "notes": "Change closing titles:\r\nButton text should be white, the button should be a little glowing like on W44 \u00b7 01, and the text on the bottom needs to be white",
+   "at": "2026-10-29T07:59:46+00:00"
   }
  ],
  "error": null,
- "updated_at": "2026-10-26T19:03:29+00:00",
- "changes": "Added the Rosa loading-screen particles to w44-07, but I couldn't run the typecheck or render a frame because permission to run `npx` was denied. Nothing is verified yet.\n\nChanges, all in `engines/remotion/src/films/film-2026-w44-07.tsx`:\n- Imported `random` from `remotion`.\n- Added a `Particles` layer, copied from the one in film w44-14. I checked it against the app's own code (`rosa/web` `particles.ts`, the splash settings in `main.tsx`, and the 460 px bottom band in `index.html`): specks rise from the bottom and fade as they climb.\n- Placed `<Particles>` behind the phone and all text, across the bottom 1150 px of the frame, running the whole film.\n\nTo check it, from `engines/remotion`:\n```\nnpx tsc --noEmit -p .\nnpx remotion still src/index.ts film-2026-w44-07 /tmp/x.png --frame=200\n```",
- "skip_edit": true,
+ "updated_at": "2026-10-29T08:03:27+00:00",
+ "changes": "I edited the end card, but I couldn't run the type check or render a still to look at it: both `npx tsc --noEmit -p .` and `npx remotion still` were blocked by approval prompts. Allow those two commands and I'll run them and check the frame.\n\n- `film-2026-w44-07.tsx:146` \u2014 the button text is now white (`#fff`).\n- `film-2026-w44-07.tsx:147` \u2014 the button now glows with a soft pulse, copied from the W44 \u00b7 01 end card.\n- `film-2026-w44-07.tsx:148` \u2014 the \"link in bio\" text under the button is now white.\n\nI took \"the text on the bottom\" to mean \"link in bio\". The footage credit is not drawn on screen at all.",
+ "skip_edit": false,
  "verdicts": {
   "reel": "VERDICT: WARN (worst band 0.26x; text or UI in a band shows as > 0.6x)",
   "story": "VERDICT: WARN (worst band 0.26x; text or UI in a band shows as > 0.6x)"
- }
+ },
+ "revoice": false,
+ "kind": null,
+ "no_change": false,
+ "vo_before": null
 }

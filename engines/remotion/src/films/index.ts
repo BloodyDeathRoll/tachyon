@@ -17,6 +17,7 @@ import film_2026_w44_11, { SECONDS as film_2026_w44_11_s } from "./film-2026-w44
 import film_2026_w44_12, { SECONDS as film_2026_w44_12_s } from "./film-2026-w44-12";
 import film_2026_w44_13, { SECONDS as film_2026_w44_13_s } from "./film-2026-w44-13";
 import film_2026_w44_14, { SECONDS as film_2026_w44_14_s } from "./film-2026-w44-14";
+import film_2026_w44_16, { SECONDS as film_2026_w44_16_s } from "./film-2026-w44-16";
 // @imports
 export const FILMS: Film[] = [
   { id: "film-2026-w44-01", seconds: film_2026_w44_01_s, component: film_2026_w44_01 },
@@ -33,5 +34,6 @@ export const FILMS: Film[] = [
   { id: "film-2026-w44-12", seconds: film_2026_w44_12_s, component: film_2026_w44_12 },
   { id: "film-2026-w44-13", seconds: film_2026_w44_13_s, component: film_2026_w44_13 },
   { id: "film-2026-w44-14", seconds: film_2026_w44_14_s, component: film_2026_w44_14 },
+  { id: "film-2026-w44-16", seconds: film_2026_w44_16_s, component: film_2026_w44_16 },
   // @films
 ];

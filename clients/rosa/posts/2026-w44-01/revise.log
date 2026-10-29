@@ -1,0 +1,17 @@
+revise failed: the film does not typecheck: src/Root.tsx(3,44): error TS2307: Cannot find module './Showreel' or its corresponding type declarations.
+
+revise failed: I made no changes. Nothing I'm allowed to edit has drifted from the original plus your two corrections.
+
+- **Film source** (`film-2026-w44-01.tsx`): the only change from the last commit is the closing titles you asked for. The tagline and "link in bio" are white, and the button sits lower with white text and a glow. Nothing in the film controls the voice-over's timing.
+- **Voice-over script** (`meta.json`): it's the original text with only "Tap it" removed:
+  ```
+  Okay so, Pipeline says Good today. Not Epic. Why? Swell's pumping, but the wind's just not playing along. Fair call, honestly!
+  ```
+- **Where the laugh came from:** it's not in the script. Dia added it when it re-recorded the voice. That take is `versions/v4/vo.wav` (1.09 MB, compared with 832 KB for the original in `versions/v3/vo.wav`). The fix is a new recording of the current script, which the pipeline will make because the script differs from the last recorded one.
+- **Not done:** I didn't change "honestly!" to "honestly." to make a laugh less likely, because you didn't ask for it. Say if you want it.
+
+Not verified: the permission prompts blocked `tsc`, `remotion still` and `ffprobe`, so I didn't typecheck, look at any frames, or measure the voice-over lengths. The last revise run failed to typecheck because `src/Root.tsx` imports `./Showreel`, which has been deleted in the working tree:
+```
+src/Root.tsx(3,44): error TS2307: Cannot find module './Showreel'
+```
+`Root.tsx` is outside the files I'm allowed to edit, so the pipeline will keep failing until you restore `Showreel.tsx` or remove that import.

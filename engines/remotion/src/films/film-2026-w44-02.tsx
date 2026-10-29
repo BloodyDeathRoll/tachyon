@@ -154,9 +154,10 @@ const Film: React.FC<{ variant: Variant }> = ({ variant }) => {
       <div style={{ position: "absolute", left: B.x, top: B.y + 120, width: B.w, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 34 }}>
         <Img src={staticFile("fonts/rosa-icon.svg")} style={{ width: 168, height: 168, opacity: win(t, T.end, T.out + 1, 0.7, 0.01), transform: `scale(${lerp(0.6, 1, outBack(seg(t, T.end, T.end + 0.8)))})` }} />
         <div style={{ ...font, fontWeight: 800, fontSize: 150, letterSpacing: "-.05em", lineHeight: 1, ...rise(t, T.end + 0.15, T.out + 1) }}>rosa<span style={{ color: C.acc }}>.</span></div>
-        <Sub size={40} style={rise(t, T.end + 0.3, T.out + 1)}>The swell map. Free, worldwide.</Sub>
-        <div style={{ ...font, display: "inline-flex", alignItems: "center", gap: 18, padding: "22px 44px", borderRadius: 999, background: C.acc, color: "#02131c", fontWeight: 800, fontSize: 40, ...rise(t, T.end + 0.45, T.out + 1) }}>rosa.surf/charts <span>→</span></div>
-        <Sub size={30} style={rise(t, T.end + 0.6, T.out + 1)}>link in bio</Sub>
+        <Sub size={40} style={{ color: "#fff", ...rise(t, T.end + 0.3, T.out + 1) }}>The swell map. Free, worldwide.</Sub>
+        <div style={{ ...font, display: "inline-flex", alignItems: "center", gap: 18, padding: "22px 44px", borderRadius: 999, background: C.acc, color: "#fff", fontWeight: 800, fontSize: 40, marginTop: 36,
+          boxShadow: `0 0 ${36 + 14 * Math.sin(t * 3)}px rgba(17,183,242,.75), 0 0 90px rgba(17,183,242,.35)`, ...rise(t, T.end + 0.45, T.out + 1) }}>rosa.surf/charts <span>→</span></div>
+        <Sub size={30} style={{ color: "#fff", ...rise(t, T.end + 0.6, T.out + 1) }}>link in bio</Sub>
       </div>
       <Credit t={t} from={T.end + 0.8} />
     </AbsoluteFill>

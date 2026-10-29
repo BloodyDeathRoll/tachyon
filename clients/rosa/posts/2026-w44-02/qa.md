@@ -1,19 +1,25 @@
-# QA · 2026-w44-02 · 2026-10-26T19:01:27+00:00
+# QA · 2026-w44-02 · 2026-10-29T07:30:57+00:00
 
 ## Operator notes
 
-Add our Rosa app particles animation to the empty bottom areas that only show a dark background color. Use the exact animation from the Rosa app - particles rising up and disappearing as they rise.
+Closing titles - same concepts as in W44 · 03:
+"The swell map. Free, worldwide" needs to be white
+The button needs to be a little further down, with white text and a little glowing, and link in bio should be white as well
 
 ## Changes
 
-I added the Rosa particles to `engines/remotion/src/films/film-2026-w44-02.tsx`, but I couldn't check it: permission was refused for both `npx tsc --noEmit -p .` and the still render.
+I changed the end card in `src/films/film-2026-w44-02.tsx` to match W44-03. I couldn't type-check it or render a frame: approval was denied for both `npx tsc --noEmit -p .` and `npx remotion still`.
 
-- I copied the particle code exactly from `film-2026-w44-03.tsx` (`RosaParticles`, `speck`, `PALETTE`, `SPECKS`, `BAND`) and imported `random` from remotion.
-- The particles sit in the bottom band (y 1280–1920), behind the phone. They fade in and out with the dark panel, from `T.phone + 0.2` to `T.end - 0.2`.
+- "The swell map. Free, worldwide." is now white.
+- The button sits 36px further down (`marginTop: 36`), as in W44-03.
+- The button text is now white (it was dark `#02131c`).
+- The button now has a soft pulsing blue glow, the same as W44-03.
+- "link in bio" is now white.
 
-To check it, run:
+I haven't confirmed the moved button still fits inside the safe box. To check, approve these and look at the end-card frame (frame 330 is my pick):
 ```
-cd engines/remotion && npx tsc --noEmit -p . && npx remotion still src/index.ts film-2026-w44-02 /tmp/x.png --frame=180
+npx tsc --noEmit -p .
+npx remotion still src/index.ts film-2026-w44-02 /home/shahar/Projects/tachyon/clients/rosa/posts/2026-w44-02/.still.png --frame=330
 ```
 
 ## Safe zones

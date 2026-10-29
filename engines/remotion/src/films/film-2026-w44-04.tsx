@@ -17,11 +17,15 @@ const T = { hook: 0, phone: 2.0, table: 2.7, s1: 3.4, s2: 3.9, best: 4.3, s3: 6.
 // scroll stops in screen px: top → table → one row (≈72 px) per 3 hours → tide and light row
 const ROW = 72;
 const TABLE = 330;
-const TIDE = 733;
+const TIDE = 733 - 74;
 const STEPS: [number, number][] = [[T.table, TABLE], [T.s1, TABLE + ROW], [T.s2, TABLE + 2 * ROW], [T.s3, TABLE + 3 * ROW], [T.s4, TABLE + 4 * ROW]];
 // the "Best session" tag and the tide + light block, in capture-screen px
 const TAG = { x: 285, y: 635, w: 104, h: 23 };
-const TIDEBOX = { x: 12, y: 1098, w: 376, h: 178 };
+const TIDEBOX = { x: 12, y: 1098 - 74, w: 376, h: 178 };
+// the capture has the app's bottom nav baked in over the 12:00 row: cut that band out of the scrolling page and
+// pin the nav pill (cropped from the same capture) to the screen bottom, where the app keeps it
+const CUT = [777, 864]; // starts above the baked nav's top edge and shadow (pill top ≈ 785) so no sliver scrolls
+const NAV = { x: 17, y: 785, w: 366, h: 63 };
 
 // Rosa loading-screen particles, ported 1:1 from rosa/web particles.ts with the splash's options (main.tsx
 // splashParticles: density 1.4, alpha 0.3, two-tone palette) on the splash's 460 px bottom band, screen-blended:
@@ -111,12 +115,17 @@ const Film: React.FC<{ variant: Variant }> = ({ variant }) => {
       <Phone pose={pose}>
         <div style={{ position: "absolute", left: 0, top: 0, width: 400, height: 860, transformOrigin: "0 0", transform: `translate(${tx}px, ${ty}px) scale(${z})` }}>
           <div style={{ position: "absolute", left: 0, top: 0, width: 400, transform: `translateY(${-scroll}px)` }}>
-            <Screen src="captures-light/spot-uluwatu-full.png" />
+            <div style={{ position: "absolute", left: 0, top: 0, width: 400, height: CUT[0], overflow: "hidden" }}><Screen src="captures-light/spot-uluwatu-full.png" /></div>
+            <div style={{ position: "absolute", left: 0, top: CUT[0], width: 400, height: 1593 - CUT[1], overflow: "hidden" }}><Screen src="captures-light/spot-uluwatu-full.png" scroll={CUT[1]} /></div>
             {/* Best session ring */}
             <div style={{ position: "absolute", left: TAG.x - 3, top: TAG.y - 3, width: TAG.w + 6, height: TAG.h + 6, borderRadius: 10, border: "1.5px solid rgba(255,255,255,.9)", boxShadow: `0 0 14px ${C.good}`, opacity: ring, transform: `scale(${pulse})` }} />
             {/* tide + light frame */}
             <div style={{ position: "absolute", left: TIDEBOX.x, top: TIDEBOX.y, width: TIDEBOX.w, height: TIDEBOX.h, borderRadius: 18, border: `1.5px solid ${C.acc}`, boxShadow: `0 0 18px rgba(17,183,242,.6)`, opacity: tideRing }} />
           </div>
+        </div>
+        {/* outside the zoom layer: the app's nav stays put while the page scrolls and zooms */}
+        <div style={{ position: "absolute", left: NAV.x, top: NAV.y, width: NAV.w, height: NAV.h, borderRadius: NAV.h / 2, overflow: "hidden", boxShadow: "0 6px 18px rgba(0,0,0,.12)" }}>
+          <Screen src="captures-light/spot-uluwatu-full.png" x={-NAV.x} scroll={NAV.y} />
         </div>
       </Phone>
 
@@ -147,9 +156,10 @@ const Film: React.FC<{ variant: Variant }> = ({ variant }) => {
       <div style={{ position: "absolute", left: B.x, top: B.y + 120, width: B.w, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 34 }}>
         <Img src={staticFile("fonts/rosa-icon.svg")} style={{ width: 168, height: 168, opacity: win(t, T.end, T.out + 1, 0.7, 0.01), transform: `scale(${lerp(0.6, 1, outBack(seg(t, T.end, T.end + 0.8)))})` }} />
         <div style={{ ...font, fontWeight: 800, fontSize: 150, letterSpacing: "-.05em", lineHeight: 1, ...rise(t, T.end + 0.15, T.out + 1) }}>rosa<span style={{ color: C.acc }}>.</span></div>
-        <Sub size={40} style={rise(t, T.end + 0.3, T.out + 1)}>Uluwatu, every 3 hours.</Sub>
-        <div style={{ ...font, display: "inline-flex", alignItems: "center", gap: 18, padding: "22px 44px", borderRadius: 999, background: C.acc, color: "#02131c", fontWeight: 800, fontSize: 40, ...rise(t, T.end + 0.45, T.out + 1) }}>rosa.surf/spot/uluwatu <span>→</span></div>
-        <Sub size={30} style={rise(t, T.end + 0.6, T.out + 1)}>link in bio</Sub>
+        <Sub size={40} style={{ color: "#fff", ...rise(t, T.end + 0.3, T.out + 1) }}>Uluwatu, every 3 hours.</Sub>
+        <div style={{ ...font, display: "inline-flex", alignItems: "center", gap: 18, padding: "22px 44px", borderRadius: 999, background: C.acc, color: "#fff", fontWeight: 800, fontSize: 40, marginTop: 36,
+          boxShadow: `0 0 ${36 + 14 * Math.sin(t * 3)}px rgba(17,183,242,.75), 0 0 90px rgba(17,183,242,.35)`, ...rise(t, T.end + 0.45, T.out + 1) }}>rosa.surf/spot/uluwatu <span>→</span></div>
+        <Sub size={30} style={{ color: "#fff", ...rise(t, T.end + 0.6, T.out + 1) }}>link in bio</Sub>
       </div>
       <Credit t={t} from={T.end + 0.8} />
     </AbsoluteFill>

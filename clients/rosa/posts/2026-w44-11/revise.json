@@ -1,18 +1,39 @@
 {
  "state": "done",
  "step": "done",
- "notes": "Add the particles animation we use in the Rosa app loading screen. Keep the exact animation we use in the app itself, particles rising up and fading away as they rise",
+ "notes": "Swap the final closing titles to be the same as on W44 \u00b7 03. Keep the wave backgound",
  "rounds": [
   {
    "notes": "Add the particles animation we use in the Rosa app loading screen. Keep the exact animation we use in the app itself, particles rising up and fading away as they rise",
    "at": "2026-10-26T18:46:40+00:00"
+  },
+  {
+   "notes": "VO says: \"You can watch it build {pause] day by day\". remove the pause.\r\nVO says \"Tuesday morning - CLEAN! [log pause] I was first out\"\r\nShorten the pause and change the tone of \"I was first out\" from a depressed one to an excited one (I was first out!)",
+   "at": "2026-10-29T06:23:19+00:00"
+  },
+  {
+   "notes": "VO changes: \r\n\"You can watch it build day by day\" (needs a pause here, then continue to) Tuesday morning was CLEAN! (short pause) and I was first out!",
+   "at": "2026-10-29T06:30:05+00:00"
+  },
+  {
+   "notes": "YOU ARE CHANGING THINS I DIDNT ASK FOR AND NIT CHANGING THE THINGS I DID ASK FOR\r\nOnce more:\r\nVO: \"Look at this swell filling in at SuperTubos!\" - needs a short pause after the sentence.\r\nVO: \"You can watch it build day by day\" NEEDS PAUSE. Right now he is both swallowing the last \"day\" and you pasted a second sentence as he is swallowing that word. Say the word like a human would, then pause, then continue.\r\nVO: \"Tuesday morning was CLEAN. I was first out!\" - excited, not yelling, and not swallowing words!",
+   "at": "2026-10-29T06:50:41+00:00"
+  },
+  {
+   "notes": "Swap the final closing titles to be the same as on W44 \u00b7 03. Keep the wave backgound",
+   "at": "2026-10-29T07:24:08+00:00"
   }
  ],
  "error": null,
- "updated_at": "2026-10-26T18:52:23+00:00",
- "changes": "I added the particles, but I couldn't check them: the permission settings blocked both `npx tsc` and `npx remotion still`. The code is not type-checked and I haven't looked at a frame.\n\n- `engines/remotion/src/films/film-2026-w44-11.tsx`: added the app's loading-screen particle effect, ported from `rosa/web` (`particles.ts` with the loading screen's settings from `main.tsx`). Specks rise from the bottom and fade as they climb, across the bottom 1150 px, for the whole film.\n- It's the same code film w44-14 already uses. The only change is a renamed constant (`PBAND`), because this film already has a `BAND`.\n- I left out the loading screen's coloured background glow, because the note only asked for the particles.\n\nTo check it, run these in `engines/remotion`:\n```\nnpx tsc --noEmit -p .\nnpx remotion still src/index.ts film-2026-w44-11 /tmp/x.png --frame=200\n```",
+ "updated_at": "2026-10-29T07:26:53+00:00",
+ "changes": "I swapped in the W44 \u00b7 03 closing titles, but nothing is checked yet. The type check (`npx tsc --noEmit -p .`) and the still render both stopped at a permission prompt, so neither ran. I haven't looked at a frame.\n\n- **End card text:** \"Free surf forecast, worldwide.\" is now \"it's free.\" in white, as on W44 \u00b7 03.\n- **Button:** \"rosa.surf \u2192\" now has white text, the pulsing blue glow and the extra top spacing from W44 \u00b7 03.\n- **Timing:** the logo, title, button, \"link in bio\" and Pixabay credit come in at the W44 \u00b7 03 timings, and \"link in bio\" is now white.\n- **Background:** the wave footage and the rising particles behind the end card are unchanged.\n- **Header comment:** updated in `src/films/film-2026-w44-11.tsx` to describe the new end card.\n\nI didn't change the voice-over script in `meta.json`, because it never mentions the closing line.\n\nTo finish, allow and run these. Frame 360 is about 2 s into the end card.\n```\nnpx tsc --noEmit -p .\nnpx remotion still src/index.ts film-2026-w44-11 /home/shahar/Projects/tachyon/clients/rosa/posts/2026-w44-11/.still.png --frame=360\n```\n\nRisk: the end-card layout is copied from W44 \u00b7 03 and should stay inside the safe box, but the story variant has had no frame check.",
  "verdicts": {
   "reel": "VERDICT: PASS (worst band 0.03x; text or UI in a band shows as > 0.6x)",
   "story": "VERDICT: PASS (worst band 0.03x; text or UI in a band shows as > 0.6x)"
- }
+ },
+ "skip_edit": false,
+ "revoice": false,
+ "kind": null,
+ "no_change": false,
+ "vo_before": "Dude, look at this swell filling in at Supertubos! ... You can watch it build day by day. ... Tuesday morning was clean! I was first out!"
 }

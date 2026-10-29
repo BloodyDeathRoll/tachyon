@@ -1,21 +1,24 @@
-# QA · 2026-w44-03 · 2026-10-26T18:43:49+00:00
+# QA · 2026-w44-03 · 2026-10-29T07:09:22+00:00
 
 ## Operator notes
 
-Add our Rosa particle animation to the empty bottom of the screen
+Remove "rosa.surf", keep "its free."
 
 ## Changes
 
-I made the change, but it is unchecked. Permission settings blocked `npx tsc --noEmit -p .` and I didn't look at a single frame.
+I removed "rosa.surf" from the end-card line and kept "it's free." I couldn't run the type check or render the still to look at it, because both commands need approval in this session.
 
-- **Film change:** `engines/remotion/src/films/film-2026-w44-03.tsx` has a new `RosaParticles` layer. It is Rosa's real bottom effect, copied from `~/Projects/rosa/web/src/components/particles.ts` and `BottomGlow.tsx` (dark theme): a blue/green glow with specks drifting up. It covers the band from y 1280 to 1920, below the safe box, sits behind the phone and all text, and runs for the whole film.
-- **Brightness:** I raised it to 0.35 from the app's 0.08 so it shows up on video.
+The orange end-card button still says "rosa.surf →" (`film-2026-w44-03.tsx:134`). I read the note as being about the "rosa.surf / it's free" text pair only. Tell me if the button should go too.
 
-Approve the command (or run `npx tsc --noEmit -p .` in `engines/remotion`) and I'll check a frame next.
+The voice-over script never says "rosa.surf", so `meta.json` is unchanged.
+
+Changes:
+- `engines/remotion/src/films/film-2026-w44-03.tsx:132`: the end-card text is now only "it's free."
+- `engines/remotion/src/films/film-2026-w44-03.tsx:11`: updated the header comment to match.
 
 ## Safe zones
 
-- reel: VERDICT: PASS (worst band 0.01x; text or UI in a band shows as > 0.6x)
-- story: VERDICT: PASS (worst band 0.01x; text or UI in a band shows as > 0.6x)
+- reel: VERDICT: PASS (worst band 0.02x; text or UI in a band shows as > 0.6x)
+- story: VERDICT: PASS (worst band 0.02x; text or UI in a band shows as > 0.6x)
 
 VERDICT: APPROVED

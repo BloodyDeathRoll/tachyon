@@ -1,0 +1,22 @@
+{
+  "slot_id": "2026-w44-16",
+  "title": "rosa favorites 9x16 blue icon",
+  "source": "upload",
+  "upload": "uploads/2026-w44-16.mp4",
+  "uploaded_name": "rosa-favorites-9x16-blue-icon.mp4",
+  "duration_s": 15.02,
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w44-16",
+    "story": "film-2026-w44-16-story",
+    "source": "engines/remotion/src/films/film-2026-w44-16.tsx",
+    "music": null
+  },
+  "track": null,
+  "trial": false,
+  "share_to_feed": true,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w44-16",
+  "plan": "manual"
+}

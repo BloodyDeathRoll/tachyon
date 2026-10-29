@@ -1,20 +1,19 @@
-# QA · 2026-w44-09 · 2026-10-26T18:57:59+00:00
+# QA · 2026-w44-09 · 2026-10-29T08:05:13+00:00
 
 ## Operator notes
 
-Add our Rosa app particles animation to the empty bottom areas that only show a dark background color. Use the exact animation from the Rosa app - particles rising up and disappearing as they rise.
+Change closing titles to fit what we did on W44 · 01 and others:
+The texts under the Rosa logo should be white. The button should have a little space from the text above it, it's text should be white, the button should be a little glowing. The text on the bottom needs to be white
 
 ## Changes
 
-I couldn't run the typecheck because the permission prompt blocked `npx tsc`, so the edit is untested. I also haven't checked any frames.
+I made the end-card edits, but I couldn't check them. The permission system blocked both `npx tsc --noEmit -p .` and `npx remotion still`, so nothing is typechecked and I haven't looked at any frame. Approve those two commands, or run them yourself, before this goes out.
 
-```
-cd engines/remotion && npx tsc --noEmit -p .
-```
+- Line under the Rosa logo: white (`#fff`).
+- Button: `marginTop: 36` for space above it, white text, and the same pulsing blue glow as W44 · 01.
+- "free · link in bio" at the bottom: white.
 
-- `film-2026-w44-09.tsx`: copied the Rosa app's rising, fading particles from `film-2026-w44-10.tsx` unchanged (the Rosa web app's particle code).
-- `film-2026-w44-09.tsx`: they fill the bottom of the frame on the black opening card (0 to 1.6 s) and on the dark map section (4.0 to 10.0 s), not over the footage.
-- `film-2026-w44-09.tsx`: imported `random` from `remotion`.
+All changes are in `engines/remotion/src/films/film-2026-w44-09.tsx:149-152`.
 
 ## Safe zones
 
