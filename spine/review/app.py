@@ -1576,7 +1576,7 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         at_ = row["published_at"] if cls == "live" else (row["scheduled_at"] or (preview_slot(client, db, slot) if cls == "need" else None))
         cal = ""
         if at_:
-            dt_ = parse(at_)
+            dt_ = parse(at_).astimezone(LOCAL)   # the local week it shows in
             y_, w_, _ = dt_.isocalendar()
             cal = f"/{ESC(quote(client))}/calendar?w={y_}-W{w_:02d}&hl={ESC(quote(slot))}"
         if row["state"] == "REMOVED":

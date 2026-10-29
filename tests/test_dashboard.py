@@ -854,9 +854,15 @@ def test_week_prep_skips_ids_added_by_hand(client_dir):
     assert W.make_slots("demo", "2099-W02", items) == ["2099-w02-02"]   # a resumed run reuses its own
 
 
+def slot_on(day, i=0):
+    """The i-th publishing slot on a local day, as stored (UTC ISO): tests hold in any time zone."""
+    from datetime import date
+    return list(app.day_slots(C.load_grants("demo"), date.fromisoformat(day)).values())[i]
+
+
 def test_calendar_open_slots_offer_add_new(server):
     _, body, _ = req(server, "GET", "/demo/calendar?w=2099-W02")
-    assert "data-add='2099-01-05T06:30:00+00:00'" in body and "id=addnew" in body and "+ Add new" in body
+    assert f"data-add='{slot_on('2099-01-05')}'" in body and "id=addnew" in body and "+ Add new" in body
 
 def test_formats_typecheck_timeout_unregisters(client_dir, fake_remotion, monkeypatch):
     import subprocess
@@ -1096,7 +1102,7 @@ def test_pause_and_play(server, client_dir, monkeypatch):
     assert req(server, "POST", "/demo/v/w01-s1/decide", {"action": "pause"})[0] == 303
     assert db.post("w01-s1")["state"] == "PAUSED"
     body = req(server, "GET", "/demo/v/w01-s1")[1]
-    assert "Paused Sat 4 May" in body and "value=resume" in body and "value=pause" not in body
+    assert f"Paused {app.when('2030-05-04T09:00:00+00:00').split(',')[0]}" in body   # its local day and "value=resume" in body and "value=pause" not in body
     assert "Paused" in req(server, "GET", "/demo")[1]                       # the overview card says so too
     runs = []
     monkeypatch.setattr(app.subprocess, "Popen", lambda cmd, **kw: runs.append(cmd))
