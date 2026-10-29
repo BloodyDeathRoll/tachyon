@@ -40,7 +40,7 @@ const speck = (i: number, k: number, age: number, life: number) => {
   const a = (0.22 + depth * 0.7) * ALPHA * fadeIn * fadeOut * tw * env;
   return { x, y, depth, rad, bucket, a: Math.max(0, Math.min(1, a)), color: PALETTE[Math.floor(r("c") * PALETTE.length)] };
 };
-const Particles: React.FC<{ t: number; o: number }> = ({ t, o }) => {
+export const Particles: React.FC<{ t: number; o: number }> = ({ t, o }) => {
   const ps = SPECKS.map(({ i, life, off }) => {
     const k = Math.floor((t + off) / life);
     return { i, ...speck(i, k, t + off - k * life, life) };

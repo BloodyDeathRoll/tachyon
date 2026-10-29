@@ -6,26 +6,29 @@ import json
 from spine import clients as C
 from spine import week as W
 from spine.db import DB
+from spine.review import app
 
 from .test_dashboard import client_dir, req, server  # noqa: F401  (fixtures)
 
 
 def test_posts_per_day_add_and_remove(server, client_dir):  # noqa: F811
+    def utc(*ts):   # shown local, stored UTC
+        return sorted(app._shift(t, False) for t in ts)
     status, _, _ = req(server, "POST", "/demo/schedule", {"t": "06:30", "add": "1"})
     assert status == 303
     slots = C.load_grants("demo")["slots"]
-    assert len(slots) == 2 and "06:30" in slots and "18:30" in slots     # longest gap → opposite side of the day
+    assert slots == utc("06:30", "18:30")    # longest gap → opposite side of the day
     req(server, "POST", "/demo/schedule", {"t1": "06:30", "t2": "12:00", "t3": "18:30"})
-    assert C.load_grants("demo")["slots"] == ["06:30", "12:00", "18:30"]
+    assert C.load_grants("demo")["slots"] == utc("06:30", "12:00", "18:30")
     assert len(W.slot_times("demo", "2026-W45")) == 21                   # plans follow the schedule
     _, body, _ = req(server, "GET", "/demo/calendar?w=2026-W45")
     assert body.count("<div class=th>") == 3                              # calendar rows follow too
     _, body, _ = req(server, "GET", "/demo")
     assert "Three times a day" in body
     req(server, "POST", "/demo/schedule", {"t1": "06:30", "t2": "12:00", "t3": "18:30", "remove": "1"})
-    assert C.load_grants("demo")["slots"] == ["06:30", "18:30"]
+    assert C.load_grants("demo")["slots"] == utc("06:30", "18:30")
     status, _, _ = req(server, "POST", "/demo/schedule", {"t1": "06:30", "remove": "0"})
-    assert C.load_grants("demo")["slots"] == ["06:30"]                    # never below one
+    assert C.load_grants("demo")["slots"] == utc("06:30")                    # never below one
 
 
 def _second_post(d, at):

@@ -221,7 +221,7 @@ class DB:
         return self.post(slot_id)
 
     MOVABLE = ("IDEA", "BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL", "NEEDS_INPUT",
-               "APPROVED", "QUEUED", "REJECTED")
+               "APPROVED", "QUEUED", "PAUSED", "REJECTED")
 
     def move(self, slot_id: str, at: str, swap_with: str | None = None) -> None:
         """Calendar drag and drop: set a post's scheduled_at (and give the other post the old

@@ -66,7 +66,7 @@ def test_overview_shows_project_and_tagged_card_without_qa_or_caption(server):
 def test_video_page_has_decision_text_preview_and_qa_link(server):
     status, body, _ = req(server, "GET", "/demo/v/w01-s1")
     assert status == 200
-    assert "Approve and schedule" in body and "Send back for a new version" in body
+    assert all(s in body for s in ("Approve and schedule", "Ask for new version", "Update and Review", "Clear and Cancel"))
     assert "Read the full text" in body and "/demo/v/w01-s1/qa" in body
     assert "VERDICT" not in body
     status, body, _ = req(server, "GET", "/demo/v/w01-s1/qa")
@@ -125,7 +125,7 @@ def test_media_supports_range(server, client_dir):
 def test_schedule_times_are_editable(server, client_dir):
     status, _, _ = req(server, "POST", "/demo/schedule", {"t1": "19:00", "t2": "07:15"})
     assert status == 303
-    assert C.load_grants("demo")["slots"] == ["07:15", "19:00"]
+    assert C.load_grants("demo")["slots"] == sorted(app._shift(t, False) for t in ("07:15", "19:00"))   # shown local, stored UTC
     _, body, _ = req(server, "GET", "/demo")
     assert "value='07:15'" in body and "value='19:00'" in body
     status, _, _ = req(server, "POST", "/demo/schedule", {"t1": "7pm", "t2": "07:15"})
@@ -207,7 +207,7 @@ def test_edit_refused_once_publishing(server, client_dir):
     db.close()
     status, _, _ = req(server, "POST", "/demo/v/w01-s1/decide", {"action": "revoke"})
     assert status == 409
-def test_instagram_track_plays_with_the_video(server, client_dir):
+def test_instagram_track_is_not_played_twice(server, client_dir):
     import json
     sd = client_dir / "posts" / "w01-s1"
     m = json.loads((sd / "meta.json").read_text()) if (sd / "meta.json").exists() else {}
@@ -216,7 +216,7 @@ def test_instagram_track_plays_with_the_video(server, client_dir):
     (sd / "meta.json").write_text(json.dumps(m))
     (sd / "ig-track.m4a").write_bytes(b"\0" * 64)
     status, body, _ = req(server, "GET", "/demo/v/w01-s1")
-    assert "id=igtrack" in body and "ig-track.m4a" in body
+    assert "id=igtrack" not in body   # the song is baked into video.mp4; a second player echoes it
     status, _, _ = req(server, "GET", "/demo/media/w01-s1/ig-track.m4a")
     assert status == 200
 
@@ -1081,8 +1081,105 @@ def test_look_for_manual_posts_runs_pickup_now(server, monkeypatch):
     _, body, _ = req(server, "GET", "/demo?picked=1-1")
     assert "1 post found · 1 could not be added" in body
     _, body, _ = req(server, "GET", "/demo?picked=0-0")
-    assert "Nothing new" in body
+    assert "No posts found" in body
     monkeypatch.setattr(PK, "pickup", lambda c: (_ for _ in ()).throw(RuntimeError("no token")))
     assert req(server, "POST", "/demo/pickup", {})[2] == "/demo?picked=err"
     _, body, _ = req(server, "GET", "/demo?picked=err")
     assert "Could not reach Instagram" in body
+
+
+def test_pause_and_play(server, client_dir, monkeypatch):
+    db = DB.for_client(client_dir)
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})
+    db.conn.execute("UPDATE posts SET scheduled_at='2030-05-04T09:00:00+00:00' WHERE slot_id='w01-s1'")
+    assert "value=pause" in req(server, "GET", "/demo/v/w01-s1")[1]
+    assert req(server, "POST", "/demo/v/w01-s1/decide", {"action": "pause"})[0] == 303
+    assert db.post("w01-s1")["state"] == "PAUSED"
+    body = req(server, "GET", "/demo/v/w01-s1")[1]
+    assert "Paused Sat 4 May" in body and "value=resume" in body and "value=pause" not in body
+    assert "Paused" in req(server, "GET", "/demo")[1]                       # the overview card says so too
+    runs = []
+    monkeypatch.setattr(app.subprocess, "Popen", lambda cmd, **kw: runs.append(cmd))
+    assert req(server, "POST", "/demo/v/w01-s1/decide", {"action": "resume"})[0] == 303   # time still ahead
+    row = db.post("w01-s1")
+    assert row["state"] == "QUEUED" and row["scheduled_at"] == "2030-05-04T09:00:00+00:00" and not runs
+    req(server, "POST", "/demo/v/w01-s1/decide", {"action": "pause"})
+    db.conn.execute("UPDATE posts SET scheduled_at='2020-01-01T00:00:00+00:00' WHERE slot_id='w01-s1'")
+    assert "Paused, overdue" in req(server, "GET", "/demo/v/w01-s1")[1]
+    assert req(server, "POST", "/demo/v/w01-s1/decide", {"action": "resume"})[0] == 303   # time passed: publish now
+    assert db.post("w01-s1")["state"] == "QUEUED" and runs and runs[0][-2:] == ["demo", "w01-s1"]
+    assert app.parse(db.post("w01-s1")["scheduled_at"]) > datetime(2026, 1, 1, tzinfo=timezone.utc)
+    db.close()
+
+
+def _revise_run(client_dir, notes):
+    db = DB.for_client(client_dir)
+    db.set_state("w01-s1", "REJECTED", note=notes)
+    db.close()
+    (client_dir / "posts" / "w01-s1" / "revise.json").write_text(json.dumps(
+        {"state": "running", "step": "queued", "notes": notes, "skip_edit": False}))
+
+
+def test_edit_that_changes_nothing_is_not_a_new_version(server, client_dir, monkeypatch):
+    _revise_run(client_dir, "the voice says the wrong thing")
+    monkeypatch.setattr(R, "_edit", lambda *a: "I made no changes: the problem is in the voice-over.")
+    rendered = []
+    monkeypatch.setattr(R, "render", lambda c, s: rendered.append(s))
+    assert R.run("demo", "w01-s1") == 1 and not rendered
+    st = R.status("demo", "w01-s1")
+    assert st["state"] == "failed" and st["no_change"] and "voice-over" in st["error"]
+    body = req(server, "GET", "/demo/v/w01-s1")[1]
+    assert "No new version" in body and "I made no changes" in body
+
+
+def test_rewritten_voiceover_is_recorded_again(client_dir, monkeypatch):
+    s = client_dir / "posts" / "w01-s1"
+    meta = json.loads((s / "meta.json").read_text()) | {"voiceover": {"script": "old line", "voice": "dia:seed8", "start": 0.5}}
+    (s / "meta.json").write_text(json.dumps(meta))
+    _revise_run(client_dir, "new idea")
+    def edit(*a):
+        m = json.loads((s / "meta.json").read_text())
+        m["voiceover"]["script"] = "new line"
+        (s / "meta.json").write_text(json.dumps(m))
+        return "rewrote the voice-over"
+    monkeypatch.setattr(R, "_edit", edit)
+    import spine.voice as V
+    voiced = []
+    monkeypatch.setattr(V, "make_vo", lambda c, sl, script, voice=None, start=None: voiced.append((script, voice, start)))
+    monkeypatch.setattr(R, "render", lambda c, sl: {"reel": "VERDICT: PASS"})
+    assert R.run("demo", "w01-s1") == 0
+    assert voiced == [("new line", "dia:seed8", 0.5)]
+
+
+def test_edit_that_breaks_the_types_is_not_rendered(client_dir, monkeypatch):
+    _revise_run(client_dir, "faster")
+    s = client_dir / "posts" / "w01-s1"
+    monkeypatch.setattr(R, "_edit", lambda *a: (s / "caption.txt").write_text("new") and "changed the caption")
+    monkeypatch.setattr(R, "_typecheck", lambda: (False, "film.tsx(3,1): error TS2304"))
+    rendered = []
+    monkeypatch.setattr(R, "render", lambda c, sl: rendered.append(sl))
+    assert R.run("demo", "w01-s1") == 1 and not rendered
+    st = R.status("demo", "w01-s1")
+    assert st["step"] == "editing" and "TS2304" in st["error"]
+
+
+def test_edit_runs_in_remotion_with_the_repo_added(client_dir, monkeypatch):
+    calls = []
+    monkeypatch.setattr(R, "_prompt", lambda *a: "prompt")   # the fixture slot is outside the repo
+    monkeypatch.setattr(R.subprocess, "run", lambda cmd, **kw: calls.append((cmd, kw)) or
+                        type("r", (), {"returncode": 0, "stdout": "done", "stderr": ""})())
+    R._edit("demo", "w01-s1", {"source": "x.tsx", "reel": "S", "story": "SS"}, "faster", client_dir / "posts" / "w01-s1")
+    cmd, kw = calls[0]
+    assert kw["cwd"] == R.REMOTION and cmd[cmd.index("--add-dir") + 1] == str(R.ROOT)
+
+
+def test_empty_post_text_offers_generate_then_shows_writing(server, client_dir, monkeypatch):
+    s = client_dir / "posts" / "w01-s1"
+    (s / "caption.txt").write_text("")
+    (s / "video.mp4").write_bytes(b"x")
+    assert "value=gencaption>Generate</button>" in req(server, "GET", "/demo/v/w01-s1")[1]
+    from spine import manual as M
+    monkeypatch.setattr(M.subprocess, "Popen", lambda *a, **k: None)   # no real Claude run
+    assert req(server, "POST", "/demo/v/w01-s1/decide", {"action": "gencaption"})[0] == 303
+    body = req(server, "GET", "/demo/v/w01-s1")[1]
+    assert "Writing the post text…" in body and "gencaption>Generate" not in body

@@ -32,7 +32,7 @@ def next_free(taken: set[str], grants: dict | None = None, at: datetime | None =
 
 
 ACTIVE = ("IDEA", "BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL", "NEEDS_INPUT",
-          "APPROVED", "QUEUED", "PUBLISHING")
+          "APPROVED", "QUEUED", "PAUSED", "PUBLISHING")
 
 
 def taken_slots(db, exclude: str | None = None) -> set[str]:

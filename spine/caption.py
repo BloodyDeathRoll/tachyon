@@ -216,6 +216,8 @@ def main(argv: list[str]) -> int:
         except Exception as e:  # noqa: BLE001 — the video stays; the operator can write the text
             print(f"caption failed: {e}", file=sys.stderr)
             return 1
+        finally:
+            (C.client_dir(argv[1]) / "posts" / argv[2] / "caption.writing").unlink(missing_ok=True)
     print(__doc__)
     return 2
 

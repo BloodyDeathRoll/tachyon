@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from itertools import zip_longest
 from pathlib import Path
 
 import yaml
@@ -137,6 +138,27 @@ def ig_tracks(client: str, query: str | None = None, graph=None, now: float | No
     return tracks
 
 
+def ig_queries(client: str) -> list[str]:
+    """The searches that stand for this client's sound: `ig_queries` in tracks.yaml, else its library's moods."""
+    p = _lib_path(client)
+    y = (yaml.safe_load(p.read_text()) or {}) if p.exists() else {}
+    return y.get("ig_queries") or list(dict.fromkeys(t["mood"] for t in y.get("tracks", []) if t.get("mood")))
+
+
+def ig_picks(client: str, graph=None) -> list[dict]:
+    """The Instagram list with no search: the client's searches interleaved, never the local top searches.
+    Instagram's trending only when the client has no searches to go on."""
+    qs = ig_queries(client)
+    if not qs:
+        return ig_tracks(client, None, graph)
+    seen = {}
+    for row in zip_longest(*(ig_tracks(client, q, graph) for q in qs)):
+        for t in row:
+            if t:
+                seen.setdefault(t["id"], t)
+    return list(seen.values())
+
+
 def _ig_known(client: str) -> dict[str, dict]:
     """Every Instagram track seen in any cached list, by id (for set_track after a search)."""
     seen = {}
@@ -153,7 +175,7 @@ def list_tracks(client: str, source: str | None = None, query: str | None = None
     if source == "file":
         return _file_tracks(client)
     if source == "instagram":
-        return ig_tracks(client, query, graph)
+        return ig_tracks(client, query, graph) if query else ig_picks(client, graph)
     return _file_tracks(client) + list(_ig_known(client).values())
 
 
