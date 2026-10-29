@@ -1086,3 +1086,33 @@ def test_look_for_manual_posts_runs_pickup_now(server, monkeypatch):
     assert req(server, "POST", "/demo/pickup", {})[2] == "/demo?picked=err"
     _, body, _ = req(server, "GET", "/demo?picked=err")
     assert "Could not reach Instagram" in body
+
+
+def _full_range_clip(path):
+    # phone and screen recordings are full range: ffprobe calls them yuvj420p, Instagram wants yuv420p tv
+    import subprocess
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=c=0x0b1220:size=1080x1920:rate=30:duration=11",
+                    "-f", "lavfi", "-i", "sine=frequency=440:duration=11", "-shortest",
+                    "-c:v", "libx264", "-pix_fmt", "yuvj420p", "-c:a", "aac", str(path)], check=True)
+
+
+def test_upload_of_full_range_video_comes_out_in_spec(client_dir, tmp_path, monkeypatch):
+    from spine import manual as M
+    from spine.publisher import spec_check
+    monkeypatch.setattr(M, "UPLOADS", tmp_path / "uploads")
+    monkeypatch.setattr(M, "write_caption", lambda c, s: None)
+    src = tmp_path / "phone.mp4"
+    _full_range_clip(src)
+    slot = M.add_upload("demo", FUTURE, src, "phone.mp4")
+    sd = client_dir / "posts" / slot
+    assert spec_check.check_file(sd / "video.mp4") == []   # w44-16 was refused at 20:30: pix_fmt yuvj420p
+    assert "reel spec: VERDICT: PASS" in (sd / "qa.md").read_text()
+
+
+def test_approve_refuses_a_file_instagram_would_refuse(server, client_dir):
+    _full_range_clip(client_dir / "posts" / "w01-s1" / "video.mp4")
+    status, body, _ = req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})
+    assert status == 409 and "yuvj420p" in body
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["state"] != "APPROVED"
+    db.close()
