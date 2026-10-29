@@ -2418,6 +2418,9 @@ class Handler(BaseHTTPRequestHandler):
                     except OSError:
                         pass   # retry() put the failure back on the page
                 elif form.get("action") == "approve":
+                    bad = [v for v in R.spec_verdicts(d / "posts" / slot).values() if "FAIL" in v]
+                    if bad:
+                        return self._send(409, ("Instagram would refuse this file: " + "; ".join(bad)).encode(), "text/plain")
                     if "caption" in form:
                         (d / "posts" / slot).mkdir(parents=True, exist_ok=True)
                         (d / "posts" / slot / "caption.txt").write_text(form["caption"])

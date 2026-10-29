@@ -128,8 +128,8 @@ def add_upload(client: str, at: str, src: Path, name: str) -> str:
                                          "-of", "csv=p=0", str(src)], capture_output=True, text=True, timeout=120).stdout.strip())
         audio = ["-map", "0:a:0", "-c:a", "aac", "-b:a", "128k", "-ar", "48000"] if has_audio else ["-an"]
         _run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-map", "0:v:0", *audio,
-              "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30",
-              "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-pix_fmt", "yuv420p",
+              "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30,scale=out_range=tv",
+              "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-pix_fmt", "yuv420p", "-color_range", "tv",
               "-map_metadata", "-1", "-movflags", "+faststart", str(sd / "video.mp4")])
         shutil.copy2(sd / "video.mp4", sd / "video-story.mp4")
         dur = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
@@ -154,6 +154,7 @@ def add_upload(client: str, at: str, src: Path, name: str) -> str:
             r = subprocess.run([sys.executable, "tools/safezone.py", "check", str(sd / f), "--variant", variant, "--every", "1"],
                                cwd=ROOT, capture_output=True, text=True)
             verdicts[variant] = (r.stdout.strip().splitlines() or ["VERDICT: ?"])[-1]
+        verdicts |= R.spec_verdicts(sd)
         qa = R._qa_md(slot, verdicts, f"Uploaded by hand: {name}", None)
         (sd / "qa.md").write_text(qa)
         db = DB.for_client(C.client_dir(client))

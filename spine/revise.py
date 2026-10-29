@@ -273,6 +273,18 @@ def render(client: str, slot: str) -> dict:
     return verdicts
 
 
+def spec_verdicts(slot_dir: Path) -> dict:
+    """The publish-time spec_check, run at QA: a file publish would refuse fails here instead."""
+    from .publisher import spec_check
+    out = {}
+    for variant, f in (("reel spec", "video.mp4"), ("story spec", "video-story.mp4")):
+        if not (slot_dir / f).exists():
+            continue   # no file yet (or no story): nothing Instagram could refuse; publish checks again
+        issues = spec_check.check_file(slot_dir / f)
+        out[variant] = "VERDICT: FAIL (" + "; ".join(issues) + ")" if issues else "VERDICT: PASS"
+    return out
+
+
 def _qa_md(slot: str, verdicts: dict, changes: str | None, notes: str | None) -> str:
     lines = [f"# QA · {slot} · {now()}", ""]
     if notes:
@@ -335,7 +347,7 @@ def run(client: str, slot: str) -> int:
             _write_status(client, slot, step="voicing", changes=changes, vo_before=before[2])
             _revoice(client, slot, before[2], slot_dir)
         _write_status(client, slot, step="rendering", changes=changes)
-        verdicts = render(client, slot)
+        verdicts = render(client, slot) | spec_verdicts(slot_dir)
         _write_status(client, slot, step="finishing")   # the new cut is in place from here on
         db.set_state(slot, "RENDERED")
         qa = _qa_md(slot, verdicts, changes, notes)
