@@ -95,6 +95,8 @@ def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_r
         video = slot / "video.mp4"
         issues = spec_check.check_file(video)   # provenance is a record, not a gate: it never blocks a post
         if issues:
+            if not dry_run:   # retrying will not fix the file: back to the operator with the reason
+                db.set_state(slot_id, "NEEDS_APPROVAL", note="spec_check failed at publish time: " + "; ".join(issues))
             raise PublishError("spec_check failed at publish time: " + "; ".join(issues))
         params = _container_params(meta, caption)
         if dry_run:

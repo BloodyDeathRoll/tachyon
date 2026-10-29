@@ -338,7 +338,7 @@ def produce(client: str, slot: str) -> None:
         if meta.get("voiceover_script") and not (sd / "vo.wav").exists():
             from . import voice as V
             V.make_vo(client, slot, meta["voiceover_script"], voice=meta.get("voiceover_voice"))
-        verdicts = R.render(client, slot)   # render mixes track + voice-over (spine/tracks.apply)
+        verdicts = R.render(client, slot) | R.spec_verdicts(sd)   # render mixes track + voice-over (spine/tracks.apply)
         db.set_state(slot, "RENDERED")
         qa = R._qa_md(slot, verdicts, None, None)
         (sd / "qa.md").write_text(qa)
