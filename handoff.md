@@ -1,70 +1,75 @@
-# Session Handoff — 2026-10-29 (evening: w44-16 publish incident)
+# Session Handoff — 2026-10-29 (night: tests, time zones, sync)
 
-(Earlier handoffs today, all uncommitted work in this worktree — read before committing:
-`handoff.afternoon-2026-10-29.md` (was handoff.md until this session), `handoff.polish-2026-10-29.md`,
-`handoff.pause-2026-10-29.md`, `handoff.cloudflare-2026-10-29.md`. This session did NOT touch the
-uncommitted changes in this worktree; its code went through a separate worktree and PR #22.)
+(The previous handoff.md, "evening: w44-16 publish incident", is in git on main: `git show 5fd462e:handoff.md`.
+Older ones: handoff.afternoon/polish/pause/cloudflare-2026-10-29.md, handoff.prev.md — all on main.)
 
 ## Goal
-The 20:30 reel `rosa/2026-w44-16` was stuck "publishing" (actually QUEUED). Find out why, get it live,
-and stop the same failure from happening again.
+Make the whole test suite pass in every time zone (the dashboard shows local time, stores UTC), then
+get all non-media work committed, merged and synced between the worktree, the main checkout and GitHub.
 
 ## Current State
-- w44-16 is LIVE: https://www.instagram.com/reel/DfFsLLgiICh/ (posted by the 20:50 cron run, state MEASURING).
-- PR #22 (`upload-color-range`) MERGED to main as `faac70f`; the remote branch is deleted.
-- `~/Projects/tachyon` (main checkout, where cron + dashboard run) has NOT pulled `faac70f` yet,
-  so cron and the dashboard still run the old code. Last check: `## main...origin/main` before the merge.
-- Local worktree `~/.superset/worktrees/tachyon/upload-color-range` still exists; its branch is merged.
-- Full suite on the PR branch: 177 passed, 2 failed. Both failures also fail on main without these changes
-  (times off by 2 h, probably timezone): `tests/test_dashboard.py::test_schedule_times_are_editable`,
-  `tests/test_dashboard_v3.py::test_posts_per_day_add_and_remove`.
+- GitHub `main` = `5fd462e` (PR #24 merge). Main checkout `~/Projects/tachyon` on `main` at `5fd462e`,
+  clean, behind 0. Media files stay out of git (.gitignore).
+- PR #23 (dashboard polish, Pause/Play, music defaults, motion styles, tz fixes) merged as `9c9c3aa`.
+- PR #24 (Rosa post text data + film edits from the live checkout) merged as `5fd462e`.
+- Both remote branches deleted (`cloudflare-plan`, `rosa-data-films`).
+- This worktree is still on local branch `cloudflare-plan` (`fe3296c`), whose remote is gone. It is
+  behind main; don't work here without `git switch -c <new> origin/main` first.
+- Tests: 189 passed in Asia/Jerusalem, America/Los_Angeles, Pacific/Kiritimati (after the PR #22 merge).
+  Before that merge, 187 also passed in UTC, Tokyo, Kolkata; dashboard tests in Pago Pago.
+- Dashboard restarted from `~/Projects/tachyon` after the PR #23 update; `/rosa` answered 200.
+  Not clicked through in a browser. Not restarted after PR #24 (no code change in it).
+- Motion styles (from the earlier sessions today) still never run end to end.
 
-## Root cause (verified)
-1. The uploaded phone video was full range. ffprobe reports `yuvj420p,pc`.
-2. The upload transcode in `spine/manual.py` `add_upload` set `-pix_fmt yuv420p` but kept the full range,
-   so the output still probed `yuvj420p`. Reproduced on the same file.
-3. Uploads never ran `spec_check`, so the first check was at publish time (20:30):
-   `spec_check failed at publish time: pix_fmt yuvj420p, want yuv420p`.
-4. That refusal happens before PUBLISHING, so the post stayed QUEUED. The error only appeared in
-   `~/.tachyon/logs/publish.log`.
-- Nothing re-rendered the file: it was written once, by the upload, at 09:18:41. An earlier guess that a
-  Remotion render caused it was wrong.
-
-## Active Files (PR #22, now on main)
-- `spine/manual.py` — the upload transcode adds `scale=out_range=tv` and `-color_range tv`; `spec_verdicts` is added to the QA verdicts.
-- `spine/revise.py` — new `spec_verdicts(slot_dir)`, the publish-time spec_check run at QA; skips missing files.
-- `spine/week.py` — week renders add `R.spec_verdicts(sd)` to the verdicts.
-- `spine/review/app.py` — approve returns 409 "Instagram would refuse this file: …" when the spec check fails.
-- `spine/publisher/publish.py` — a spec failure at publish time moves the post QUEUED → NEEDS_APPROVAL with the reason as its note (dry_run excluded).
-- `tests/test_dashboard.py` — new tests `test_upload_of_full_range_video_comes_out_in_spec` and `test_approve_refuses_a_file_instagram_would_refuse`. Both failed before the fix and pass after it.
-- `tests/test_publish.py` — `test_publish_refuses_silent_video_and_stays_queued` renamed to `…_sends_it_back_for_approval`; it now asserts NEEDS_APPROVAL and the note.
-- Data, in the main checkout: `clients/rosa/posts/2026-w44-16/video.mp4` and `video-story.mp4`, plus
-  `engines/remotion/public/uploads/2026-w44-16.mp4`, replaced with a `spec_check --fix` output (yuv420p tv).
-  The original video is in the session scratchpad only (temporary).
+## Active Files
+- `spine/review/app.py:1579`: Swap slot link uses the post's local week (`parse(at_).astimezone(LOCAL)`).
+- `tests/test_dashboard.py`: `slot_on(day, i)` helper (the i-th slot on a local day, as UTC ISO);
+  schedule test expects `_shift(..., False)` UTC storage; `test_instagram_track_is_not_played_twice`
+  (inverted: no `id=igtrack`); pause test uses `app.when()` for the local day.
+- `tests/test_dashboard_v3.py`: posts-per-day test via `utc()` helper; calendar/month/video-page tests via `slot_on`.
+- Memory: `no-media-commit-asks.md` + MEMORY.md line.
 
 ## Changes Made This Session
-1. Fixed tonight's video with `python3 -m spine.publisher.spec_check --fix` and copied the result to all three paths. A dry-run publish passed; cron published it at 20:50.
-2. Upload encode: converts the range, because `-pix_fmt` alone keeps full range.
-3. spec_check at QA (uploads, edits, week renders) plus a hard gate at approve. A safe-zone FAIL can still be overridden by the operator; a spec FAIL cannot.
-   Missing files are skipped at QA and approve, so existing tests and slots with no video yet keep working.
-4. Publish-time spec failure goes back to NEEDS_APPROVAL. History: on 2026-10-29 the user chose
-   "Option A" and approved changing the existing stays-QUEUED test. That approval covered that one test only.
-5. Agent review: first run "No issues found". The run on the final commit `eed61eb` posted nothing, so I
-   commented `@claude review`. That run found no blockers and three minor points, all left as is:
-   approve also checks the story file (kept, decision 14); approve is slower; spec lines sit under "Safe zones" in qa.md.
+1. Ran full suite: 3 failures, all tests behind the code. Schedule tests assumed stored == entered
+   (code stores UTC since `a59c92b`). The igtrack test checked the `ig_sync` player, removed
+   because the song is baked into video.mp4 (echo).
+2. User said "fix all tests": made schedule tests tz-agnostic, inverted the igtrack test.
+3. User: "fix the date issue for all time zones, keep local". Found one real bug (Swap slot week
+   in UTC), fixed it; 5 more tests had hard-coded UTC slot instants: replaced with `slot_on`.
+4. Committed + pushed everything in the worktree (`25d24fa`, `c459aeb`), opened PR #23.
+5. PR #23 conflicted with PR #22 (merged earlier by another session); the review did not run until
+   the conflict was gone. Merged origin/main into the branch (`fe3296c`), conflict only at the end
+   of tests/test_dashboard.py (both sides added tests: kept both).
+6. GitHub agent review on `fe3296c`: no issues. My audit: no code change. User asked for the merge → merged.
+7. Updated the main checkout: its code files were older copies (subsets of main, no unique
+   edits; verified per file by hash and diff). Backed up the dirty state, reset those files,
+   moved identical untracked files aside, `merge --ff-only`, restored the live
+   `clients/rosa/posts/2026-w44-15/meta.json`. Restarted the dashboard.
+8. User: commit everything except media. Branch `rosa-data-films` in the main checkout,
+   commit (89 files: text data, film .tsx, index.ts; also removed w43-04, w44-08, w44-10, w44-12),
+   PR #24, review on `d85348f`: no issues. `tsc --noEmit` passed. User asked for the merge → merged, branch
+   deleted. `git checkout -B main origin/main` (tree identical, so the files on disk did not change).
 
 ## Failed Attempts
-- First version of fix 3 left the slot QUEUED→NEEDS_APPROVAL without approval to change
-  `test_publish_refuses_silent_video_and_stays_queued`; reverted until the user chose Option A.
-- The approve gate first failed on missing video files and broke `test_approve_schedules_next_free_slot`
-  (409). Fixed by skipping missing files; the test was not edited.
-- The auto review on a `synchronize` push does not post a fresh comment once the PR has one. A new review needs a manual `@claude review` comment.
+- First time-zone test edit: a string replace hit the start of a line, so
+  `and "value=resume" in body and "value=pause" not in body` became part of a comment (assert
+  silently weakened). Found during the merge conflict, fixed in `fe3296c`. Check replace results on
+  multi-clause asserts.
+- `gh pr merge --delete-branch` fails locally: `'main' is already used by worktree at ~/Projects/tachyon`.
+  The merge itself goes through. Delete the branch with `git push origin --delete <branch>`.
+- `git merge --ff-only` in the main checkout refused: untracked files identical to the incoming ones
+  ("would be overwritten"). Move them aside, merge, compare with `cmp`.
+- `pytest -n auto`: no xdist installed (empty output). Run zones as parallel background jobs instead.
+- Asking the user whether to commit media: user angry. Never ask (memory `no-media-commit-asks`).
 
 ## Next Step
-1. Ask the user, then pull main into the main checkout so cron and the dashboard get the fix:
-   `git -C ~/Projects/tachyon pull`. Check first that the checkout has no local changes that block the pull.
-2. The review page (`spine/review/app.py`) does not show the post `note`. A NEEDS_APPROVAL slot sent back by
-   publish shows its reason only when Approve returns the 409. Possible follow-up: render `row["note"]`.
-3. Not checked: whether editing a video after approval re-runs the approval check.
-4. Optional cleanup, ask first: `git worktree remove ~/.superset/worktrees/tachyon/upload-color-range`.
-5. The 2 timezone test failures on main are untriaged.
+1. Daylight-saving drift is still open (asked, no answer): slots are stored UTC with today's offset
+   (`_shift`), so the local post time moves 1 h at a DST change. Fix = store slots as local "HH:MM"
+   and convert per date (`SCH._slots`, `schedule.next_free`, `day_slots`, `preview_slots`,
+   `week.slot_times`), plus a one-time change to `clients/rosa/grants.yaml` slots. Ask before doing it.
+2. Pickup every 10 minutes instead of hourly at :17? Asked earlier today, no answer.
+3. Verify motion styles end to end on one slot (`meta.json` "motion" + the pill).
+4. Backup of the main checkout's pre-update dirty state: `scratchpad/main-backup/` of session
+   cb706ac5 (`/tmp/claude-1000/...`). /tmp, may vanish; everything in it is now on main except the
+   superseded copies.
+5. `~/Projects/tachyon/handoff.md.local-backup` came from another session; it was committed in PR #24.
