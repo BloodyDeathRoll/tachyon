@@ -59,6 +59,7 @@ def test_qa_rounds_then_needs_input(db):
     assert S.next_after_qa("VERDICT: NEEDS_REVISION", 2) == "NEEDS_INPUT"
     db.set_state("s", "NEEDS_INPUT")
     assert S.next_after_qa("VERDICT: APPROVED", 2) == "NEEDS_APPROVAL"
+    db.set_state("s", "APPROVED")   # QA failed, the operator approves it anyway
 
 
 def test_rejected_goes_back_to_script_with_note(db):

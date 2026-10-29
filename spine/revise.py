@@ -59,7 +59,7 @@ def start(client: str, slot: str, notes: str) -> None:
     rounds = prev.get("rounds", [])
     rounds.append({"notes": notes, "at": now()})
     _write_status(client, slot, state="running", step="queued", notes=notes, rounds=rounds, error=None,
-                  skip_edit=False, changes=None, kind=None)
+                  skip_edit=False, revoice=False, changes=None, kind=None, no_change=False)
     _spawn(client, slot)
 
 
@@ -94,7 +94,7 @@ def retry(client: str, slot: str, db: DB) -> bool:
     if db.post(slot)["state"] == "NEEDS_APPROVAL":
         db.set_state(slot, "REJECTED", note="re-run after a failed render")
     _write_status(client, slot, state="running", step="queued", error=None,
-                  skip_edit=st.get("step") in ("rendering", "finishing"))
+                  skip_edit=st.get("step") in ("voicing", "rendering", "finishing"), revoice=st.get("step") == "voicing")
     try:
         _spawn(client, slot)
     except Exception as e:   # nothing is running: show the failure again, back to approval
@@ -119,6 +119,33 @@ use the same language for anything you add. Then apply the notes on top of it.
 """
 
 
+def _vo_intro(slot_dir: Path) -> str:
+    vo = json.loads((slot_dir / "meta.json").read_text()).get("voiceover")
+    if not vo:
+        return ""
+    return f"""
+The video has a voice-over, spoken from {vo.get('start', 0)} s: the script is the "voiceover" →
+"script" field of {slot_dir.relative_to(ROOT)}/meta.json. If a note is about what the voice says, or
+your edit changes the film's message, rewrite that field (edit nothing else in meta.json): the
+pipeline records it again in the same voice, in one take. Keep it casual first person, about as
+long as now, and true to clients/<client>/product.md."""
+
+
+def _motion_intro(slot_dir: Path) -> str:
+    from . import week as W   # week imports this module
+    try:
+        mid = json.loads((slot_dir / "meta.json").read_text()).get("motion")
+    except (OSError, ValueError):
+        mid = None
+    m = W.motion_styles().get(mid or "")
+    now = f'"{m.get("style") or m["title"]}" ({m["url"]})' if m else "the house look"
+    return f"""
+Motion style: this reel uses {now}. If the notes name another style, find it by its `style`
+name in engines/remotion/motion.yaml, rebuild the motion in it (adapt it, never copy the piece)
+and set "motion" to its id in {slot_dir.relative_to(ROOT) if slot_dir.is_relative_to(ROOT) else slot_dir}/meta.json.
+"""
+
+
 def _prompt(client: str, slot: str, film: dict, notes: str, slot_dir: Path) -> str:
     return f"""You are revising one Instagram reel for the client "{client}" (slot {slot}).{_upload_intro(slot_dir, film)}
 The operator rejected the current cut with these notes:
@@ -126,34 +153,46 @@ The operator rejected the current cut with these notes:
 ---
 {notes}
 ---
-
+{_motion_intro(slot_dir)}
 The film is a Remotion composition. Edit only its source: {film['source']} (and
 engines/remotion/src/lib.tsx only if the change truly needs it). Composition ids: reel
 "{film['reel']}", story "{film['story']}" (engines/remotion/src/Root.tsx; durations come from
 the constants exported by the film file).
-If a note is about the post text, edit {slot_dir.relative_to(ROOT)}/caption.txt instead.
+If a note is about the post text, edit {slot_dir.relative_to(ROOT)}/caption.txt instead.{_vo_intro(slot_dir)}
 
 Rules: keep every text and UI element inside the safe box (SAFE in lib.tsx); numbers only from
 clients/{client}/product.md; never "comment for the link"; no AI-generated footage.
-After editing, run `npx tsc --noEmit -p .` in engines/remotion and fix any error. You may check
-a frame with `npx remotion still src/index.ts {film['reel']} /tmp/x.png --frame=N`.
+Paths here are relative to the repo root {ROOT}; your shell starts in engines/remotion.
+After editing, run `npx tsc --noEmit -p .` and fix any error. Check frames with
+`npx remotion still src/index.ts {film['reel']} {slot_dir / '.still.png'} --frame=N` and look at them.
 Do not render the video, do not commit. End with one line per change you made."""
 
 
 def _edit(client: str, slot: str, film: dict, notes: str, slot_dir: Path) -> str:
+    # shell in engines/remotion so the npx checks match ALLOWED; --add-dir reaches the slot files
     r = subprocess.run(["claude", "-p", _prompt(client, slot, film, notes, slot_dir),
-                        "--allowedTools", *ALLOWED.split(" "), "--permission-mode", "acceptEdits"],
-                       cwd=ROOT, capture_output=True, text=True, timeout=EDIT_TIMEOUT)
+                        "--allowedTools", *ALLOWED.split(" "), "--permission-mode", "acceptEdits", "--add-dir", str(ROOT)],
+                       cwd=REMOTION, capture_output=True, text=True, timeout=EDIT_TIMEOUT)
+    (slot_dir / ".still.png").unlink(missing_ok=True)
     if r.returncode != 0:
         raise RuntimeError(f"claude edit failed: {r.stderr.strip()[-400:] or r.stdout.strip()[-400:]}")
     return r.stdout.strip()
+
+
+def _typecheck() -> tuple[bool, str]:
+    try:
+        r = subprocess.run(["npx", "tsc", "--noEmit", "-p", "."], cwd=REMOTION, capture_output=True, text=True, timeout=300)
+        return r.returncode == 0, r.stdout
+    except subprocess.TimeoutExpired:
+        return False, "type check timed out"
 
 
 def _register_if_new(film: dict) -> None:
     """A film created by the edit (an upload's first one) must be registered before rendering."""
     import fcntl
     from . import week as W
-    if not (ROOT / film["source"]).exists():
+    src = ROOT / film["source"]
+    if not src.exists() or src.parent != W.FILMS:   # Showreel/Favorites sit in src/, registered in Root.tsx
         return
     with open(W.FILMS / ".formats.lock", "w") as lk:   # the same lock the format layouts take
         fcntl.flock(lk, fcntl.LOCK_EX)
@@ -161,11 +200,7 @@ def _register_if_new(film: dict) -> None:
             return
         before = (W.FILMS / "index.ts").read_text()
         W.register(film["reel"])
-        try:
-            r = subprocess.run(["npx", "tsc", "--noEmit", "-p", "."], cwd=REMOTION, capture_output=True, text=True, timeout=300)
-            ok, out = r.returncode == 0, r.stdout
-        except subprocess.TimeoutExpired:
-            ok, out = False, "type check timed out"
+        ok, out = _typecheck()
         if not ok:
             (W.FILMS / "index.ts").write_text(before)
             (ROOT / film["source"]).unlink(missing_ok=True)   # a fresh start next time (an upload's first film)
@@ -216,7 +251,7 @@ def render(client: str, slot: str) -> dict:
         n = len(list(vdir.glob("v*"))) + 1 if vdir.exists() else 1
         keep = vdir / f"v{n}"
         keep.mkdir(parents=True, exist_ok=True)
-        for f in ("video.mp4", "video-story.mp4", "cover.jpg", "caption.txt"):
+        for f in ("video.mp4", "video-story.mp4", "cover.jpg", "caption.txt", "vo.wav"):
             if (slot_dir / f).exists():
                 shutil.copy2(slot_dir / f, keep / f)
     shutil.move(out["reel"], slot_dir / "video.mp4")
@@ -262,6 +297,28 @@ def _qa_md(slot: str, verdicts: dict, changes: str | None, notes: str | None) ->
     return "\n".join(lines) + "\n"
 
 
+class NoChange(RuntimeError):
+    """The edit left the film, the caption and the voice-over script as they were."""
+
+
+def _snapshot(slot_dir: Path, film: dict) -> tuple:
+    src = ROOT / film["source"]
+    vo = json.loads((slot_dir / "meta.json").read_text()).get("voiceover") or {}
+    return (src.read_text() if src.exists() else None, read_text(slot_dir / "caption.txt"), vo.get("script"))
+
+
+def read_text(p: Path) -> str | None:
+    return p.read_text() if p.exists() else None
+
+
+def _revoice(client: str, slot: str, before: str | None, slot_dir: Path) -> None:
+    """A rewritten voice-over script is recorded again: one take, the same voice and start."""
+    vo = json.loads((slot_dir / "meta.json").read_text()).get("voiceover") or {}
+    if vo.get("script") and vo["script"] != before:
+        from . import voice as V
+        V.make_vo(client, slot, vo["script"], voice=vo.get("voice"), start=vo.get("start", V.START))
+
+
 def run(client: str, slot: str) -> int:
     d = C.client_dir(client)
     slot_dir = d / "posts" / slot
@@ -274,10 +331,21 @@ def run(client: str, slot: str) -> int:
             db.set_state(slot, "SCRIPTED", note=f"revising: {notes[:200]}")
         if st.get("skip_edit"):
             changes = st.get("changes")
+            if st.get("revoice"):   # the edit is in place; recording the voice-over failed
+                _write_status(client, slot, step="voicing")
+                _revoice(client, slot, st.get("vo_before"), slot_dir)
         else:
             _write_status(client, slot, step="editing")
+            before = _snapshot(slot_dir, film)
             changes = _edit(client, slot, film, notes, slot_dir) if notes else None
+            if notes and _snapshot(slot_dir, film) == before:   # same clip again: say why instead
+                raise NoChange(changes or "The edit changed nothing.")
             _register_if_new(film)
+            ok, out = _typecheck()   # the edit's own check is not proof it ran
+            if not ok:
+                raise RuntimeError(f"the film does not typecheck: {out[-300:]}")
+            _write_status(client, slot, step="voicing", changes=changes, vo_before=before[2])
+            _revoice(client, slot, before[2], slot_dir)
         _write_status(client, slot, step="rendering", changes=changes)
         verdicts = render(client, slot) | spec_verdicts(slot_dir)
         _write_status(client, slot, step="finishing")   # the new cut is in place from here on
@@ -289,7 +357,7 @@ def run(client: str, slot: str) -> int:
         _write_status(client, slot, state="done", step="done", verdicts=verdicts)
         return 0
     except Exception as e:  # surface it on the video page
-        _write_status(client, slot, state="failed", error=str(e)[-1500:], failed_at=now())
+        _write_status(client, slot, state="failed", error=str(e)[-1500:], failed_at=now(), no_change=isinstance(e, NoChange))
         try:   # the previous cut is untouched (files move only on success): back to approval
             cur = db.post(slot)["state"]
             if cur == "SCRIPTED":

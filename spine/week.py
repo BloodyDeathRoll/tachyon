@@ -16,6 +16,7 @@ Progress: clients/<c>/plans/<week>.json (the dashboard reads it).
 from __future__ import annotations
 
 import json
+import random
 import re
 import subprocess
 import sys
@@ -33,6 +34,8 @@ from .db import DB
 ROOT = Path(__file__).resolve().parent.parent
 FILMS = ROOT / "engines" / "remotion" / "src" / "films"
 MUSIC = "clients/{c}/assets/music/old-steel-449645.mp3"
+MOTION = ROOT / "engines" / "remotion" / "motion.yaml"   # tools/motion_catalogue.py
+RECENT_MOTION = 30   # posts back that a style may not repeat
 PLAN_TIMEOUT = 20 * 60
 FILM_TIMEOUT = 25 * 60
 ALLOWED_PLAN = "Read Glob Grep Write"
@@ -145,7 +148,7 @@ def plan_prompt(client: str, week: str, times: list[str], out: Path) -> str:
     return f"""You are the marketing lead for the client "{client}". Plan next week's Instagram Reels.
 
 Read first: {c}/strategy.md, {c}/brand.md, {c}/product.md, {c}/audience.md, {c}/funnel.md,
-{c}/swipe.md, {c}/CHANGELOG.md, every {c}/posts/*/meta.json and caption.txt (what already ran),
+{c}/swipe.md, {c}/CHANGELOG.md, {MOTION.relative_to(ROOT)} (motion styles), every {c}/posts/*/meta.json and caption.txt (what already ran),
 and {c}/reports/ and {c}/lessons.yaml if they exist (what worked).
 
 Week {week} has {len(times)} publishing slots (UTC):
@@ -161,6 +164,9 @@ items:
     brief: <3-5 sentences: what the 15-30 s video shows, beat by beat, using the real app>
     hook: <the first on-screen line, max 6 words>
     theme: <light or dark: which app theme the captures use; alternate so about half are light>
+    motion: <id of the motion style that suits this brief, from the motion styles file; a different
+      one per item and none that a posts/*/meta.json "motion" already used. When the operator's
+      instructions name a style by its `style` name, use that one>
     voiceover: <optional, on about 1 item in 4: 2-3 short spoken lines, 6-9 s. A surfer friend
       telling you about one feature: easygoing, likeable, a smile in it, laid back or stoked,
       never a newsreader. Talk like speech: "okay so", "honestly", "dude" at most once; short
@@ -197,7 +203,29 @@ def plan(client: str, week: str) -> list[dict]:
         if re.search(r"comment\s+\S+\s+(for|to get)", it["caption"], re.I):
             raise ValueError(f"plan item {t} asks people to comment for the link (rule 13)")
         it["caption"] = CAP.ensure(client, it["caption"])   # the one caption structure, no credits
+    pick_motion(client, items, week, (status(client, week) or {}).get("instructions") or "")
     return items
+
+
+def motion_styles() -> dict[str, dict]:
+    return {m["id"]: m for m in (yaml.safe_load(MOTION.read_text()) or {}).get("styles", [])} if MOTION.exists() else {}
+
+
+def pick_motion(client: str, items: list[dict], week: str, asked: str = "") -> None:
+    """Every item gets its own motion style, none from the recent posts: the plan's pick when it
+    qualifies, else an unused one. A style the operator asked for by name may repeat a recent one.
+    No catalogue: no style (the house look)."""
+    styles = motion_styles()
+    metas = sorted((C.client_dir(client) / "posts").glob("*/meta.json"))[-RECENT_MOTION:]
+    used = {json.loads(m.read_text()).get("motion") for m in metas}
+    free = [k for k in styles if k not in used] or list(styles)
+    random.Random(week).shuffle(free)
+    for it in items:
+        m = styles.get(it.get("motion") or "")
+        wanted = bool(m and m.get("style") and m["style"].lower() in asked.lower())
+        if not m or (it["motion"] in used and not wanted):
+            it["motion"] = next((k for k in free if k not in used), None)
+        used.add(it["motion"])
 
 
 # ── 2. slots ──────────────────────────────────────────────────────────────────
@@ -235,7 +263,7 @@ def write_item(client: str, db: DB, slot: str, it: dict, i: int, plan: str, n_vo
             "trial": False, "share_to_feed": True, "thumb_offset": 1200, "story": True,
             "landing": "https://rosa.surf/",
             "bio_link_while_live": f"https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign={slot}",
-            "plan": plan, "theme": it.get("theme") if it.get("theme") in ("light", "dark") else ("light" if i % 2 == 0 else "dark")}
+            "plan": plan, "motion": it.get("motion"), "theme": it.get("theme") if it.get("theme") in ("light", "dark") else ("light" if i % 2 == 0 else "dark")}
     if str(it.get("voiceover") or "").strip():
         from . import voice as V
         meta["voiceover_script"] = " ".join(str(it["voiceover"]).split())
@@ -288,9 +316,9 @@ App theme: {theme}. Use staticFile("{cdir}/<name>.png") for every app screen.{vo
 
 Create engines/remotion/src/films/{fid}.tsx that exports `export const SECONDS = <15..30>;` and
 `export default` a React component `({{ variant }}: {{ variant: Variant }}) => ...`.
-Study engines/remotion/src/Showreel.tsx, Favorites.tsx and lib.tsx first and use the same
-language: footage beds, the 3D floating Phone with real app Screens, H1/Sub type, rise
-animations, an end card with the logo and "rosa.surf →", fast and fun pacing. Assets you may
+Study engines/remotion/src/Showreel.tsx, Favorites.tsx and lib.tsx first and use their parts:
+the 3D floating Phone with real app Screens, H1/Sub type, an end card with the logo and
+"rosa.surf →", fast and fun pacing.{motion_block(meta.get("motion"))} Assets you may
 use: staticFile("{cdir}/<name>.png") for the files in engines/remotion/public/{cdir},
 staticFile("footage/<name>.mp4") for engines/remotion/public/footage, staticFile("fonts/rosa-icon.svg").
 Every text and UI element stays inside SAFE[variant]. Only our messages, large: no on-screen text
@@ -299,6 +327,24 @@ Numbers only from clients/{client}/product.md.
 Never "comment for the link". Do not edit any other file. Run `npx tsc --noEmit -p .` in
 engines/remotion until it passes (you may temporarily add nothing to Root; it is registered for
 you afterwards). You may check frames with a scratch entry only if needed. Do not render, do not commit.{instructions_block(_batch_instructions(client, meta))}"""
+
+
+def motion_block(mid: str | None) -> str:
+    m = motion_styles().get(mid or "")
+    if not m:
+        return " Footage beds and rise animations, like those films."
+    return f"""
+
+Motion style for this reel: "{m.get('style') or m['title']}" ({', '.join(m['tags'])}). Its original prompt:
+---
+{m['prompt']}
+---
+Take the motion language from it (how things move, enter, transition, the shapes, particles,
+type treatment, rhythm) and build this brief with it, so this reel does not look like the last
+ones. Adapt it, never copy it: it is someone else's piece ({m['url']}). It never overrides the
+brief, the brand, the safe areas or the type rules below; ignore any part of it that needs
+assets we do not have.
+"""
 
 
 def _batch_instructions(client: str, meta: dict) -> str:

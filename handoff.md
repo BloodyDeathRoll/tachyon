@@ -1,67 +1,70 @@
-# Session Handoff — 2026-10-26
+# Session Handoff — 2026-10-29 (evening: w44-16 publish incident)
+
+(Earlier handoffs today, all uncommitted work in this worktree — read before committing:
+`handoff.afternoon-2026-10-29.md` (was handoff.md until this session), `handoff.polish-2026-10-29.md`,
+`handoff.pause-2026-10-29.md`, `handoff.cloudflare-2026-10-29.md`. This session did NOT touch the
+uncommitted changes in this worktree; its code went through a separate worktree and PR #22.)
 
 ## Goal
-Tachyon = VP-of-marketing engine for the client Rosa (@rosasurfapp, rosa.surf): Remotion reels → local
-dashboard (approve / edit / schedule) → Instagram Graph API publish + insights. This session: get Meta
-access back, then a long run of dashboard features the operator asked for.
+The 20:30 reel `rosa/2026-w44-16` was stuck "publishing" (actually QUEUED). Find out why, get it live,
+and stop the same failure from happening again.
 
 ## Current State
-- `main` at `e8e536b` (PRs #2–#10 merged). Only `main` exists on GitHub. This worktree is **detached at
-  origin/main**; `~/Projects/tachyon` (main checkout) fast-forwarded to it.
-- Dashboard runs from this worktree: `.venv/bin/python -m spine.review.app 8765` → http://127.0.0.1:8765/rosa
-  (restart = kill the `spine.review.app 8765` process, start again). 136 tests pass (`.venv/bin/python -m pytest -q`).
-- **Meta**: app `1497581085764373` ("Tachyon", owned by a second FB account, "Rusty James"/hotmail login, in Chrome).
-  Page token never expires; Meta cuts **data access 2027-01-24** (renew via Graph Explorer before; dashboard banner from
-  2027-01-10). Old blocked app `1150072321350463`, env backup `~/Projects/tachyon/.env.local.old-app-1150072321350463`;
-  dev-code block ends 2026-11-21 (banner from 2026-11-22).
-- Verified live with the new token: insights (hourly cron, last pull showed 28+6=34 views), DM read, Audio API search.
-  **Not yet verified: a real API publish from the queue.**
-- Uncommitted in this worktree (operator's dashboard work, not mine to commit without asking): re-render notes applied
-  to w44-01…14 films (particles), versions/, revise.json/log, two 16:9 format layouts
-  (`film-2026-w44-01-16x9.tsx`, `film-2026-w44-13-16x9.tsx`) registered in `engines/remotion/src/films/formats.ts`,
-  grants.yaml, meta/qa files.
+- w44-16 is LIVE: https://www.instagram.com/reel/DfFsLLgiICh/ (posted by the 20:50 cron run, state MEASURING).
+- PR #22 (`upload-color-range`) MERGED to main as `faac70f`; the remote branch is deleted.
+- `~/Projects/tachyon` (main checkout, where cron + dashboard run) has NOT pulled `faac70f` yet,
+  so cron and the dashboard still run the old code. Last check: `## main...origin/main` before the merge.
+- Local worktree `~/.superset/worktrees/tachyon/upload-color-range` still exists; its branch is merged.
+- Full suite on the PR branch: 177 passed, 2 failed. Both failures also fail on main without these changes
+  (times off by 2 h, probably timezone): `tests/test_dashboard.py::test_schedule_times_are_editable`,
+  `tests/test_dashboard_v3.py::test_posts_per_day_add_and_remove`.
 
-## Active Files
-- `spine/review/app.py` — dashboard (all UI below).
-- `spine/revise.py` — re-render jobs; `settle/retry/dismiss`; uploads get a film on first edit.
-- `spine/formats.py` — other formats: claude re-lays the film per ratio, Remotion renders, reel's audio muxed.
-- `spine/manual.py` — calendar Add new: `add_upload`, `add_prompt`, `_claim` (locked slot booking), `produce`.
-- `spine/week.py` — week prep; batch instructions; `write_item` shared with manual.
-- `spine/schedule.py` — `preview_slots` (planned slot for unslotted videos).
-- `spine/db.py` — `delete_post`. `spine/state.py` — REJECTED→NEEDS_APPROVAL allowed.
-- `engines/remotion/src/lib.tsx` (Phone cx/cy, FORMAT_SAFE), `Root.tsx`, `films/formats.ts`.
-- `dashboard/brand/tachyon-logo.svg` — from Figma file zmNUNf8OPDOKDlIeM00ulf, Brand page, node 15:2 (logo dark), bg rects stripped.
-- `tests/test_dashboard.py` — most new tests.
+## Root cause (verified)
+1. The uploaded phone video was full range. ffprobe reports `yuvj420p,pc`.
+2. The upload transcode in `spine/manual.py` `add_upload` set `-pix_fmt yuv420p` but kept the full range,
+   so the output still probed `yuvj420p`. Reproduced on the same file.
+3. Uploads never ran `spec_check`, so the first check was at publish time (20:30):
+   `spec_check failed at publish time: pix_fmt yuvj420p, want yuv420p`.
+4. That refusal happens before PUBLISHING, so the post stayed QUEUED. The error only appeared in
+   `~/.tachyon/logs/publish.log`.
+- Nothing re-rendered the file: it was written once, by the upload, at 09:18:41. An earlier guess that a
+  Remotion render caused it was wrong.
+
+## Active Files (PR #22, now on main)
+- `spine/manual.py` — the upload transcode adds `scale=out_range=tv` and `-color_range tv`; `spec_verdicts` is added to the QA verdicts.
+- `spine/revise.py` — new `spec_verdicts(slot_dir)`, the publish-time spec_check run at QA; skips missing files.
+- `spine/week.py` — week renders add `R.spec_verdicts(sd)` to the verdicts.
+- `spine/review/app.py` — approve returns 409 "Instagram would refuse this file: …" when the spec check fails.
+- `spine/publisher/publish.py` — a spec failure at publish time moves the post QUEUED → NEEDS_APPROVAL with the reason as its note (dry_run excluded).
+- `tests/test_dashboard.py` — new tests `test_upload_of_full_range_video_comes_out_in_spec` and `test_approve_refuses_a_file_instagram_would_refuse`. Both failed before the fix and pass after it.
+- `tests/test_publish.py` — `test_publish_refuses_silent_video_and_stays_queued` renamed to `…_sends_it_back_for_approval`; it now asserts NEEDS_APPROVAL and the note.
+- Data, in the main checkout: `clients/rosa/posts/2026-w44-16/video.mp4` and `video-story.mp4`, plus
+  `engines/remotion/public/uploads/2026-w44-16.mp4`, replaced with a `spec_check --fix` output (yuv420p tv).
+  The original video is in the session scratchpad only (temporary).
 
 ## Changes Made This Session
-1. Meta workaround: second FB account created app 1497581085764373, joined Rosa Surf business portfolio (Gmail invite),
-   token via Graph Explorer; IG messages enabled in Business Suite. Dashboard renewal + switch-back banners.
-2. Audio API fixed (response key `audio`). It only covers royalty-free Sound Collection — commercial songs impossible via API.
-3. "Posted by hand": link an app-posted reel so it is tracked (`/v/<slot>/byhand`).
-4. Overview Views = sum of per-reel counters (account total lagged).
-5. Publish safety (7 review rounds): any unclear `media_publish` outcome → MANUAL_HANDOFF, never auto-retried.
-6. Repo slimmed: films/media local-only; history rewritten with filter-repo (backup bundle `~/Projects/tachyon-history-backup-2026-10-26.bundle`).
-7. Edit after approval (revoke); Instagram-track preview plays with the video and fades out.
-8. Failed re-render: error card + Re-run (render-only if edit done); no longer blocks Approve; Remotion `--timeout=180000`.
-9. Prepare week popup with batch instructions (prefilled with last; auto run reuses them).
-10. Calendar shows unapproved videos at their planned slot; approval takes that same slot. Delete video (button + confirm,
-    files → `clients/<c>/trash/`, refused once on Instagram). Calendar nav shows week start.
-11. Generate new version (1:1/4:5/2:3/16:9) = real re-layout, not crop (user rejected the crop). ~3 min/format.
-12. Calendar Add new on open slots: Upload (fitted 9:16, local only, own sound) or Generate (prompt → plan → produce).
-13. Live views tab (polls IG once/min while open; 6 calls measured = 1% quota; in-memory, resets on restart).
-14. Selector style: selected = bg `#8df0003d`, text `#487b00`, sliding highlight with overshoot snap (0.34 s).
+1. Fixed tonight's video with `python3 -m spine.publisher.spec_check --fix` and copied the result to all three paths. A dry-run publish passed; cron published it at 20:50.
+2. Upload encode: converts the range, because `-pix_fmt` alone keeps full range.
+3. spec_check at QA (uploads, edits, week renders) plus a hard gate at approve. A safe-zone FAIL can still be overridden by the operator; a spec FAIL cannot.
+   Missing files are skipped at QA and approve, so existing tests and slots with no video yet keep working.
+4. Publish-time spec failure goes back to NEEDS_APPROVAL. History: on 2026-10-29 the user chose
+   "Option A" and approved changing the existing stays-QUEUED test. That approval covered that one test only.
+5. Agent review: first run "No issues found". The run on the final commit `eed61eb` posted nothing, so I
+   commented `@claude review`. That run found no blockers and three minor points, all left as is:
+   approve also checks the story file (kept, decision 14); approve is slower; spec lines sit under "Safe zones" in qa.md.
 
 ## Failed Attempts
-- Adding any phone in Accounts Center: "temporary error sending text" — block is account-wide.
-- Business invites to Hotmail/Outlook never arrived; Gmail worked. Accepting via "Continue with Instagram" binds the
-  invite to an IG identity (Page invisible in Graph Explorer) — must use "Continue with Facebook".
-- Format crop/blur approach (rejected by user). Selector designs rejected: blue #297cff bg; white pill + lime bar; transparent + bar.
-- `gh pr merge --delete-branch` fails here ("main already used by worktree"); use `gh api -X PUT repos/.../pulls/N/merge`.
-- Repeated "Start dashboard" background tasks report exit 144 — that is the kill on restart, not a crash.
+- First version of fix 3 left the slot QUEUED→NEEDS_APPROVAL without approval to change
+  `test_publish_refuses_silent_video_and_stays_queued`; reverted until the user chose Option A.
+- The approve gate first failed on missing video files and broke `test_approve_schedules_next_free_slot`
+  (409). Fixed by skipping missing files; the test was not edited.
+- The auto review on a `synchronize` push does not post a fresh comment once the PR has one. A new review needs a manual `@claude review` comment.
 
 ## Next Step
-1. Ask the operator whether to commit the uncommitted film/format/meta changes listed above (they are theirs).
-2. Verify a real API publish: approve one video, watch `spine/publisher` queue run (cron every 10 min) and the post appear.
-3. Follow-ups: comment/DM auto-replies (switches exist, nothing replies); delete
-   `~/Projects/tachyon-history-backup-2026-10-26.bundle` once safe; 2026-11-21 retry main account's developer code.
-Every merge needs the GitHub agent review on the final commit and an explicit user OK (none carried over).
+1. Ask the user, then pull main into the main checkout so cron and the dashboard get the fix:
+   `git -C ~/Projects/tachyon pull`. Check first that the checkout has no local changes that block the pull.
+2. The review page (`spine/review/app.py`) does not show the post `note`. A NEEDS_APPROVAL slot sent back by
+   publish shows its reason only when Approve returns the 409. Possible follow-up: render `row["note"]`.
+3. Not checked: whether editing a video after approval re-runs the approval check.
+4. Optional cleanup, ask first: `git worktree remove ~/.superset/worktrees/tachyon/upload-color-range`.
+5. The 2 timezone test failures on main are untriaged.

@@ -6,26 +6,29 @@ import json
 from spine import clients as C
 from spine import week as W
 from spine.db import DB
+from spine.review import app
 
-from .test_dashboard import client_dir, req, server  # noqa: F401  (fixtures)
+from .test_dashboard import client_dir, req, server, slot_on  # noqa: F401  (fixtures)
 
 
 def test_posts_per_day_add_and_remove(server, client_dir):  # noqa: F811
+    def utc(*ts):   # shown local, stored UTC
+        return sorted(app._shift(t, False) for t in ts)
     status, _, _ = req(server, "POST", "/demo/schedule", {"t": "06:30", "add": "1"})
     assert status == 303
     slots = C.load_grants("demo")["slots"]
-    assert len(slots) == 2 and "06:30" in slots and "18:30" in slots     # longest gap → opposite side of the day
+    assert slots == utc("06:30", "18:30")    # longest gap → opposite side of the day
     req(server, "POST", "/demo/schedule", {"t1": "06:30", "t2": "12:00", "t3": "18:30"})
-    assert C.load_grants("demo")["slots"] == ["06:30", "12:00", "18:30"]
+    assert C.load_grants("demo")["slots"] == utc("06:30", "12:00", "18:30")
     assert len(W.slot_times("demo", "2026-W45")) == 21                   # plans follow the schedule
     _, body, _ = req(server, "GET", "/demo/calendar?w=2026-W45")
     assert body.count("<div class=th>") == 3                              # calendar rows follow too
     _, body, _ = req(server, "GET", "/demo")
     assert "Three times a day" in body
     req(server, "POST", "/demo/schedule", {"t1": "06:30", "t2": "12:00", "t3": "18:30", "remove": "1"})
-    assert C.load_grants("demo")["slots"] == ["06:30", "18:30"]
+    assert C.load_grants("demo")["slots"] == utc("06:30", "18:30")
     status, _, _ = req(server, "POST", "/demo/schedule", {"t1": "06:30", "remove": "0"})
-    assert C.load_grants("demo")["slots"] == ["06:30"]                    # never below one
+    assert C.load_grants("demo")["slots"] == utc("06:30")                    # never below one
 
 
 def _second_post(d, at):
@@ -40,7 +43,7 @@ def _second_post(d, at):
 
 
 def test_calendar_drag_swaps_and_moves(server, client_dir):  # noqa: F811
-    a, b, free = "2099-01-05T06:30:00+00:00", "2099-01-06T18:30:00+00:00", "2099-01-07T06:30:00+00:00"
+    a, b, free = slot_on("2099-01-05"), slot_on("2099-01-06", 1), slot_on("2099-01-07")
     db = DB.for_client(client_dir)
     db.conn.execute("UPDATE posts SET scheduled_at=? WHERE slot_id='w01-s1'", (a,))
     db.close()
@@ -84,7 +87,7 @@ def test_month_view_numbers_preview_and_day_drop(server, client_dir):  # noqa: F
     s = client_dir / "posts" / "w01-s1"
     (s / "video.mp4").write_bytes(b"x")
     db = DB.for_client(client_dir)
-    db.conn.execute("UPDATE posts SET scheduled_at='2099-01-05T06:30:00+00:00' WHERE slot_id='w01-s1'")
+    db.conn.execute("UPDATE posts SET scheduled_at=? WHERE slot_id='w01-s1'", (slot_on("2099-01-05"),))
     db.close()
     status, body, _ = req(server, "GET", "/demo/calendar?view=month&m=2099-01")
     assert status == 200 and "January 2099" in body and "cell mini" in body and "data-pv=" in body
@@ -92,7 +95,7 @@ def test_month_view_numbers_preview_and_day_drop(server, client_dir):  # noqa: F
     status, _, _ = req(server, "POST", "/demo/move", {"slot": "w01-s1", "day": "2099-01-06"})
     assert status == 200
     db = DB.for_client(client_dir)
-    assert db.post("w01-s1")["scheduled_at"] == "2099-01-06T06:30:00+00:00"   # first free slot that day
+    assert db.post("w01-s1")["scheduled_at"] == slot_on("2099-01-06")   # first free slot that day
     db.close()
     _, body, _ = req(server, "GET", "/demo/calendar?w=2099-W02&hl=w01-s1")
     assert "class='cell hl'" in body and "class=grip" in body and "data-pv=" in body
@@ -102,7 +105,7 @@ def test_month_view_numbers_preview_and_day_drop(server, client_dir):  # noqa: F
 
 def test_video_page_when_card_links_to_calendar(server, client_dir):  # noqa: F811
     db = DB.for_client(client_dir)
-    db.conn.execute("UPDATE posts SET scheduled_at='2099-01-05T06:30:00+00:00' WHERE slot_id='w01-s1'")
+    db.conn.execute("UPDATE posts SET scheduled_at=? WHERE slot_id='w01-s1'", (slot_on("2099-01-05"),))
     db.close()
     _, body, _ = req(server, "GET", "/demo/v/w01-s1")
     assert "Planned for" in body and "/demo/calendar?w=2099-W02&amp;hl=w01-s1" in body.replace("&hl", "&amp;hl")

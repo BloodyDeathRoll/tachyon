@@ -174,7 +174,9 @@ def add_upload(client: str, at: str, src: Path, name: str) -> str:
 
 def write_caption(client: str, slot: str) -> None:
     """Background: Claude watches the upload (frames + speech) and writes its caption."""
-    log = (C.client_dir(client) / "posts" / slot / "revise.log").open("a")
+    sd = C.client_dir(client) / "posts" / slot
+    (sd / "caption.writing").touch()   # the page shows "Writing…" until spine.caption removes it
+    log = (sd / "revise.log").open("a")
     subprocess.Popen([sys.executable, "-m", "spine.caption", "write", client, slot], cwd=ROOT,
                      stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
     log.close()

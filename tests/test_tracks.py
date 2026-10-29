@@ -105,3 +105,15 @@ def test_ig_song_refetches_a_missing_copy_or_refuses(client, monkeypatch):
     monkeypatch.setattr(T, "fetch_ig_preview", lambda c, s, url: None)
     with pytest.raises(RuntimeError, match="could not download"):
         T.ig_song("demo", "s1")
+
+
+def test_default_list_is_the_clients_sound_not_local_top_searches(client):
+    (client / "assets" / "music" / "tracks.yaml").write_text(yaml.safe_dump(
+        {"tracks": [{"id": "a", "title": "A", "mood": "surf rock"}, {"id": "b", "title": "B", "mood": "blues rock"},
+                    {"id": "c", "title": "C", "mood": "surf rock"}]}))
+    g = FakeGraph([ROW])
+    assert [t["id"] for t in T.list_tracks("demo", source="instagram", graph=g)] == ["ig:987"]       # deduped
+    assert [c[1].get("search_query") for c in g.calls] == ["surf rock", "blues rock"]                 # never trending
+    (client / "assets" / "music" / "tracks.yaml").write_text(yaml.safe_dump({"ig_queries": ["lofi"], "tracks": []}))
+    T.list_tracks("demo", source="instagram", graph=g)
+    assert g.calls[-1][1]["search_query"] == "lofi"

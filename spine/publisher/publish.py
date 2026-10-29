@@ -214,7 +214,7 @@ def _best_effort(fn) -> None:
         pass
 
 
-HAND_FROM = {"NEEDS_APPROVAL", "APPROVED", "QUEUED", "FAILED", "MANUAL_HANDOFF"}
+HAND_FROM = {"NEEDS_APPROVAL", "APPROVED", "QUEUED", "PAUSED", "FAILED", "MANUAL_HANDOFF"}
 
 
 def hand_candidates(client: str, *, graph: Graph | None = None, limit: int = 25) -> list[dict]:

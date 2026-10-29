@@ -103,11 +103,11 @@ def _dia(client: str, name: str, text: str, out: Path) -> None:
 
 def synth(spec: str, text: str, out: Path, client: str = "rosa") -> None:
     """Raw speech for `text` in voice `spec` → out (wav, any rate)."""
-    import soundfile as sf
     engine, name, speed = parse(spec)
     if engine == "dia":
         _dia(client, name, text, out)
     elif engine == "kokoro":
+        import soundfile as sf   # Kokoro only: the dashboard's Python has no soundfile
         samples, sr = _kokoro().create(text, voice=name, speed=speed, lang="en-us")
         sf.write(out, samples, sr)
     else:

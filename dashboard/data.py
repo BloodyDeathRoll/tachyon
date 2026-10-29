@@ -93,7 +93,7 @@ def group_of(state: str) -> str:
         return "needs_you"
     if state in ("IDEA", "BRIEFED", "SCRIPTED", "RENDERED", "QA"):
         return "in_production"
-    if state in ("APPROVED", "QUEUED", "PUBLISHING"):
+    if state in ("APPROVED", "QUEUED", "PAUSED", "PUBLISHING"):
         return "scheduled"
     if state in ("PUBLISHED", "MEASURING"):
         return "live"
