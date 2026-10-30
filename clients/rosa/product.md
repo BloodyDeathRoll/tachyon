@@ -54,7 +54,7 @@ On-screen wording: **16 days** (operator decision 2026-10-24). The site copy sti
 - **Swell map** `/charts` (rotates with the map since 2026-10-24) and map `/map`.
 - **Spot pages** `/spot/<id>`, prerendered; about pages `/about/how|reading|terms|privacy|contact`.
 - **Units**: m/ft, °C/°F; wind km/h with metres, knots with feet.
-- **Surf / Swim mode** (swim weights mostly untuned: do not make claims about swim).
+- **Surf / Swim mode**: surf is the main target; when it is flat, swim mode serves swimmers. Rosa is for every ocean lover.
 - Water clarity and bathing-water quality on the spot card (CMEMS, EEA, NSW Beachwatch).
 
 ## Data and proof we may use

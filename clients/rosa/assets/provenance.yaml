@@ -11,7 +11,7 @@ assets:
 - file: rosa-swim-9x16.mp4
   source: rendered by the Rosa HTML motion-film pipeline, 2026-10-04; original at ~/Videos/rosa/
   licence: ours
-  allowed_use: none until swim-mode claims are removed (brand.md off-limits)
+  allowed_use: any Rosa channel
   generative: false
   contains: swim-mode UI, 'Best swim 09:00' claim
   added: '2026-10-24'

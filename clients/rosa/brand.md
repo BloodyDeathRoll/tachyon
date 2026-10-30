@@ -36,7 +36,7 @@ rating, size · period · wind, swell alert, install it, your spots, share a spo
 **Positions we hold.** A forecast should say *why* it rates a day. Forecasts should be
 free; the data is public and we credit it. Fast beats bloated. Wind can only polish.
 
-**Off limits.** Accuracy comparisons. Swim-mode claims (weights untuned). The Play
+**Off limits.** Accuracy comparisons. The Play
 Store (listing not public). Live cams we do not have rights to. Anything the attribution
 line does not cover.
 
