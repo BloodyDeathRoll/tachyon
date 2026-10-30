@@ -11,7 +11,7 @@
       {"go": "/spot/topanga"},
       {"scroll": 500},
       {"tap": "button.accent-link"},
-      {"wheel": 900},
+      {"zoom": 4},
       {"go": "/spot/pipeline"},
       {"tap": "button.accent-link"},
       {"go": "/spot/pipeline"},

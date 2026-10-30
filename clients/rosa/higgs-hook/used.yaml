@@ -1,0 +1,27 @@
+characters:
+- guard
+- diver
+- astronaut
+spots:
+- thurso-east
+- arugam-bay
+- coxos
+- mundaka
+- punta-de-lobos
+- el-gringo
+hooks:
+- Get an alert when your spot turns on
+- See the swell coming, 16 days out
+- Every spot rated 0 to 100, and it tells you why
+jokes:
+- He's guarding the lineup.
+- Checked the swell. Personally.
+- Houston, it's pumping.
+end_lines:
+- Off duty when it's firing
+- Read the ocean from the shore
+- Your launch window is on the map
+buttons:
+- Check my spot
+- Open the map
+- Find my window
