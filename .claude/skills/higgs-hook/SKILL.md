@@ -34,8 +34,15 @@ result through the dashboard (Calendar → Add new). Run from the main checkout 
 - The joke (scene 2) is one short line that reframes scene 1. Under 6 words if possible.
 - The hook (scene 3) is one Rosa feature or advantage, from `product.md` only. Plain words,
   no numbers that are not in `product.md`.
-- Scene 5 is a callback: same character, same props, later, on the way to spot B. The joke
-  continues; it does not repeat.
+- Scene 4 shows the feature the hook names, in the real app (a spot, the map, a mode switch,
+  the forecast days). The spot A to spot B flow is one option, not the default.
+- Scene 5 is a callback: same character, a payoff to scene 1 that is funny on its own. Any
+  place, any time; not a trip by default. The joke continues; it does not repeat. Example:
+  scene 1 the surfer trips on his leash and snaps his board; scene 5 a flat, still ocean,
+  then he swims across using half the board as a float, as "Also for swimmers" lands.
+- Scene 5 and the end card are one beat: the card starts 1.2 s into scene 5 (logo, then the
+  line, then the button), in the lower half. Open scene 5 on an empty or calm frame, keep the
+  lower half clear, and time the payoff action to land with the line (about 1.5-5 s).
 - End card: a fresh line and button text each time. Never "try for free" or anything that
   implies paying later. Never "comment for the link". `rosa.surf` and `@rosa_surf_forecast` are
   added by the template.
@@ -70,7 +77,7 @@ Check before saving: every noun in a camera line appears in that scene's setting
 A real recording of the live app (`spine.higgs screens`), one key per step:
 `go` (path), `wait` (s), `scroll` (px, page), `zoom` (map zoom steps: positive out,
 negative in), `swipe` (`left`/`right`, the forecast days), `tap` (CSS selector).
-Recipe that works: `go /spot/<A>` → `scroll` → `tap button.accent-link` (map flies to A) →
+Find selectors on the live app before using `tap`. Spot flow recipe that works: `go /spot/<A>` → `scroll` → `tap button.accent-link` (map flies to A) →
 `zoom 4` (out) → `go /spot/<B>` → `tap button.accent-link` (map flies in to B) → `go /spot/<B>` →
 `swipe left` → `scroll`. Aim for 6–8 s; over 10 s plays up to 1.5x faster, then the template cuts at 10 s.
 

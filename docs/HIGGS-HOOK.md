@@ -13,8 +13,8 @@ approval and publish like any other slot.
 | 1 | 0–5 s | Weird, funny scene. A character who has no business at a surf break does a surf thing, deadpan. | Higgsfield, Seedance, image-to-video | Native SFX only (board on sand, waves). No music, no VO. |
 | 2 | 2.5–5 s | One-line joke on top of scene 1 ("Preparing for a fight?"). | Claude (text overlay) | Scene 1 SFX continues |
 | 3 | 5–7 s | Rosa hook: one feature or advantage, said plainly ("Find every spot that's pumping around you right now"). | Claude (kinetic text) | Music in, VO starts |
-| 4 | 7–15 s | Rosa screens: spot A, map out, map in on spot B, forecast, swipe, scroll. | Claude (Remotion, real app captures) | Music + VO |
-| 5 | 15–20 s | Callback: same character, later, on the way to spot B (example: airport queue, board in a travel bag, still dragging). End card on top: logo, `rosa.surf`, `@rosa_surf_forecast`, a line, a button. | Higgsfield + Claude (end card) | Clip SFX low, music, VO tag |
+| 4 | 7–15 s | Rosa screens: the feature the hook names, in the real app (example: spot A, map out, map in on spot B, forecast, swipe, scroll; or a Surf/Swim mode switch). | Claude (Remotion, real app captures) | Music + VO |
+| 5 | 15–20 s | Callback: same character, a funny payoff to scene 1, any place (examples: airport queue, board in a travel bag, still dragging; a flat sea, the surfer swims across on half his snapped board). End card on top: logo, `rosa.surf`, `@rosa_surf_forecast`, a line, a button. | Higgsfield + Claude (end card) | Clip SFX low, music, VO tag |
 
 Scene 1 has to stop the scroll on frame 1: the character is already in shot, the oddness reads
 without sound, nothing is explained.
