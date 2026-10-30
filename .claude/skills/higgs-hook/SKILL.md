@@ -60,6 +60,11 @@ keeps the action in the centre column, 16:9 uses the width) · light · mood: de
 documentary · sound: the concrete sounds of the scene (sand, waves, wind, wheels on tiles)
 and no music, no speech · "no text, no logos, no watermark".
 
+Write the camera line for each scene and each ratio from that scene's own setting. Never copy
+scene 1's camera line into scene 5: what fills the 16:9 width is what is in that scene
+(the sea on a beach; the terminal and queue in an airport; the road through a car window).
+Check before saving: every noun in a camera line appears in that scene's setting.
+
 ### Screens (`script.json` `screens.steps`)
 
 A real recording of the live app (`spine.higgs screens`), one key per step:
