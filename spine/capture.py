@@ -35,6 +35,11 @@ SCREENS = {
 }
 BASE = {"rosa": "https://rosa.surf"}
 ONLY: set[str] = set()
+# first-run sheets: the sign-in screen and the install prompt hold for a launch once
+# answered "Not now"; answer them before the app boots so we capture the product
+INIT = """try{sessionStorage.setItem('rosa.signin.seen','1');sessionStorage.setItem('rosa.install.seen','1');
+  localStorage.setItem('rosa.duplicate.seen','1');localStorage.setItem('rosa.theme','THEME');}catch(e){}"""
+UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
 
 
 def capture(client: str, theme: str = "dark", out: Path | None = None, full: bool = False) -> Path:
@@ -47,11 +52,8 @@ def capture(client: str, theme: str = "dark", out: Path | None = None, full: boo
         ctx = b.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=3, is_mobile=True,
                             has_touch=True, color_scheme="dark" if theme == "dark" else "light",
                             locale="en-GB", timezone_id="UTC",
-                            user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1")
-        # first-run sheets: the sign-in screen and the install prompt hold for a launch once
-        # answered "Not now"; answer them before the app boots so we capture the product
-        ctx.add_init_script("""try{sessionStorage.setItem('rosa.signin.seen','1');sessionStorage.setItem('rosa.install.seen','1');
-          localStorage.setItem('rosa.duplicate.seen','1');localStorage.setItem('rosa.theme','THEME');}catch(e){}""".replace("THEME", theme))
+                            user_agent=UA)
+        ctx.add_init_script(INIT.replace("THEME", theme))
         page = ctx.new_page()
         only = ONLY
         for entry in SCREENS[client]:

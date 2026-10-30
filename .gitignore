@@ -55,3 +55,8 @@ clients/*/.publish.lock
 
 # Instagram data exports (followers / following): personal data, local only
 clients/*/exports/
+engines/remotion/public/higgs/
+clients/*/higgs-hook/**/*.mp4
+clients/*/higgs-hook/**/*.wav
+clients/*/higgs-hook/**/*.webm
+clients/*/higgs-hook/**/.rec/
