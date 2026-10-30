@@ -33,7 +33,7 @@ they approve `strategy.md`, `funnel.md` and `profile.md`.
 | `competitors.yaml` | 6–12 professional Instagram accounts within ~10× our size: handle, why, size if known | `discovery.py` later reads their medians into `swipe.md` |
 | `profile.md` | name field, bio, link, pinned three, highlights, grid: scored with `ig-profile` rubric, rewritten | operator applies by hand |
 | `grants.yaml` | page_id, ig_user_id, token_env, ga4_property, blob_bucket; all autonomy flags false; `emergency_stop: false` | never a secret in the file |
-| `assets/provenance.yaml` | one entry per file: source, licence, allowed use, date, `generative: false` | QA fails any asset without an entry |
+| `assets/provenance.yaml` | one entry per file: source, licence, allowed use, date, `generative: true\|false` | QA fails any asset without an entry |
 
 ## Batched questions (ask once, at the end)
 

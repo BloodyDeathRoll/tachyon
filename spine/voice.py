@@ -114,6 +114,17 @@ def synth(spec: str, text: str, out: Path, client: str = "rosa") -> None:
         raise ValueError(f"unknown voice engine {engine}")
 
 
+def vo_file(client: str, text: str, voice: str, out: Path) -> Path:
+    """One take of `text` → out: trimmed, -16 LUFS, 48 kHz mono."""
+    raw = out.with_name(".vo-raw.wav")
+    synth(voice, spoken(client, text), raw, client)
+    trim = "silenceremove=start_periods=1:start_threshold=-45dB,areverse,silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-af",
+                    f"{trim}highpass=f=80,loudnorm=I={TARGET_LUFS}:TP=-1.5:LRA=7", "-ar", "48000", "-ac", "1", str(out)], check=True)
+    raw.unlink()
+    return out
+
+
 def make_vo(client: str, slot: str, script: str, voice: str | None = None, start: float = START) -> Path:
     sd = C.client_dir(client) / "posts" / slot
     meta_p = sd / "meta.json"
@@ -122,13 +133,7 @@ def make_vo(client: str, slot: str, script: str, voice: str | None = None, start
     if ":" not in voice:
         voice = f"kokoro:{voice}"
     text = clean(script)
-    raw = sd / ".vo-raw.wav"
-    synth(voice, spoken(client, text), raw, client)
-    out = sd / "vo.wav"
-    trim = "silenceremove=start_periods=1:start_threshold=-45dB,areverse,silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-af",
-                    f"{trim}highpass=f=80,loudnorm=I={TARGET_LUFS}:TP=-1.5:LRA=7", "-ar", "48000", "-ac", "1", str(out)], check=True)
-    raw.unlink()
+    out = vo_file(client, text, voice, sd / "vo.wav")
     engine, name, speed = parse(voice)
     meta["voiceover"] = {"script": text, "voice": voice, "speed": speed, "start": start, "file": "vo.wav",
                          "engine": ENGINES[engine]}

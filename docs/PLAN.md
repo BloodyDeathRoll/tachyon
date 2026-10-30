@@ -19,12 +19,11 @@ fact marked verified / agent-reported / unverified).
 | 4 | Music | Both: original audio baked in, or a Sound Collection track attached at publish via the Audio API. Audio type is a tracked feature in Learn. | 2026-10-24 |
 | 5 | Engagement on other accounts | **Assisted daily round.** The system names the account, the post, the time and the comment; the operator posts. No private API, ever. | 2026-10-24 |
 | 6 | Vendor seam (Zernio) | Later. `publisher/` has an adapter interface from day one, one implementation (Graph API). | 2026-10-24 |
-| 7 | AI label | **Never shown.** No generative video or image models anywhere in the pipeline; `is_ai_generated` never set; final mux strips all metadata; QA fails any file carrying C2PA, SynthID or IPTC AI fields. Text goes through `/ig-human`. | 2026-10-24 |
 | 8 | Approval | Weekly batch page; per-post for the first 2 weeks of each client. | 2026-10-24 |
 | 9 | Channels | Instagram only in phase 1. Then YouTube Shorts (direct API, cheap), then TikTok after its posting audit. Postiz dropped: its agent reads neither comments nor analytics. | 2026-10-24 |
 | 10 | Brain | Claude via `claude -p` and Claude Code sessions, skills in `skills/`. No local LLMs. | 2026-10-24 |
 | 11 | Old code | `~/Projects/tachion-old` mined for prompts and patterns only (§6). | 2026-10-24 |
-| 12 | Assumed | English only. No paid ads. No generative AI media. | 2026-10-24 |
+| 12 | Assumed | English only. No paid ads. | 2026-10-24 |
 | 13 | CTA | **"Comment for the link" is never allowed**, for any client. Links travel by link in bio and the URL spoken and on screen (URLs are not clickable in Instagram comments, operator 2026-10-24; no link comments). Links travel by link in bio, the URL spoken and on screen, or a spot share link. A question in the comments gets an answer with the link; nothing is withheld to farm comments. | 2026-10-24 |
 | 14 | Safe zones and formats | **Every reel ships in two files: reel and story.** Both 1080×1920. Meta's spec (verified 2026-10-25): top 14 %, bottom 35 %, 6 % each side free of text, logos and anything that matters. The reel also survives the 4:5 feed crop (centre 1080×1350). Reel-safe box x 65–1015, y 285–1248; story-safe box x 65–1015, y 269–1248 (`tools/safezone.py box`). Film templates take `?variant=reel\|story` and lay out inside the box; QA runs `safezone.py overlay` and `check`; FAIL blocks. The 2026-10-04 clips violate this (operator saw cards cut off in the feed, 2026-10-24) and are not reused. | 2026-10-25 |
 | 15 | Film bar and music | The 2026-10-04 reels (3D phone, Pixabay footage, every feature, real music) are the quality bar; their sources are recovered from the session transcripts into `clients/rosa/films/` and new films start from them. Music: a licensed Pixabay track baked in (as the originals), or a Sound Collection track attached at publish through the Audio API (`audio_configuration`; verified working with our token 2026-10-25). Synthesised beds only as a fallback. | 2026-10-25 |
@@ -45,7 +44,6 @@ fact marked verified / agent-reported / unverified).
    own numbers against its own trailing median, with sample-size guards.
 6. **Human gate by default; autonomy is a per-client, per-stream grant** in
    `grants.yaml`, revocable with one switch (`emergency_stop`).
-7. **No AI watermark, by construction** (decision 7).
 
 ## 2. Shape
 
@@ -83,7 +81,7 @@ Outputs in `clients/<name>/`:
 - `grants.yaml` page id, ig_user_id, token ref, GA4 property, Blob bucket; autonomy flags
   all `false`; `emergency_stop: false`.
 - `assets/` client footage, logos, fonts, each with `provenance.yaml` (source, licence,
-  allowed use, date, "no generative model" attestation).
+  allowed use, date, `generative: true|false`).
 
 ### CP1 · Strategy approval — operator
 Reads `strategy.md`, `funnel.md`, `profile.md`. Nothing runs before this.
@@ -119,8 +117,7 @@ Writes:
    `clients/<name>/films/<slug>/` (local only, not in git), driven by the script JSON, with `?ar=` /
    `?theme=` and `?variant=reel|story` switches (9:16 master; the story variant may use the taller box and a sticker-friendly end card; 1:1 and 16:9 by relayout, never crop). Inputs: real
    app captures via Playwright, client footage from `assets/`, code animation, voice-over
-   via ElevenLabs when the script calls for it, SFX/music from `assets/` or none. No
-   generative video or images (decision 7).
+   via ElevenLabs when the script calls for it, SFX/music from `assets/` or none.
 3. **Render** (no LLM). Engine A: `render.py`, deterministic frame capture with a
    virtual clock (Playwright, 120–240 fps, `tmix` → 60 fps), ffmpeg mux. Engine B:
    Remotion `renderMedia()`. Both end in the same ffmpeg pass: H.264 yuv420p 1080×1920
@@ -135,7 +132,7 @@ Writes:
 ### 3 · QA — `claude -p qa` with vision, plus `spec_check.py`
 Machine: dimensions, duration, fps, codec, loudness, blank or duplicate frames, both
 files present, `safezone.py check` not FAIL (edge density in the unsafe bands, decision 14), no watermark or third-party logo (originality rules), provenance present
-for every asset, **exiftool + c2patool report zero provenance or AI fields**.
+for every asset; provenance or AI markers found in the file are listed in `qa.md` (not a failure).
 Claude: reads `safezone.py overlay` sheets for reel and story (nothing that matters in the tinted bands), every number re-measured against the live app, brand review (marketing plugin
 `brand-review`), client red lines (Rosa: no competitor data, no scraped cams,
 attribution), humanizer score. `VERDICT: APPROVED | NEEDS_REVISION`, max 2 rounds, then
@@ -151,7 +148,7 @@ batch. `grants.yaml` can later auto-approve a named pillar after N clean weeks.
   (containers expire) with `caption`, `cover_url` or `thumb_offset`, `share_to_feed`,
   `audio_configuration` when the slot uses a Sound Collection track (Audio API trending
   or search), `trial_params {graduation_strategy: SS_PERFORMANCE}` when `trial: true`,
-  `collaborators` for partner posts. Never `is_ai_generated`.
+  `collaborators` for partner posts, `is_ai_generated` when the operator set it in `meta.json`.
 - Poll `status_code` once a minute up to 5 min; `media_publish` at the slot; store
   `ig_media_id`, permalink, timestamps. A first comment is optional and never carries a URL (comments are not clickable); text only.
   Then `links.py` points the client's fixed bio redirect (Rosa `rosa.surf/ig`, Vercel Edge Config) at
@@ -245,7 +242,6 @@ tachyon/
 | GA4 Data API | conversions by UTM | Rosa property already fires the events |
 | ElevenLabs | voice-over when scripted | audio only; no label implications |
 | Playwright + ffmpeg (+ Remotion for engine B) | render | PC |
-| exiftool + c2patool | QA provenance check | PC |
 | Later: YouTube Data API, TikTok Content Posting API | channel 2 and 3 | YouTube: 100 uploads/day bucket, native `publishAt`. TikTok: audit before public posts. Cross-platform music licence needed first; Sound Collection is Meta-only. |
 
 ## 6. Reused from tachion-old (prompts and patterns, not code)
@@ -309,5 +305,3 @@ tachyon/
 - Hashtag cap of 5 per post (skill repo claim).
 - Trial-reel eligibility threshold (200 followers, third-party).
 - TikTok and YouTube quota details came from a sub-agent against official pages.
-- Whether exiftool and c2patool catch every marker Meta reads; test by publishing a
-  stripped file to a private test account and checking for the label.

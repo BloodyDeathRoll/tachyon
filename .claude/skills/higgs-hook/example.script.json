@@ -1,0 +1,27 @@
+{
+  "title": "Samurai paddle-out",
+  "slug": "samurai",
+  "character": "A samurai in full lacquered armour, kabuto helmet, katana at the hip",
+  "spots": {"a": {"slug": "topanga", "name": "Topanga"}, "b": {"slug": "pipeline", "name": "Pipeline"}},
+  "joke": "Preparing for a fight?",
+  "hook": "Find every spot that's pumping around you right now",
+  "screens": {
+    "theme": "dark",
+    "steps": [
+      {"go": "/spot/topanga"},
+      {"scroll": 500},
+      {"tap": "button.accent-link"},
+      {"wheel": 900},
+      {"go": "/spot/pipeline"},
+      {"tap": "button.accent-link"},
+      {"go": "/spot/pipeline"},
+      {"swipe": "left"},
+      {"scroll": 700}
+    ]
+  },
+  "end": {"line": "Your next wave is already on the map", "button": "Find my wave"},
+  "vo": "Topanga's working. Pipeline's working harder. I check both before I pack the board.",
+  "voice": "dia:seed5",
+  "track": "surf-rock-summer",
+  "caption": "He packed the armour. Rosa found the swell.\n\nEvery spot pumping right now, on one map. rosa.surf, link in bio."
+}

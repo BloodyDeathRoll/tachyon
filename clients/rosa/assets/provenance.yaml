@@ -114,6 +114,5 @@ assets:
   licence: model Apache-2.0; scripts ours
   allowed_use: any Rosa channel
   generative: true
-  contains: synthetic speech (TTS). Decision 7 forbids generative footage/images (the AI label); audio TTS writes
-    no provenance marker into the MP4, spec_check still scans for markers.
+  contains: synthetic speech (TTS).
   added: '2026-10-25'

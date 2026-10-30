@@ -201,7 +201,14 @@ def _duration(p: Path) -> float:
     return float(r.stdout.strip())
 
 
-def _mux(video: Path, track: dict | None, vo: Path | None, vo_start: float, music_dir: Path) -> None:
+def _has_audio(p: Path) -> bool:
+    return bool(subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index",
+                                "-of", "csv=p=0", str(p)], capture_output=True, text=True).stdout.strip())
+
+
+def _mux(video: Path, track: dict | None, vo: Path | None, vo_start: float, music_dir: Path,
+         film_audio: float = 0.0, music_at: float = 0.0) -> None:
+    """film_audio: gain (linear) for the video's own sound, 0 drops it. music_at: seconds the music waits."""
     dur = _duration(video)
     tmp = video.with_suffix(".mix.mp4")
     cmd = ["ffmpeg", "-v", "error", "-y", "-i", str(video)]
@@ -215,6 +222,9 @@ def _mux(video: Path, track: dict | None, vo: Path | None, vo_start: float, musi
             vo_len = _duration(vo)
             a, b = vo_start - 0.15, vo_start + vo_len + 0.25
             vol += f",volume=enable='between(t,{a:.2f},{b:.2f})':volume=-{DUCK_DB}dB"
+        if music_at > 0:   # delay first, so the duck window below stays in video time
+            ms = int(music_at * 1000)
+            vol = f"adelay={ms}|{ms},{vol}"
         chains.append(f"[{idx}:a]aresample=48000,aformat=channel_layouts=stereo,{vol},atrim=0:{dur:.3f}[m]")
         mixin.append("[m]")
         idx += 1
@@ -224,6 +234,9 @@ def _mux(video: Path, track: dict | None, vo: Path | None, vo_start: float, musi
         chains.append(f"[{idx}:a]aresample=48000,aformat=channel_layouts=stereo,adelay={ms}|{ms}[v]")
         mixin.append("[v]")
         idx += 1
+    if film_audio > 0 and _has_audio(video):
+        chains.append(f"[0:a]aresample=48000,aformat=channel_layouts=stereo,volume={film_audio:.3f}[f]")
+        mixin.insert(0, "[f]")   # first: amix (duration=first) must read the video's audio to the end, or ffmpeg deadlocks
     if not mixin:   # no track and no voice: a silent bed (spec_check refuses to publish it)
         cmd += ["-f", "lavfi", "-t", f"{dur:.3f}", "-i", "anullsrc=r=48000:cl=stereo"]
         chains.append(f"[{idx}:a]anull[m]")
@@ -233,7 +246,7 @@ def _mux(video: Path, track: dict | None, vo: Path | None, vo_start: float, musi
     cmd += ["-filter_complex", ";".join(chains), "-map", "0:v", "-map", "[a]", "-c:v", "copy",
             "-c:a", "aac", "-b:a", "128k", "-ar", "48000", "-t", f"{dur:.3f}",
             "-map_metadata", "-1", "-movflags", "+faststart", str(tmp)]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, stdin=subprocess.DEVNULL, timeout=600)
     tmp.replace(video)
 
 

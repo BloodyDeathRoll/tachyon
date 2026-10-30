@@ -1,8 +1,8 @@
 """Machine QA for a Reel file (docs/PLAN.md §3 station 3).
 
 Checks the file against the Reels container spec (Meta docs, verified 2026-10-24) and
-against our own rules: metadata stripped, no provenance / AI markers, provenance entry
-present for the source asset.
+against our own rules: metadata stripped, provenance entry present for the source asset.
+Provenance / AI markers in the file are reported, not failed.
 
     python -m spine.publisher.spec_check <client> <slot_id>          # check posts/<slot>/video.mp4, write qa.md
     python -m spine.publisher.spec_check --fix <in.mp4> <out.mp4>    # transcode to spec, strip metadata
@@ -137,14 +137,11 @@ def check_file(path: Path) -> list[str]:
             bad = set(s["tags"]) - {"language", "handler_name", "vendor_id", "encoder"}  # encoder = "Lavc…", harmless
             if bad:
                 issues.append(f"stream tags present {sorted(bad)}")
-    markers = scan_markers(path)
-    if markers:
-        issues.append(f"provenance/AI markers found {markers}")
     return issues
 
 
 def check_provenance(client: str, source_file: str | None) -> list[str]:
-    """Every post names its source asset; that asset needs a provenance entry with generative: false."""
+    """Every post names its source asset; that asset needs a provenance entry that says whether it is generative."""
     if not source_file:
         return ["meta.json has no source_asset"]
     prov = yaml.safe_load((client_dir(client) / "assets" / "provenance.yaml").read_text()) or {}
@@ -153,8 +150,8 @@ def check_provenance(client: str, source_file: str | None) -> list[str]:
     if e is None:
         return [f"no provenance entry for {source_file}"]
     issues = []
-    if e.get("generative") is not False:
-        issues.append(f"{source_file}: provenance.generative must be false (decision 7)")
+    if not isinstance(e.get("generative"), bool):
+        issues.append(f"{source_file}: provenance.generative must be true or false")
     for k in ("source", "licence", "allowed_use"):
         if not e.get(k):
             issues.append(f"{source_file}: provenance.{k} missing")
@@ -215,11 +212,14 @@ def report(client: str, slot_id: str) -> tuple[bool, str]:
         v = next(s for s in p["streams"] if s["codec_type"] == "video")
         lines.append(f"PASS · {v['width']}x{v['height']} {_fps(v):g}fps {v['pix_fmt']} · "
                      f"{float(p['format']['duration']):.1f}s · {int(p['format']['size'])/1e6:.1f} MB · "
-                     f"metadata stripped · no provenance/AI markers · provenance entry ok")
+                     f"metadata stripped · provenance entry ok")
     else:
         lines.append("FAIL")
         lines += [f"- {i}" for i in issues]
     lines += [f"- {l}" for l in sz_lines]
+    for f in (video, story):
+        if f.exists() and (m := scan_markers(f)):
+            lines.append(f"- {f.name}: provenance/AI markers {m}")
     if meta.get("safe_zone", "").startswith("FAIL"):
         lines.append(f"- safe zone override recorded in meta.json: {meta['safe_zone']}")
     text = "\n".join(lines) + "\n"

@@ -1440,6 +1440,31 @@ def replies_card(client: str, slot: str) -> str:
     return f"<div id=replies class=rblock>{head}{''.join(rows) if r['custom'] else ''}{stop}</div>"
 
 
+def ai_label_card(client: str, slot: str, locked: bool) -> str:
+    """The AI label (is_ai_generated at publish): the operator's call per video."""
+    p = C.client_dir(client) / "posts" / slot / "meta.json"
+    on = bool(json.loads(p.read_text()).get("is_ai_generated")) if p.exists() else False
+    note = "Sent with the post" if not locked else "Fixed: the post is out or going out"
+    btn = (f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/ailabel'><input type=hidden name=value value='{0 if on else 1}'>"
+           f"<button class='toggle {'on' if on else ''}' {'disabled' if locked else ''} aria-pressed={'true' if on else 'false'} aria-label='AI label'><i></i></button></form>")
+    return f"<div id=ailabel class=rblock><div class='rrow{' inh' if locked else ''}'><div><b>AI label</b><small>{note}</small></div>{btn}</div></div>"
+
+
+def set_ai_label(client: str, slot: str, on: bool) -> None:
+    """Raises ValueError once the post is out or going out (the container already has its flags)."""
+    db = DB.for_client(C.client_dir(client))
+    try:
+        row = db.post(slot)
+    finally:
+        db.close()
+    if row["state"] in CAPTION_LOCKED or publishing(row):
+        raise ValueError("the post is out or going out")
+    p = C.client_dir(client) / "posts" / slot / "meta.json"
+    m = json.loads(p.read_text())
+    m["is_ai_generated"] = on
+    p.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
+
+
 def formats_button(client: str, slot: str, have: list[str]) -> str:
     st = F.status(client, slot)
     if st.get("state") == "running":
@@ -1598,7 +1623,8 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         mode = "" if cls == "live" or not at_ else "Auto" if on_slot(client, at_) else "Custom"
         right.append(f"<section class='card whencard'><div class=row><div class=whenl><span class=wl>{wtxt}</span>"
                      f"<p class=big>{ESC(wh)}</p>{hold}{f'<span class=wm>{mode}</span>' if mode else ''}</div>{act}</div>"
-                     + replies_card(client, slot) + "</section>")
+                     + replies_card(client, slot)
+                     + ai_label_card(client, slot, row["state"] in CAPTION_LOCKED or publishing(row)) + "</section>")
 
         if row["state"] not in NO_DELETE and (st.get("state") != "running"):
             right_end = delete_card(client, slot, title_of(client, row))
@@ -2343,6 +2369,14 @@ class Handler(BaseHTTPRequestHandler):
                     g = C.load_grants(name)   # start from the project's current setting
                     kw = {"custom": True, "comments": bool(g["auto_reply"]["comments"]), "dm": bool(g["auto_reply"]["dm"])}
                 C.set_video_replies(name, parts[2], **kw)
+                return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}")
+            if parts[1] == "v" and len(parts) == 4 and parts[3] == "ailabel":
+                try:
+                    set_ai_label(name, parts[2], form.get("value") == "1")
+                except KeyError:
+                    return self._send(404, b"no such video", "text/plain")
+                except ValueError as e:
+                    return self._send(409, str(e).encode(), "text/plain")
                 return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}")
             if parts[1] == "v" and len(parts) == 4 and parts[3] == "byhand":
                 from spine.publisher.publish import PublishError, link_by_hand

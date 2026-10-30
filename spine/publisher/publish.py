@@ -17,7 +17,7 @@ Flow for one slot (state QUEUED, scheduled_at reached or --now):
 
 Parameters read from meta.json: trial (bool), share_to_feed (default true), thumb_offset
 (ms), audio (dict with audio_id/audio_volume/video_volume when a Sound Collection track
-is used), collaborators (list). `is_ai_generated` is never sent (decision 7).
+is used), collaborators (list), is_ai_generated (bool, the operator's call).
 """
 
 from __future__ import annotations
@@ -71,7 +71,9 @@ def _container_params(meta: dict, caption: str) -> dict:
         p["collaborators"] = json.dumps(meta["collaborators"])
     if meta.get("location_id"):
         p["location_id"] = str(meta["location_id"])
-    return p   # never is_ai_generated: decision on AI labels (docs/PLAN.md)
+    if meta.get("is_ai_generated"):
+        p["is_ai_generated"] = "true"
+    return p
 
 
 def publish_slot(client: str, slot_id: str, *, graph: Graph | None = None, dry_run: bool = False,
