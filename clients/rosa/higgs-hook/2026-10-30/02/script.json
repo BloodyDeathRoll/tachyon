@@ -21,28 +21,22 @@
         "go": "/spot/coxos"
       },
       {
-        "scroll": 500
+        "tap": ".day-scrub button >> nth=4"
       },
       {
-        "tap": "button.accent-link"
+        "tap": ".day-scrub button >> nth=9"
       },
       {
-        "zoom": 4
-      },
-      {
-        "go": "/spot/mundaka"
-      },
-      {
-        "tap": "button.accent-link"
+        "tap": ".day-scrub button >> nth=15"
       },
       {
         "go": "/spot/mundaka"
       },
       {
-        "swipe": "left"
+        "tap": ".day-scrub button >> nth=6"
       },
       {
-        "scroll": 700
+        "tap": ".day-scrub button >> nth=12"
       }
     ]
   },

@@ -21,28 +21,19 @@
         "go": "/spot/punta-de-lobos"
       },
       {
-        "scroll": 500
+        "wait": 1.5
       },
       {
-        "tap": "button.accent-link"
+        "tap": ".day-scrub button >> nth=1"
       },
       {
-        "zoom": 4
-      },
-      {
-        "go": "/spot/el-gringo"
-      },
-      {
-        "tap": "button.accent-link"
+        "wait": 1
       },
       {
         "go": "/spot/el-gringo"
       },
       {
-        "swipe": "left"
-      },
-      {
-        "scroll": 700
+        "wait": 1.5
       }
     ]
   },
