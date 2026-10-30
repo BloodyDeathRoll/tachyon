@@ -12,7 +12,7 @@ next step. Copy this file to `clients/<name>/PLAYBOOK.md` and tick as you go.
 - [ ] **Intake session** (Claude, station 0). `product.md`, `brand.md`, `audience.md`,
       `strategy.md`, `funnel.md`, `competitors.yaml`, `profile.md`. Every number in
       `product.md` measured. Voice copied to `~/.claude/instagram/voice.md`.
-- [ ] **Assets** with `provenance.yaml` each; no generative-model output.
+- [ ] **Assets** with `provenance.yaml` each.
 - [ ] **CP1** (operator). Approve `strategy.md`, `funnel.md`, `profile.md`. Apply the
       profile rewrite by hand.
 - [ ] **Link in bio** set once to the client's fixed redirect (Rosa: `rosa.surf/ig`); `grants.bio_link` filled so `publish.py` moves its target at each publish. Conversion events confirmed firing in GA4. No links in comments (not clickable).
@@ -57,8 +57,6 @@ next step. Copy this file to `clients/<name>/PLAYBOOK.md` and tick as you go.
    attribution where required).
 6. All autonomy flags in `grants.yaml` stay `false` until the operator flips them, one
    stream at a time. `emergency_stop: true` halts publishing and replies at once.
-7. No generative video or images. `is_ai_generated` never set. Final mux strips
-   metadata; QA fails any file with provenance or AI fields. Every text passes
-   `/ig-human`.
+7. Every text passes `/ig-human`.
 8. Official APIs only. Comments on other accounts are posted by the operator from the
    daily round, never by code.

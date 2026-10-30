@@ -592,3 +592,18 @@ def test_remove_live_refuses_unpublished(client):
 def test_publish_never_sends_audio_configuration(client):
     p = publish._container_params({"audio_configuration": {"audio_id": "1"}}, "c")
     assert "audio_configuration" not in p
+
+
+def test_ai_label_is_the_operators_call():
+    assert "is_ai_generated" not in publish._container_params({}, "c")
+    assert publish._container_params({"is_ai_generated": True}, "c")["is_ai_generated"] == "true"
+
+
+def test_spec_check_accepts_generative_assets(client):
+    prov = C.client_dir(client) / "assets" / "provenance.yaml"
+    data = yaml.safe_load(prov.read_text())
+    data["assets"].append({"file": "gen.mp4", "source": "higgsfield", "licence": "ours", "allowed_use": "posts", "generative": True})
+    data["assets"].append({"file": "unk.mp4", "source": "x", "licence": "ours", "allowed_use": "posts"})
+    prov.write_text(yaml.safe_dump(data))
+    assert spec_check.check_provenance(client, "gen.mp4") == []
+    assert spec_check.check_provenance(client, "unk.mp4") == ["unk.mp4: provenance.generative must be true or false"]

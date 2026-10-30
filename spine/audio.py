@@ -1,4 +1,4 @@
-"""Original audio bed for a film, synthesised (decision 7: nothing generative, nothing
+"""Original audio bed for a film, synthesised (nothing generative, nothing
 licensed from elsewhere). Upbeat by default: this is a surf app, not a memorial.
 
     .venv/bin/python -m spine.audio <film_dir>     # reads film.json "music", writes audio.wav
