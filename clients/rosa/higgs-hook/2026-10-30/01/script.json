@@ -1,0 +1,57 @@
+{
+  "title": "The guard at Thurso",
+  "slug": "guard",
+  "character": "a ceremonial palace guard in a tall black bearskin hat, scarlet tunic with gold buttons, white belt, black trousers, polished boots, a cream 9-foot longboard held rigidly under one arm",
+  "spots": {
+    "a": {
+      "slug": "thurso-east",
+      "name": "Thurso East"
+    },
+    "b": {
+      "slug": "arugam-bay",
+      "name": "Arugam Bay"
+    }
+  },
+  "joke": "He's guarding the lineup.",
+  "hook": "Get an alert when your spot turns on",
+  "screens": {
+    "theme": "dark",
+    "steps": [
+      {
+        "go": "/spot/thurso-east"
+      },
+      {
+        "scroll": 500
+      },
+      {
+        "tap": "button.accent-link"
+      },
+      {
+        "zoom": 4
+      },
+      {
+        "go": "/spot/arugam-bay"
+      },
+      {
+        "tap": "button.accent-link"
+      },
+      {
+        "go": "/spot/arugam-bay"
+      },
+      {
+        "swipe": "left"
+      },
+      {
+        "scroll": 700
+      }
+    ]
+  },
+  "end": {
+    "line": "Off duty when it's firing",
+    "button": "Check my spot"
+  },
+  "vo": "Okay so, Thurso was freezing and firing. Rosa pinged me the second it turned on. Next stop, Arugam Bay.",
+  "voice": "dia:seed5",
+  "track": "surf-rock-summer",
+  "caption": "He never leaves his post. Unless it's pumping.\n\nThurso was cold and firing, then the alert came in for Arugam Bay. Rosa pings you when your spot turns on.\n\n3,000+ spots, 16 days out, four updates a day, free.\nrosa.surf, link in bio.\n.\n.\n.\n#surfforecast #surfing #surfapp"
+}

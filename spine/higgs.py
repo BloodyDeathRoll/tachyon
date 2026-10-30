@@ -37,7 +37,7 @@ JOKE_AT = 2.0                         # the joke lands this far into scene 1
 CLIP_GAIN = {"s1": 1.0, "s5": 0.35}   # scene 5's sound sits under the music and the voice
 FORMATS = {"vertical": ("9x16",), "horizontal": ("16x9",), "both": ("9x16", "16x9")}
 REQUIRED = ("title", "joke", "hook", "screens", "end", "vo")
-STEP_KEYS = {"go", "wait", "scroll", "wheel", "swipe", "tap"}
+STEP_KEYS = {"go", "wait", "scroll", "zoom", "swipe", "tap"}
 
 
 def script_dir(client: str, batch: str, nn: str) -> Path:
@@ -87,8 +87,77 @@ def _run(cmd: list[str], cwd: Path = ROOT) -> None:
         raise RuntimeError(f"{cmd[0]} failed: {(r.stderr or r.stdout).strip()[-500:]}")
 
 
+# the "Spot look wrong?" nudge: marked as shown so it never covers the recording
+NUDGE = "try{localStorage.setItem('rosa.nudge.report',JSON.stringify({started:Date.now(),shown:99,last:Date.now()}))}catch(e){}"
+NAVIGATE = "p => { history.pushState(null, '', p); dispatchEvent(new Event('rosa:navigate')); }"   # the app's own router
+W, H = 390, 844
+
+
+def _settle(page, warm: bool, ms: int) -> None:
+    """Warm pass: wait for the network (map tiles, forecasts) so the recorded pass has them cached."""
+    if warm:
+        try:
+            page.wait_for_load_state("networkidle", timeout=8000)
+        except Exception:  # noqa: BLE001 — spot pages hold a cam stream open; networkidle may never come
+            pass
+    page.wait_for_timeout(ms)
+
+
+def drive(page, steps: list[dict], base: str, theme: str, warm: bool = False) -> float:
+    """Play the steps on `page`. Only the first `go` loads a page; later ones navigate inside the
+    app, so the splash screen never shows mid-film. Returns seconds from the call to the end of
+    the first load (where the film starts)."""
+    t_open, t0 = time.monotonic(), None
+    for st in steps:
+        (k, v), = st.items()
+        if k == "go":
+            if t0 is None:
+                page.goto(f"{base}{v}{'&' if '?' in v else '?'}theme={theme}", wait_until="load", timeout=60000)
+                _settle(page, warm, 2500)
+                t0 = time.monotonic() - t_open
+            else:
+                page.evaluate(NAVIGATE, v)
+                _settle(page, warm, 1200)
+        elif k == "wait":
+            page.wait_for_timeout(int(float(v) * 1000))
+        elif k == "zoom":   # map zoom steps, positive = out (the wheel does nothing in phone mode; the keys do)
+            page.focus(".maplibregl-canvas")
+            for _ in range(abs(int(v))):
+                page.keyboard.press("Minus" if int(v) > 0 else "Equal")
+                page.wait_for_timeout(350)
+            _settle(page, warm, 900)
+        elif k == "scroll":   # page px
+            page.mouse.move(W / 2, H / 2)
+            n = 20
+            for _ in range(n):
+                page.mouse.wheel(0, float(v) / n)
+                page.wait_for_timeout(30)
+            _settle(page, warm, 600)
+        elif k == "swipe":
+            y = H * 0.45
+            x0, x1 = (W * 0.85, W * 0.15) if v == "left" else (W * 0.15, W * 0.85)
+            page.mouse.move(x0, y)
+            page.mouse.down()
+            page.mouse.move(x1, y, steps=15)
+            page.mouse.up()
+            page.wait_for_timeout(700)
+        elif k == "tap":
+            page.click(v, timeout=10000)
+            _settle(page, warm, 1500)
+        else:
+            raise ValueError(f"unknown screens step {k!r}")
+    return t0 or 0.0
+
+
+def speedup(seconds: float) -> float:
+    """A recording longer than the screens slot plays faster (up to 1.5x) instead of being cut."""
+    return min(max(seconds / SCREENS_MAX, 1.0), 1.5)
+
+
 def screens(client: str, batch: str, nn: str) -> Path:
-    """Drive the live app through screens.steps at phone size and record it → screens.mp4."""
+    """Drive the live app through screens.steps at phone size and record it → screens.mp4.
+    Two passes in one browser profile: the first warms the cache, the second is recorded."""
+    import tempfile
     from playwright.sync_api import sync_playwright
     from . import capture as CAP
     d = script_dir(client, batch, nn)
@@ -96,49 +165,21 @@ def screens(client: str, batch: str, nn: str) -> Path:
     theme = spec.get("theme", "dark")
     tmp = d / ".rec"
     shutil.rmtree(tmp, ignore_errors=True)
-    W, H = 390, 844
-    with sync_playwright() as p:
-        b = p.chromium.launch()
-        ctx = b.new_context(viewport={"width": W, "height": H}, device_scale_factor=3, is_mobile=True, has_touch=True,
-                            color_scheme="dark" if theme == "dark" else "light", locale="en-GB", timezone_id="UTC",
-                            user_agent=CAP.UA, record_video_dir=str(tmp), record_video_size={"width": W * 2, "height": H * 2})
-        ctx.add_init_script(CAP.INIT.replace("THEME", theme))
-        page = ctx.new_page()
-        t_open = time.monotonic()
-        t0 = None
-        for st in spec["steps"]:
-            (k, v), = st.items()
-            if k == "go":
-                url = f"{CAP.BASE[client]}{v}{'&' if '?' in v else '?'}theme={theme}"
-                page.goto(url, wait_until="load", timeout=60000)
-                page.wait_for_timeout(1500)
-                if t0 is None:   # the film starts on the first loaded page, not the blank tab
-                    t0 = time.monotonic() - t_open
-            elif k == "wait":
-                page.wait_for_timeout(int(float(v) * 1000))
-            elif k in ("scroll", "wheel"):   # scroll: page px; wheel: map zoom (negative = in)
-                page.mouse.move(W / 2, H / 2)
-                n = 20
-                for _ in range(n):
-                    page.mouse.wheel(0, float(v) / n)
-                    page.wait_for_timeout(30)
-                page.wait_for_timeout(500)
-            elif k == "swipe":
-                y = H * 0.45
-                x0, x1 = (W * 0.85, W * 0.15) if v == "left" else (W * 0.15, W * 0.85)
-                page.mouse.move(x0, y)
-                page.mouse.down()
-                page.mouse.move(x1, y, steps=15)
-                page.mouse.up()
-                page.wait_for_timeout(700)
-            elif k == "tap":
-                page.click(v, timeout=10000)
-                page.wait_for_timeout(1000)
-        video = page.video.path()
-        ctx.close()
-        b.close()
+    opts = dict(viewport={"width": W, "height": H}, device_scale_factor=3, is_mobile=True, has_touch=True,
+                color_scheme="dark" if theme == "dark" else "light", locale="en-GB", timezone_id="UTC", user_agent=CAP.UA)
+    init = CAP.INIT.replace("THEME", theme) + NUDGE
+    with tempfile.TemporaryDirectory() as profile, sync_playwright() as p:
+        for warm in (True, False):
+            rec = {} if warm else {"record_video_dir": str(tmp), "record_video_size": {"width": W * 2, "height": H * 2}}
+            ctx = p.chromium.launch_persistent_context(profile, **opts, **rec)
+            ctx.add_init_script(init)
+            page = ctx.pages[0] if ctx.pages else ctx.new_page()
+            t0 = drive(page, spec["steps"], CAP.BASE[client], theme, warm)
+            video = None if warm else page.video.path()
+            ctx.close()
     out = d / "screens.mp4"
-    _run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t0 or 0:.2f}", "-i", str(video), "-an", "-r", "30",
+    speed = speedup(_duration(Path(video)) - t0)
+    _run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t0:.2f}", "-i", str(video), "-an", "-vf", f"setpts=PTS/{speed:.3f}", "-r", "30",
           "-c:v", "libx264", "-crf", "18", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out)])
     shutil.rmtree(tmp, ignore_errors=True)
     return out

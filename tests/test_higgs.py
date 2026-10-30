@@ -162,3 +162,58 @@ def test_ai_label_locked_once_out(server, client_dir):  # noqa: F811
     assert "is_ai_generated" not in json.loads((client_dir / "posts" / "w01-s1" / "meta.json").read_text())
     _, body, _ = req(server, "GET", "/demo/v/w01-s1")
     assert "Fixed: the post is out or going out" in body
+
+
+class FakePage:
+    """Records what drive() asks the browser to do."""
+    def __init__(self):
+        self.calls = []
+        self.mouse = self
+        self.keyboard = self
+
+    def goto(self, url, **kw): self.calls.append(("goto", url))
+    def evaluate(self, js, arg=None): self.calls.append(("nav", arg))
+    def wait_for_timeout(self, ms): pass
+    def wait_for_load_state(self, *a, **kw): self.calls.append(("idle",))
+    def focus(self, sel): self.calls.append(("focus", sel))
+    def press(self, key): self.calls.append(("key", key))
+    def click(self, sel, **kw): self.calls.append(("tap", sel))
+    def move(self, *a, **kw): pass
+    def wheel(self, *a): self.calls.append(("wheel",))
+    def down(self): pass
+    def up(self): pass
+
+
+def test_drive_loads_once_then_navigates_inside_the_app():
+    pg = FakePage()
+    H.drive(pg, [{"go": "/spot/a"}, {"tap": "button.accent-link"}, {"zoom": 2}, {"go": "/spot/b"}, {"zoom": -1}],
+            "https://rosa.surf", "dark")
+    assert [c for c in pg.calls if c[0] in ("goto", "nav")] == [("goto", "https://rosa.surf/spot/a?theme=dark"), ("nav", "/spot/b")]
+    assert [c[1] for c in pg.calls if c[0] == "key"] == ["Minus", "Minus", "Equal"]   # out twice, in once
+    assert ("idle",) not in pg.calls                                                    # recorded pass: fixed waits
+
+
+def test_drive_warm_pass_waits_for_the_network():
+    pg = FakePage()
+    H.drive(pg, [{"go": "/spot/a"}, {"tap": "x"}], "https://rosa.surf", "dark", warm=True)
+    assert pg.calls.count(("idle",)) == 2
+
+
+def test_drive_refuses_unknown_steps():
+    with pytest.raises(ValueError):
+        H.drive(FakePage(), [{"go": "/spot/a"}, {"wheel": 900}], "https://rosa.surf", "dark")
+
+
+def test_check_refuses_the_old_wheel_step(hh):
+    edit(hh, screens={"steps": [{"go": "/spot/a"}, {"wheel": 900}]})
+    assert any(i.startswith("screens.steps[1]") for i in H.check("t", "b1", "01", "vertical"))
+
+
+def test_nudge_is_marked_seen_for_recordings():
+    assert "rosa.nudge.report" in H.NUDGE and "shown:99" in H.NUDGE
+
+
+def test_long_recordings_play_faster_not_cut():
+    assert H.speedup(6) == 1.0
+    assert H.speedup(12) == pytest.approx(1.2)
+    assert H.speedup(30) == 1.5

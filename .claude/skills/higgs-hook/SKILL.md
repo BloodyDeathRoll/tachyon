@@ -63,11 +63,11 @@ and no music, no speech · "no text, no logos, no watermark".
 ### Screens (`script.json` `screens.steps`)
 
 A real recording of the live app (`spine.higgs screens`), one key per step:
-`go` (path), `wait` (s), `scroll` (px, page), `wheel` (px on the map: positive zooms out,
+`go` (path), `wait` (s), `scroll` (px, page), `zoom` (map zoom steps: positive out,
 negative in), `swipe` (`left`/`right`, the forecast days), `tap` (CSS selector).
 Recipe that works: `go /spot/<A>` → `scroll` → `tap button.accent-link` (map flies to A) →
-`wheel` out → `go /spot/<B>` → `tap button.accent-link` (map flies in to B) → `go /spot/<B>` →
-`swipe left` → `scroll`. Aim for 6–8 s; the template clamps to 4–10 s.
+`zoom 4` (out) → `go /spot/<B>` → `tap button.accent-link` (map flies in to B) → `go /spot/<B>` →
+`swipe left` → `scroll`. Aim for 6–8 s; over 10 s plays up to 1.5x faster, then the template cuts at 10 s.
 
 ## Render ("render <batch>" or "render <batch> <nn>")
 
