@@ -28,8 +28,7 @@ Shows you why a day rates. Check your spot ↓
 
 1. `rosa-showreel-v14-30s-blues-9x16.mp4` (30 s): what Rosa is, the app moving.
 2. `rosa-favorites-9x16.mp4` (15 s): favorites, grouped by country.
-3. `rosa-swim-9x16.mp4` (15 s) **only if** swim claims are removed; otherwise the first
-   "why this rating" reel replaces it.
+3. `rosa-swim-9x16.mp4` (15 s): swim mode, for flat days.
 
 All three go through QA first: re-measured numbers, metadata stripped, attribution.
 

@@ -24,7 +24,27 @@ result through the dashboard (Calendar → Add new). Run from the main checkout 
 6. Run `.venv/bin/python -m spine.higgs check rosa <batch> <nn> both` for each: every issue
    except "missing clip" must be fixed before you hand over.
 7. Pass every spoken or on-screen line through `/ig-human`. Caption via `/ig-caption`.
-8. Reply with the batch path and the 3 titles. Nothing else.
+8. Add one row per script to the client's Notion database "higgs-hook scripts".
+   Find it (any client, not only Rosa):
+   - The client's page: search the Projects database (`collection://3fafdf78-8e46-803d-954e-000b8758c92c`,
+     under Dashboard) by business name; if absent, the Clients database
+     (`collection://409fdf78-8e46-8014-a9b7-000b7c43607b`). If in neither, add a page to Clients
+     (`Name` = the business name).
+   - Inside that page, the database titled "higgs-hook scripts". If missing, create it there with
+     `notion-create-database` and the same schema as Rosa's: `Title` TITLE, `Status`
+     STATUS(`Example`, `Written`, `Clips in`, `Rendered`, `Posted`), `Batch` SELECT, `Done`
+     CHECKBOX, and RICH_TEXT `Character`, `Spot A`, `Spot B`, `Joke`, `Hook`, `Closer`,
+     `End line`, `Button`, `VO`, `Repo path`.
+   - Rosa's: Projects / Rosa, data source `1aebfc99-cf27-4049-be26-1c4a23df1d4d`.
+
+   `notion-create-pages` with that data source as parent. Properties: `Title`, `Status`
+   `Written`, `Batch` (the batch id; add the option first with `notion-update-data-source` if
+   it is new), `Character`, `Spot A`, `Spot B`, `Joke`, `Hook`, `Closer` (scene 5 in one line),
+   `End line`, `Button`, `VO`, `Repo path` (the `.md` path), `Done` `__NO__`. Content: the
+   script `.md` without its `# title` line. The repo stays the source of truth; if a script
+   changes later, update its row too.
+9. Reply with the batch path, the 3 titles and the link to the client's Notion database.
+   Nothing else.
 
 ### The idea
 
@@ -34,8 +54,15 @@ result through the dashboard (Calendar → Add new). Run from the main checkout 
 - The joke (scene 2) is one short line that reframes scene 1. Under 6 words if possible.
 - The hook (scene 3) is one Rosa feature or advantage, from `product.md` only. Plain words,
   no numbers that are not in `product.md`.
-- Scene 5 is a callback: same character, same props, later, on the way to spot B. The joke
-  continues; it does not repeat.
+- Scene 4 shows the feature the hook names, in the real app (a spot, the map, a mode switch,
+  the forecast days). The spot A to spot B flow is one option, not the default.
+- Scene 5 is a callback: same character, a payoff to scene 1 that is funny on its own. Any
+  place, any time; not a trip by default. The joke continues; it does not repeat. Example:
+  scene 1 the surfer trips on his leash and snaps his board; scene 5 a flat, still ocean,
+  then he swims across using half the board as a float, as "Also for swimmers" lands.
+- Scene 5 and the end card are one beat: the card starts 1.2 s into scene 5 (logo, then the
+  line, then the button), in the lower half. Open scene 5 on an empty or calm frame, keep the
+  lower half clear, and time the payoff action to land with the line (about 1.5-5 s).
 - End card: a fresh line and button text each time. Never "try for free" or anything that
   implies paying later. Never "comment for the link". `rosa.surf` and `@rosa_surf_forecast` are
   added by the template.
@@ -60,12 +87,17 @@ keeps the action in the centre column, 16:9 uses the width) · light · mood: de
 documentary · sound: the concrete sounds of the scene (sand, waves, wind, wheels on tiles)
 and no music, no speech · "no text, no logos, no watermark".
 
+Write the camera line for each scene and each ratio from that scene's own setting. Never copy
+scene 1's camera line into scene 5: what fills the 16:9 width is what is in that scene
+(the sea on a beach; the terminal and queue in an airport; the road through a car window).
+Check before saving: every noun in a camera line appears in that scene's setting.
+
 ### Screens (`script.json` `screens.steps`)
 
 A real recording of the live app (`spine.higgs screens`), one key per step:
 `go` (path), `wait` (s), `scroll` (px, page), `zoom` (map zoom steps: positive out,
 negative in), `swipe` (`left`/`right`, the forecast days), `tap` (CSS selector).
-Recipe that works: `go /spot/<A>` → `scroll` → `tap button.accent-link` (map flies to A) →
+Find selectors on the live app before using `tap`. Spot flow recipe that works: `go /spot/<A>` → `scroll` → `tap button.accent-link` (map flies to A) →
 `zoom 4` (out) → `go /spot/<B>` → `tap button.accent-link` (map flies in to B) → `go /spot/<B>` →
 `swipe left` → `scroll`. Aim for 6–8 s; over 10 s plays up to 1.5x faster, then the template cuts at 10 s.
 

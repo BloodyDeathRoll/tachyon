@@ -31,8 +31,7 @@ today". What they want: an embed that looks good and credits nobody but the data
 Language: "widget", "embed", "today's conditions". This persona is a partner, not a
 viewer: `collaborators` posts and the widget demo link serve them.
 
-`[assumed]` Swimmers and open-water people are a later audience once swim weights are
-tuned; not a phase-1 persona.
+Swimmers and open-water people: a secondary audience, served by swim mode when the surf is flat.
 
 ## Verbatim pains (collecting)
 
