@@ -24,7 +24,15 @@ result through the dashboard (Calendar → Add new). Run from the main checkout 
 6. Run `.venv/bin/python -m spine.higgs check rosa <batch> <nn> both` for each: every issue
    except "missing clip" must be fixed before you hand over.
 7. Pass every spoken or on-screen line through `/ig-human`. Caption via `/ig-caption`.
-8. Reply with the batch path and the 3 titles. Nothing else.
+8. Add one row per script to the Notion database "higgs-hook scripts" (under Rosa):
+   `notion-create-pages`, parent `data_source_id` `1aebfc99-cf27-4049-be26-1c4a23df1d4d`.
+   Properties: `Title`, `Status` `Written`, `Batch` (the batch id; add the option first with
+   `notion-update-data-source` if it is new), `Character`, `Spot A`, `Spot B`, `Joke`, `Hook`,
+   `Closer` (scene 5 in one line), `End line`, `Button`, `VO`, `Repo path` (the `.md` path),
+   `Done` `__NO__`. Content: the script `.md` without its `# title` line. The repo stays the
+   source of truth; if a script changes later, update its row too.
+9. Reply with the batch path, the 3 titles and the Notion database link
+   (https://app.notion.com/p/8d1e32f9c56144ed9aaa08a4e77ed868). Nothing else.
 
 ### The idea
 
