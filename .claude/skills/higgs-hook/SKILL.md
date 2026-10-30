@@ -24,15 +24,27 @@ result through the dashboard (Calendar → Add new). Run from the main checkout 
 6. Run `.venv/bin/python -m spine.higgs check rosa <batch> <nn> both` for each: every issue
    except "missing clip" must be fixed before you hand over.
 7. Pass every spoken or on-screen line through `/ig-human`. Caption via `/ig-caption`.
-8. Add one row per script to the Notion database "higgs-hook scripts" (under Rosa):
-   `notion-create-pages`, parent `data_source_id` `1aebfc99-cf27-4049-be26-1c4a23df1d4d`.
-   Properties: `Title`, `Status` `Written`, `Batch` (the batch id; add the option first with
-   `notion-update-data-source` if it is new), `Character`, `Spot A`, `Spot B`, `Joke`, `Hook`,
-   `Closer` (scene 5 in one line), `End line`, `Button`, `VO`, `Repo path` (the `.md` path),
-   `Done` `__NO__`. Content: the script `.md` without its `# title` line. The repo stays the
-   source of truth; if a script changes later, update its row too.
-9. Reply with the batch path, the 3 titles and the Notion database link
-   (https://app.notion.com/p/8d1e32f9c56144ed9aaa08a4e77ed868). Nothing else.
+8. Add one row per script to the client's Notion database "higgs-hook scripts".
+   Find it (any client, not only Rosa):
+   - The client's page: search the Projects database (`collection://3fafdf78-8e46-803d-954e-000b8758c92c`,
+     under Dashboard) by business name; if absent, the Clients database
+     (`collection://409fdf78-8e46-8014-a9b7-000b7c43607b`). If in neither, add a page to Clients
+     (`Name` = the business name).
+   - Inside that page, the database titled "higgs-hook scripts". If missing, create it there with
+     `notion-create-database` and the same schema as Rosa's: `Title` TITLE, `Status`
+     STATUS(`Example`, `Written`, `Clips in`, `Rendered`, `Posted`), `Batch` SELECT, `Done`
+     CHECKBOX, and RICH_TEXT `Character`, `Spot A`, `Spot B`, `Joke`, `Hook`, `Closer`,
+     `End line`, `Button`, `VO`, `Repo path`.
+   - Rosa's: Projects / Rosa, data source `1aebfc99-cf27-4049-be26-1c4a23df1d4d`.
+
+   `notion-create-pages` with that data source as parent. Properties: `Title`, `Status`
+   `Written`, `Batch` (the batch id; add the option first with `notion-update-data-source` if
+   it is new), `Character`, `Spot A`, `Spot B`, `Joke`, `Hook`, `Closer` (scene 5 in one line),
+   `End line`, `Button`, `VO`, `Repo path` (the `.md` path), `Done` `__NO__`. Content: the
+   script `.md` without its `# title` line. The repo stays the source of truth; if a script
+   changes later, update its row too.
+9. Reply with the batch path, the 3 titles and the link to the client's Notion database.
+   Nothing else.
 
 ### The idea
 
