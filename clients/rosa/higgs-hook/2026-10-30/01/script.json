@@ -24,25 +24,22 @@
         "scroll": 500
       },
       {
-        "tap": "button.accent-link"
+        "go": "/settings"
       },
       {
-        "zoom": 4
+        "scroll": 600
       },
       {
-        "go": "/spot/arugam-bay"
-      },
-      {
-        "tap": "button.accent-link"
+        "wait": 1.5
       },
       {
         "go": "/spot/arugam-bay"
       },
       {
-        "swipe": "left"
+        "tap": ".day-scrub button >> nth=1"
       },
       {
-        "scroll": 700
+        "scroll": 500
       }
     ]
   },
