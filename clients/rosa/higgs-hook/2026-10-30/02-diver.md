@@ -1,6 +1,6 @@
 # The diver at Coxos
 
-**Idea.** A deep-sea diver in a brass helmet walks out of the Coxos surf with a shortboard, like he's done a session from below.
+**Idea.** A deep-sea diver in a brass helmet walks out of the Coxos surf with a shortboard, like he's done a session from below; on a flat day he surfaces only to check the forecast on his phone.
 Spot A: Coxos (Portugal) · Spot B: Mundaka (Spain)
 
 ## Character still

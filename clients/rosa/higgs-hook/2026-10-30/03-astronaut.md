@@ -1,6 +1,6 @@
 # The astronaut at Punta de Lobos
 
-**Idea.** An astronaut in a full white spacesuit waxes a board on a Chilean cliff top, then plants a flag in the sand: it's pumping.
+**Idea.** An astronaut in a full white spacesuit waxes a board on a Chilean cliff top, then walks to the edge: it's pumping. Later he rides the point and floats off the lip in low gravity.
 Spot A: Punta de Lobos (Chile) · Spot B: El Gringo (Chile)
 
 ## Character still

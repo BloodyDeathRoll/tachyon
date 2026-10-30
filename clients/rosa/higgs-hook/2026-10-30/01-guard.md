@@ -1,6 +1,6 @@
 # The guard at Thurso
 
-**Idea.** A ceremonial palace guard marches into a freezing Scottish shorebreak with a longboard and never breaks face.
+**Idea.** A ceremonial palace guard marches into a freezing Scottish shorebreak with a longboard and never breaks face; when the alert chimes he rides it at attention.
 Spot A: Thurso East (Scotland) · Spot B: Arugam Bay (Sri Lanka)
 
 ## Character still
