@@ -191,8 +191,8 @@ def load_plan(out: Path) -> dict:
     try:
         return yaml.safe_load(out.read_text())
     except yaml.YAMLError as e:
-        _claude(f"{out} does not parse as YAML: {e}\nFix only the quoting: write every brief, hook and caption as "
-                f"a | block scalar. Keep every value word for word. Write the file and nothing else.",
+        _claude(f"{out} does not parse as YAML: {e}\nFix only the quoting: write every brief and caption as "
+                f"a | block scalar and quote any other value with \": \" in it. Keep every value word for word. Write the file and nothing else.",
                 ALLOWED_PLAN, PLAN_TIMEOUT)
         return yaml.safe_load(out.read_text())
 
