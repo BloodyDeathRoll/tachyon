@@ -28,7 +28,7 @@ def history(client: str) -> list[dict]:
     finally:
         db.close()
     out = []
-    for m in sorted((d / "posts").glob("*/meta.json")):
+    for m in sorted([*(d / "posts").glob("*/meta.json"), *(d / "posts").glob("*/versions/*/meta.json")]):   # versions: replaced by Generate New
         sd = m.parent
         try:
             meta = json.loads(m.read_text())
@@ -36,8 +36,9 @@ def history(client: str) -> list[dict]:
         except (OSError, ValueError):
             continue
         notes = [r["notes"].strip() for r in rv.get("rounds", []) if str(r.get("notes") or "").strip()]
-        out.append({"slot": sd.name, "motion": meta.get("motion"), "engine": (meta.get("film") or {}).get("engine"),
-                    "state": states.get(sd.name), "notes": notes})
+        old = sd.parent.name == "versions"
+        out.append({"slot": f"{sd.parent.parent.name}/{sd.name}" if old else sd.name, "motion": meta.get("motion"),
+                    "engine": (meta.get("film") or {}).get("engine"), "state": None if old else states.get(sd.name), "notes": notes})
     return out
 
 

@@ -66,7 +66,7 @@ def test_overview_shows_project_and_tagged_card_without_qa_or_caption(server):
 def test_video_page_has_decision_text_preview_and_qa_link(server):
     status, body, _ = req(server, "GET", "/demo/v/w01-s1")
     assert status == 200
-    assert all(s in body for s in ("Approve and schedule", "Ask for new version", "Update and Review", "Clear and Cancel"))
+    assert all(s in body for s in (">Approve</button>", ">Edit</button>", ">Update</button>", ">Cancel</button>", "Generate New"))
     assert "Read the full text" in body and "/demo/v/w01-s1/qa" in body
     assert "VERDICT" not in body
     status, body, _ = req(server, "GET", "/demo/v/w01-s1/qa")
@@ -196,7 +196,7 @@ def test_edit_takes_approval_back(server, client_dir):
     assert db.post("w01-s1")["state"] == "NEEDS_APPROVAL"
     db.close()
     status, body, _ = req(server, "GET", "/demo/v/w01-s1")
-    assert "Approve and schedule" in body
+    assert ">Approve</button>" in body
 
 
 def test_edit_refused_once_publishing(server, client_dir):
@@ -782,7 +782,7 @@ def test_add_new_upload_lands_in_approval_with_its_own_sound(server, client_dir,
     db.close()
     assert row["state"] in ("NEEDS_APPROVAL", "NEEDS_INPUT") and row["scheduled_at"] == FUTURE
     _, body, _ = req(server, "GET", f"/demo/v/{slot}")
-    assert "Approve and schedule" in body or "Needs" in body
+    assert ">Approve</button>" in body or "Needs" in body
     assert "Generate new version" not in body   # an upload has no film until its first edit
 
 
@@ -824,7 +824,7 @@ def test_add_new_prompt_plans_then_makes_it(server, client_dir, monkeypatch):
     assert M.produce("demo", slot) == 0
     assert "particles over the swell chart" in seen["prompt"] and seen["made"] == slot
     meta = json.loads((client_dir / "posts" / slot / "meta.json").read_text())
-    assert meta["title"] == "Particles" and meta["plan"] == "manual" and meta["film"]["reel"] == f"film-{slot}"
+    assert meta["title"] == "Particles" and meta["plan"] == "manual" and meta["film"]["engine"] == "html"   # Claude by default
 
 
 def test_add_new_prompt_failure_shows_error_and_rerun(server, client_dir, monkeypatch):
