@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import random
 import re
+import shutil
 import subprocess
 import sys
 from datetime import date, datetime, time, timedelta, timezone
@@ -26,6 +27,7 @@ from pathlib import Path
 import yaml
 
 from . import caption as CAP
+from . import lessons as L
 from . import clients as C
 from . import revise as R
 from . import schedule as SCH
@@ -101,17 +103,30 @@ def _status(client: str, week: str, **kw) -> dict:
     return cur
 
 
-def last_instructions(client: str) -> str:
-    """The operator's brief from the most recent batch (prefills the next one)."""
-    best = ("", "")
+ENGINES = {"remotion": "Remotion with motion styles", "html": "Claude, plain HTML", "mix": "Half and half"}
+
+
+def _last(client: str, key: str, default=""):
+    best = ("", default)
     for f in plans_dir(client).glob("*.json"):
         try:
             st = json.loads(f.read_text())
         except ValueError:
             continue
-        if st.get("instructions") is not None and (st.get("started_at") or "") >= best[0]:
-            best = (st.get("started_at") or "", st["instructions"])
+        if st.get(key) is not None and (st.get("started_at") or "") >= best[0]:
+            best = (st.get("started_at") or "", st[key])
     return best[1]
+
+
+def last_instructions(client: str) -> str:
+    """The operator's brief from the most recent batch (prefills the next one)."""
+    return _last(client, "instructions")
+
+
+def last_engine(client: str) -> str:
+    """The most recent batch's engine choice (the next one starts on it)."""
+    e = _last(client, "engine", "remotion")
+    return e if e in ENGINES else "remotion"
 
 
 def instructions_block(text: str) -> str:
@@ -127,13 +142,14 @@ style or the example films, they win (the safe box, real numbers and rule 13 sti
 ---"""
 
 
-def start(client: str, week: str, instructions: str | None = None) -> None:
+def start(client: str, week: str, instructions: str | None = None, engine: str | None = None) -> None:
     """Dashboard button: spawn prepare detached. `instructions` is the operator's brief for the
     batch; None (the daily auto run) reuses the last batch's."""
     if instructions is None:
         instructions = last_instructions(client)
+    engine = engine if engine in ENGINES else last_engine(client)
     _status(client, week, state="running", step="planning", done=0, total=len(free_slot_times(client, week)), error=None,
-            started_at=now(), instructions=instructions.strip())
+            started_at=now(), instructions=instructions.strip(), engine=engine)
     log = (plans_dir(client) / f"{week}.log").open("a")
     subprocess.Popen([sys.executable, "-m", "spine.week", "prepare", client, week], cwd=ROOT,
                      stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
@@ -167,12 +183,15 @@ items:
     title: <2-4 words, how the operator will recognise it>
     pillar: <one of the strategy's content pillars>
     brief: |
-      <3-5 sentences: what the 15-30 s video shows, beat by beat, using the real app>
+      <3-5 sentences: what the 15-30 s video shows, beat by beat. Build it on one message for the
+      audience and the real app shown large; no layout gimmicks (grids, tiles, exploding phones)>
     hook: <the first on-screen line, max 6 words>
     theme: <light or dark: which app theme the captures use; alternate so about half are light>
-    motion: <id of the motion style that suits this brief, from the motion styles file; a different
-      one per item and none that a posts/*/meta.json "motion" already used. When the operator's
-      instructions name a style by its `style` name, use that one>
+    motion: <only once the brief is written: id of the motion style whose movement suits it, from the
+      motion styles file. The style changes how things move, never what the brief shows. A different
+      one per item and none that a posts/*/meta.json "motion" already used, unless its score below is
+      "passed". Never one scored "rejected". When the operator's instructions name a style by its
+      `style` name, use that one>
     voiceover: <optional, on about 1 item in 4: 2-3 short spoken lines, 6-9 s. A surfer friend
       telling you about one feature: easygoing, likeable, a smile in it, laid back or stoked,
       never a newsreader. Talk like speech: "okay so", "honestly", "dude" at most once; short
@@ -187,8 +206,16 @@ without a URL); no competitor names.
 The videos can only use these assets: app captures
 engines/remotion/public/captures/*.png (dark theme) and engines/remotion/public/captures-light/*.png
 (light theme, same file names), Pixabay footage engines/remotion/public/footage/*.mp4,
-the logo.{instructions_block((status(client, week) or {}).get("instructions"))}
+the logo.{scores_block(client)}{L.notes_block(client)}{instructions_block((status(client, week) or {}).get("instructions"))}
 Write the file and nothing else."""
+
+
+def scores_block(client: str) -> str:
+    sc = L.style_scores(client)
+    if not sc:
+        return ""
+    return ("\n\nMotion style scores from the operator's reviews (passed: approved as made; fixed: needed "
+            "notes; rejected: thrown out, never use again):\n" + "\n".join(f"- {k}: {v}" for k, v in sorted(sc.items())))
 
 
 def load_plan(out: Path) -> dict:
@@ -243,15 +270,17 @@ def pick_motion(client: str, items: list[dict], week: str, asked: str = "") -> N
     """Every item gets its own motion style, none from the recent posts: the plan's pick when it
     qualifies, else an unused one. A style the operator asked for by name may repeat a recent one.
     No catalogue: no style (the house look)."""
-    styles = motion_styles()
+    sc = L.style_scores(client)
+    styles = {k: v for k, v in motion_styles().items() if sc.get(k) != "rejected"}   # thrown out once: never again
     metas = sorted((C.client_dir(client) / "posts").glob("*/meta.json"))[-RECENT_MOTION:]
     used = {json.loads(m.read_text()).get("motion") for m in metas}
     free = [k for k in styles if k not in used] or list(styles)
     random.Random(week).shuffle(free)
+    free.sort(key=lambda k: sc.get(k) == "fixed")   # untried before the ones that needed notes
     for it in items:
         m = styles.get(it.get("motion") or "")
         wanted = bool(m and m.get("style") and m["style"].lower() in asked.lower())
-        if not m or (it["motion"] in used and not wanted):
+        if not m or (it["motion"] in used and not wanted and sc.get(it["motion"]) != "passed"):
             it["motion"] = next((k for k in free if k not in used), None)
         used.add(it["motion"])
 
@@ -267,6 +296,12 @@ def _ours(d: Path, slot: str, plan: str) -> bool:
     return not m.exists() or json.loads(m.read_text()).get("plan") == plan
 
 
+def _engine_for(client: str, plan: str, i: int) -> str:
+    """The batch's engine for its i-th item (1-based): mix alternates, html first."""
+    e = (status(client, plan) or {}).get("engine") or "remotion"
+    return ("html" if i % 2 else "remotion") if e == "mix" else e
+
+
 def write_item(client: str, db: DB, slot: str, it: dict, i: int, plan: str, n_vo: int = 0) -> int:
     """One plan item → posts/<slot>/ (caption, brief, meta with film + track) and a BRIEFED post.
     Returns the voice-over count so far (voices rotate across a batch)."""
@@ -277,6 +312,7 @@ def write_item(client: str, db: DB, slot: str, it: dict, i: int, plan: str, n_vo
     start = int(m[1]) if (lib and m) else 0   # shift the rotation week to week
     sd = d / "posts" / slot
     sd.mkdir(parents=True, exist_ok=True)
+    eng = _engine_for(client, plan, i)   # html: Claude's own film, no motion style
     (sd / "caption.txt").write_text(it["caption"].strip() + "\n")
     (sd / "brief.md").write_text(f"# {it['title']}\n\nHook: {it['hook']}\n\n{it['brief'].strip()}\n")
     fid = film_id(slot)
@@ -284,14 +320,15 @@ def write_item(client: str, db: DB, slot: str, it: dict, i: int, plan: str, n_vo
     meta = {"slot_id": slot, "title": it["title"], "pillar": it.get("pillar"), "angle": it["brief"].strip(),
             "hook_formula": it["hook"], "cta": "link in bio (rosa.surf on the end card)",
             "audio_type": f"{tr['title']} ({tr['artist']}), baked in" if tr else "Pixabay 'Old Steel', baked in", "engine": "remotion 4 (engines/remotion)",
-            "film": {"engine": "remotion", "reel": fid, "story": f"{fid}-story",
-                     "source": f"engines/remotion/src/films/{fid}.tsx",
-                     "music": tr["path"] if tr else MUSIC.format(c=client)},
+            "film": ({"engine": "html", "dir": f"clients/{client}/posts/{slot}/film",
+                      "source": f"clients/{client}/posts/{slot}/film/index.html"} if eng == "html" else
+                     {"engine": "remotion", "reel": fid, "story": f"{fid}-story",
+                      "source": f"engines/remotion/src/films/{fid}.tsx"}) | {"music": tr["path"] if tr else MUSIC.format(c=client)},
             "track": tr["id"] if tr else None,
             "trial": False, "share_to_feed": True, "thumb_offset": 1200, "story": True,
             "landing": "https://rosa.surf/",
             "bio_link_while_live": f"https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign={slot}",
-            "plan": plan, "motion": it.get("motion"), "theme": it.get("theme") if it.get("theme") in ("light", "dark") else ("light" if i % 2 == 0 else "dark")}
+            "plan": plan, "motion": it.get("motion") if eng == "remotion" else None, "theme": it.get("theme") if it.get("theme") in ("light", "dark") else ("light" if i % 2 == 0 else "dark")}
     if str(it.get("voiceover") or "").strip():
         from . import voice as V
         meta["voiceover_script"] = " ".join(str(it["voiceover"]).split())
@@ -352,7 +389,8 @@ staticFile("footage/<name>.mp4") for engines/remotion/public/footage, staticFile
 Every text and UI element stays inside SAFE[variant]. Only our messages, large: no on-screen text
 under 38 px (lib MIN_TYPE), no small-caps eyebrow labels, no data attribution, no "Footage" credit.
 Numbers only from clients/{client}/product.md.
-Never "comment for the link". Do not edit any other file. Run `npx tsc --noEmit -p .` in
+Never "comment for the link".{L.notes_block(client)}
+Do not edit any other file. Run `npx tsc --noEmit -p .` in
 engines/remotion until it passes (you may temporarily add nothing to Root; it is registered for
 you afterwards). You may check frames with a scratch entry only if needed. Do not render, do not commit.{instructions_block(_batch_instructions(client, meta))}"""
 
@@ -367,11 +405,12 @@ Motion style for this reel: "{m.get('style') or m['title']}" ({', '.join(m['tags
 ---
 {m['prompt']}
 ---
-Take the motion language from it (how things move, enter, transition, the shapes, particles,
-type treatment, rhythm) and build this brief with it, so this reel does not look like the last
-ones. Adapt it, never copy it: it is someone else's piece ({m['url']}). It never overrides the
-brief, the brand, the safe areas or the type rules below; ignore any part of it that needs
-assets we do not have.
+Take only its motion language from it: how things move, enter and transition, the rhythm, the type
+treatment. It never decides what is on screen or the layout: build the brief as written, with the
+real app large whenever it appears (the phone fills most of the frame height), only real Rosa
+screens from the captures, Rosa's colours and the house end card. Adapt it, never copy it: it is
+someone else's piece ({m['url']}). It never overrides the brief, the brand, the operator's notes,
+the safe areas or the type rules below; drop any part of it that needs assets we do not have.
 """
 
 
@@ -390,6 +429,36 @@ def register(fid: str) -> None:
     idx.write_text(s)
 
 
+CHECK_FRAMES = 8
+
+
+def self_check(client: str, slot: str, source: Path, allowed: str = ALLOWED_FILM) -> bool:
+    """Claude looks at frames of the finished cut against the brief, the brand and the operator's
+    notes, and fixes the film source if one breaks them. True when it changed the source."""
+    sd = C.client_dir(client) / "posts" / slot
+    cdir = sd / ".check"
+    cdir.mkdir(exist_ok=True)
+    dur = float(json.loads((sd / "meta.json").read_text()).get("duration_s") or 15)
+    for i in range(CHECK_FRAMES):
+        t = dur * (i + 0.5) / CHECK_FRAMES
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.2f}", "-i", str(sd / "video.mp4"), "-frames:v", "1",
+                        "-vf", "scale=540:-2", str(cdir / f"{i + 1:02d}-{t:05.2f}s.jpg")], check=True)
+    before = source.read_text()
+    try:
+        out = _claude(f"""Review one finished Instagram Reel for the client "{client}" before the operator sees it.
+Frames of the cut (the time is in each file name): read every image in {cdir.relative_to(ROOT)}.
+Brief: {(sd / 'brief.md').read_text()}
+Brand: clients/{client}/brand.md.{L.notes_block(client)}
+Check the frames against the brief, the brand and every note above: the app large and only real
+Rosa screens, nothing cut off or outside the safe area, text readable, nothing the notes forbid.
+If something breaks them, fix it in {source.relative_to(ROOT)} only (keep everything else) and make
+sure it still builds. End with one line: CHANGED: <what you fixed>, or OK.""", allowed, FILM_TIMEOUT)
+    finally:
+        shutil.rmtree(cdir, ignore_errors=True)
+    print(f"{slot} self-check: {out.strip().splitlines()[-1] if out.strip() else '?'}", file=sys.stderr)
+    return source.read_text() != before
+
+
 def produce(client: str, slot: str) -> None:
     d = C.client_dir(client)
     sd = d / "posts" / slot
@@ -397,6 +466,9 @@ def produce(client: str, slot: str) -> None:
     try:
         if db.post(slot)["state"] == "BRIEFED":
             db.set_state(slot, "SCRIPTED")
+        meta = json.loads((sd / "meta.json").read_text())
+        if (meta.get("film") or {}).get("engine") == "html":
+            return _produce_html(client, slot, sd, db, meta)
         fid = film_id(slot)
         if not (FILMS / f"{fid}.tsx").exists():
             _claude(film_prompt(client, slot), ALLOWED_FILM, FILM_TIMEOUT)
@@ -408,18 +480,92 @@ def produce(client: str, slot: str) -> None:
         if r.returncode != 0:
             (FILMS / "index.ts").write_text(before)   # never leave a broken film registered
             raise RuntimeError(f"film {fid} does not typecheck: {r.stdout[-300:]}")
-        meta = json.loads((sd / "meta.json").read_text())
-        if meta.get("voiceover_script") and not (sd / "vo.wav").exists():
-            from . import voice as V
-            V.make_vo(client, slot, meta["voiceover_script"], voice=meta.get("voiceover_voice"))
+        _voice(client, slot, sd, meta)
         verdicts = R.render(client, slot) | R.spec_verdicts(sd)   # render mixes track + voice-over (spine/tracks.apply)
-        db.set_state(slot, "RENDERED")
-        qa = R._qa_md(slot, verdicts, None, None)
-        (sd / "qa.md").write_text(qa)
-        db.set_state(slot, "QA", qa_verdict=qa.strip().splitlines()[-1])
-        db.set_state(slot, "NEEDS_APPROVAL" if qa.rstrip().endswith("APPROVED") else "NEEDS_INPUT")
+        src = FILMS / f"{fid}.tsx"
+        before = src.read_text()
+        if self_check(client, slot, src):
+            try:
+                r = subprocess.run(["npx", "tsc", "--noEmit", "-p", "."], cwd=ROOT / "engines" / "remotion", capture_output=True, text=True)
+                if r.returncode != 0:
+                    raise RuntimeError(f"does not typecheck: {r.stdout[-300:]}")
+                verdicts = R.render(client, slot) | R.spec_verdicts(sd)
+            except Exception as e:   # a broken fix: keep the first cut and its source
+                src.write_text(before)
+                print(f"{slot}: self-check fix did not render, kept the first cut: {e}", file=sys.stderr)
+        _finish(slot, sd, db, verdicts)
     finally:
         db.close()
+
+
+def _voice(client: str, slot: str, sd: Path, meta: dict) -> None:
+    if meta.get("voiceover_script") and not (sd / "vo.wav").exists():
+        from . import voice as V
+        V.make_vo(client, slot, meta["voiceover_script"], voice=meta.get("voiceover_voice"))
+
+
+def _finish(slot: str, sd: Path, db: DB, verdicts: dict) -> None:
+    db.set_state(slot, "RENDERED")
+    qa = R._qa_md(slot, verdicts, None, None)
+    (sd / "qa.md").write_text(qa)
+    db.set_state(slot, "QA", qa_verdict=qa.strip().splitlines()[-1])
+    db.set_state(slot, "NEEDS_APPROVAL" if qa.rstrip().endswith("APPROVED") else "NEEDS_INPUT")
+
+
+def _produce_html(client: str, slot: str, sd: Path, db: DB, meta: dict) -> None:
+    """Engine html: Claude writes the film as its own HTML page; spine/render.py captures it."""
+    fdir = ROOT / meta["film"]["dir"]
+    if not (fdir / "index.html").exists():
+        fdir.mkdir(parents=True, exist_ok=True)
+        _claude(html_prompt(client, slot), R.ALLOWED_HTML, FILM_TIMEOUT)
+    for f in ("index.html", "film.json"):
+        if not (fdir / f).exists():
+            raise RuntimeError(f"no {f} written for {slot}")
+    _voice(client, slot, sd, meta)
+    verdicts = R.render(client, slot) | R.spec_verdicts(sd)
+    src = fdir / "index.html"
+    before = src.read_text()
+    if self_check(client, slot, src, R.ALLOWED_HTML):
+        try:
+            verdicts = R.render(client, slot) | R.spec_verdicts(sd)
+        except Exception as e:   # a broken fix: keep the first cut and its source
+            src.write_text(before)
+            print(f"{slot}: self-check fix did not render, kept the first cut: {e}", file=sys.stderr)
+    _finish(slot, sd, db, verdicts)
+
+
+def html_prompt(client: str, slot: str) -> str:
+    sd = C.client_dir(client) / "posts" / slot
+    meta = json.loads((sd / "meta.json").read_text())
+    fdir = meta["film"]["dir"]
+    cdir = "captures-light" if meta.get("theme") == "light" else "captures"
+    vo = (f"\nA voice-over plays from 0.5 s: \"{meta['voiceover_script']}\". Pace the beats to it and keep "
+          f"on-screen text short so it does not repeat the voice word for word." if meta.get("voiceover_script") else "")
+    return f"""Make one Instagram Reel for the client "{client}": a 15-30 s motion piece that looks like the best
+app-launch motion design out there. You are the motion designer: pick the look, the movement and the
+pacing yourself. No templates and no framework.
+
+Brief: {(sd / 'brief.md').read_text()}
+App theme: {meta.get('theme', 'dark')}. Brand: clients/{client}/brand.md. Numbers only from clients/{client}/product.md.{vo}
+
+Build it as one self-contained page: {fdir}/index.html plus {fdir}/film.json, which holds
+{{"duration": <seconds>, "width": 1080, "height": 1920}}. Use any technique (CSS, SVG, canvas, WebGL,
+plain JS) but nothing from the network: copy every file you use into {fdir}/ with cp. Real Rosa app
+screens only, from engines/remotion/public/{cdir}/; footage from engines/remotion/public/footage/; the
+font engines/remotion/public/fonts/inter-latin-wght-normal.woff2 and the logo
+engines/remotion/public/fonts/rosa-icon.svg.
+
+How it is rendered: the page is opened from file:// and window.__film.seek(t) is called for every
+frame, then screenshotted. seek(t) must put everything where it is at t seconds, computed from t
+alone: no real clock, no requestAnimationFrame loop, no CSS animation or transition running on its
+own. If you use <video>, seek it and return a promise that resolves once it has the frame. Read
+?variant=reel|story from the URL. Keep every text and button inside the safe box (x 65 to 1015,
+y 285 to 1248 for reel; y 269 to 1248 for story): Instagram's own UI covers the rest. No text under
+38 px. No music or voice in the page; the soundtrack is mixed in afterwards.
+Never "comment for the link".{L.notes_block(client)}
+Look at your work: `.venv/bin/python -m spine.render {fdir} --still <seconds> {fdir}/.still.png` renders one
+frame (and prints page errors); check several moments and fix what is off. Delete .still.png when
+done. Do not render the video, do not commit, do not edit files outside {fdir}/.{instructions_block(_batch_instructions(client, meta))}"""
 
 
 def prepare(client: str, week: str) -> int:
