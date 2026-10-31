@@ -184,3 +184,21 @@ def test_hourly_snapshot_once_per_hour(client_dir, monkeypatch):  # noqa: F811
     assert I.snapshot_hourly("demo", graph=object()) == ["w01-s1"]
     assert I.snapshot_hourly("demo", graph=object()) == []                  # same hour: no second pull
     assert calls == ["m1"]
+
+
+def test_day_drop_uses_the_weeks_custom_times(server, client_dir):  # noqa: F811
+    from datetime import date
+    custom = app.utc_iso(date(2099, 1, 8), "12:59")   # a custom time elsewhere that week
+    db = DB.for_client(client_dir)
+    for sid, at in (("x1", slot_on("2099-01-06", 0)), ("x2", slot_on("2099-01-06", 1)), ("x3", custom)):
+        db.create_post(sid, "demo", scheduled_at=at)   # both daily slots on 2099-01-06 are taken
+        for st in ["BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL"]:
+            db.set_state(sid, st)
+    db.close()
+    _, body, _ = req(server, "GET", "/demo/calendar?w=2099-W02")
+    assert "class='dh' data-day='2099-01-06'" in body   # week view: a day header takes a drop
+    status, _, _ = req(server, "POST", "/demo/move", {"slot": "w01-s1", "day": "2099-01-06"})
+    assert status == 200
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["scheduled_at"] == app.utc_iso(date(2099, 1, 6), "12:59")
+    db.close()

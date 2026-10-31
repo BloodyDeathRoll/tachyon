@@ -484,6 +484,7 @@ body.dnd .cell.open[data-at]{border-color:var(--lime);background:var(--lime-bg);
 .mday.today b{background:var(--lime)}
 .mday.out{opacity:.45}
 .mday.over{border-color:var(--lime);background:var(--lime-bg)}
+.cal .dh[data-day]{border-radius:12px}.cal .dh.over{background:var(--lime-bg);outline:2px solid var(--lime)}
 .mcells{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;margin-top:6px}
 .cell.mini{border-radius:8px;outline-width:2px}
 .cell.mini .no{left:3px;top:3px;font-size:9.5px;padding:1px 4px;border-radius:5px}
@@ -1982,7 +1983,8 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
                          label=days[0].strftime("%a %-d %b"))
         g = ["<div class=cal style='grid-template-columns:56px repeat(7,minmax(0,1fr))'><div></div>"]
         for day in days:
-            g.append(f"<div class='dh{' today' if day == today else ''}'>{day.strftime('%a')}<b>{day.day}</b></div>")
+            drop = f" data-day='{day.isoformat()}'" if day >= today else ""
+            g.append(f"<div class='dh{' today' if day == today else ''}'{drop}>{day.strftime('%a')}<b>{day.day}</b></div>")
         now_ = datetime.now(timezone.utc)
         for hm in rows_t:
             g.append(f"<div class=th>{hm}</div>")
@@ -2086,7 +2088,11 @@ def render_settings(client: str) -> bytes:
 def _first_free_on(db: DB, day: str, grants: dict, exclude: str) -> str | None:
     taken = SCH.taken_slots(db, exclude=exclude)
     lim = datetime.now(timezone.utc) + SCH.LEAD
-    for iso in day_slots(grants, date.fromisoformat(day)).values():
+    d = date.fromisoformat(day)
+    # the week view shows a row for every time used that week: those count as open slots on this day too
+    wk = {t.strftime("%H:%M") for r in db.posts() for at in (r["published_at"] or r["scheduled_at"],) if at
+          for t in (parse(at).astimezone(LOCAL),) if t.date().isocalendar()[:2] == d.isocalendar()[:2]}
+    for iso in sorted(set(day_slots(grants, d).values()) | {utc_iso(d, hm) for hm in wk}, key=parse):
         if parse(iso) >= lim and iso not in taken:
             return iso
     return None
