@@ -182,17 +182,16 @@ def write_caption(client: str, slot: str) -> None:
     log.close()
 
 
-def add_prompt(client: str, at: str, prompt: str) -> str:
-    """A free-text prompt → a slot in production at `at` (made in the background)."""
+def add_prompt(client: str, at: str, prompt: str, engine: str = "html") -> str:
+    """A prompt (empty: Claude picks the idea) → a slot in production at `at` (made in the background)."""
     prompt = prompt.strip()
-    if not prompt:
-        raise ValueError("write what the video should be")
-    slot, at = _claim(client, at, "New video", "remotion")
+    engine = engine if engine in W.ENGINES else "html"
+    slot, at = _claim(client, at, "New video", "html" if engine == "html" else "remotion")
     sd = C.client_dir(client) / "posts" / slot
     try:
         (sd / "prompt.txt").write_text(prompt + "\n")
-        (sd / "meta.json").write_text(json.dumps({"slot_id": slot, "title": "New video", "source": "prompt", "plan": "manual"},
-                                                 indent=2) + "\n")
+        (sd / "meta.json").write_text(json.dumps({"slot_id": slot, "title": "New video", "source": "prompt", "plan": "manual",
+                                                  "engine_choice": engine}, indent=2) + "\n")
         db = DB.for_client(C.client_dir(client))
         try:
             db.set_state(slot, "BRIEFED")
@@ -203,6 +202,51 @@ def add_prompt(client: str, at: str, prompt: str) -> str:
         _unclaim(client, slot)
         raise
     return slot
+
+
+def regenerate(client: str, slot: str, prompt: str, engine: str = "html") -> None:
+    """Generate New on a video waiting for review: a new script and film in the same slot. The old
+    cut, its brief, film and notes move to versions/vN (the notes still teach spine/lessons)."""
+    d = C.client_dir(client)
+    sd = d / "posts" / slot
+    if (R.status(client, slot) or {}).get("state") == "running":
+        raise ValueError("this video is already being made")
+    db = DB.for_client(d)
+    try:
+        state = db.post(slot)["state"]
+    finally:
+        db.close()
+    if state not in ("NEEDS_APPROVAL", "NEEDS_INPUT"):   # only a video waiting for review: never an approved or live one
+        raise ValueError(f"only a video waiting for review can be generated again (this one is {state})")
+    engine = engine if engine in W.ENGINES else "html"
+    meta = json.loads((sd / "meta.json").read_text())
+    vdir = sd / "versions"
+    keep = vdir / f"v{len(list(vdir.glob('v*'))) + 1 if vdir.exists() else 1}"
+    keep.mkdir(parents=True)
+    for f in ("video.mp4", "video-story.mp4", "cover.jpg", "caption.txt", "brief.md", "meta.json", "revise.json", "qa.md"):
+        if (sd / f).exists():
+            shutil.copy2(sd / f, keep / f)
+    # moved, not copied: the new render would file the old cut as another version
+    for f in ("video.mp4", "video-story.mp4", "cover.jpg", "brief.md", "revise.json", "vo.wav"):
+        (sd / f).unlink(missing_ok=True)
+    film = meta.get("film") or {}
+    if film.get("engine") == "html" and (ROOT / film["dir"]).exists():
+        shutil.move(str(ROOT / film["dir"]), str(keep / "film"))
+    elif film.get("source", "").startswith("engines/remotion/src/films/") and (ROOT / film["source"]).exists():
+        shutil.copy2(ROOT / film["source"], keep / Path(film["source"]).name)   # it stays registered until rewritten
+        (sd / ".film_stale").touch()   # meta.json is rewritten by the new plan: a marker file survives it
+    (sd / "prompt.txt").write_text(prompt.strip() + "\n")
+    meta.update(engine_choice=engine, source="prompt", plan="manual")
+    meta.pop("film", None)
+    (sd / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n")
+    db = DB.for_client(d)
+    try:
+        if db.post(slot)["state"] in ("NEEDS_APPROVAL", "NEEDS_INPUT"):
+            db.set_state(slot, "REJECTED", note="generate new")
+        db.set_state(slot, "SCRIPTED", note=f"generate new ({engine}): {prompt[:150]}")
+    finally:
+        db.close()
+    start(client, slot)
 
 
 def start(client: str, slot: str) -> None:
@@ -236,9 +280,10 @@ def produce(client: str, slot: str) -> int:
                 if not str(it.get(k) or "").strip():
                     raise ValueError(f"the plan has no {k}")
             it["caption"] = CAP.ensure(client, it["caption"])
+            choice = json.loads((sd / "meta.json").read_text()).get("engine_choice") if (sd / "meta.json").exists() else None
             db = DB.for_client(d)
             try:
-                W.write_item(client, db, slot, it, 1, "manual")
+                W.write_item(client, db, slot, it, 1, "manual", engine=choice or "templates")
             finally:
                 db.close()
             out.unlink(missing_ok=True)   # the item lives in the slot now

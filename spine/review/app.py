@@ -1103,19 +1103,40 @@ def popup(trigger: str, box: str) -> str:
             "document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!m.querySelector('.busy'))m.hidden=true;});})();</script></div>")
 
 
+GEN_BTN = ("<button type=button class='btn sec' onclick=\"document.getElementById('gennew').showModal()\">"
+           "Generate New</button>")
+
+
+def generate_box(client: str, slot: str) -> str:
+    """Generate New: a new script and film for this slot (the current cut is kept as a version)."""
+    return (f"<dialog class=dlg id=gennew><form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' class=rgbox>"
+            f"<input type=hidden name=action value=generate><h2>Generate new</h2>{engine_pick()}"
+            f"<label>What should the video be?<textarea name=prompt rows=5 placeholder='e.g. Same message, but lead with the swell map'></textarea></label>"
+            f"<p class=hint style='margin:0'>{EMPTY_HINT} This video is replaced; the current cut stays under its versions.</p>"
+            f"<div class=btns><button class='btn pri small'>Generate</button>"
+            f"<button type=button class='btn sec small' onclick=\"this.closest('dialog').close()\">Cancel</button></div></form></dialog>")
+
+
+def engine_pick() -> str:
+    """Claude | Remotion | Templates | Random: how the videos are animated (Claude by default)."""
+    return ("<fieldset class=engines><legend>Animate with</legend>"
+            + "".join(f"<label class=chk><input type=radio name=engine value={k}{' checked' if k == 'html' else ''}>{ESC(v)}</label>"
+                      for k, v in W.ENGINES.items()) + "</fieldset>")
+
+
+EMPTY_HINT = "Leave it empty and Claude comes up with the idea."
+
+
 def prepare_button(client: str, week: str, label: str) -> str:
     base = f"/{ESC(quote(client))}"
     last = W.last_instructions(client)
     box = (f"<form method=post action='{base}/week' class='rgbox wide'><input type=hidden name=action value=prepare>"
            f"<input type=hidden name=week value='{ESC(week)}'>"
-           f"<h2>{ESC(label)}</h2>"
+           f"<h2>{ESC(label)}</h2>" + engine_pick() +
            f"<label>Instructions for this batch<textarea name=instructions rows=6 "
            f"placeholder='e.g. Add our Rosa app particles to the empty dark areas. Try a light, airy style with new layouts.'>{ESC(last)}</textarea></label>"
-           f"<p class=hint style='margin:0'>Applies to every video in the batch. Leave empty for the usual style. "
+           f"<p class=hint style='margin:0'>Applies to every video in the batch. {EMPTY_HINT} "
            f"{'Prefilled with the last batch&#39;s instructions.' if last else ''}</p>"
-           f"<fieldset class=engines><legend>Animate with</legend>"
-           + "".join(f"<label class=chk><input type=radio name=engine value={k}{' checked' if k == W.last_engine(client) else ''}>{ESC(v)}</label>"
-                     for k, v in W.ENGINES.items()) + "</fieldset>"
            f"<div class=btns><button class='btn pri small'>Start</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>")
     return popup(f"<button type=button class='btn pri small' data-open>{ESC(label)}</button>", box)
 
@@ -1608,16 +1629,16 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
                 f"<section class=card><div class=row><h2>Review</h2>{motion_pill(sdir)}</div>"
                 f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' style='margin-top:16px'>"
                 # two modes: approve as is, or (after Ask for new version) notes that send it back for a re-render
-                f"<div class=ask0><div class=btns><button class='btn pri' name=action value=approve>{icon('check')}Approve and schedule</button>"
+                f"<div class=ask0><div class=btns><button class='btn pri' name=action value=approve>{icon('check')}Approve</button>"
                 f"<button type=button class='btn sec' onclick=\"const f=this.form;f.querySelector('.ask0').hidden=true;"
-                f"f.querySelector('.ask1').hidden=false;f.notes.focus()\">{icon('redo')}Ask for new version</button></div></div>"
+                f"f.querySelector('.ask1').hidden=false;f.notes.focus()\">{icon('edit', 16)}Edit</button>{GEN_BTN}</div></div>"
                 f"<div class=ask1 hidden><label for=notes class=muted style='font-size:14px'>What should change?</label>"
                 f"<textarea id=notes name=notes placeholder='e.g. Lead with the advantage, not the number. Make it faster.' style='margin-top:8px' "
                 f"oninput=\"this.form.querySelector('[value=reject]').disabled=!this.value.trim()\"></textarea>"
-                f"<div class=btns><button class='btn pri' name=action value=reject disabled>{icon('redo')}Update and Review</button>"
+                f"<div class=btns><button class='btn pri' name=action value=reject disabled>{icon('redo')}Update</button>"
                 f"<button type=button class='btn sec' onclick=\"const f=this.form;f.notes.value='';f.querySelector('[value=reject]').disabled=true;"
-                f"f.querySelector('.ask1').hidden=true;f.querySelector('.ask0').hidden=false\">{icon('x', 16)}Clear and Cancel</button></div></div>"
-                f"</form></section>")
+                f"f.querySelector('.ask1').hidden=true;f.querySelector('.ask0').hidden=false\">{icon('x', 16)}Cancel</button>{GEN_BTN}</div></div>"
+                f"</form>{generate_box(client, slot)}</section>")
         elif row["state"] in ("APPROVED", "QUEUED", "PAUSED"):
             blocks.append(
                 f"<section class=card><div class=row><h2>Review</h2>{motion_pill(sdir)}</div>"
@@ -1953,10 +1974,10 @@ def add_new_box(client: str) -> str:
             f"your first edit note turns it into an editable film.</p>"
             f"<div class=btns><button class='btn pri small'>Upload</button><button type=button class='btn sec small' data-close>Cancel</button>"
             f"<span class=muted id=addprog style='align-self:center'></span></div></form>"
-            f"<form id=addgen method=post action='/{c}/new' hidden><input type=hidden name=at>"
-            f"<label>What should the video be?<textarea name=prompt rows=6 required "
+            f"<form id=addgen method=post action='/{c}/new' hidden><input type=hidden name=at>{engine_pick()}"
+            f"<label>What should the video be?<textarea name=prompt rows=6 "
             f"placeholder='e.g. A light, airy reel on the swell chart: the particles rising behind the phone, ending on rosa.surf'></textarea></label>"
-            f"<p class=hint style='margin:0'>Claude plans it from this, then makes it like a week video. A few minutes; it lands in Needs approval.</p>"
+            f"<p class=hint style='margin:0'>{EMPTY_HINT} Claude plans it, then makes it like a week video. A few minutes; it lands in Needs approval.</p>"
             f"<div class=btns><button class='btn pri small'>Generate</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>"
             f"</div></div><script>{ADD_JS}</script>")
 
@@ -2450,7 +2471,7 @@ class Handler(BaseHTTPRequestHandler):
             # /<c>/v/<slot>/decide (dashboard) or /<c>/decide with slot= (older form)
             if parts[1] == "new" and len(parts) == 2:
                 try:
-                    slot = M.add_prompt(name, form.get("at") or "", form.get("prompt") or "")
+                    slot = M.add_prompt(name, form.get("at") or "", form.get("prompt") or "", form.get("engine") or "html")
                 except ValueError as e:
                     return self._send(400, str(e).encode(), "text/plain")
                 return self._redirect(f"/{quote(name)}/v/{quote(slot)}")
@@ -2492,6 +2513,11 @@ class Handler(BaseHTTPRequestHandler):
                 if form.get("action") == "retry" and (R.status(name, slot) or {}).get("kind") == "new":
                     if (R.status(name, slot) or {}).get("state") == "failed":
                         M.start(name, slot)
+                elif form.get("action") == "generate":
+                    try:
+                        M.regenerate(name, slot, form.get("prompt") or "", form.get("engine") or "html")
+                    except ValueError as e:
+                        return self._send(409, str(e).encode(), "text/plain")
                 elif form.get("action") == "retry":
                     try:
                         R.retry(name, slot, db)

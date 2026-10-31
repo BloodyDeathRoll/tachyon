@@ -103,7 +103,10 @@ def _status(client: str, week: str, **kw) -> dict:
     return cur
 
 
-ENGINES = {"remotion": "Remotion with motion styles", "html": "Claude, plain HTML", "mix": "Half and half"}
+# what the operator picks → how each video is animated. html: Claude's own HTML film; remotion: the Remotion
+# house look; templates: Remotion with a motion style from motion.yaml; random: one of the three per video.
+ENGINES = {"html": "Claude", "remotion": "Remotion", "templates": "Templates", "random": "Random"}
+LEGACY = {"mix"}   # older batches: html and remotion-with-styles, alternating
 
 
 def _last(client: str, key: str, default=""):
@@ -125,8 +128,8 @@ def last_instructions(client: str) -> str:
 
 def last_engine(client: str) -> str:
     """The most recent batch's engine choice (the next one starts on it)."""
-    e = _last(client, "engine", "remotion")
-    return e if e in ENGINES else "remotion"
+    e = _last(client, "engine", "html")
+    return e if e in ENGINES else "html"
 
 
 def instructions_block(text: str) -> str:
@@ -147,7 +150,7 @@ def start(client: str, week: str, instructions: str | None = None, engine: str |
     batch; None (the daily auto run) reuses the last batch's."""
     if instructions is None:
         instructions = last_instructions(client)
-    engine = engine if engine in ENGINES else last_engine(client)
+    engine = engine if engine in ENGINES else last_engine(client)   # the daily auto run: the last batch's choice
     _status(client, week, state="running", step="planning", done=0, total=len(free_slot_times(client, week)), error=None,
             started_at=now(), instructions=instructions.strip(), engine=engine)
     log = (plans_dir(client) / f"{week}.log").open("a")
@@ -296,13 +299,17 @@ def _ours(d: Path, slot: str, plan: str) -> bool:
     return not m.exists() or json.loads(m.read_text()).get("plan") == plan
 
 
-def _engine_for(client: str, plan: str, i: int) -> str:
-    """The batch's engine for its i-th item (1-based): mix alternates, html first."""
-    e = (status(client, plan) or {}).get("engine") or "remotion"
-    return ("html" if i % 2 else "remotion") if e == "mix" else e
+def _engine_for(client: str, plan: str, i: int, slot: str = "", choice: str | None = None) -> str:
+    """html, remotion or templates for one video: `choice` (a single video), else its batch's."""
+    e = choice or (status(client, plan) or {}).get("engine") or "templates"   # batches before the choice: styles
+    if e == "mix":
+        return "html" if i % 2 else "templates"
+    if e == "random":
+        return random.Random(f"{plan}/{slot}/{i}").choice(["html", "remotion", "templates"])
+    return e if e in ENGINES else "templates"
 
 
-def write_item(client: str, db: DB, slot: str, it: dict, i: int, plan: str, n_vo: int = 0) -> int:
+def write_item(client: str, db: DB, slot: str, it: dict, i: int, plan: str, n_vo: int = 0, engine: str | None = None) -> int:
     """One plan item → posts/<slot>/ (caption, brief, meta with film + track) and a BRIEFED post.
     Returns the voice-over count so far (voices rotate across a batch)."""
     d = C.client_dir(client)
@@ -312,7 +319,7 @@ def write_item(client: str, db: DB, slot: str, it: dict, i: int, plan: str, n_vo
     start = int(m[1]) if (lib and m) else 0   # shift the rotation week to week
     sd = d / "posts" / slot
     sd.mkdir(parents=True, exist_ok=True)
-    eng = _engine_for(client, plan, i)   # html: Claude's own film, no motion style
+    eng = _engine_for(client, plan, i, slot, engine)   # html: Claude's own film; only templates use a motion style
     (sd / "caption.txt").write_text(it["caption"].strip() + "\n")
     (sd / "brief.md").write_text(f"# {it['title']}\n\nHook: {it['hook']}\n\n{it['brief'].strip()}\n")
     fid = film_id(slot)
@@ -328,7 +335,7 @@ def write_item(client: str, db: DB, slot: str, it: dict, i: int, plan: str, n_vo
             "trial": False, "share_to_feed": True, "thumb_offset": 1200, "story": True,
             "landing": "https://rosa.surf/",
             "bio_link_while_live": f"https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign={slot}",
-            "plan": plan, "motion": it.get("motion") if eng == "remotion" else None, "theme": it.get("theme") if it.get("theme") in ("light", "dark") else ("light" if i % 2 == 0 else "dark")}
+            "plan": plan, "motion": it.get("motion") if eng == "templates" else None, "theme": it.get("theme") if it.get("theme") in ("light", "dark") else ("light" if i % 2 == 0 else "dark")}
     if str(it.get("voiceover") or "").strip():
         from . import voice as V
         meta["voiceover_script"] = " ".join(str(it["voiceover"]).split())
@@ -474,8 +481,9 @@ def produce(client: str, slot: str) -> None:
         if (meta.get("film") or {}).get("engine") == "html":
             return _produce_html(client, slot, sd, db, meta)
         fid = film_id(slot)
-        if not (FILMS / f"{fid}.tsx").exists():
+        if not (FILMS / f"{fid}.tsx").exists() or (sd / ".film_stale").exists():   # stale: Generate New replaces it
             _claude(film_prompt(client, slot), ALLOWED_FILM, FILM_TIMEOUT)
+            (sd / ".film_stale").unlink(missing_ok=True)
         if not (FILMS / f"{fid}.tsx").exists():
             raise RuntimeError(f"no film written for {slot}")
         before = (FILMS / "index.ts").read_text()
@@ -519,6 +527,7 @@ def _finish(slot: str, sd: Path, db: DB, verdicts: dict) -> None:
 def _produce_html(client: str, slot: str, sd: Path, db: DB, meta: dict) -> None:
     """Engine html: Claude writes the film as its own HTML page; spine/render.py captures it."""
     fdir = ROOT / meta["film"]["dir"]
+    (sd / ".film_stale").unlink(missing_ok=True)   # Generate New from a Remotion film to an HTML one
     if not (fdir / "index.html").exists():
         fdir.mkdir(parents=True, exist_ok=True)
         _claude(html_prompt(client, slot), R.ALLOWED_HTML, FILM_TIMEOUT)
