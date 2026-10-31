@@ -211,6 +211,13 @@ def regenerate(client: str, slot: str, prompt: str, engine: str = "html") -> Non
     sd = d / "posts" / slot
     if (R.status(client, slot) or {}).get("state") == "running":
         raise ValueError("this video is already being made")
+    db = DB.for_client(d)
+    try:
+        state = db.post(slot)["state"]
+    finally:
+        db.close()
+    if state not in ("NEEDS_APPROVAL", "NEEDS_INPUT"):   # only a video waiting for review: never an approved or live one
+        raise ValueError(f"only a video waiting for review can be generated again (this one is {state})")
     engine = engine if engine in W.ENGINES else "html"
     meta = json.loads((sd / "meta.json").read_text())
     vdir = sd / "versions"

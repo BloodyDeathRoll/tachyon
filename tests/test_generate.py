@@ -59,3 +59,12 @@ def test_generate_new_keeps_the_old_cut_and_starts_over(server, client_dir, monk
     db.close()
     from spine import lessons as L
     assert any("Redo it" in h["notes"][0] for h in L.history("demo") if h["notes"])   # the old notes still teach
+
+
+def test_generate_new_refuses_a_video_that_is_not_waiting_for_review(server, client_dir, monkeypatch):  # noqa: F811
+    db = DB.for_client(client_dir)
+    db.set_state("w01-s1", "APPROVED")
+    db.close()
+    monkeypatch.setattr(M, "start", lambda c, s: (_ for _ in ()).throw(AssertionError("must not start")))
+    status, _, _ = req(server, "POST", "/demo/v/w01-s1/decide", {"action": "generate", "prompt": "", "engine": "html"})
+    assert status == 409 and not (client_dir / "posts" / "w01-s1" / "versions").exists()
