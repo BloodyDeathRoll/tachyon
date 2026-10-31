@@ -159,3 +159,8 @@ def test_an_html_edit_that_only_adds_an_asset_is_a_change(demo):
 
 def test_film_prompts_offer_a_fresh_capture():
     assert "--shot <name> <path>" in R.capture_hint("rosa") and "spine.capture" in R.ALLOWED and "spine.capture" in W.ALLOWED_FILM
+
+
+def test_tool_rules_with_spaces_stay_whole():
+    got = R.tools(R.ALLOWED)
+    assert "Bash(.venv/bin/python -m spine.capture:*)" in got and "-m" not in got and "Bash(npx tsc:*)" in got
