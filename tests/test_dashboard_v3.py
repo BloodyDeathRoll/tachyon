@@ -214,6 +214,14 @@ def test_a_rerun_reuses_the_plan_a_failed_run_left(client_dir, monkeypatch):  # 
     assert [it["at"] for it in got] == times and all(isinstance(it["at"], str) for it in got)
     json.dumps(got)   # the failure was "Object of type datetime is not JSON serializable"
     assert W.plan("demo", "2026-W45") == got   # finished: reused as is
+    db = DB.for_client(client_dir)
+    db.conn.execute("UPDATE posts SET scheduled_at=? WHERE slot_id='w01-s1'", (times[0],))   # taken since
+    db.close()
+    try:
+        W.plan("demo", "2026-W45")
+        raise AssertionError("a taken slot must stop the rerun")
+    except ValueError as e:
+        assert times[0] in str(e)
 
 
 def test_week_card_shows_progress(server, client_dir):  # noqa: F811

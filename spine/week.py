@@ -210,8 +210,11 @@ def plan(client: str, week: str) -> list[dict]:
     if not out.exists():   # a rerun picks up the plan a failed run left behind
         _claude(plan_prompt(client, week, times, out), ALLOWED_PLAN, PLAN_TIMEOUT)
     data = load_plan(out)
-    if data.get("finished"):
-        return data["items"]   # checked, slotted and styled by an earlier run: reuse it as is
+    if data.get("finished"):   # checked, slotted and styled by an earlier run: reuse it while its slots are free
+        gone = [it["at"] for it in data["items"] if it["at"] not in times]
+        if gone:
+            raise ValueError(f"another video took {', '.join(gone)} since the plan was made; delete {out.name} to plan again")
+        return data["items"]
     items = data["items"]
     ats = [a.isoformat(timespec="seconds") if isinstance(a, datetime) else str(a) for a in (it.get("at") for it in items)]
     if not (set(ats) <= set(times) and len(set(ats)) == len(ats)):   # keep the plan's own slots while they are free
