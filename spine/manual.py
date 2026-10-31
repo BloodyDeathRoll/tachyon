@@ -219,7 +219,8 @@ def regenerate(client: str, slot: str, prompt: str, engine: str = "html") -> Non
     for f in ("video.mp4", "video-story.mp4", "cover.jpg", "caption.txt", "brief.md", "meta.json", "revise.json", "qa.md"):
         if (sd / f).exists():
             shutil.copy2(sd / f, keep / f)
-    for f in ("brief.md", "revise.json", "vo.wav"):   # a new plan, a fresh notes history, a new voice
+    # moved, not copied: the new render would file the old cut as another version
+    for f in ("video.mp4", "video-story.mp4", "cover.jpg", "brief.md", "revise.json", "vo.wav"):
         (sd / f).unlink(missing_ok=True)
     film = meta.get("film") or {}
     if film.get("engine") == "html" and (ROOT / film["dir"]).exists():

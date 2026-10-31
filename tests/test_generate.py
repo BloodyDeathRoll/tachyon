@@ -51,6 +51,7 @@ def test_generate_new_keeps_the_old_cut_and_starts_over(server, client_dir, monk
     v1 = sd / "versions" / "v1"
     assert (v1 / "video.mp4").read_bytes() == b"old" and (v1 / "brief.md").exists() and (v1 / "revise.json").exists()
     assert not (sd / "brief.md").exists() and not (sd / "revise.json").exists()   # a new plan, a fresh notes history
+    assert not (sd / "video.mp4").exists()   # the next render must not file the old cut a second time
     meta = json.loads((sd / "meta.json").read_text())
     assert meta["engine_choice"] == "random" and "film" not in meta
     db = DB.for_client(client_dir)
