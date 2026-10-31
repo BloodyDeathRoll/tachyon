@@ -242,3 +242,15 @@ def test_a_reused_plan_keeps_its_own_slots_when_one_was_freed_since(client_dir, 
     (W.plans_dir("demo") / "2026-W45.yaml").write_text(f"week: 2026-W45\nitems:\n{items}")
     monkeypatch.setattr(W, "_claude", lambda *a: (_ for _ in ()).throw(AssertionError("must not re-plan")))
     assert [it["at"] for it in W.plan("demo", "2026-W45")] == times[1:]
+
+
+def test_instagram_tab_opens_at_once_and_loads_its_list_after(server, client_dir, monkeypatch):  # noqa: F811
+    from spine import tracks as T
+    calls = []
+    monkeypatch.setattr(T, "list_tracks", lambda *a, **k: calls.append(k) or [
+        {"id": "ig:1", "title": "Song", "artist": "A", "source": "instagram"}] if k.get("source") == "instagram" else [])
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1?music=ig")
+    assert "tracks data-wait" in body and "Loading Instagram music" in body
+    assert not [c for c in calls if c.get("source") == "instagram"]   # the page never waits on Instagram
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1?music=ig&rows=1")
+    assert "<b>Song</b>" in body and "tracks data-wait" not in body and "<html" not in body
