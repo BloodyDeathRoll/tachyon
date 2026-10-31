@@ -161,7 +161,8 @@ items:
   - at: <slot timestamp from the list>
     title: <2-4 words, how the operator will recognise it>
     pillar: <one of the strategy's content pillars>
-    brief: <3-5 sentences: what the 15-30 s video shows, beat by beat, using the real app>
+    brief: |
+      <3-5 sentences: what the 15-30 s video shows, beat by beat, using the real app>
     hook: <the first on-screen line, max 6 words>
     theme: <light or dark: which app theme the captures use; alternate so about half are light>
     motion: <id of the motion style that suits this brief, from the motion styles file; a different
@@ -185,13 +186,24 @@ the logo.{instructions_block((status(client, week) or {}).get("instructions"))}
 Write the file and nothing else."""
 
 
+def load_plan(out: Path) -> dict:
+    """The plan file; if Claude's YAML does not parse (an unquoted ": " in a brief), Claude repairs it once."""
+    try:
+        return yaml.safe_load(out.read_text())
+    except yaml.YAMLError as e:
+        _claude(f"{out} does not parse as YAML: {e}\nFix only the quoting: write every brief, hook and caption as "
+                f"a | block scalar. Keep every value word for word. Write the file and nothing else.",
+                ALLOWED_PLAN, PLAN_TIMEOUT)
+        return yaml.safe_load(out.read_text())
+
+
 def plan(client: str, week: str) -> list[dict]:
     times = free_slot_times(client, week)
     if not times:
         raise ValueError(f"every slot in {week} is already taken")
     out = plans_dir(client) / f"{week}.yaml"
     _claude(plan_prompt(client, week, times, out), ALLOWED_PLAN, PLAN_TIMEOUT)
-    data = yaml.safe_load(out.read_text())
+    data = load_plan(out)
     items = data["items"]
     if len(items) != len(times):
         raise ValueError(f"plan has {len(items)} items for {len(times)} slots")
@@ -398,7 +410,7 @@ def prepare(client: str, week: str) -> int:
     try:
         _status(client, week, state="running", step="planning", error=None)
         y = plans_dir(client) / f"{week}.yaml"
-        items = yaml.safe_load(y.read_text())["items"] if y.exists() else plan(client, week)
+        items = load_plan(y)["items"] if y.exists() else plan(client, week)
         slots = make_slots(client, week, items)
         _status(client, week, step="producing", total=len(slots), done=0, slots=slots)
         failed = []
