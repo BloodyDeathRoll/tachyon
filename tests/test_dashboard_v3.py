@@ -225,3 +225,12 @@ def test_week_card_shows_progress(server, client_dir):  # noqa: F811
     assert "1 of 14 videos made" in body and "12 to go · 1 failed" in body
     assert "About 2 h 00 min left, done around" in body and "running 40 min" in body
     assert "http-equiv=refresh" in body
+
+
+def test_a_reused_plan_keeps_its_own_slots_when_one_was_freed_since(client_dir, monkeypatch):  # noqa: F811
+    times = W.free_slot_times("demo", "2026-W45")
+    items = "".join(f"  - at: {t}\n    title: T{i}\n    brief: b\n    hook: H{i}\n    caption: c{i}\n"
+                    for i, t in enumerate(times[1:]))   # planned while the first slot was taken
+    (W.plans_dir("demo") / "2026-W45.yaml").write_text(f"week: 2026-W45\nitems:\n{items}")
+    monkeypatch.setattr(W, "_claude", lambda *a: (_ for _ in ()).throw(AssertionError("must not re-plan")))
+    assert [it["at"] for it in W.plan("demo", "2026-W45")] == times[1:]

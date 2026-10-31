@@ -213,10 +213,13 @@ def plan(client: str, week: str) -> list[dict]:
     if data.get("finished"):
         return data["items"]   # checked, slotted and styled by an earlier run: reuse it as is
     items = data["items"]
-    if len(items) != len(times):
-        raise ValueError(f"plan has {len(items)} items for {len(times)} slots")
-    for it, t in zip(items, times):
-        it["at"] = t   # the slot list is authoritative
+    ats = [a.isoformat(timespec="seconds") if isinstance(a, datetime) else str(a) for a in (it.get("at") for it in items)]
+    if not (set(ats) <= set(times) and len(set(ats)) == len(ats)):   # keep the plan's own slots while they are free
+        if len(items) != len(times):
+            raise ValueError(f"plan has {len(items)} items for {len(times)} slots")
+        ats = times   # else the slot list is authoritative, in order
+    for it, t in zip(items, ats):
+        it["at"] = t
         for k in ("title", "brief", "hook", "caption"):
             if not str(it.get(k) or "").strip():
                 raise ValueError(f"plan item {t} has no {k}")
