@@ -393,6 +393,7 @@ textarea:focus,select:focus,.tfield input:focus{outline:none;border-color:var(--
 .card:has(>.upd){position:relative}.upd{position:absolute;top:0;right:0;font-size:12px;font-weight:600;color:var(--ink);background:var(--lime);border-radius:0 17px 0 12px;padding:6px 14px;animation:blink 1.2s ease-in-out infinite}@keyframes blink{50%{opacity:.35}}
 .btn.busy:disabled{opacity:1}.btn.busy{pointer-events:none}.btn.busy:before{content:'';width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.igwait{display:flex;align-items:center;gap:10px;margin:10px 0 0}.spin{width:16px;height:16px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;flex:none}
 .btn.dangerline{color:#b42318}
 .btn.sec{background:#fff;color:var(--ink);box-shadow:inset 0 0 0 1px var(--rule)}.btn.sec:hover{box-shadow:inset 0 0 0 1px #BDBDBD}
 .btn.dark{background:var(--ink);color:#fff}.btn.dark:hover{background:var(--acc-h)}
@@ -1371,12 +1372,17 @@ document.getElementById('music').addEventListener('click',e=>{const x=e.target.c
  if(a)a.pause();reset();a=new Audio(x.dataset.src);cur=x;x.innerHTML=PS;
  a.onended=reset;a.play().catch(()=>reset());});
 // search as you type: the rows and the hint come from the same page with ?q=
-const f=document.getElementById('igq');if(f){let t,c;f.q.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(async()=>{
- const v=f.q.value.trim();if(v.length===1)return;const u=new URL(f.action,location.href);u.searchParams.set('music','ig');if(v)u.searchParams.set('q',v);
- if(c)c.abort();c=new AbortController();
- try{const d=new DOMParser().parseFromString(await(await fetch(u,{signal:c.signal})).text(),'text/html');
-  for(const k of ['#music .tracks','#music .hint'])document.querySelector(k).replaceWith(d.querySelector(k));
-  history.replaceState(null,'',u.pathname+u.search+location.hash);}catch(_){}},350);});}})();
+// the Instagram list loads after the page (?rows=1 returns the card alone); search as you type uses the same call
+const f=document.getElementById('igq');if(f){let t,c;
+ const load=async v=>{const u=new URL(f.action,location.href);u.searchParams.set('music','ig');if(v)u.searchParams.set('q',v);
+  const r=new URL(u);r.searchParams.set('rows','1');if(c)c.abort();c=new AbortController();
+  document.querySelector('#music .tracks').innerHTML="<p class='muted igwait' role=status><i class=spin></i>Loading Instagram music…</p>";
+  try{const d=new DOMParser().parseFromString(await(await fetch(r,{signal:c.signal})).text(),'text/html');
+   for(const k of ['#music .tracks','#music .hint'])document.querySelector(k).replaceWith(d.querySelector(k));
+   history.replaceState(null,'',u.pathname+u.search+location.hash);}
+  catch(e){if(e.name!=='AbortError')document.querySelector('#music .tracks').innerHTML="<p class=muted style='margin:6px 0 0'>Could not load Instagram music. Reload the page to try again.</p>";}};
+ if(document.querySelector('#music .tracks[data-wait]'))load(f.q.value.trim());
+ f.q.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>{const v=f.q.value.trim();if(v.length!==1)load(v);},350);});}})();
 """
 
 
@@ -1392,11 +1398,7 @@ def motion_pill(sdir: Path) -> str:
     return f"<span class=mpill title='{ESC(tip)}'>{ESC(name)}</span>"
 
 
-def music_card(client: str, slot: str, cls: str, src: str = "file", q: str = "") -> str:
-    T = _tracks()
-    if not T or cls == "live":
-        return ""
-    src = "instagram" if src in ("ig", "instagram") else "file"
+def _music_list(T, client: str, slot: str, src: str, q: str) -> tuple[list, str | None, str | None]:
     try:
         try:
             lib = T.list_tracks(client, source=src, query=q or None)
@@ -1404,10 +1406,17 @@ def music_card(client: str, slot: str, cls: str, src: str = "file", q: str = "")
             lib = [t for t in T.list_tracks(client) if (t.get("source") or "file") == src]
         cur = T.current_track(client, slot)
     except Exception as e:
-        lib, cur = [], None
-        err = str(e)
-    else:
-        err = (getattr(T, "last_error", lambda c: None)(client) if src == "instagram" and not lib else None)
+        return [], None, str(e)
+    return lib, cur, (getattr(T, "last_error", lambda c: None)(client) if src == "instagram" and not lib else None)
+
+
+def music_card(client: str, slot: str, cls: str, src: str = "file", q: str = "", wait: bool = False) -> str:
+    """wait: the Instagram list is left out and the page fetches it (?rows=1), so the tab opens at once."""
+    T = _tracks()
+    if not T or cls == "live":
+        return ""
+    src = "instagram" if src in ("ig", "instagram") else "file"
+    lib, cur, err = ([], None, None) if src == "instagram" and wait else _music_list(T, client, slot, src, q)
     base = f"/{ESC(quote(client))}/v/{ESC(quote(slot))}"
     seg = (f"<div class=seg><a href='{base}' class='{'on' if src == 'file' else ''}'>Library</a>"
            f"<a href='{base}?music=ig' class='{'on' if src == 'instagram' else ''}'>Instagram</a></div>")
@@ -1433,12 +1442,14 @@ def music_card(client: str, slot: str, cls: str, src: str = "file", q: str = "")
         btn = ("<span class='btn sec inuse'><i></i>In use</span>" if on else
                f"<button class='btn sec' name=track value='{ESC(t['id'])}'>Use</button>")
         rows.append(f"<div class='trk{' on' if on else ''}'>{prev}{art}<div class=tn><b>{ESC(t['title'])}</b><small>{who}{mood}{dur}</small></div>{btn}</div>")
-    if not rows:
+    if wait and src == "instagram":
+        rows.append("<p class='muted igwait' role=status><i class=spin></i>Loading Instagram music…</p>")
+    elif not rows:
         msg = ("Instagram music is not reachable right now: " + ESC(err)) if err else "Nothing found."
         rows.append(f"<p class=muted style='margin:6px 0 0'>{msg}</p>")
     icons_ = f"<template id=i-play>{icon('play', 16)}</template><template id=i-pause>{icon('pause', 16)}</template>"
     return (f"<section class=card id=music><div class=row><h2>Music</h2>{seg}</div>{search}"
-            f"<form method=post action='{base}/track' class=tracks><input type=hidden name=src value='{src}'>{''.join(rows)}</form>"
+            f"<form method=post action='{base}/track' class=tracks{' data-wait' if wait and src == 'instagram' else ''}><input type=hidden name=src value='{src}'>{''.join(rows)}</form>"
             f"{icons_}<script>{AUDIO_JS}</script></section>")
 
 
@@ -1680,7 +1691,7 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
             perf += views_block(client, db, slot, qs or {}, f"/{quote(client)}/v/{quote(slot)}")
         perf_card = f"<section class=card>{updating(client, slot)}<h2>Performance</h2>{perf}</section>"
 
-        blocks.append(music_card(client, slot, cls, music, q))
+        blocks.append(music_card(client, slot, cls, music, q, wait=True))
         if row["published_at"]:
             blocks.insert(0, perf_card)   # published: performance leads the middle column
 
@@ -2221,6 +2232,8 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) == 2 and parts[1] == "live.json":
                 body = json.dumps(live_views(name, q.get("slot") or None)).encode()
                 return self._send(200, body, "application/json")
+            if parts[1] == "v" and len(parts) == 3 and q.get("rows"):   # the Instagram list on its own (it is slow)
+                return self._send(200, music_card(name, parts[2], "", "ig", q.get("q") or "").encode())
             if parts[1] == "v" and len(parts) == 3:
                 return self._send(200, render_video(name, parts[2], q.get("as") if q.get("as") in ("story", *F.RATIOS) else "reel",
                                                     q.get("music") or "file", q.get("q") or "", q))
