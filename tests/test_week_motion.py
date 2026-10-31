@@ -37,3 +37,16 @@ def test_a_style_asked_for_by_name_may_repeat(tmp_path, monkeypatch):
     items = [{"motion": "a"}]
     W.pick_motion("demo", items, "2026-W45", "more like the particle swarm one")
     assert items[0]["motion"] == "a"
+
+
+def test_a_plan_that_does_not_parse_is_repaired_once(tmp_path, monkeypatch):
+    out = tmp_path / "w.yaml"
+    out.write_text('items:\n  - brief: words punch on: "Free.", "16 days."\n')
+    calls = []
+
+    def fake(prompt, allowed, timeout):
+        calls.append(prompt)
+        out.write_text('items:\n  - brief: |\n      words punch on: "Free.", "16 days."\n')
+    monkeypatch.setattr(W, "_claude", fake)
+    assert W.load_plan(out)["items"][0]["brief"].startswith("words punch on:")
+    assert len(calls) == 1 and str(out) in calls[0]
