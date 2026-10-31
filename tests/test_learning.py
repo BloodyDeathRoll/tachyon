@@ -164,3 +164,13 @@ def test_film_prompts_offer_a_fresh_capture():
 def test_tool_rules_with_spaces_stay_whole():
     got = R.tools(R.ALLOWED)
     assert "Bash(.venv/bin/python -m spine.capture:*)" in got and "-m" not in got and "Bash(npx tsc:*)" in got
+
+
+@pytest.mark.parametrize("name", ["R.ALLOWED", "R.ALLOWED_HTML", "W.ALLOWED_PLAN", "W.ALLOWED_FILM", "F.ALLOWED"])
+def test_every_tool_list_reaches_claude_whole(name):
+    """Every rule in every list becomes one --allowedTools argument: none dropped, none split, no stray option."""
+    from spine import formats as F
+    allowed = eval(name)
+    got = R.tools(allowed)
+    assert " ".join(got) == " ".join(allowed.split())
+    assert got and all(not t.startswith("-") and (" " not in t or t.endswith(")")) for t in got)
