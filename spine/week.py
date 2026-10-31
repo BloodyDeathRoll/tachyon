@@ -41,7 +41,7 @@ RECENT_MOTION = 30   # posts back that a style may not repeat
 PLAN_TIMEOUT = 20 * 60
 FILM_TIMEOUT = 25 * 60
 ALLOWED_PLAN = "Read Glob Grep Write"
-ALLOWED_FILM = "Read Edit Write Glob Grep Bash(npx tsc:*) Bash(npx remotion still:*)"
+ALLOWED_FILM = "Read Edit Write Glob Grep Bash(npx tsc:*) Bash(npx remotion still:*) Bash(.venv/bin/python -m spine.capture:*)"
 DEFAULTS = {"auto": False, "day": "Thursday"}
 
 
@@ -389,7 +389,7 @@ staticFile("footage/<name>.mp4") for engines/remotion/public/footage, staticFile
 Every text and UI element stays inside SAFE[variant]. Only our messages, large: no on-screen text
 under 38 px (lib MIN_TYPE), no small-caps eyebrow labels, no data attribution, no "Footage" credit.
 Numbers only from clients/{client}/product.md.
-Never "comment for the link".{L.notes_block(client)}
+Never "comment for the link".{R.capture_hint(client)}{L.notes_block(client)}
 Do not edit any other file. Run `npx tsc --noEmit -p .` in
 engines/remotion until it passes (you may temporarily add nothing to Root; it is registered for
 you afterwards). You may check frames with a scratch entry only if needed. Do not render, do not commit.{instructions_block(_batch_instructions(client, meta))}"""
@@ -441,8 +441,12 @@ def self_check(client: str, slot: str, source: Path, allowed: str = ALLOWED_FILM
     dur = float(json.loads((sd / "meta.json").read_text()).get("duration_s") or 15)
     for i in range(CHECK_FRAMES):
         t = dur * (i + 0.5) / CHECK_FRAMES
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.2f}", "-i", str(sd / "video.mp4"), "-frames:v", "1",
-                        "-vf", "scale=540:-2", str(cdir / f"{i + 1:02d}-{t:05.2f}s.jpg")], check=True)
+        r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.2f}", "-i", str(sd / "video.mp4"), "-frames:v", "1",
+                            "-vf", "scale=540:-2", str(cdir / f"{i + 1:02d}-{t:05.2f}s.jpg")], capture_output=True)
+        if r.returncode != 0:   # no frames, no check: the first cut goes to approval as it is
+            shutil.rmtree(cdir, ignore_errors=True)
+            print(f"{slot} self-check skipped: {r.stderr.decode()[-200:]}", file=sys.stderr)
+            return False
     before = source.read_text()
     try:
         out = _claude(f"""Review one finished Instagram Reel for the client "{client}" before the operator sees it.
@@ -562,7 +566,7 @@ own. If you use <video>, seek it and return a promise that resolves once it has 
 ?variant=reel|story from the URL. Keep every text and button inside the safe box (x 65 to 1015,
 y 285 to 1248 for reel; y 269 to 1248 for story): Instagram's own UI covers the rest. No text under
 38 px. No music or voice in the page; the soundtrack is mixed in afterwards.
-Never "comment for the link".{L.notes_block(client)}
+Never "comment for the link".{R.capture_hint(client)} Copy a new capture into {fdir}/ too.{L.notes_block(client)}
 Look at your work: `.venv/bin/python -m spine.render {fdir} --still <seconds> {fdir}/.still.png` renders one
 frame (and prints page errors); check several moments and fix what is off. Delete .still.png when
 done. Do not render the video, do not commit, do not edit files outside {fdir}/.{instructions_block(_batch_instructions(client, meta))}"""

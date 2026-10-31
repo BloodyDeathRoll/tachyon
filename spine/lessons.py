@@ -14,7 +14,7 @@ from . import clients as C
 from .db import DB
 
 PASSED = {"APPROVED", "QUEUED", "PAUSED", "PUBLISHING", "PUBLISHED"}
-FRESH = re.compile(r"\b(redo|re-do|new script|start(ing)? fresh|from scratch|entire video|anything about)\b", re.I)
+FRESH = re.compile(r"\b(redo|re-do|new script|start(ing)? fresh|from scratch)\b", re.I)
 MAX_NOTES = 40     # most recent notes fed to the prompts
 NOTE_CHARS = 400
 

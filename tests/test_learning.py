@@ -134,3 +134,28 @@ def test_an_html_film_gets_its_other_formats(demo, monkeypatch):
     r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v", "-show_entries", "stream=width,height", "-of", "csv=p=0", str(out)],
                        capture_output=True, text=True)
     assert r.stdout.strip() == "1920,1080"
+
+
+def test_explicit_redo_rejects_a_style_but_a_plain_note_does_not(demo):
+    _post(demo, "p5", "lighter", "NEEDS_APPROVAL", ["Make the entire video lighter."])
+    assert L.style_scores("demo")["lighter"] == "fixed"
+
+
+def test_an_html_edit_that_only_adds_an_asset_is_a_change(demo):
+    sd = demo / "posts" / "p1"
+    film = {"engine": "html", "dir": "film", "source": "film/index.html"}
+    import spine.revise as RV
+    RV_ROOT = RV.ROOT
+    try:
+        RV.ROOT = demo / "posts" / "p1"
+        (sd / "film").mkdir()
+        (sd / "film" / "index.html").write_text("x")
+        before = RV._snapshot(sd, film)
+        (sd / "film" / "charts-americas.png").write_bytes(b"png")
+        assert RV._snapshot(sd, film) != before
+    finally:
+        RV.ROOT = RV_ROOT
+
+
+def test_film_prompts_offer_a_fresh_capture():
+    assert "--shot <name> <path>" in R.capture_hint("rosa") and "spine.capture" in R.ALLOWED and "spine.capture" in W.ALLOWED_FILM

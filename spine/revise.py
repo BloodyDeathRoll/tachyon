@@ -30,10 +30,22 @@ ROOT = Path(__file__).resolve().parent.parent
 REMOTION = ROOT / "engines" / "remotion"
 EDIT_TIMEOUT = 25 * 60
 RENDER_TIMEOUT_MS = 180_000   # delayRender limit; large stock clips took > 28 s to fetch
-ALLOWED = "Read Edit Write Glob Grep Bash(npx tsc:*) Bash(npx remotion still:*)"
+ALLOWED = "Read Edit Write Glob Grep Bash(npx tsc:*) Bash(npx remotion still:*) Bash(cd:*) Bash(.venv/bin/python -m spine.capture:*)"
 # engine "html" (Claude's own HTML film, spine/render.py): Playwright lives in the venv, not in the cron/dashboard python
 VENV_PY = str(ROOT / ".venv" / "bin" / "python") if (ROOT / ".venv" / "bin" / "python").exists() else sys.executable
-ALLOWED_HTML = "Read Edit Write Glob Grep Bash(cp:*) Bash(mkdir:*) Bash(ls:*) Bash(.venv/bin/python -m spine.render:*)"
+ALLOWED_HTML = ("Read Edit Write Glob Grep Bash(cp:*) Bash(mkdir:*) Bash(ls:*) Bash(.venv/bin/python -m spine.render:*) "
+                "Bash(.venv/bin/python -m spine.capture:*)")
+
+
+def capture_hint(client: str) -> str:
+    """Films are built from real app screens only; when the one a note needs is missing, take it."""
+    return f"""
+App screens: only real captures of the live app. If the one you need is not in
+engines/remotion/public/captures (dark) or captures-light (light), take it from the repo root:
+`.venv/bin/python -m spine.capture {client} --shot <name> <path> [--theme light] [--at <lat>,<lon>] --out engines/remotion/public/captures`
+(`--out .../captures-light` for light). <path> is the app route (/charts, /map, /spot/<id>, ...);
+--at sets the phone's location, and Charts and Map open on it (e.g. --at 25,-80 for the Americas).
+Read the new PNG before you use it."""
 
 
 def now() -> str:
@@ -160,7 +172,7 @@ The operator rejected the current cut with these notes:
 ---
 {_motion_intro(slot_dir)}
 {_engine_intro(film, slot_dir)}
-If a note is about the post text, edit {slot_dir.relative_to(ROOT)}/caption.txt instead.{_vo_intro(slot_dir)}
+If a note is about the post text, edit {slot_dir.relative_to(ROOT)}/caption.txt instead.{_vo_intro(slot_dir)}{capture_hint(client)}
 
 Rules: keep every text and UI element inside the safe box (SAFE in lib.tsx); numbers only from
 clients/{client}/product.md; never "comment for the link"; no AI-generated footage.
@@ -325,6 +337,12 @@ class NoChange(RuntimeError):
 
 
 def _snapshot(slot_dir: Path, film: dict) -> tuple:
+    if film.get("engine") == "html":   # the page, film.json and any asset it copied in
+        d = ROOT / film["dir"]
+        page = tuple(sorted((str(p.relative_to(d)), p.stat().st_mtime_ns, p.stat().st_size) for p in d.rglob("*")
+                            if p.is_file() and p.name != ".still.png")) if d.exists() else None
+        vo = json.loads((slot_dir / "meta.json").read_text()).get("voiceover") or {}
+        return (page, read_text(slot_dir / "caption.txt"), vo.get("script"))
     src = ROOT / film["source"]
     vo = json.loads((slot_dir / "meta.json").read_text()).get("voiceover") or {}
     return (src.read_text() if src.exists() else None, read_text(slot_dir / "caption.txt"), vo.get("script"))

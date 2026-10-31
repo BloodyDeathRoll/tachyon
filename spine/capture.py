@@ -1,6 +1,8 @@
 """Real app captures for films (PLAN.md §3 station 2: inputs are real UI, never mockups).
 
     .venv/bin/python -m spine.capture rosa [--theme dark] [--out clients/rosa/assets/captures/<date>]
+    .venv/bin/python -m spine.capture rosa --shot charts-americas /charts --at 25,-80 --out engines/remotion/public/captures
+        # one screen the list lacks; --at fakes the phone's location (Charts opens on it)
 
 Shoots the live app at phone size (390×844, 3× scale → 1170×2532 PNGs, dark theme by URL
 param) for a fixed list of screens, and writes `captures.json` beside them with the URL,
@@ -38,11 +40,13 @@ ONLY: set[str] = set()
 # first-run sheets: the sign-in screen and the install prompt hold for a launch once
 # answered "Not now"; answer them before the app boots so we capture the product
 INIT = """try{sessionStorage.setItem('rosa.signin.seen','1');sessionStorage.setItem('rosa.install.seen','1');
-  localStorage.setItem('rosa.duplicate.seen','1');localStorage.setItem('rosa.theme','THEME');}catch(e){}"""
+  localStorage.setItem('rosa.duplicate.seen','1');localStorage.setItem('rosa.theme','THEME');
+  localStorage.setItem('rosa.nudge.report',JSON.stringify({started:Date.now(),shown:99,last:Date.now()}));}catch(e){}"""
 UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
 
 
-def capture(client: str, theme: str = "dark", out: Path | None = None, full: bool = False) -> Path:
+def capture(client: str, theme: str = "dark", out: Path | None = None, full: bool = False,
+            shots: list | None = None, at: tuple[float, float] | None = None) -> Path:
     day = datetime.now(timezone.utc).date().isoformat()
     out = out or client_dir(client) / "assets" / "captures" / day
     out.mkdir(parents=True, exist_ok=True)
@@ -52,11 +56,12 @@ def capture(client: str, theme: str = "dark", out: Path | None = None, full: boo
         ctx = b.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=3, is_mobile=True,
                             has_touch=True, color_scheme="dark" if theme == "dark" else "light",
                             locale="en-GB", timezone_id="UTC",
-                            user_agent=UA)
+                            user_agent=UA, **({"geolocation": {"latitude": at[0], "longitude": at[1]},
+                                               "permissions": ["geolocation"]} if at else {}))
         ctx.add_init_script(INIT.replace("THEME", theme))
         page = ctx.new_page()
         only = ONLY
-        for entry in SCREENS[client]:
+        for entry in shots or SCREENS[client]:
             name, path = entry[0], entry[1]
             full_this = full or (len(entry) > 2 and entry[2])
             if only and name not in only:
@@ -71,7 +76,7 @@ def capture(client: str, theme: str = "dark", out: Path | None = None, full: boo
             f = out / f"{name}.png"
             page.screenshot(path=str(f), full_page=full_this)
             manifest.append({"file": f.name, "url": url, "title": page.title(), "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                             "viewport": "390x844@3x", "theme": theme})
+                             "viewport": "390x844@3x", "theme": theme, **({"at": list(at)} if at else {})})
             print(f"{name:16} {page.title()[:60]}")
         b.close()
     mf = out / "captures.json"
@@ -89,7 +94,12 @@ def main(argv: list[str]) -> int:
     out = Path(argv[argv.index("--out") + 1]) if "--out" in argv else None
     global ONLY
     ONLY = set(argv[argv.index("--only") + 1].split(",")) if "--only" in argv else set()
-    d = capture(argv[0], theme, out, full="--full" in argv)
+    shots = None
+    if "--shot" in argv:
+        i = argv.index("--shot")
+        shots = [(argv[i + 1], argv[i + 2])]
+    at = tuple(float(x) for x in argv[argv.index("--at") + 1].split(",")) if "--at" in argv else None
+    d = capture(argv[0], theme, out, full="--full" in argv, shots=shots, at=at)
     print("wrote", d)
     return 0
 
