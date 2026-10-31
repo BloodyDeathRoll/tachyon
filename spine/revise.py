@@ -30,7 +30,22 @@ ROOT = Path(__file__).resolve().parent.parent
 REMOTION = ROOT / "engines" / "remotion"
 EDIT_TIMEOUT = 25 * 60
 RENDER_TIMEOUT_MS = 180_000   # delayRender limit; large stock clips took > 28 s to fetch
-ALLOWED = "Read Edit Write Glob Grep Bash(npx tsc:*) Bash(npx remotion still:*)"
+ALLOWED = "Read Edit Write Glob Grep Bash(npx tsc:*) Bash(npx remotion still:*) Bash(cd:*) Bash(.venv/bin/python -m spine.capture:*)"
+# engine "html" (Claude's own HTML film, spine/render.py): Playwright lives in the venv, not in the cron/dashboard python
+VENV_PY = str(ROOT / ".venv" / "bin" / "python") if (ROOT / ".venv" / "bin" / "python").exists() else sys.executable
+ALLOWED_HTML = ("Read Edit Write Glob Grep Bash(cp:*) Bash(mkdir:*) Bash(ls:*) Bash(.venv/bin/python -m spine.render:*) "
+                "Bash(.venv/bin/python -m spine.capture:*)")
+
+
+def capture_hint(client: str) -> str:
+    """Films are built from real app screens only; when the one a note needs is missing, take it."""
+    return f"""
+App screens: only real captures of the live app. If the one you need is not in
+engines/remotion/public/captures (dark) or captures-light (light), take it from the repo root:
+`.venv/bin/python -m spine.capture {client} --shot <name> <path> [--theme light] [--at <lat>,<lon>] --out engines/remotion/public/captures`
+(`--out .../captures-light` for light). <path> is the app route (/charts, /map, /spot/<id>, ...);
+--at sets the phone's location, and Charts and Map open on it (e.g. --at 25,-80 for the Americas).
+Read the new PNG before you use it."""
 
 
 def now() -> str:
@@ -133,6 +148,8 @@ long as now, and true to clients/<client>/product.md."""
 
 def _motion_intro(slot_dir: Path) -> str:
     from . import week as W   # week imports this module
+    if (json.loads((slot_dir / "meta.json").read_text()).get("film") or {}).get("engine") == "html":
+        return ""
     try:
         mid = json.loads((slot_dir / "meta.json").read_text()).get("motion")
     except (OSError, ValueError):
@@ -154,25 +171,40 @@ The operator rejected the current cut with these notes:
 {notes}
 ---
 {_motion_intro(slot_dir)}
-The film is a Remotion composition. Edit only its source: {film['source']} (and
-engines/remotion/src/lib.tsx only if the change truly needs it). Composition ids: reel
-"{film['reel']}", story "{film['story']}" (engines/remotion/src/Root.tsx; durations come from
-the constants exported by the film file).
-If a note is about the post text, edit {slot_dir.relative_to(ROOT)}/caption.txt instead.{_vo_intro(slot_dir)}
+{_engine_intro(film, slot_dir)}
+If a note is about the post text, edit {slot_dir.relative_to(ROOT)}/caption.txt instead.{_vo_intro(slot_dir)}{capture_hint(client)}
 
 Rules: keep every text and UI element inside the safe box (SAFE in lib.tsx); numbers only from
 clients/{client}/product.md; never "comment for the link"; no AI-generated footage.
-Paths here are relative to the repo root {ROOT}; your shell starts in engines/remotion.
-After editing, run `npx tsc --noEmit -p .` and fix any error. Check frames with
-`npx remotion still src/index.ts {film['reel']} {slot_dir / '.still.png'} --frame=N` and look at them.
+{_check_intro(film, slot_dir)}
 Do not render the video, do not commit. End with one line per change you made."""
+
+
+def _engine_intro(film: dict, slot_dir: Path) -> str:
+    if film.get("engine") == "html":
+        return (f"The film is one self-contained HTML page with its film.json in {film['dir']}/ (window.__film.seek(t)\n"
+                f"drives every frame; ?variant=reel|story). Edit only files in that folder; copy any new asset into it.")
+    return f"""The film is a Remotion composition. Edit only its source: {film['source']} (and
+engines/remotion/src/lib.tsx only if the change truly needs it). Composition ids: reel
+"{film['reel']}", story "{film['story']}" (engines/remotion/src/Root.tsx; durations come from
+the constants exported by the film file)."""
+
+
+def _check_intro(film: dict, slot_dir: Path) -> str:
+    if film.get("engine") == "html":
+        return (f"Paths here are relative to the repo root {ROOT}, where your shell starts. Check frames with\n"
+                f"`.venv/bin/python -m spine.render {film['dir']} --still <seconds> {slot_dir / '.still.png'}` and look at them.")
+    return f"""Paths here are relative to the repo root {ROOT}; your shell starts in engines/remotion.
+After editing, run `npx tsc --noEmit -p .` and fix any error. Check frames with
+`npx remotion still src/index.ts {film['reel']} {slot_dir / '.still.png'} --frame=N` and look at them."""
 
 
 def _edit(client: str, slot: str, film: dict, notes: str, slot_dir: Path) -> str:
     # shell in engines/remotion so the npx checks match ALLOWED; --add-dir reaches the slot files
+    html = film.get("engine") == "html"
     r = subprocess.run(["claude", "-p", _prompt(client, slot, film, notes, slot_dir),
-                        "--allowedTools", *ALLOWED.split(" "), "--permission-mode", "acceptEdits", "--add-dir", str(ROOT)],
-                       cwd=REMOTION, capture_output=True, text=True, timeout=EDIT_TIMEOUT)
+                        "--allowedTools", *(ALLOWED_HTML if html else ALLOWED).split(" "), "--permission-mode", "acceptEdits", "--add-dir", str(ROOT)],
+                       cwd=ROOT if html else REMOTION, capture_output=True, text=True, timeout=EDIT_TIMEOUT)
     (slot_dir / ".still.png").unlink(missing_ok=True)
     if r.returncode != 0:
         raise RuntimeError(f"claude edit failed: {r.stderr.strip()[-400:] or r.stdout.strip()[-400:]}")
@@ -230,9 +262,12 @@ def render(client: str, slot: str) -> dict:
     tmp = slot_dir / ".render"
     tmp.mkdir(exist_ok=True)
     out = {}
-    for variant, comp in (("reel", film["reel"]), ("story", film["story"])):
+    for variant in ("reel", "story"):
         raw = tmp / f"{variant}.mp4"
-        _run(["npx", "remotion", "render", "src/index.ts", comp, str(raw), "--log=error", f"--timeout={RENDER_TIMEOUT_MS}"], cwd=REMOTION)
+        if film.get("engine") == "html":
+            _run([VENV_PY, "-m", "spine.render", str(ROOT / film["dir"]), str(raw), "--variant", variant])
+        else:
+            _run(["npx", "remotion", "render", "src/index.ts", film[variant], str(raw), "--log=error", f"--timeout={RENDER_TIMEOUT_MS}"], cwd=REMOTION)
         dst = tmp / f"{variant}-final.mp4"
         d = _duration(raw)
         if music:
@@ -302,6 +337,12 @@ class NoChange(RuntimeError):
 
 
 def _snapshot(slot_dir: Path, film: dict) -> tuple:
+    if film.get("engine") == "html":   # the page, film.json and any asset it copied in
+        d = ROOT / film["dir"]
+        page = tuple(sorted((str(p.relative_to(d)), p.stat().st_mtime_ns, p.stat().st_size) for p in d.rglob("*")
+                            if p.is_file() and p.name != ".still.png")) if d.exists() else None
+        vo = json.loads((slot_dir / "meta.json").read_text()).get("voiceover") or {}
+        return (page, read_text(slot_dir / "caption.txt"), vo.get("script"))
     src = ROOT / film["source"]
     vo = json.loads((slot_dir / "meta.json").read_text()).get("voiceover") or {}
     return (src.read_text() if src.exists() else None, read_text(slot_dir / "caption.txt"), vo.get("script"))
@@ -341,7 +382,7 @@ def run(client: str, slot: str) -> int:
             if notes and _snapshot(slot_dir, film) == before:   # same clip again: say why instead
                 raise NoChange(changes or "The edit changed nothing.")
             _register_if_new(film)
-            ok, out = _typecheck()   # the edit's own check is not proof it ran
+            ok, out = _typecheck() if film.get("engine") != "html" else (True, "")   # the edit's own check is not proof it ran
             if not ok:
                 raise RuntimeError(f"the film does not typecheck: {out[-300:]}")
             _write_status(client, slot, step="voicing", changes=changes, vo_before=before[2])

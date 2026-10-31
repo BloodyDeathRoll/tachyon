@@ -378,6 +378,7 @@ h2{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
 @media (prefers-reduced-motion:reduce){.segind{transition:none}}
 .chk{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--ink2);cursor:pointer}
 .chk input{accent-color:var(--ink);width:16px;height:16px}
+.engines{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px 18px}.engines legend{font-size:13.5px;font-weight:600;color:var(--ink);padding:0;margin-bottom:8px}
 .stack{display:flex;flex-direction:column;gap:20px}
 textarea{width:100%;min-height:110px;border:1px solid var(--rule);border-radius:12px;padding:14px 16px;resize:vertical;color:var(--ink);background:#fff;font-size:15px}
 textarea:focus,select:focus,.tfield input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px rgba(0,0,0,.06)}
@@ -1112,6 +1113,9 @@ def prepare_button(client: str, week: str, label: str) -> str:
            f"placeholder='e.g. Add our Rosa app particles to the empty dark areas. Try a light, airy style with new layouts.'>{ESC(last)}</textarea></label>"
            f"<p class=hint style='margin:0'>Applies to every video in the batch. Leave empty for the usual style. "
            f"{'Prefilled with the last batch&#39;s instructions.' if last else ''}</p>"
+           f"<fieldset class=engines><legend>Animate with</legend>"
+           + "".join(f"<label class=chk><input type=radio name=engine value={k}{' checked' if k == W.last_engine(client) else ''}>{ESC(v)}</label>"
+                     for k, v in W.ENGINES.items()) + "</fieldset>"
            f"<div class=btns><button class='btn pri small'>Start</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>")
     return popup(f"<button type=button class='btn pri small' data-open>{ESC(label)}</button>", box)
 
@@ -2438,7 +2442,7 @@ class Handler(BaseHTTPRequestHandler):
                 if form.get("action") == "prepare":
                     wk = form.get("week") or W.next_week()
                     if (W.status(name, wk) or {}).get("state") != "running":
-                        W.start(name, wk, form.get("instructions") or "")
+                        W.start(name, wk, form.get("instructions") or "", **({"engine": form["engine"]} if form.get("engine") else {}))
                 elif form.get("action") == "auto":
                     ws = W.settings(name)
                     C.set_value(name, "week_prep", {"auto": form.get("value") == "1", "day": ws["day"]})
@@ -2561,7 +2565,7 @@ class Handler(BaseHTTPRequestHandler):
                     if not notes:
                         return self._send(400, b"a rejection needs a note: say what should change", "text/plain")
                     db.set_state(slot, "REJECTED", note=notes)
-                    if (meta_of(name, slot).get("film") or {}).get("engine") == "remotion":
+                    if (meta_of(name, slot).get("film") or {}).get("engine") in ("remotion", "html"):
                         R.start(name, slot, notes)
                 else:
                     return self._send(400, b"unknown action", "text/plain")
