@@ -202,3 +202,43 @@ def test_day_drop_uses_the_weeks_custom_times(server, client_dir):  # noqa: F811
     db = DB.for_client(client_dir)
     assert db.post("w01-s1")["scheduled_at"] == app.utc_iso(date(2099, 1, 6), "12:59")
     db.close()
+
+
+def test_a_rerun_reuses_the_plan_a_failed_run_left(client_dir, monkeypatch):  # noqa: F811
+    times = W.free_slot_times("demo", "2026-W45")
+    items = "".join(f"  - at: {t}\n    title: T{i}\n    brief: |\n      b: {i}\n    hook: H{i}\n    caption: |\n      c{i}\n"
+                    for i, t in enumerate(times))   # an unquoted `at` parses as a datetime
+    (W.plans_dir("demo") / "2026-W45.yaml").write_text(f"week: 2026-W45\nitems:\n{items}")
+    monkeypatch.setattr(W, "_claude", lambda *a: (_ for _ in ()).throw(AssertionError("must not re-plan")))
+    got = W.plan("demo", "2026-W45")
+    assert [it["at"] for it in got] == times and all(isinstance(it["at"], str) for it in got)
+    json.dumps(got)   # the failure was "Object of type datetime is not JSON serializable"
+    assert W.plan("demo", "2026-W45") == got   # finished: reused as is
+    db = DB.for_client(client_dir)
+    db.conn.execute("UPDATE posts SET scheduled_at=? WHERE slot_id='w01-s1'", (times[0],))   # taken since
+    db.close()
+    try:
+        W.plan("demo", "2026-W45")
+        raise AssertionError("a taken slot must stop the rerun")
+    except ValueError as e:
+        assert times[0] in str(e)
+
+
+def test_week_card_shows_progress(server, client_dir):  # noqa: F811
+    from datetime import datetime, timedelta, timezone
+    t = lambda m: (datetime.now(timezone.utc) - timedelta(minutes=m)).isoformat(timespec="seconds")  # noqa: E731
+    W._status("demo", W.next_week(), state="running", step="producing", total=14, done=2,
+              failed=[{"slot": "x", "error": "e"}], started_at=t(40), producing_at=t(20))
+    _, body, _ = req(server, "GET", "/demo")
+    assert "1 of 14 videos made" in body and "12 to go · 1 failed" in body
+    assert "About 2 h 00 min left, done around" in body and "running 40 min" in body
+    assert "http-equiv=refresh" in body
+
+
+def test_a_reused_plan_keeps_its_own_slots_when_one_was_freed_since(client_dir, monkeypatch):  # noqa: F811
+    times = W.free_slot_times("demo", "2026-W45")
+    items = "".join(f"  - at: {t}\n    title: T{i}\n    brief: b\n    hook: H{i}\n    caption: c{i}\n"
+                    for i, t in enumerate(times[1:]))   # planned while the first slot was taken
+    (W.plans_dir("demo") / "2026-W45.yaml").write_text(f"week: 2026-W45\nitems:\n{items}")
+    monkeypatch.setattr(W, "_claude", lambda *a: (_ for _ in ()).throw(AssertionError("must not re-plan")))
+    assert [it["at"] for it in W.plan("demo", "2026-W45")] == times[1:]
