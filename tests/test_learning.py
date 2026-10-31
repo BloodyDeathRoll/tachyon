@@ -110,3 +110,27 @@ def test_an_html_film_renders_a_still_and_a_video(tmp_path):
     assert r.returncode == 0 and (tmp_path / "s.png").stat().st_size > 0, r.stderr
     r = subprocess.run([py, "-m", "spine.render", str(f), str(tmp_path / "v.mp4"), "--fps", "20"], cwd=ROOT, capture_output=True, text=True)
     assert r.returncode == 0 and (tmp_path / "v.mp4").stat().st_size > 0, r.stderr
+
+
+@pytest.mark.skipif(not (ROOT / ".venv" / "bin" / "python").exists(), reason="Playwright lives in .venv")
+def test_an_html_film_gets_its_other_formats(demo, monkeypatch):
+    from spine import formats as F
+    sd = demo / "posts" / "p1"
+    f = sd / "film"
+    f.mkdir()
+    (f / "index.html").write_text(FILM)
+    (f / "film.json").write_text(json.dumps({"duration": 0.3, "width": 1080, "height": 1920}))
+    py = str(ROOT / ".venv" / "bin" / "python")
+    subprocess.run([py, "-m", "spine.render", str(f), str(sd / "video.mp4"), "--fps", "20"], cwd=ROOT, check=True, capture_output=True)
+    (f / "index-16x9.html").write_text(FILM)   # the layout Claude would write (newer than index.html)
+    monkeypatch.setattr(F, "ROOT", demo.parent)   # film["dir"] is relative to the repo root
+    film = {"engine": "html", "dir": "demo/posts/p1/film", "source": "demo/posts/p1/film/index.html"}
+    (sd / "meta.json").write_text(json.dumps({"film": film}))
+    calls = []
+    real = F._run
+    monkeypatch.setattr(F, "_run", lambda cmd, cwd, timeout=None: calls.append(cmd[0]) or real(cmd, ROOT if cmd[0] == py or cmd[1:3] == ["-m", "spine.render"] else cwd, timeout))
+    out = F._make_one("demo", "p1", "16x9")
+    assert "claude" not in calls and out.exists()   # an up-to-date layout is reused
+    r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v", "-show_entries", "stream=width,height", "-of", "csv=p=0", str(out)],
+                       capture_output=True, text=True)
+    assert r.stdout.strip() == "1920,1080"

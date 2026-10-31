@@ -1555,8 +1555,7 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         player = seg + player
         m_ = meta_of(client, slot)
         film_src = (m_.get("film") or {}).get("source")
-        can_fmt = (not (m_.get("upload") and not (film_src and (ROOT / film_src).exists()))   # an upload until its first edit
-                   and (m_.get("film") or {}).get("engine") != "html")   # shortcut: other formats are Remotion layouts only; add an HTML relayout when needed
+        can_fmt = not (m_.get("upload") and not (film_src and (ROOT / film_src).exists()))   # an upload until its first edit
         player += (f"<div class=pctl><span>{formats_button(client, slot, fmts) if can_fmt else ''}</span>{dls}</div>"
                    + ("" if is_fmt else "<hr class=pdiv><label class='chk big'><input type=checkbox "
                       "onchange=\"document.getElementById('frame').classList.toggle('showui',this.checked)\">Show what Instagram covers</label>"))

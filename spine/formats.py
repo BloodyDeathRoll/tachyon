@@ -163,11 +163,69 @@ def make_one(client: str, slot: str, ratio: str) -> Path:
         return _make_one(client, slot, ratio)
 
 
+def html_prompt(fdir: str, ratio: str) -> str:
+    w, h = RATIOS[ratio]
+    m = round(min(w, h) * 0.06)
+    return f"""Make a {LABEL[ratio]} ({w}x{h}) version of the Instagram reel film {fdir}/index.html.
+
+This is a real re-layout, not a crop or a letterbox. Keep everything the film says and does: the
+same beats in the same order and timing, the same words, the same app screens, footage, colours
+and animations. Re-place them for a {w}x{h} frame so the space is used well.
+
+Write {fdir}/index-{ratio}.html (start from a copy of index.html; it shares the assets in {fdir}/).
+Same contract: window.__film.seek(t) puts everything where it is at t seconds, from t alone. There
+is no Instagram UI on this format: keep every text and UI element inside a {m} px margin all round.
+Footage fills the whole frame. No text under 38 px.
+Check it: `.venv/bin/python -m spine.render {fdir} --page index-{ratio}.html --size {w}x{h} --still <seconds> /tmp/{ratio}.png`
+at the start, middle and end of each beat; fix anything cut off or crowded.
+Edit no other file. Do not render, do not commit. End with one line per layout decision."""
+
+
+def _make_html(client: str, slot: str, ratio: str, film: dict, src: Path) -> Path:
+    """Engine html: Claude re-lays the page out as index-<ratio>.html; spine/render.py captures it at its size."""
+    from . import revise as R
+    fdir = ROOT / film["dir"]
+    page = fdir / f"index-{ratio}.html"
+    _status(client, slot, step="checking")
+    if not page.exists() or (fdir / "index.html").stat().st_mtime > page.stat().st_mtime:
+        page.unlink(missing_ok=True)
+        _status(client, slot, step="writing")
+        _run(["claude", "-p", html_prompt(film["dir"], ratio), "--allowedTools", *R.ALLOWED_HTML.split(" "),
+              "--permission-mode", "acceptEdits"], cwd=ROOT, timeout=WRITE_TIMEOUT)
+        if not page.exists():
+            raise RuntimeError(f"no {LABEL[ratio]} layout was written")
+    _status(client, slot, step="rendering")
+    w, h = RATIOS[ratio]
+    return _mux(client, slot, ratio, src, [R.VENV_PY, "-m", "spine.render", str(fdir), "{raw}", "--page", page.name, "--size", f"{w}x{h}"], ROOT)
+
+
+def _mux(client: str, slot: str, ratio: str, src: Path, render_cmd: list[str], cwd: Path) -> Path:
+    """Render the format video ({raw} in the command) and give it the reel's own soundtrack."""
+    src_mtime = src.stat().st_mtime
+    out = path(client, slot, ratio)
+    raw = out.with_suffix(".raw.mp4")
+    tmp = out.with_suffix(".part.mp4")
+    try:
+        _run([str(raw) if a == "{raw}" else a for a in render_cmd], cwd=cwd, timeout=30 * 60)
+        _run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-i", str(src), "-map", "0:v", "-map", "1:a?",
+              "-c:v", "copy", "-c:a", "copy", "-shortest", "-map_metadata", "-1", "-movflags", "+faststart", str(tmp)], cwd=ROOT)
+        tmp.replace(out)
+    finally:
+        raw.unlink(missing_ok=True)
+        tmp.unlink(missing_ok=True)
+    if src.stat().st_mtime != src_mtime:   # the reel changed meanwhile: this version is of the old one
+        out.unlink(missing_ok=True)
+        raise RuntimeError("the reel was re-rendered meanwhile: generate again")
+    return out
+
+
 def _make_one(client: str, slot: str, ratio: str) -> Path:
     sd = C.client_dir(client) / "posts" / slot
     src = sd / "video.mp4"
     src_mtime = src.stat().st_mtime
     film = json.loads((sd / "meta.json").read_text()).get("film") or {}
+    if film.get("engine") == "html":
+        return _make_html(client, slot, ratio, film, src)
     if film.get("engine") != "remotion" or not film.get("reel"):
         raise RuntimeError("this video has no Remotion film to re-lay out")
     fid = film["reel"]
