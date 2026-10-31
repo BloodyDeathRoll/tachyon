@@ -1379,7 +1379,8 @@ const f=document.getElementById('igq');if(f){let t,c;
   document.querySelector('#music .tracks').innerHTML="<p class='muted igwait' role=status><i class=spin></i>Loading Instagram music…</p>";
   try{const d=new DOMParser().parseFromString(await(await fetch(r,{signal:c.signal})).text(),'text/html');
    for(const k of ['#music .tracks','#music .hint'])document.querySelector(k).replaceWith(d.querySelector(k));
-   history.replaceState(null,'',u.pathname+u.search+location.hash);}catch(_){}};
+   history.replaceState(null,'',u.pathname+u.search+location.hash);}
+  catch(e){if(e.name!=='AbortError')document.querySelector('#music .tracks').innerHTML="<p class=muted style='margin:6px 0 0'>Could not load Instagram music. Reload the page to try again.</p>";}};
  if(document.querySelector('#music .tracks[data-wait]'))load(f.q.value.trim());
  f.q.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>{const v=f.q.value.trim();if(v.length!==1)load(v);},350);});}})();
 """
