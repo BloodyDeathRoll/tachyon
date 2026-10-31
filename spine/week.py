@@ -68,11 +68,16 @@ def slot_times(client: str, week: str) -> list[str]:
     return [datetime.combine(d, t, tzinfo=timezone.utc).isoformat(timespec="seconds") for d in week_days(week) for t in ts]
 
 
-def free_slot_times(client: str, week: str) -> list[str]:
-    """The week's slots minus those already held by another video (moved or planned earlier)."""
-    db = DB.for_client(C.client_dir(client))
+def free_slot_times(client: str, week: str, own: bool = False) -> list[str]:
+    """The week's slots minus those already held by another video (moved or planned earlier).
+    own: the week's own planned videos do not count as taken (a rerun reuses their slots)."""
+    d = C.client_dir(client)
+    db = DB.for_client(d)
     try:
         taken = SCH.taken_slots(db)
+        if own:
+            taken -= {r["scheduled_at"] for r in db.posts()
+                      if r["slot_id"].startswith(week.lower() + "-") and _ours(d, r["slot_id"], week)}
     finally:
         db.close()
     return [t for t in slot_times(client, week) if t not in taken]
@@ -198,12 +203,15 @@ def load_plan(out: Path) -> dict:
 
 
 def plan(client: str, week: str) -> list[dict]:
-    times = free_slot_times(client, week)
+    times = free_slot_times(client, week, own=True)
     if not times:
         raise ValueError(f"every slot in {week} is already taken")
     out = plans_dir(client) / f"{week}.yaml"
-    _claude(plan_prompt(client, week, times, out), ALLOWED_PLAN, PLAN_TIMEOUT)
+    if not out.exists():   # a rerun picks up the plan a failed run left behind
+        _claude(plan_prompt(client, week, times, out), ALLOWED_PLAN, PLAN_TIMEOUT)
     data = load_plan(out)
+    if data.get("finished"):
+        return data["items"]   # checked, slotted and styled by an earlier run: reuse it as is
     items = data["items"]
     if len(items) != len(times):
         raise ValueError(f"plan has {len(items)} items for {len(times)} slots")
@@ -216,6 +224,8 @@ def plan(client: str, week: str) -> list[dict]:
             raise ValueError(f"plan item {t} asks people to comment for the link (rule 13)")
         it["caption"] = CAP.ensure(client, it["caption"])   # the one caption structure, no credits
     pick_motion(client, items, week, (status(client, week) or {}).get("instructions") or "")
+    out.write_text(yaml.safe_dump({"week": week, "finished": True, "items": items}, sort_keys=False,
+                                  allow_unicode=True, width=1000))
     return items
 
 
@@ -409,10 +419,9 @@ def produce(client: str, slot: str) -> None:
 def prepare(client: str, week: str) -> int:
     try:
         _status(client, week, state="running", step="planning", error=None)
-        y = plans_dir(client) / f"{week}.yaml"
-        items = load_plan(y)["items"] if y.exists() else plan(client, week)
+        items = plan(client, week)
         slots = make_slots(client, week, items)
-        _status(client, week, step="producing", total=len(slots), done=0, slots=slots)
+        _status(client, week, step="producing", total=len(slots), done=0, slots=slots, producing_at=now())
         failed = []
         for i, slot in enumerate(slots):
             _status(client, week, current=slot)

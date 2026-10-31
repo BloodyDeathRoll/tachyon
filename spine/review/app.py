@@ -188,6 +188,12 @@ def ago(ts: str | None) -> str:
     return f"{int(s // 86400)} d ago"
 
 
+def dur(s: float) -> str:
+    """Seconds as "1 h 05 min" or "12 min"."""
+    m = max(1, round(s / 60))
+    return f"{m // 60} h {m % 60:02d} min" if m >= 60 else f"{m} min"
+
+
 def num(v) -> str:
     if v is None:
         return "–"
@@ -1213,11 +1219,28 @@ def week_card(client: str) -> str:
     total = len(W.free_slot_times(client, wk))
     base = f"/{ESC(quote(client))}"
     if st.get("state") == "running":
+        now_ = datetime.now(timezone.utc)
+        ran = f"Started {when(st.get('started_at'))}, running {dur((now_ - parse(st['started_at'])).total_seconds())}." if parse(st.get("started_at")) else ""
         if st.get("step") == "planning":
-            body = "<p class=big>Planning the week…</p>"
+            body = f"<p class=big>Planning the week…</p><div class=prog><i></i></div><p class=hint>{ran}</p>"
         else:
-            body = f"<p class=big>{st.get('done', 0)} of {st.get('total', total)} videos made</p>"
-        body += "<div class=prog><i></i></div><p class=hint>Each one lands in Needs approval when it is ready.</p>"
+            done, tot, bad = st.get("done", 0), st.get("total", total), len(st.get("failed") or [])
+            p0 = parse(st.get("producing_at"))
+            if p0 and done:   # the average so far, times the videos still to make
+                left = (now_ - p0).total_seconds() / done * (tot - done)
+                eta = f"About {dur(left)} left, done around {(now_ + timedelta(seconds=left)).astimezone(LOCAL):%H:%M}."
+            else:
+                eta = "The time left shows once the first video is made."
+            cur = st.get("current")
+            try:
+                title = json.loads((C.client_dir(client) / "posts" / cur / "meta.json").read_text())["title"] if cur else ""
+            except (OSError, ValueError, KeyError):
+                title = cur or ""
+            body = (f"<p class=big>{done - bad} of {tot} videos made</p>"
+                    f"<div class=prog><i style='width:{100 * done // max(tot, 1)}%;animation:none'></i></div>"
+                    f"<p class=hint>{tot - done} to go{f' · {bad} failed' if bad else ''}"
+                    f"{f' · Now making: {ESC(title)}' if title else ''}<br>{eta}<br>{ran}</p>")
+        body += "<p class=hint>Each one lands in Needs approval when it is ready.</p>"
     elif st.get("state") == "done":
         bad = len(st.get("failed") or [])
         body = (f"<div class=crow><p><b>{st.get('total', total) - bad} of {st.get('total', total)} videos ready.</b> "
@@ -1285,7 +1308,7 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
         body = (header(client, "Overview") +
                 f"<div class=ovgrid><div class=maincol>{perf}{vids}</div>"
                 f"<div class=side>{schedule_card(client, (q or {}).get('picked'))}{week_card(client)}{dropped_card(client)}</div></div>")
-        return shell(client, "overview", body, "Overview", refresh=30 if count["busy"] else None)
+        return shell(client, "overview", body, "Overview", refresh=30 if count["busy"] or (W.status(client, W.next_week()) or {}).get("state") == "running" else None)
     finally:
         db.close()
 
