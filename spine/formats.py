@@ -190,7 +190,7 @@ def _make_html(client: str, slot: str, ratio: str, film: dict, src: Path) -> Pat
     if not page.exists() or (fdir / "index.html").stat().st_mtime > page.stat().st_mtime:
         page.unlink(missing_ok=True)
         _status(client, slot, step="writing")
-        _run(["claude", "-p", html_prompt(film["dir"], ratio), "--allowedTools", *R.ALLOWED_HTML.split(" "),
+        _run(["claude", "-p", html_prompt(film["dir"], ratio), "--allowedTools", *R.tools(R.ALLOWED_HTML),
               "--permission-mode", "acceptEdits"], cwd=ROOT, timeout=WRITE_TIMEOUT)
         if not page.exists():
             raise RuntimeError(f"no {LABEL[ratio]} layout was written")
@@ -236,7 +236,8 @@ def _make_one(client: str, slot: str, ratio: str) -> Path:
         ffile.unlink(missing_ok=True)
         _status(client, slot, step="writing")
         try:
-            _run(["claude", "-p", prompt(fid, ratio), "--allowedTools", *ALLOWED.split(" "), "--permission-mode", "acceptEdits"],
+            from . import revise as R
+            _run(["claude", "-p", prompt(fid, ratio), "--allowedTools", *R.tools(ALLOWED), "--permission-mode", "acceptEdits"],
                  cwd=REMOTION, timeout=WRITE_TIMEOUT)
         except Exception:
             _drop(fid, ratio)   # claude may have registered a half-written layout

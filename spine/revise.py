@@ -17,6 +17,7 @@ dashboard reads for the "Re-rendering" tag.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -35,6 +36,12 @@ ALLOWED = "Read Edit Write Glob Grep Bash(npx tsc:*) Bash(npx remotion still:*) 
 VENV_PY = str(ROOT / ".venv" / "bin" / "python") if (ROOT / ".venv" / "bin" / "python").exists() else sys.executable
 ALLOWED_HTML = ("Read Edit Write Glob Grep Bash(cp:*) Bash(mkdir:*) Bash(ls:*) Bash(.venv/bin/python -m spine.render:*) "
                 "Bash(.venv/bin/python -m spine.capture:*)")
+
+
+def tools(allowed: str) -> list[str]:
+    """"Read Bash(npx tsc:*) ..." → one --allowedTools argument per tool: a rule can hold spaces
+    ("Bash(.venv/bin/python -m spine.capture:*)"), so a plain split would hand claude "-m"."""
+    return re.findall(r"\w+(?:\([^)]*\))?", allowed)
 
 
 def capture_hint(client: str) -> str:
@@ -203,7 +210,7 @@ def _edit(client: str, slot: str, film: dict, notes: str, slot_dir: Path) -> str
     # shell in engines/remotion so the npx checks match ALLOWED; --add-dir reaches the slot files
     html = film.get("engine") == "html"
     r = subprocess.run(["claude", "-p", _prompt(client, slot, film, notes, slot_dir),
-                        "--allowedTools", *(ALLOWED_HTML if html else ALLOWED).split(" "), "--permission-mode", "acceptEdits", "--add-dir", str(ROOT)],
+                        "--allowedTools", *tools(ALLOWED_HTML if html else ALLOWED), "--permission-mode", "acceptEdits", "--add-dir", str(ROOT)],
                        cwd=ROOT if html else REMOTION, capture_output=True, text=True, timeout=EDIT_TIMEOUT)
     (slot_dir / ".still.png").unlink(missing_ok=True)
     if r.returncode != 0:

@@ -159,7 +159,7 @@ def start(client: str, week: str, instructions: str | None = None, engine: str |
 
 
 def _claude(prompt: str, allowed: str, timeout: int) -> str:
-    r = subprocess.run(["claude", "-p", prompt, "--allowedTools", *allowed.split(" "), "--permission-mode", "acceptEdits"],
+    r = subprocess.run(["claude", "-p", prompt, "--allowedTools", *R.tools(allowed), "--permission-mode", "acceptEdits"],
                        cwd=ROOT, capture_output=True, text=True, timeout=timeout)
     if r.returncode != 0:
         raise RuntimeError(f"claude failed: {(r.stderr or r.stdout).strip()[-400:]}")
