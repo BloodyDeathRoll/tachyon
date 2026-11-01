@@ -219,18 +219,33 @@ def test_long_recordings_play_faster_not_cut():
     assert H.speedup(30) == 1.5
 
 
-def test_reset_between_passes_drops_app_settings():
+def test_reset_between_passes_drops_app_settings(tmp_path):
     """Swim / ft set in the warm pass must not carry into the recording, or the switch never shows."""
+    import functools
+    import http.server
+    import threading
     pw = pytest.importorskip("playwright.sync_api")
-    with pw.sync_playwright() as p:
-        b = p.chromium.launch()
-        page = b.new_page()
-        page.route("https://rosa.test/", lambda r: r.fulfill(body="<p>x</p>", content_type="text/html"))
-        page.goto("https://rosa.test/")
-        page.evaluate("localStorage.setItem('rosa.mode','swim')")
-        H.reset(page)
-        assert page.evaluate("localStorage.length") == 0
-        b.close()
+    (tmp_path / "index.html").write_text("<p>x</p>")
+    (tmp_path / "sw.js").write_text("self.onfetch = () => {};")   # a service worker needs a real server (localhost is secure)
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(tmp_path)))
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        with pw.sync_playwright() as p:
+            b = p.chromium.launch()
+            page = b.new_page()
+            page.goto(f"http://127.0.0.1:{srv.server_port}/index.html")
+            page.evaluate("localStorage.setItem('rosa.mode','swim')")
+            page.evaluate("new Promise(r => { const q = indexedDB.open('settings'); q.onsuccess = () => { q.result.close(); r(); }; })")
+            page.evaluate("navigator.serviceWorker.register('/sw.js').then(() => navigator.serviceWorker.ready)")
+            assert page.evaluate("indexedDB.databases().then(d => d.length)") == 1
+            assert page.evaluate("navigator.serviceWorker.getRegistrations().then(r => r.length)") == 1
+            H.reset(page)
+            assert page.evaluate("localStorage.length") == 0
+            assert page.evaluate("indexedDB.databases().then(d => d.length)") == 0
+            assert page.evaluate("navigator.serviceWorker.getRegistrations().then(r => r.length)") == 0
+            b.close()
+    finally:
+        srv.shutdown()
 
 
 def test_screens_at_sets_the_phone_location():

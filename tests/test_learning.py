@@ -8,6 +8,7 @@ import pytest
 import yaml
 
 from spine import clients as C
+from spine import formats as F
 from spine import lessons as L
 from spine import revise as R
 from spine import week as W
@@ -166,11 +167,22 @@ def test_tool_rules_with_spaces_stay_whole():
     assert "Bash(.venv/bin/python -m spine.capture:*)" in got and "-m" not in got and "Bash(npx tsc:*)" in got
 
 
-@pytest.mark.parametrize("name", ["R.ALLOWED", "R.ALLOWED_HTML", "W.ALLOWED_PLAN", "W.ALLOWED_FILM", "F.ALLOWED"])
-def test_every_tool_list_reaches_claude_whole(name):
+@pytest.mark.parametrize("allowed", [
+    pytest.param(R.ALLOWED, id="R.ALLOWED"), pytest.param(R.ALLOWED_HTML, id="R.ALLOWED_HTML"),
+    pytest.param(W.ALLOWED_PLAN, id="W.ALLOWED_PLAN"), pytest.param(W.ALLOWED_FILM, id="W.ALLOWED_FILM"),
+    pytest.param(F.ALLOWED, id="F.ALLOWED")])
+def test_every_tool_list_reaches_claude_whole(allowed):
     """Every rule in every list becomes one --allowedTools argument: none dropped, none split, no stray option."""
-    from spine import formats as F
-    allowed = eval(name)
     got = R.tools(allowed)
     assert " ".join(got) == " ".join(allowed.split())
     assert got and all(not t.startswith("-") and (" " not in t or t.endswith(")")) for t in got)
+
+
+def test_tools_keeps_any_rule_whole():
+    """Names with '-' or '.', and nested or spaced patterns, were dropped by the old regex."""
+    assert R.tools("Read my-tool Bash(a.b c:*) Bash(echo (x y)) Edit") == ["Read", "my-tool", "Bash(a.b c:*)", "Bash(echo (x y))", "Edit"]
+    assert R.tools("  ") == []
+    with pytest.raises(ValueError, match="unbalanced"):
+        R.tools("Bash(open Read")
+    with pytest.raises(ValueError, match="unbalanced"):
+        R.tools("Read) Edit")

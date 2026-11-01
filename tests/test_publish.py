@@ -602,6 +602,11 @@ def test_sync_keeps_reels_that_still_exist_or_cannot_be_checked(client):
         def media(self, mid, fields=None):
             raise GraphError(190, None, "token expired")
     assert publish.sync_removed(client, graph=Down())["errors"] == 1
+
+    class Offline(DeleteGraph):
+        def media(self, mid, fields=None):
+            raise TimeoutError("timed out")
+    assert publish.sync_removed(client, graph=Offline())["errors"] == 1   # a dead network is an error, never a crash
     db = DB.for_client(C.client_dir(client))
     assert db.post(SLOT)["state"] == "MEASURING"
     db.close()

@@ -59,8 +59,9 @@ After 8 weeks: if median sends/reach < 0.3 % **and** GA4 sessions from Instagram
 
 Operator added none (2026-10-24). These come from Rosa's own repo and stay: no
 accuracy claims, no competitor names at all, no cams we do not have rights to,
-attribution line on every forecast shown, no Play Store mention until public. Open-Meteo non-commercial terms: no paid offer without a licence check. From
-the @lineup.experience comment section: do not expose quiet or local-only spots; feature
+attribution line on every forecast shown, no Play Store mention until public. Open-Meteo
+non-commercial terms: no paid offer without a licence check. From the @lineup.experience
+comment section: do not expose quiet or local-only spots; feature
 spots that are already known.
 
 ## Posting window (Tachyon's call, 2026-10-24)
