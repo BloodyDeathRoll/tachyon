@@ -184,3 +184,5 @@ def test_tools_keeps_any_rule_whole():
     assert R.tools("  ") == []
     with pytest.raises(ValueError, match="unbalanced"):
         R.tools("Bash(open Read")
+    with pytest.raises(ValueError, match="unbalanced"):
+        R.tools("Read) Edit")

@@ -43,7 +43,9 @@ def tools(allowed: str) -> list[str]:
     ("Bash(.venv/bin/python -m spine.capture:*)"), so a plain split would hand claude "-m"."""
     out, cur, depth = [], "", 0
     for ch in allowed:
-        depth += (ch == "(") - (ch == ")" and depth > 0)
+        depth += (ch == "(") - (ch == ")")
+        if depth < 0:
+            raise ValueError(f"unbalanced parentheses in allowed tools: {allowed!r}")
         if ch.isspace() and not depth:
             if cur:
                 out.append(cur)

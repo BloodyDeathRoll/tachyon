@@ -24,12 +24,12 @@ from __future__ import annotations
 
 import contextlib
 import fcntl
-from concurrent.futures import ThreadPoolExecutor
 import json
 import re
 import sys
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
