@@ -231,3 +231,30 @@ def test_reset_between_passes_drops_app_settings():
         H.reset(page)
         assert page.evaluate("localStorage.length") == 0
         b.close()
+
+
+def test_screens_at_sets_the_phone_location():
+    assert H.geo({}) == {}
+    assert H.geo({"at": [-7.7, -79.4]}) == {"geolocation": {"latitude": -7.7, "longitude": -79.4}, "permissions": ["geolocation"]}
+
+
+def test_share_shows_the_spots_own_share_card():
+    pw = pytest.importorskip("playwright.sync_api")
+    with pw.sync_playwright() as p:
+        b = p.chromium.launch()
+        page = b.new_page()
+        page.add_init_script(H.SHARE)
+        page.route("https://rosa.test/**", lambda r: r.fulfill(body="<body></body>", content_type="text/html"))
+        page.goto("https://rosa.test/")
+        page.evaluate("navigator.share({title: 'Muizenberg', url: 'https://rosa.surf/spot/muizenberg'})")
+        page.wait_for_timeout(300)
+        assert page.evaluate("document.querySelector('img').getAttribute('src')") == "/og/spot/muizenberg.jpg"
+        assert "rosa.surf/spot/muizenberg" in page.inner_text("body")
+        b.close()
+
+
+def test_check_refuses_a_bad_location(hh):
+    edit(hh, screens={"steps": [{"go": "/charts"}], "at": [200, 0]})
+    assert "screens.at must be [lat, lon]" in H.check("t", "b1", "01", "vertical")
+    edit(hh, screens={"steps": [{"go": "/charts"}], "at": [-7.7, -79.4]})
+    assert not any(i.startswith("screens.at") for i in H.check("t", "b1", "01", "vertical"))
