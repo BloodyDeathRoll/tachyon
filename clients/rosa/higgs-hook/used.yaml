@@ -2,6 +2,12 @@ characters:
 - guard
 - diver
 - astronaut
+- chef
+- crier
+- mime
+- bride
+- ballerina
+- referee
 spots:
 - thurso-east
 - arugam-bay
@@ -9,19 +15,55 @@ spots:
 - mundaka
 - punta-de-lobos
 - el-gringo
+- muizenberg
+- skeleton-bay
+- bells-beach
+- snapper-rocks
+- imsouane
+- killer-point
+- chicama
+- pavones
+- waimea-bay
+- haleiwa
+- cloud-9
+- padang-padang
 hooks:
 - Get an alert when your spot turns on
 - See the swell coming, 16 days out
 - Every spot rated 0 to 100, and it tells you why
+- Tide and first light on every spot
+- A fresh forecast four times a day
+- Free. No sign-up to see the forecast
+- Watch the swell cross the whole planet
+- Flat day? Switch to swim mode
+- Feet or metres, your call
 jokes:
 - He's guarding the lineup.
 - Checked the swell. Personally.
 - Houston, it's pumping.
+- Table for one, ocean view.
+- Hear ye. It's on.
+- Forgot something?
+- Said yes to the swell.
+- Big-wave day. Allegedly.
+- That one's a foul.
 end_lines:
 - Off duty when it's firing
 - Read the ocean from the shore
 - Your launch window is on the map
+- Served at the right tide
+- The news from the ocean, four times a day
+- Nothing to sign up for. Just open it
+- Long rides start on the swell map
+- Flat is still a good day in the water
+- Make the call before you paddle out
 buttons:
 - Check my spot
 - Open the map
 - Find my window
+- Check the tide
+- Read today's forecast
+- Open the forecast
+- Open the swell map
+- Switch to swim
+- Check the call

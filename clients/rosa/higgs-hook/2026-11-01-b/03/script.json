@@ -1,0 +1,51 @@
+{
+  "title": "The referee at Cloud 9",
+  "slug": "referee",
+  "character": "a football referee in a black short-sleeved kit, black shorts, long black socks, a whistle on a cord, red and yellow cards in the chest pocket, a bright orange shortboard under one arm",
+  "spots": {
+    "a": {
+      "slug": "cloud-9",
+      "name": "Cloud 9 (Siargao)"
+    },
+    "b": {
+      "slug": "padang-padang",
+      "name": "Padang Padang"
+    }
+  },
+  "joke": "That one's a foul.",
+  "hook": "Feet or metres, your call",
+  "screens": {
+    "theme": "dark",
+    "steps": [
+      {
+        "go": "/spot/cloud-9"
+      },
+      {
+        "scroll": 300
+      },
+      {
+        "go": "/settings"
+      },
+      {
+        "tap": "button:text-is('ft')"
+      },
+      {
+        "wait": 1
+      },
+      {
+        "go": "/spot/padang-padang"
+      },
+      {
+        "scroll": 400
+      }
+    ]
+  },
+  "end": {
+    "line": "Make the call before you paddle out",
+    "button": "Check the call"
+  },
+  "vo": "I grew up on feet, my mates talk metres. Rosa does both. Cloud 9 today, Padang next.",
+  "voice": "dia:seed5",
+  "track": "surf-rock-summer",
+  "caption": "That one's a foul. The next one's a goal.\n\nFeet or metres, your pick. Switch it once in settings and every spot, every day of the 16-day forecast, reads the way you think.\n\n3,000+ spots, four updates a day, free.\nrosa.surf, link in bio.\n.\n.\n.\n#surfforecast #surfing #surfapp"
+}

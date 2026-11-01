@@ -1,0 +1,48 @@
+{
+  "title": "The mime at Imsouane",
+  "slug": "mime",
+  "character": "a classic French mime in white face paint, a black-and-white striped top, black braces, black trousers, white gloves and a black beret",
+  "spots": {
+    "a": {
+      "slug": "imsouane",
+      "name": "Imsouane (The Bay)"
+    },
+    "b": {
+      "slug": "killer-point",
+      "name": "Killer Point"
+    }
+  },
+  "joke": "Forgot something?",
+  "hook": "Free. No sign-up to see the forecast",
+  "screens": {
+    "theme": "dark",
+    "steps": [
+      {
+        "go": "/spot/imsouane"
+      },
+      {
+        "scroll": 600
+      },
+      {
+        "swipe": "left"
+      },
+      {
+        "go": "/spot/killer-point"
+      },
+      {
+        "wait": 1
+      },
+      {
+        "scroll": 600
+      }
+    ]
+  },
+  "end": {
+    "line": "Nothing to sign up for. Just open it",
+    "button": "Open the forecast"
+  },
+  "vo": "Dude, I don't sign in, I don't pay. I just open it. Imsouane, then Killer Point. Done.",
+  "voice": "dia:seed5",
+  "track": "surf-rock-summer",
+  "caption": "Some days you have to imagine the board. Never the forecast.\n\nImsouane and Killer Point, 16 days out, no sign-up, no paywall.\n\n3,000+ spots, four updates a day, free.\nrosa.surf, link in bio.\n.\n.\n.\n#surfforecast #surfing #surfapp"
+}
