@@ -217,3 +217,17 @@ def test_long_recordings_play_faster_not_cut():
     assert H.speedup(6) == 1.0
     assert H.speedup(12) == pytest.approx(1.2)
     assert H.speedup(30) == 1.5
+
+
+def test_reset_between_passes_drops_app_settings():
+    """Swim / ft set in the warm pass must not carry into the recording, or the switch never shows."""
+    pw = pytest.importorskip("playwright.sync_api")
+    with pw.sync_playwright() as p:
+        b = p.chromium.launch()
+        page = b.new_page()
+        page.route("https://rosa.test/", lambda r: r.fulfill(body="<p>x</p>", content_type="text/html"))
+        page.goto("https://rosa.test/")
+        page.evaluate("localStorage.setItem('rosa.mode','swim')")
+        H.reset(page)
+        assert page.evaluate("localStorage.length") == 0
+        b.close()

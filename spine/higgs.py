@@ -149,6 +149,12 @@ def drive(page, steps: list[dict], base: str, theme: str, warm: bool = False) ->
     return t0 or 0.0
 
 
+def reset(page) -> None:
+    """The app keeps its settings in the browser's storage; clear it between the two passes."""
+    page.evaluate("() => { localStorage.clear(); sessionStorage.clear(); }")
+    page.context.clear_cookies()
+
+
 def speedup(seconds: float) -> float:
     """A recording longer than the screens slot plays faster (up to 1.5x) instead of being cut."""
     return min(max(seconds / SCREENS_MAX, 1.0), 1.5)
@@ -175,6 +181,8 @@ def screens(client: str, batch: str, nn: str) -> Path:
             ctx.add_init_script(init)
             page = ctx.pages[0] if ctx.pages else ctx.new_page()
             t0 = drive(page, spec["steps"], CAP.BASE[client], theme, warm)
+            if warm:   # keep the HTTP cache, drop what the steps changed (Swim, ft…), so the recording shows the switch
+                reset(page)
             video = None if warm else page.video.path()
             ctx.close()
     out = d / "screens.mp4"
