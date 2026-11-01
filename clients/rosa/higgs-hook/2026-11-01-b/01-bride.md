@@ -23,7 +23,7 @@ Hook card: "Watch the swell cross the whole planet"
 VO (starts at 5 s, one take): "Okay so, I watch the swell map before every trip. You can see it rolling across the ocean. Chicama's next."
 
 ## Scene 4 (about 7–14 s)
-Real app recording: The swell map playing the forecast forward, then the Chicama and Pavones spot pages.
+Real app recording (phone set in Peru, so the map opens on the Pacific): the swell map playing the forecast forward, then the Chicama and Pavones spot pages.
 
 ## Scene 5 (last 5 s)
 0–1.5 s an empty wave face peeling down the point, the lower half open water; 1.5–4 s the bride drops in on the longboard and trims down the line, the veil streaming metres behind her, the gown soaked; 4–5 s still riding, she raises one arm and waves goodbye to the beach as the wave keeps peeling.

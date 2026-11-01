@@ -16,6 +16,10 @@
   "hook": "Watch the swell cross the whole planet",
   "screens": {
     "theme": "dark",
+    "at": [
+      -7.7,
+      -79.4
+    ],
     "steps": [
       {
         "go": "/charts"
