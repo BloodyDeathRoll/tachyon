@@ -336,6 +336,8 @@ def _media_state(graph: Graph, media_id: str) -> str:
         graph.media(media_id)
     except GraphError as e:
         return "gone" if e.code == 100 and e.subcode == 33 else "error"
+    except OSError:   # URLError, timeout: the network, not an answer from Meta
+        return "error"
     return "live"
 
 
