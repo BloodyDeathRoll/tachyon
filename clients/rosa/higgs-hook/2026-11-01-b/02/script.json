@@ -1,0 +1,57 @@
+{
+  "title": "The ballerina at Waimea",
+  "slug": "ballerina",
+  "character": "a ballerina in a pale pink tutu, pink pointe shoes with ribbons up the ankle, hair in a tight bun, carrying a 10-foot yellow big-wave gun board above her head",
+  "spots": {
+    "a": {
+      "slug": "waimea-bay",
+      "name": "Waimea Bay"
+    },
+    "b": {
+      "slug": "haleiwa",
+      "name": "Haleiwa"
+    }
+  },
+  "joke": "Big-wave day. Allegedly.",
+  "hook": "Flat day? Switch to swim mode",
+  "screens": {
+    "theme": "dark",
+    "steps": [
+      {
+        "go": "/spot/waimea-bay"
+      },
+      {
+        "scroll": 400
+      },
+      {
+        "go": "/settings"
+      },
+      {
+        "tap": "button:text-is('Swim')"
+      },
+      {
+        "wait": 1
+      },
+      {
+        "go": "/spot/waimea-bay"
+      },
+      {
+        "scroll": 500
+      },
+      {
+        "go": "/spot/haleiwa"
+      },
+      {
+        "wait": 1
+      }
+    ]
+  },
+  "end": {
+    "line": "Flat is still a good day in the water",
+    "button": "Switch to swim"
+  },
+  "vo": "When Waimea's flat, I don't sulk. I switch Rosa to swim mode and go in anyway.",
+  "voice": "dia:seed5",
+  "track": "surf-rock-summer",
+  "caption": "Big-wave day. Allegedly.\n\nWhen it's flat, Rosa has a swim mode. Same app, same spots, for every ocean lover.\n\n3,000+ spots, four updates a day, free.\nrosa.surf, link in bio.\n.\n.\n.\n#surfforecast #surfing #surfapp"
+}
