@@ -584,6 +584,29 @@ def test_remove_live_refusal_keeps_it_live(client):
     db.close()
 
 
+def test_sync_marks_reels_deleted_by_hand_removed(client):
+    _live(client)
+    out = publish.sync_removed(client, graph=DeleteGraph(gone=True))
+    assert out == {"checked": 1, "removed": [SLOT], "errors": 0}
+    db = DB.for_client(C.client_dir(client))
+    assert db.post(SLOT)["state"] == "REMOVED"
+    db.close()
+    assert publish.sync_removed(client, graph=DeleteGraph(gone=True))["checked"] == 0   # removed ones are not checked again
+
+
+def test_sync_keeps_reels_that_still_exist_or_cannot_be_checked(client):
+    _live(client)
+    assert publish.sync_removed(client, graph=DeleteGraph())["removed"] == []   # hidden from the grid is still live
+
+    class Down(DeleteGraph):
+        def media(self, mid, fields=None):
+            raise GraphError(190, None, "token expired")
+    assert publish.sync_removed(client, graph=Down())["errors"] == 1
+    db = DB.for_client(C.client_dir(client))
+    assert db.post(SLOT)["state"] == "MEASURING"
+    db.close()
+
+
 def test_remove_live_refuses_unpublished(client):
     with pytest.raises(publish.PublishError, match="not live"):
         publish.remove_live(client, SLOT, graph=DeleteGraph())

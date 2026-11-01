@@ -304,6 +304,33 @@ def remove_live(client: str, slot_id: str, *, graph: Graph | None = None) -> dic
         db.close()
 
 
+def sync_removed(client: str, *, graph: Graph | None = None) -> dict:
+    """Overview → Sync videos: live reels deleted by hand on Instagram become REMOVED here.
+    A reel hidden from the profile grid still exists (still live), so only 'does not exist' counts."""
+    d = C.client_dir(client)
+    db = DB.for_client(d)
+    try:
+        live = [r for r in db.posts() if r["state"] in LIVE and r["ig_media_id"]]
+        if not live:
+            return {"checked": 0, "removed": [], "errors": 0}
+        graph = graph or Graph(C.token(client))
+        removed, errors = [], 0
+        for r in live:
+            try:
+                graph.media(r["ig_media_id"])
+                continue
+            except GraphError as e:
+                if not (e.code == 100 and e.subcode == 33):
+                    errors += 1   # network, token: not proof it is gone
+                    continue
+            db.journal("meta.media.gone", r["slot_id"], {"media": r["ig_media_id"]})
+            db.set_state(r["slot_id"], "REMOVED", note="removed on Instagram by hand")
+            removed.append(r["slot_id"])
+        return {"checked": len(live), "removed": removed, "errors": errors}
+    finally:
+        db.close()
+
+
 def _gone(graph: Graph, media_id: str) -> bool:
     """Meta answers 100/33 ("does not exist") for a reel that was deleted."""
     try:

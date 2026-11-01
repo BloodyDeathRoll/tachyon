@@ -1333,7 +1333,7 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
                 "let f='all';try{f=localStorage.getItem(K)||'all'}catch(_){}if(!document.querySelector(`.filt [data-f='${f}']`))f='all';set(f);})();</script>")
         body = (header(client, "Overview") +
                 f"<div class=ovgrid><div class=maincol>{perf}{vids}</div>"
-                f"<div class=side>{schedule_card(client, (q or {}).get('picked'))}{week_card(client)}{dropped_card(client)}</div></div>")
+                f"<div class=side>{schedule_card(client, (q or {}).get('picked'))}{week_card(client)}{dropped_card(client)}{sync_card(client, (q or {}).get('synced'))}</div></div>")
         return shell(client, "overview", body, "Overview", refresh=30 if count["busy"] or (W.status(client, W.next_week()) or {}).get("state") == "running" else None)
     finally:
         db.close()
@@ -1378,6 +1378,23 @@ def dropped_card(client: str, note: str = "") -> str:
     last = f"<p class=hint>Last export {at} · {num(r['followers'])} followers.</p>" if at else ""
     return (f"<section class=card id=dropped><h2>Followers who dropped</h2>{body}{status}{done}{last}"
             f"<script>{UPLOAD_JS}</script></section>")
+
+
+def sync_card(client: str, synced: str | None = None) -> str:
+    """Overview → Sync videos (spine/publisher/publish.py sync_removed); `synced` is '<removed>-<errors>' or 'err'."""
+    res = ""
+    if synced == "err":
+        res = "<p class=hint style='color:#b42318'>Could not reach Instagram. Try again later.</p>"
+    elif synced and (m := re.fullmatch(r"(\d+)-(\d+)", synced)):
+        n, e = int(m[1]), int(m[2])
+        txt = f"{n} {'video' if n == 1 else 'videos'} marked Removed." if n else "Nothing removed. Every live video is still on Instagram."
+        res = f"<p class=upok>{icon('check', 15)}{ESC(txt)}</p>" + (f"<p class=hint>{e} could not be checked. Try again later.</p>" if e else "")
+    return (f"<section class=card id=sync><h2>Sync</h2>"
+            f"<form method=post action='/{ESC(quote(client))}/sync' class=crow>"
+            f"<p>Find videos that were manually removed from Instagram and update the dashboard.</p>"
+            f"<button class='btn sec'>{icon('redo', 16)}Sync videos</button></form>{res}"
+            + ("<script>history.replaceState(null,'',location.pathname+location.hash)</script>" if res else "")
+            + "</section>")
 
 
 # ── music ─────────────────────────────────────────────────────────────────────
@@ -2388,6 +2405,14 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception:  # noqa: BLE001 — no token or network: say so on the card
                     n = "err"
                 return self._redirect(f"/{quote(name)}?picked={n}")
+            if parts[1] == "sync":   # Overview → Sync videos: reels deleted by hand on Instagram
+                from spine.publisher.publish import sync_removed
+                try:
+                    r = sync_removed(name)
+                    n = f"{len(r['removed'])}-{r['errors']}"
+                except Exception:  # noqa: BLE001 — no token or network: say so on the card
+                    n = "err"
+                return self._redirect(f"/{quote(name)}?synced={n}#sync")
             if parts[1] == "schedule":
                 ts = [t for t in self._multi.get("t", []) if t] or \
                     [form[k] for k in sorted((k for k in form if re.fullmatch(r"t\d+", k)), key=lambda k: int(k[1:])) if form[k]]

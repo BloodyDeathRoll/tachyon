@@ -1077,6 +1077,23 @@ def test_overview_views_header_and_scheduled_stopwatch(server, client_dir):
     assert "class=stw title='Scheduled'" in cal and "<span class='tag sched'>" not in cal   # calendar cells too
 
 
+def test_sync_videos_card_marks_removed_reels(server, monkeypatch):
+    from spine.publisher import publish as P
+    _, body, _ = req(server, "GET", "/demo")
+    assert "Find videos that were manually removed from Instagram and update the dashboard." in body
+    assert "action='/demo/sync'" in body and "Sync videos" in body
+    monkeypatch.setattr(P, "sync_removed", lambda c: {"checked": 3, "removed": ["a", "b"], "errors": 1})
+    status, _, loc = req(server, "POST", "/demo/sync", {})
+    assert status == 303 and loc == "/demo?synced=2-1#sync"
+    _, body, _ = req(server, "GET", "/demo?synced=2-1")
+    assert "2 videos marked Removed." in body and "1 could not be checked" in body
+    _, body, _ = req(server, "GET", "/demo?synced=0-0")
+    assert "Nothing removed." in body
+    monkeypatch.setattr(P, "sync_removed", lambda c: (_ for _ in ()).throw(RuntimeError("no token")))
+    assert req(server, "POST", "/demo/sync", {})[2] == "/demo?synced=err#sync"
+    assert "Could not reach Instagram. Try again later." in req(server, "GET", "/demo?synced=err")[1]
+
+
 def test_look_for_manual_posts_runs_pickup_now(server, monkeypatch):
     from spine import pickup as PK
     _, body, _ = req(server, "GET", "/demo")
