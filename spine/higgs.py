@@ -68,7 +68,8 @@ def check(client: str, batch: str, nn: str, fmt: str = "both") -> list[str]:
         if len(st) != 1 or next(iter(st)) not in STEP_KEYS:
             issues.append(f"screens.steps[{i}] must be one of {sorted(STEP_KEYS)}")
     at = (s.get("screens") or {}).get("at")
-    if at is not None and not (isinstance(at, list) and len(at) == 2 and -90 <= at[0] <= 90 and -180 <= at[1] <= 180):
+    ok = isinstance(at, list) and len(at) == 2 and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in at)
+    if at is not None and not (ok and -90 <= at[0] <= 90 and -180 <= at[1] <= 180):
         issues.append("screens.at must be [lat, lon]")
     if fmt not in FORMATS:
         issues.append(f"format must be one of {sorted(FORMATS)}")

@@ -256,5 +256,8 @@ def test_share_shows_the_spots_own_share_card():
 def test_check_refuses_a_bad_location(hh):
     edit(hh, screens={"steps": [{"go": "/charts"}], "at": [200, 0]})
     assert "screens.at must be [lat, lon]" in H.check("t", "b1", "01", "vertical")
+    for bad in (["a", "b"], [True, False], [1]):
+        edit(hh, screens={"steps": [{"go": "/charts"}], "at": bad})
+        assert "screens.at must be [lat, lon]" in H.check("t", "b1", "01", "vertical")
     edit(hh, screens={"steps": [{"go": "/charts"}], "at": [-7.7, -79.4]})
     assert not any(i.startswith("screens.at") for i in H.check("t", "b1", "01", "vertical"))
