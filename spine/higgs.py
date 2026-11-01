@@ -67,6 +67,10 @@ def check(client: str, batch: str, nn: str, fmt: str = "both") -> list[str]:
     for i, st in enumerate(steps):
         if len(st) != 1 or next(iter(st)) not in STEP_KEYS:
             issues.append(f"screens.steps[{i}] must be one of {sorted(STEP_KEYS)}")
+    at = (s.get("screens") or {}).get("at")
+    ok = isinstance(at, list) and len(at) == 2 and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in at)
+    if at is not None and not (ok and -90 <= at[0] <= 90 and -180 <= at[1] <= 180):
+        issues.append("screens.at must be [lat, lon]")
     if fmt not in FORMATS:
         issues.append(f"format must be one of {sorted(FORMATS)}")
     for ratio in FORMATS.get(fmt, ()):
@@ -89,6 +93,15 @@ def _run(cmd: list[str], cwd: Path = ROOT) -> None:
 
 # the "Spot look wrong?" nudge: marked as shown so it never covers the recording
 NUDGE = "try{localStorage.setItem('rosa.nudge.report',JSON.stringify({started:Date.now(),shown:99,last:Date.now()}))}catch(e){}"
+# a headless browser has no system share sheet: Share slides up Rosa's own share card for the link instead
+SHARE = """navigator.share=async d=>{const u=new URL(d.url,location.href),m=u.pathname.match(/^\\/spot\\/([^/]+)/);
+const w=document.createElement('div'),img=document.createElement('img'),t=document.createElement('b'),l=document.createElement('div');
+w.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:2147483647;padding:16px 16px 34px;background:#1c1c1e;color:#fff;'+
+'border-radius:18px 18px 0 0;font:600 16px Inter,system-ui,sans-serif;transform:translateY(100%);transition:transform .35s ease';
+img.src=m?'/og/spot/'+m[1]+'.jpg':'/og.jpg';img.style.cssText='display:block;width:100%;border-radius:10px;margin-bottom:12px';
+t.textContent=d.title||'';l.textContent=u.host+u.pathname;l.style.cssText='opacity:.6;font-weight:400;font-size:14px;margin-top:4px';
+w.append(img,t,l);document.body.append(w);requestAnimationFrame(()=>requestAnimationFrame(()=>w.style.transform='none'));
+await new Promise(r=>setTimeout(r,2200));w.style.transform='translateY(100%)';setTimeout(()=>w.remove(),400);};"""
 NAVIGATE = "p => { history.pushState(null, '', p); dispatchEvent(new Event('rosa:navigate')); }"   # the app's own router
 W, H = 390, 844
 
@@ -149,6 +162,18 @@ def drive(page, steps: list[dict], base: str, theme: str, warm: bool = False) ->
     return t0 or 0.0
 
 
+def geo(spec: dict) -> dict:
+    """screens.at = [lat, lon]: the phone is there, so the swell map (/charts) opens over that ocean."""
+    at = spec.get("at")
+    return {"geolocation": {"latitude": at[0], "longitude": at[1]}, "permissions": ["geolocation"]} if at else {}
+
+
+def reset(page) -> None:
+    """The app keeps its settings in the browser's storage; clear it between the two passes."""
+    page.evaluate("() => { localStorage.clear(); sessionStorage.clear(); }")
+    page.context.clear_cookies()
+
+
 def speedup(seconds: float) -> float:
     """A recording longer than the screens slot plays faster (up to 1.5x) instead of being cut."""
     return min(max(seconds / SCREENS_MAX, 1.0), 1.5)
@@ -166,8 +191,9 @@ def screens(client: str, batch: str, nn: str) -> Path:
     tmp = d / ".rec"
     shutil.rmtree(tmp, ignore_errors=True)
     opts = dict(viewport={"width": W, "height": H}, device_scale_factor=3, is_mobile=True, has_touch=True,
-                color_scheme="dark" if theme == "dark" else "light", locale="en-GB", timezone_id="UTC", user_agent=CAP.UA)
-    init = CAP.INIT.replace("THEME", theme) + NUDGE
+                color_scheme="dark" if theme == "dark" else "light", locale="en-GB", timezone_id="UTC", user_agent=CAP.UA,
+                **geo(spec))
+    init = CAP.INIT.replace("THEME", theme) + NUDGE + SHARE
     with tempfile.TemporaryDirectory() as profile, sync_playwright() as p:
         for warm in (True, False):
             rec = {} if warm else {"record_video_dir": str(tmp), "record_video_size": {"width": W * 2, "height": H * 2}}
@@ -175,6 +201,8 @@ def screens(client: str, batch: str, nn: str) -> Path:
             ctx.add_init_script(init)
             page = ctx.pages[0] if ctx.pages else ctx.new_page()
             t0 = drive(page, spec["steps"], CAP.BASE[client], theme, warm)
+            if warm:   # keep the HTTP cache, drop what the steps changed (Swim, ft…), so the recording shows the switch
+                reset(page)
             video = None if warm else page.video.path()
             ctx.close()
     out = d / "screens.mp4"
