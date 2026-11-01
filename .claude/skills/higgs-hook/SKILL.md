@@ -97,9 +97,11 @@ Check before saving: every noun in a camera line appears in that scene's setting
 A real recording of the live app (`spine.higgs screens`), one key per step:
 `go` (path), `wait` (s), `scroll` (px, page), `zoom` (map zoom steps: positive out,
 negative in), `swipe` (`left`/`right`, the forecast days), `tap` (CSS selector).
-Find selectors on the live app before using `tap`. Optional `screens.at: [lat, lon]` puts the phone there, so `/charts` opens over
-that ocean (default: Europe and Africa). `tap button.spot-top-share` slides up the spot's share card. Spot flow recipe that works: `go /spot/<A>` → `scroll` → `tap button.accent-link` (map flies to A) →
-`zoom 4` (out) → `go /spot/<B>` → `tap button.accent-link` (map flies in to B) → `go /spot/<B>` →
+Find selectors on the live app before using `tap`. Optional `screens.at: [lat, lon]` puts the phone
+there, so `/charts` opens over that ocean (default: Europe and Africa). `tap button.spot-top-share`
+slides up the spot's share card. Spot flow recipe that works: `go /spot/<A>` → `scroll` →
+`tap button.accent-link` (map flies to A) → `zoom 4` (out) → `go /spot/<B>` →
+`tap button.accent-link` (map flies in to B) → `go /spot/<B>` →
 `swipe left` → `scroll`. Aim for 6–8 s; over 10 s plays up to 1.5x faster, then the template cuts at 10 s.
 
 ## Render ("render <batch>" or "render <batch> <nn>")

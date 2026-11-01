@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import contextlib
 import fcntl
+from concurrent.futures import ThreadPoolExecutor
 import json
 import re
 import sys
@@ -315,29 +316,31 @@ def sync_removed(client: str, *, graph: Graph | None = None) -> dict:
             return {"checked": 0, "removed": [], "errors": 0}
         graph = graph or Graph(C.token(client))
         removed, errors = [], 0
-        for r in live:
-            try:
-                graph.media(r["ig_media_id"])
-                continue
-            except GraphError as e:
-                if not (e.code == 100 and e.subcode == 33):
-                    errors += 1   # network, token: not proof it is gone
-                    continue
-            db.journal("meta.media.gone", r["slot_id"], {"media": r["ig_media_id"]})
-            db.set_state(r["slot_id"], "REMOVED", note="removed on Instagram by hand")
-            removed.append(r["slot_id"])
+        with ThreadPoolExecutor(max_workers=8) as pool:   # one Graph call per reel; the DB stays on this thread
+            states = list(pool.map(lambda r: _media_state(graph, r["ig_media_id"]), live))
+        for r, st in zip(live, states):
+            if st == "error":
+                errors += 1   # network, token: not proof it is gone
+            elif st == "gone":
+                db.journal("meta.media.gone", r["slot_id"], {"media": r["ig_media_id"]})
+                db.set_state(r["slot_id"], "REMOVED", note="removed on Instagram by hand")
+                removed.append(r["slot_id"])
         return {"checked": len(live), "removed": removed, "errors": errors}
     finally:
         db.close()
 
 
-def _gone(graph: Graph, media_id: str) -> bool:
-    """Meta answers 100/33 ("does not exist") for a reel that was deleted."""
+def _media_state(graph: Graph, media_id: str) -> str:
+    """'live', 'gone' (Meta answers 100/33, "does not exist", for a deleted reel) or 'error' (cannot tell)."""
     try:
         graph.media(media_id)
     except GraphError as e:
-        return e.code == 100 and e.subcode == 33
-    return False
+        return "gone" if e.code == 100 and e.subcode == 33 else "error"
+    return "live"
+
+
+def _gone(graph: Graph, media_id: str) -> bool:
+    return _media_state(graph, media_id) == "gone"
 
 
 def _fail(db: DB, slot: Path, slot_id: str, caption: str, first_comment: str, reason: str) -> None:

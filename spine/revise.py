@@ -41,7 +41,18 @@ ALLOWED_HTML = ("Read Edit Write Glob Grep Bash(cp:*) Bash(mkdir:*) Bash(ls:*) B
 def tools(allowed: str) -> list[str]:
     """"Read Bash(npx tsc:*) ..." → one --allowedTools argument per tool: a rule can hold spaces
     ("Bash(.venv/bin/python -m spine.capture:*)"), so a plain split would hand claude "-m"."""
-    return re.findall(r"\w+(?:\([^)]*\))?", allowed)
+    out, cur, depth = [], "", 0
+    for ch in allowed:
+        depth += (ch == "(") - (ch == ")" and depth > 0)
+        if ch.isspace() and not depth:
+            if cur:
+                out.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    if depth:
+        raise ValueError(f"unbalanced parentheses in allowed tools: {allowed!r}")
+    return out + ([cur] if cur else [])
 
 
 def capture_hint(client: str) -> str:

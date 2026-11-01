@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import clients as C
+from . import revise as R
 
 ROOT = Path(__file__).resolve().parent.parent
 REMOTION = ROOT / "engines" / "remotion"
@@ -183,7 +184,6 @@ Edit no other file. Do not render, do not commit. End with one line per layout d
 
 def _make_html(client: str, slot: str, ratio: str, film: dict, src: Path) -> Path:
     """Engine html: Claude re-lays the page out as index-<ratio>.html; spine/render.py captures it at its size."""
-    from . import revise as R
     fdir = ROOT / film["dir"]
     page = fdir / f"index-{ratio}.html"
     _status(client, slot, step="checking")
@@ -236,7 +236,6 @@ def _make_one(client: str, slot: str, ratio: str) -> Path:
         ffile.unlink(missing_ok=True)
         _status(client, slot, step="writing")
         try:
-            from . import revise as R
             _run(["claude", "-p", prompt(fid, ratio), "--allowedTools", *R.tools(ALLOWED), "--permission-mode", "acceptEdits"],
                  cwd=REMOTION, timeout=WRITE_TIMEOUT)
         except Exception:

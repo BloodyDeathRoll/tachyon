@@ -228,8 +228,11 @@ def test_reset_between_passes_drops_app_settings():
         page.route("https://rosa.test/", lambda r: r.fulfill(body="<p>x</p>", content_type="text/html"))
         page.goto("https://rosa.test/")
         page.evaluate("localStorage.setItem('rosa.mode','swim')")
+        page.evaluate("new Promise(r => { const q = indexedDB.open('settings'); q.onsuccess = () => { q.result.close(); r(); }; })")
+        assert page.evaluate("indexedDB.databases().then(d => d.length)") == 1
         H.reset(page)
         assert page.evaluate("localStorage.length") == 0
+        assert page.evaluate("indexedDB.databases().then(d => d.length)") == 0
         b.close()
 
 

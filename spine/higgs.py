@@ -170,7 +170,11 @@ def geo(spec: dict) -> dict:
 
 def reset(page) -> None:
     """The app keeps its settings in the browser's storage; clear it between the two passes."""
-    page.evaluate("() => { localStorage.clear(); sessionStorage.clear(); }")
+    page.evaluate("""async () => {
+        localStorage.clear(); sessionStorage.clear();
+        for (const d of (await indexedDB.databases?.()) ?? []) indexedDB.deleteDatabase(d.name);
+        for (const r of (await navigator.serviceWorker?.getRegistrations?.()) ?? []) await r.unregister();
+    }""")
     page.context.clear_cookies()
 
 
