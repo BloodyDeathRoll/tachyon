@@ -19,31 +19,15 @@ def test_groups_compare_to_typical():
 
 def test_findings_flag_small_samples_and_skip_placeholders():
     vs = [vid(0, 10, "A"), vid(1, 40, "B"), vid(2, 40, "B"), vid(3, 10, "No pillar"), vid(4, 90, "No pillar")]
-    out = I.findings(vs, 20, {"Pillar": I.groups(vs, "pillar", 20)})
-    assert any("B gets 2.0x more" in t and "hint" in t for t in out)
-    assert not any("No pillar" in t for t in out)
+    out = I.findings(vs, 20, {"Topic": I.groups(vs, "pillar", 20)})
+    assert any("B videos: 2.0x the views" in f["text"] and f["pct"] is not None for f in out)
+    assert not any("No pillar" in f["text"] for f in out)
 
 
-def test_recommendations_skip_ones_already_tested():
-    tables = {"Pillar": [{"name": "B", "n": 3, "views": 40, "vs": 2.0, "skip": 50}], "How it was made": [], "Time of day": []}
-    assert [r["variable"] for r in I.recommendations(tables, [])] == ["pillar=B"]
-    assert I.recommendations(tables, [{"variable": "pillar=B", "status": "planned"}]) == []
-
-
-def test_thesis_counts_only_videos_after_it_started():
-    start = T0 + timedelta(days=2, hours=1)
-    exp = {"variable": "pillar=B", "created_at": start.isoformat(), "min_samples": 3}
-    vs = [vid(0, 20), vid(1, 20), vid(2, 40, "B", T0 + timedelta(days=2))]          # last one is before the thesis
-    assert I.thesis_result(exp, vs, 20)["n"] == 0
-    vs += [vid(3, 40, "B"), vid(4, 50, "B"), vid(5, 60, "B")]
-    r = I.thesis_result(exp, vs, 20)
-    assert (r["n"], r["base"], r["verdict"]) == (3, 20, "worked")
-
-
-def test_thesis_verdict_waits_for_enough_videos_and_can_fail():
-    exp = {"variable": "pillar=B", "created_at": T0.isoformat(), "min_samples": 2}
-    assert I.thesis_result(exp, [vid(1, 5, "B")], 20)["verdict"] is None
-    assert I.thesis_result(exp, [vid(1, 5, "B"), vid(2, 6, "B")], 20)["verdict"] == "worse"
+def test_recommendations_only_include_picks_that_beat_typical():
+    vs = [vid(0, 10, "A"), vid(1, 10, "A"), vid(2, 40, "Swell map"), vid(3, 40, "Swell map")]
+    r = I.recommendations(vs, {"Topic": I.groups(vs, "pillar", 20), "How it was made": [], "Time of day": []})
+    assert [(x["title"], x["vs"]) for x in r] == [("Show swell map", 2.0)] and 0 <= r[0]["pct"] <= 99
 
 
 def test_account_week_sums_this_and_previous_seven_days():
@@ -52,13 +36,8 @@ def test_account_week_sums_this_and_previous_seven_days():
     assert I.account_week(days, "views", now) == (7, 70)
 
 
-def test_thesis_with_zero_baseline_does_not_crash_and_stops_at_n_videos():
-    exp = {"variable": "pillar=B", "created_at": (T0 + timedelta(days=3, hours=1)).isoformat(), "min_samples": 2}
-    vs = [vid(0, 0), vid(1, 0), vid(4, 9, "B"), vid(5, 9, "B"), vid(6, 900, "B")]
-    r = I.thesis_result(exp, vs, 0)
-    assert r["verdict"] == "no clear change" and r["n"] == 2 and r["avg"] == 9
-
-
-def test_thesis_start_without_timezone_counts_as_utc():
-    exp = {"variable": "pillar=B", "created_at": "2026-10-27T00:00:00", "min_samples": 1}
-    assert I.thesis_result(exp, [vid(0, 5), vid(3, 9, "B")], 5)["n"] == 1
+def test_certainty_is_high_for_a_clear_gap_low_for_noise_and_none_for_everyone():
+    vs = [vid(i, 10 + i, "A") for i in range(8)] + [vid(8 + i, 100 + i, "B") for i in range(4)]
+    assert I.certainty(vs, "pillar", "B", 1) >= 99 - 1
+    assert I.certainty(vs, "pillar", "A", 1) < 20 and I.certainty(vs, "pillar", "A", 1, lower=True) > 90
+    assert I.certainty(vs, "pillar", "Z", 1) is None

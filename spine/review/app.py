@@ -322,6 +322,7 @@ nav a.on{background:#fff;color:var(--ink);font-weight:600}
 .dot.off{background:#EF4444}
 main{padding:28px 40px 64px;width:100%}
 h1{font-size:28px;line-height:1.15;margin:0;font-weight:700;letter-spacing:-.02em}
+.crow{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 0;border-top:1px solid var(--rule);font-size:15px}.crow:first-of-type{margin-top:12px}.crow.head{border-top:0;padding:0 0 4px}.crow.head em{font-style:normal;font-weight:400;color:var(--ink3);font-size:12px}.crow>span{flex:1}.crow strong{display:block;font-size:16px;font-weight:600}.crow small{display:block;color:var(--ink3);font-size:14px}.crow b{font-size:17px;padding:3px 10px;border-radius:8px;border:1px solid transparent}.crow b.hi{background:rgba(141,240,0,.2);border-color:#8DF000}
 .ins-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:20px}
 .ins-cols h3,.ins h3{margin:0 0 4px;font-size:16px}
 .ins-list{list-style:none;margin:10px 0 0;padding:0}
@@ -2214,36 +2215,27 @@ def _vid_li(v: dict) -> str:
             f"<b>{v['views']}</b></li>")
 
 
-def _next_card(client: str, exps: list[dict], res: dict, recs: list[dict]) -> str:
-    def line(e):
-        r = res[e["id"]]
-        if e["status"] == "decided":
-            tag = {"worked": "<b class=up>Worked</b>", "worse": "<b class=down>Worse</b>"}.get(e["verdict"], "<b>No clear change</b>")
-            return (f"<li><span>{ESC(r['value'])}<small>{ESC(I.KEYS[r['key']])} · {r['n']} videos averaged {r['avg']:.0f} first-day views "
-                    f"vs {r['base']:.0f} typical before ({'no baseline' if r['ratio'] is None else format(r['ratio'], '.1f') + 'x'})</small></span>{tag}</li>")
-        got = f"{r['avg']:.0f} avg so far vs {r['base']:.0f} typical" if r["avg"] is not None else f"typical is {r['base']:.0f}"
-        return (f"<li><span>{ESC(r['value'])}<small>{ESC(I.KEYS[r['key']])} · {got}</small></span>"
-                f"<b>{r['n']} of {r['need']} videos</b></li>")
-    running = [e for e in exps if e["status"] != "decided"]
-    done = [e for e in exps if e["status"] == "decided"]
-    c = f"/{ESC(quote(client))}/thesis"
-    rec = "".join(
-        f"<li><span>{ESC(x['text'])}<small>{ESC(x['label'])} · {x['n']} videos so far average {x['vs']:.1f}x the typical video</small></span>"
-        f"<form method=post action='{c}'><input type=hidden name=variable value='{ESC(x['variable'])}'>"
-        f"<button class='btn sec small'>Test this</button></form></li>" for x in recs)
-    parts = []
-    if running:
-        parts.append(f"<h3>Being tested</h3><ul class=ins-list>{''.join(line(e) for e in running)}</ul>")
-    if rec:
-        parts.append(f"<h3 style='margin-top:18px'>Try next</h3><ul class=ins-list>{rec}</ul>")
-    if done:
-        parts.append(f"<h3 style='margin-top:18px'>Results</h3><ul class=ins-list>{''.join(line(e) for e in done)}</ul>")
-    if not parts:
-        parts.append("<p class=muted>No recommendation yet: no group is clearly ahead of the typical video.</p>")
-    return ("<section class='card ins-card' id=next><h3>Next video</h3>"
-            "<p class=muted style='margin:2px 0 0;font-size:13.5px'>Pick an idea to test. Videos published from then on that match it are counted, "
-            "and after 3 of them we compare their first day with the typical video before.</p>"
-            f"{''.join(parts)}</section>")
+def _pct(p: int | None) -> str:
+    if p is None:
+        return "<b>–</b>"
+    return f"<b class='{'hi' if p >= 90 else ''}'>{p}%</b>"
+
+
+def _rows(items: list[tuple[str, str, int | None]], empty: str, plain: bool = False) -> str:
+    if not items:
+        return f"<p class=muted>{empty}</p>"
+    return ("<div class='crow head'><span></span><em>Certainty</em></div>" +
+            "".join(f"<div class='crow'><span>{ESC(t) if plain else f'<strong>{ESC(t)}</strong>'}"
+                    f"{f'<small>{ESC(r)}</small>' if r else ''}</span>{_pct(p)}</div>" for t, r, p in items))
+
+
+def _recs_card(recs: list[dict]) -> str:
+    rows = _rows([(r["title"], f"{r['vs']:.1f}x views", r["pct"]) for r in recs], "Nothing beats the typical video yet.")
+    return f"<section class=card><h2>Recommendations</h2>{rows}</section>"
+
+
+def _patterns_card(found: list[dict]) -> str:
+    return f"<section class=card><h2>Patterns</h2>{_rows([(f['text'], '', f['pct']) for f in found], 'No clear gaps between groups yet.', plain=True)}</section>"
 
 
 def render_insights(client: str) -> bytes:
@@ -2273,32 +2265,22 @@ def render_insights(client: str) -> bytes:
             return shell(client, "insights", body, "Insights")
         ranked = sorted(vs, key=lambda v: -v["views"])
         k = min(3, len(vs) // 2)
-        tables = {"Pillar": I.groups(vs, "pillar", typical), "How it was made": I.groups(vs, "engine", typical),
+        tables = {"Topic": I.groups(vs, "pillar", typical), "How it was made": I.groups(vs, "engine", typical),
                   "Time of day": I.groups(vs, "part", typical)}
         found = I.findings(vs, typical, tables)
         wk = I.weeks(vs)
-        exps = [dict(r) for r in db.conn.execute("SELECT * FROM experiments ORDER BY created_at DESC")
-                if r["variable"].partition("=")[0] in I.KEYS]   # the table is shared: only our pillar=/engine=/part= rows
-        res = {e["id"]: I.thesis_result(e, vs, typical) for e in exps}
-        for e in exps:   # freeze the verdict the moment there are enough videos
-            if e["status"] != "decided" and res[e["id"]]["verdict"]:
-                db.decide_experiment(e["id"], res[e["id"]]["verdict"], res[e["id"]]["n"] < 2 * I.MIN_N)
-                e["status"], e["verdict"] = "decided", res[e["id"]]["verdict"]
-        recs = I.recommendations(tables, exps)
-        nxt = _next_card(client, exps, res, recs)
+        nxt = _recs_card(I.recommendations(vs, tables))
         wk_rows = "".join(f"<tr><td>{w['week']}</td><td>{w['n']}</td><td>{w['views']:.0f}</td><td>{w['total']}</td></tr>" for w in reversed(wk))
-        why = ("<ul class=ins-find>" + "".join(f"<li>{ESC(t)}</li>" for t in found) + "</ul>") if found else \
-            "<p class=muted>No clear gaps between groups yet.</p>"
-        body = (header(client, "Insights") +
-                f"<section class=card><div class=stats>{stats}</div>"
-                f"<h3>Views in the first day, per video</h3><p class=muted style='margin:2px 0 10px;font-size:13.5px'>Green is above the typical video (dashed line). Every video is judged on its first 24 hours so new and old compare fairly.</p>"
-                f"{_videos_chart(vs, typical)}</section>"
+        perf = (f"<section class='card perf'><div class=perfin><div><h2>Performance</h2><div class=stats>{stats}</div></div>"
+                "<div><h3>First day, per video</h3><p class=muted style='margin:2px 0 8px;font-size:13px'>Green beats the typical video (dashed). "
+                f"Every video is judged on its first 24 hours.</p>{_videos_chart(vs, typical, 600, 170)}</div></div></section>")
+        pat = _patterns_card(found)
+        main = (perf +
                 f"<div class=ins-cols><section class=card><h3>What works</h3><ul class=ins-list>{''.join(_vid_li(v) for v in ranked[:k])}</ul></section>"
                 f"<section class=card><h3>What does not</h3><ul class=ins-list>{''.join(_vid_li(v) for v in ranked[::-1][:k])}</ul></section></div>"
-                f"{nxt}<section class='card ins-card'><h3>What stands out</h3>{why}"
-                "<p class=muted style='font-size:12.5px;margin:12px 0 0'>These are patterns, not proof. Instagram does not say why a video did well; with few videos, one lucky post can move a group.</p></section>"
                 f"<div class=ins-cols>{''.join(f'<section class=card><h3>{ESC(t)}</h3>{_group_table(r)}</section>' for t, r in tables.items())}"
                 f"<section class=card><h3>Week by week</h3><table class=ins-tab><tr><th></th><th>Videos</th><th>Avg views</th><th>Total</th></tr>{wk_rows}</table></section></div>")
+        body = header(client, "Insights") + f"<div class=ovgrid><div class=maincol>{main}</div><div class=side>{nxt}{pat}</div></div>"
         return shell(client, "insights", body, "Insights")
     finally:
         db.close()
@@ -2568,20 +2550,6 @@ class Handler(BaseHTTPRequestHandler):
             if parts[1] == "flag":
                 C.set_flag(name, form["flag"], form["value"] == "1")
                 return self._redirect(f"/{quote(name)}/settings")
-            if parts[1] == "thesis":   # Insights → Test this
-                key, _, val = form["variable"].partition("=")
-                if key in I.KEYS and val:
-                    db = DB.for_client(d)
-                    try:
-                        y, w, _ = datetime.now().isocalendar()
-                        db.add_experiment(f"{y}-W{w:02d}-{key}-{re.sub(r'[^a-z0-9]+', '-', val.lower()).strip('-')}-{datetime.now():%H%M%S}", f"{y}-W{w:02d}",
-                                          form["variable"], f"More {I.KEYS[key].lower()}: {val} lifts first-day views",
-                                          "views_24h", "skip_rate", 14, 3)
-                    except sqlite3.IntegrityError:
-                        pass   # already testing this one
-                    finally:
-                        db.close()
-                return self._redirect(f"/{quote(name)}/insights#next")
             if parts[1] == "pickup":   # "Look for manual posts": the hourly pickup, now
                 from spine import pickup as PK
                 try:
