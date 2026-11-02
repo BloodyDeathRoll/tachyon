@@ -27,6 +27,7 @@ import sys
 from datetime import date, datetime, time, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from statistics import median
 from urllib.parse import parse_qs, quote, urlparse
 from zoneinfo import ZoneInfo
 
@@ -37,6 +38,7 @@ from .. import manual as M
 from .. import revise as R
 from .. import schedule as SCH
 from .. import week as W
+from . import insights as I
 from ..db import DB
 from ..state import IllegalTransition
 from ..publisher.publish import HAND_FROM
@@ -277,6 +279,7 @@ def icon(name: str, size: int = 18) -> str:
         "clock": '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
         "link": '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
         "timer": '<line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/>',
+        "chart": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 16V9"/><path d="M12 16V5"/><path d="M17 16v-5"/>',
         "pause": '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
     }
     return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
@@ -304,7 +307,7 @@ aside{background:var(--side);color:#fff;padding:28px 12px 16px;display:flex;flex
 .proj summary{list-style:none;display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid #2C2C2C;background:var(--side2);border-radius:12px;cursor:pointer}
 .proj summary::-webkit-details-marker{display:none}
 .proj summary:hover{border-color:#444}
-.av{width:32px;height:32px;border-radius:9px;background:var(--lime);color:var(--ink);display:grid;place-items:center;font-weight:800;flex:none}
+.av{object-fit:cover;width:32px;height:32px;border-radius:9px;background:var(--lime);color:var(--ink);display:grid;place-items:center;font-weight:800;flex:none}
 .proj b{display:block;font-size:14.5px;line-height:1.2;color:#fff}.proj small{color:var(--sideink);font-size:12.5px}
 .proj .chev{margin-left:auto;color:var(--sideink)}
 .proj ul{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--side2);border:1px solid #2C2C2C;border-radius:12px;list-style:none;margin:0;padding:6px;z-index:5}
@@ -319,6 +322,22 @@ nav a.on{background:#fff;color:var(--ink);font-weight:600}
 .dot.off{background:#EF4444}
 main{padding:28px 40px 64px;width:100%}
 h1{font-size:28px;line-height:1.15;margin:0;font-weight:700;letter-spacing:-.02em}
+.ins-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:20px}
+.ins-cols h3,.ins h3{margin:0 0 4px;font-size:16px}
+.ins-list{list-style:none;margin:10px 0 0;padding:0}
+.ins-list li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--rule);font-size:14.5px}
+.ins-list li:first-child{border-top:0}.ins-list small{display:block;color:var(--ink3);font-size:12.5px}
+.ins-list b{white-space:nowrap}
+.ins-find{margin:10px 0 0;padding:0 0 0 18px;font-size:14.5px;line-height:1.6}
+.ins-tab{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}
+.ins-tab th{color:var(--ink3);font-weight:500;text-align:right;font-size:12.5px;padding:6px 0}
+.ins-tab td{text-align:right;padding:9px 0;border-top:1px solid var(--rule)}
+.ins-tab th:first-child,.ins-tab td:first-child{text-align:left}
+.ins-tab .few{color:var(--ink3);font-size:12px}
+.up{color:#2e7d32}.down{color:#c62828}
+.ins-card{margin-top:20px}.ins-card svg{width:100%;height:auto;font-size:11px;fill:var(--ink3)}
+@media(max-width:800px){.ins-cols{grid-template-columns:1fr}}
+
 .sub{color:var(--ink3);margin:6px 0 24px;font-size:14.5px}
 .sub b{color:var(--ink);font-weight:600}
 .card{background:var(--card);border-radius:var(--r);border:1px solid var(--rule);padding:24px}
@@ -768,22 +787,29 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!m.hidden)close();}
 """
 
 
+def avatar(client: str) -> str:
+    if (ROOT / "clients" / client / "assets" / "icon.png").exists():
+        return f"<img class=av src='/static/avatar/{ESC(quote(client))}.png' alt=''>"
+    return f"<span class=av>{ESC(display(client)['name'][:1])}</span>"
+
+
 def shell(client: str, active: str, body: str, title: str, refresh: int | None = None) -> bytes:
     d = display(client)
     others = "".join(
-        f"<li><a href='/{ESC(quote(c))}'><span class=av>{ESC(display(c)['name'][:1])}</span>{ESC(display(c)['name'])}</a></li>"
+        f"<li><a href='/{ESC(quote(c))}'>{avatar(c)}{ESC(display(c)['name'])}</a></li>"
         for c in C.list_clients())
     handle = f"<small>@{ESC(d['handle'])}</small>" if d["handle"] else ""
     nav = "".join(
         f"<a href='/{ESC(quote(client))}{href}' class='{'on' if key == active else ''}'>{icon(ic)}{label}</a>"
         for key, href, ic, label in (("overview", "", "grid", "Overview"), ("calendar", "/calendar", "cal", "Calendar"),
+                                    ("insights", "/insights", "chart", "Insights"),
                                     ("settings", "/settings", "sliders", "Settings")))
     status = ("<span class='dot off'></span>Emergency stop is on" if d["stop"] else "<span class=dot></span>Running")
     meta_refresh = f"<meta http-equiv=refresh content={refresh}>" if refresh else ""
     html_ = (f"<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>"
              f"{meta_refresh}<title>{ESC(title)} · {ESC(d['name'])} · Tachyon</title><link rel=icon href='/static/icon.svg'><style>{CSS}</style>"
              f"<div class=shell><aside><a class=brand href='/'><img src='/static/logo.svg' alt='Tachyon'></a>"
-             f"<details class=proj><summary><span class=av>{ESC(d['name'][:1])}</span><span><b>{ESC(d['name'])}</b>{handle}</span>"
+             f"<details class=proj><summary>{avatar(client)}<span><b>{ESC(d['name'])}</b>{handle}</span>"
              f"<span class=chev>{icon('chev', 16)}</span></summary><ul>{others}</ul></details>"
              f"<nav>{nav}</nav><div class=foot>{status}</div></aside><main>{body}</main></div>"
              f"<div class=pvm id=pvm hidden><div class=pvbox><video controls playsinline></video>"
@@ -2139,6 +2165,144 @@ def render_qa(client: str, slot: str) -> bytes:
         db.close()
 
 
+def _delta(now_v, before) -> str:
+    if now_v is None or not before:
+        return ""
+    p = (now_v - before) / before * 100
+    if abs(p) > 500:
+        return f"up from {num(before)} the week before" if p > 0 else f"down from {num(before)} the week before"
+    return f"<span class='{'up' if p >= 0 else 'down'}'>{'+' if p >= 0 else ''}{p:.0f}%</span> vs the week before"
+
+
+def _videos_chart(vs: list[dict], typical: float, W: int = 960, H: int = 220) -> str:
+    n = len(vs)
+    top = max([v["views"] for v in vs] + [1])
+    L, B, T = 30, 24, 10
+    bw = (W - L) / n
+    y = lambda v: H - B - (H - B - T) * v / top  # noqa: E731
+    out = [f"<svg viewBox='0 0 {W} {H}' role=img aria-label='Views in the first day, per video'>",
+           f"<line x1={L} x2={W} y1={y(typical):.1f} y2={y(typical):.1f} stroke='#111' stroke-dasharray='4 4'/>"
+           f"<text x=0 y={y(typical) + 4:.1f}>{num(typical)}</text>"]
+    for i, v in enumerate(vs):
+        x = L + i * bw
+        h = H - B - y(v["views"])
+        out.append(f"<rect x={x + bw * .15:.1f} y={y(v['views']):.1f} width={bw * .7:.1f} height={max(h, 1):.1f} rx=4 "
+                   f"fill='{'#8DF000' if v['views'] >= typical else '#D9D9D9'}'>"
+                   f"<title>{ESC(v['title'])} · {v['at'].strftime('%-d %b')}: {v['views']} views, {v['reach']} reached</title></rect>")
+        if i % max(1, n // 8) == 0 or i == n - 1:
+            out.append(f"<text x={x + bw / 2:.1f} y={H - 6} text-anchor=middle>{v['at'].strftime('%-d %b')}</text>")
+    out.append("</svg>")
+    return "".join(out)
+
+
+def _group_table(rows: list[dict]) -> str:
+    def vs(r):
+        if r["vs"] is None:
+            return ""
+        return f"<span class={'up' if r['vs'] >= 1 else 'down'}>{r['vs']:.1f}x</span>"
+    body = "".join(
+        f"<tr><td>{ESC(r['name'])}{'' if r['n'] >= I.MIN_N else ' <span class=few>few videos</span>'}</td><td>{r['n']}</td>"
+        f"<td>{r['views']:.0f}</td><td>{vs(r)}</td>"
+        f"<td>{'–' if r['skip'] is None else format(r['skip'], '.0f') + '%'}</td></tr>" for r in rows)
+    return ("<table class=ins-tab><tr><th></th><th>Videos</th><th>Avg views</th><th>vs typical</th><th>Skipped</th></tr>"
+            f"{body}</table>")
+
+
+def _vid_li(v: dict) -> str:
+    skip = "" if v["skip"] is None else f" · {v['skip']:.0f}% skipped"
+    return (f"<li><span>{ESC(v['title'])}<small>{v['at'].strftime('%-d %b')} · {v['reach']} reached{skip} · {v['inter']} interaction{'' if v['inter'] == 1 else 's'}</small></span>"
+            f"<b>{v['views']}</b></li>")
+
+
+def _next_card(client: str, exps: list[dict], res: dict, recs: list[dict]) -> str:
+    def line(e):
+        r = res[e["id"]]
+        if e["status"] == "decided":
+            tag = {"worked": "<b class=up>Worked</b>", "worse": "<b class=down>Worse</b>"}.get(e["verdict"], "<b>No clear change</b>")
+            return (f"<li><span>{ESC(r['value'])}<small>{ESC(I.KEYS[r['key']])} · {r['n']} videos averaged {r['avg']:.0f} first-day views "
+                    f"vs {r['base']:.0f} typical before ({r['ratio']:.1f}x)</small></span>{tag}</li>")
+        got = f"{r['avg']:.0f} avg so far vs {r['base']:.0f} typical" if r["avg"] is not None else f"typical is {r['base']:.0f}"
+        return (f"<li><span>{ESC(r['value'])}<small>{ESC(I.KEYS[r['key']])} · {got}</small></span>"
+                f"<b>{r['n']} of {r['need']} videos</b></li>")
+    running = [e for e in exps if e["status"] != "decided"]
+    done = [e for e in exps if e["status"] == "decided"]
+    c = f"/{ESC(quote(client))}/thesis"
+    rec = "".join(
+        f"<li><span>{ESC(x['text'])}<small>{ESC(x['label'])} · {x['n']} videos so far average {x['vs']:.1f}x the typical video</small></span>"
+        f"<form method=post action='{c}'><input type=hidden name=variable value='{ESC(x['variable'])}'>"
+        f"<button class='btn sec small'>Test this</button></form></li>" for x in recs)
+    parts = []
+    if running:
+        parts.append(f"<h3>Being tested</h3><ul class=ins-list>{''.join(line(e) for e in running)}</ul>")
+    if rec:
+        parts.append(f"<h3 style='margin-top:18px'>Try next</h3><ul class=ins-list>{rec}</ul>")
+    if done:
+        parts.append(f"<h3 style='margin-top:18px'>Results</h3><ul class=ins-list>{''.join(line(e) for e in done)}</ul>")
+    if not parts:
+        parts.append("<p class=muted>No recommendation yet: no group is clearly ahead of the typical video.</p>")
+    return ("<section class='card ins-card' id=next><h3>Next video</h3>"
+            "<p class=muted style='margin:2px 0 0;font-size:13.5px'>Pick an idea to test. Videos published from then on that match it are counted, "
+            "and after 3 of them we compare their first day with the typical video before.</p>"
+            f"{''.join(parts)}</section>")
+
+
+def render_insights(client: str) -> bytes:
+    d = C.client_dir(client)
+    db = DB.for_client(d)
+    try:
+        refresh_account(client, db)
+        now = datetime.now(timezone.utc)
+        vs = I.videos(db, _zone(), lambda r: title_of(client, r))
+        days = account_days(db)
+        views_w, views_p = I.account_week(days, "views", now)
+        reach_w, reach_p = I.account_week(days, "reach", now)
+        fol = days[-1].get("followers_count") if days else None
+        fol_then = next((x.get("followers_count") for x in reversed(days) if x["date"] <= (now - timedelta(days=7)).date().isoformat()), None)
+        typical = median(v["views"] for v in vs) if vs else 0
+        stats = "".join(
+            f"<div class=stat><span>{lab}</span><strong>{num(v)}</strong><small>{note or '&nbsp;'}</small></div>"
+            for lab, v, note in (
+                ("Views", views_w, _delta(views_w, views_p) or "last 7 days"),
+                ("Reached", reach_w, _delta(reach_w, reach_p) or "last 7 days"),
+                ("Followers", fol, (f"{fol - fol_then:+d} this week" if fol is not None and fol_then is not None else "now")),
+                ("Typical video", typical if vs else None, "views in the first day"),
+            ))
+        if len(vs) < 3:
+            body = (header(client, "Insights") + f"<section class=card><div class=stats>{stats}</div>"
+                    "<p class=muted>Not enough videos with a full first day yet. This page fills in as videos are measured.</p></section>")
+            return shell(client, "insights", body, "Insights")
+        ranked = sorted(vs, key=lambda v: -v["views"])
+        k = min(3, len(vs) // 2)
+        tables = {"Pillar": I.groups(vs, "pillar", typical), "How it was made": I.groups(vs, "engine", typical),
+                  "Time of day": I.groups(vs, "part", typical)}
+        found = I.findings(vs, typical, tables)
+        wk = I.weeks(vs)
+        exps = [dict(r) for r in db.conn.execute("SELECT * FROM experiments ORDER BY created_at DESC")]
+        res = {e["id"]: I.thesis_result(e, vs, typical) for e in exps}
+        for e in exps:   # freeze the verdict the moment there are enough videos
+            if e["status"] != "decided" and res[e["id"]]["verdict"]:
+                db.decide_experiment(e["id"], res[e["id"]]["verdict"], res[e["id"]]["n"] < 2 * I.MIN_N)
+                e["status"] = "decided"
+        recs = I.recommendations(tables, exps)
+        nxt = _next_card(client, exps, res, recs)
+        wk_rows = "".join(f"<tr><td>{w['week']}</td><td>{w['n']}</td><td>{w['views']:.0f}</td><td>{w['total']}</td></tr>" for w in reversed(wk))
+        why = ("<ul class=ins-find>" + "".join(f"<li>{ESC(t)}</li>" for t in found) + "</ul>") if found else \
+            "<p class=muted>No clear gaps between groups yet.</p>"
+        body = (header(client, "Insights") +
+                f"<section class=card><div class=stats>{stats}</div>"
+                f"<h3>Views in the first day, per video</h3><p class=muted style='margin:2px 0 10px;font-size:13.5px'>Green is above the typical video (dashed line). Every video is judged on its first 24 hours so new and old compare fairly.</p>"
+                f"{_videos_chart(vs, typical)}</section>"
+                f"<div class=ins-cols><section class=card><h3>What works</h3><ul class=ins-list>{''.join(_vid_li(v) for v in ranked[:k])}</ul></section>"
+                f"<section class=card><h3>What does not</h3><ul class=ins-list>{''.join(_vid_li(v) for v in ranked[::-1][:k])}</ul></section></div>"
+                f"{nxt}<section class='card ins-card'><h3>What stands out</h3>{why}"
+                "<p class=muted style='font-size:12.5px;margin:12px 0 0'>These are patterns, not proof. Instagram does not say why a video did well; with few videos, one lucky post can move a group.</p></section>"
+                f"<div class=ins-cols>{''.join(f'<section class=card><h3>{ESC(t)}</h3>{_group_table(r)}</section>' for t, r in tables.items())}"
+                f"<section class=card><h3>Week by week</h3><table class=ins-tab><tr><th></th><th>Videos</th><th>Avg views</th><th>Total</th></tr>{wk_rows}</table></section></div>")
+        return shell(client, "insights", body, "Insights")
+    finally:
+        db.close()
+
+
 def render_settings(client: str) -> bytes:
     g = C.load_grants(client)
     names = {"auto_reply.comments": ("Reply to comments", "Answers comments under our own posts without asking."),
@@ -2252,6 +2416,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._file(LOGO, "image/svg+xml")
             if parts == ["static", "icon.svg"] and ICON.exists():
                 return self._file(ICON, "image/svg+xml")
+            if len(parts) == 3 and parts[:2] == ["static", "avatar"] and parts[2].endswith(".png"):
+                f = ROOT / "clients" / Path(parts[2][:-4]).name / "assets" / "icon.png"
+                if f.exists():
+                    return self._file(f, "image/png")
             name = parts[0]
             C.client_dir(name)
             if len(parts) == 1:
@@ -2267,6 +2435,8 @@ class Handler(BaseHTTPRequestHandler):
                 if q.get("view") == "month":
                     return self._send(200, render_month(name, q.get("m"), q.get("hl")))
                 return self._send(200, render_calendar(name, q.get("w"), q.get("hl")))
+            if parts[1] == "insights" and len(parts) == 2:
+                return self._send(200, render_insights(name))
             if parts[1] == "settings" and len(parts) == 2:
                 return self._send(200, render_settings(name))
             if len(parts) == 2 and parts[1] == "pulling":
@@ -2397,6 +2567,20 @@ class Handler(BaseHTTPRequestHandler):
             if parts[1] == "flag":
                 C.set_flag(name, form["flag"], form["value"] == "1")
                 return self._redirect(f"/{quote(name)}/settings")
+            if parts[1] == "thesis":   # Insights → Test this
+                key, _, val = form["variable"].partition("=")
+                if key in I.KEYS and val:
+                    db = DB.for_client(d)
+                    try:
+                        y, w, _ = datetime.now().isocalendar()
+                        db.add_experiment(f"{y}-W{w:02d}-{key}-{re.sub(r'[^a-z0-9]+', '-', val.lower()).strip('-')}", f"{y}-W{w:02d}",
+                                          form["variable"], f"More {I.KEYS[key].lower()}: {val} lifts first-day views",
+                                          "views_24h", "skip_rate", 14, 3)
+                    except sqlite3.IntegrityError:
+                        pass   # already testing this one
+                    finally:
+                        db.close()
+                return self._redirect(f"/{quote(name)}/insights#next")
             if parts[1] == "pickup":   # "Look for manual posts": the hourly pickup, now
                 from spine import pickup as PK
                 try:
