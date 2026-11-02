@@ -120,12 +120,14 @@ def thesis_result(exp: dict, vs: list[dict], typical: float) -> dict:
     start = _ts(exp["created_at"])
     before = [v["views"] for v in vs if start and v["at"] < start]
     base = median(before) if before else typical
-    got = [v["views"] for v in vs if start and v["at"] >= start and v.get(key) == val]
+    got = [v["views"] for v in vs if start and v["at"] >= start and v.get(key) == val][:exp["min_samples"]]   # the first N decide it
     avg = mean(got) if got else None
     ratio = avg / base if avg is not None and base else None
     n, need = len(got), exp["min_samples"]
     if n < need:
         verdict = None
+    elif ratio is None:
+        verdict = "no clear change"   # nothing to compare against (typical was 0)
     else:
         verdict = "worked" if ratio >= LIFT else "worse" if ratio <= DROP else "no clear change"
     return {"key": key, "value": val, "n": n, "need": need, "avg": avg, "base": base, "ratio": ratio, "verdict": verdict}

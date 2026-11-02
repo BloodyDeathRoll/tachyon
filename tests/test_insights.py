@@ -50,3 +50,10 @@ def test_account_week_sums_this_and_previous_seven_days():
     now = datetime(2026, 11, 2, tzinfo=UTC)
     days = [{"date": (now - timedelta(days=i)).date().isoformat(), "views": 1 if i < 7 else 10} for i in range(14)]
     assert I.account_week(days, "views", now) == (7, 70)
+
+
+def test_thesis_with_zero_baseline_does_not_crash_and_stops_at_n_videos():
+    exp = {"variable": "pillar=B", "created_at": (T0 + timedelta(days=3, hours=1)).isoformat(), "min_samples": 2}
+    vs = [vid(0, 0), vid(1, 0), vid(4, 9, "B"), vid(5, 9, "B"), vid(6, 900, "B")]
+    r = I.thesis_result(exp, vs, 0)
+    assert r["verdict"] == "no clear change" and r["n"] == 2 and r["avg"] == 9

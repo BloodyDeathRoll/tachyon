@@ -2220,7 +2220,7 @@ def _next_card(client: str, exps: list[dict], res: dict, recs: list[dict]) -> st
         if e["status"] == "decided":
             tag = {"worked": "<b class=up>Worked</b>", "worse": "<b class=down>Worse</b>"}.get(e["verdict"], "<b>No clear change</b>")
             return (f"<li><span>{ESC(r['value'])}<small>{ESC(I.KEYS[r['key']])} · {r['n']} videos averaged {r['avg']:.0f} first-day views "
-                    f"vs {r['base']:.0f} typical before ({r['ratio']:.1f}x)</small></span>{tag}</li>")
+                    f"vs {r['base']:.0f} typical before ({'no baseline' if r['ratio'] is None else format(r['ratio'], '.1f') + 'x'})</small></span>{tag}</li>")
         got = f"{r['avg']:.0f} avg so far vs {r['base']:.0f} typical" if r["avg"] is not None else f"typical is {r['base']:.0f}"
         return (f"<li><span>{ESC(r['value'])}<small>{ESC(I.KEYS[r['key']])} · {got}</small></span>"
                 f"<b>{r['n']} of {r['need']} videos</b></li>")
@@ -2277,12 +2277,13 @@ def render_insights(client: str) -> bytes:
                   "Time of day": I.groups(vs, "part", typical)}
         found = I.findings(vs, typical, tables)
         wk = I.weeks(vs)
-        exps = [dict(r) for r in db.conn.execute("SELECT * FROM experiments ORDER BY created_at DESC")]
+        exps = [dict(r) for r in db.conn.execute("SELECT * FROM experiments ORDER BY created_at DESC")
+                if r["variable"].partition("=")[0] in I.KEYS]   # the table is shared: only our pillar=/engine=/part= rows
         res = {e["id"]: I.thesis_result(e, vs, typical) for e in exps}
         for e in exps:   # freeze the verdict the moment there are enough videos
             if e["status"] != "decided" and res[e["id"]]["verdict"]:
                 db.decide_experiment(e["id"], res[e["id"]]["verdict"], res[e["id"]]["n"] < 2 * I.MIN_N)
-                e["status"] = "decided"
+                e["status"], e["verdict"] = "decided", res[e["id"]]["verdict"]
         recs = I.recommendations(tables, exps)
         nxt = _next_card(client, exps, res, recs)
         wk_rows = "".join(f"<tr><td>{w['week']}</td><td>{w['n']}</td><td>{w['views']:.0f}</td><td>{w['total']}</td></tr>" for w in reversed(wk))
