@@ -5,7 +5,7 @@ young video is never judged against an old one. No LLM, no writes.
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from statistics import mean, median
 
 MIN_N = 3   # PLAN §7: fewer samples than this on a side is a hint, not a result
@@ -118,6 +118,8 @@ def thesis_result(exp: dict, vs: list[dict], typical: float) -> dict:
     """Videos published since the thesis started that match its rule, against the typical video before it."""
     key, _, val = exp["variable"].partition("=")
     start = _ts(exp["created_at"])
+    if start and start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
     before = [v["views"] for v in vs if start and v["at"] < start]
     base = median(before) if before else typical
     got = [v["views"] for v in vs if start and v["at"] >= start and v.get(key) == val][:exp["min_samples"]]   # the first N decide it

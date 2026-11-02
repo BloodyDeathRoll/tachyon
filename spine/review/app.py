@@ -2174,14 +2174,14 @@ def _delta(now_v, before) -> str:
     return f"<span class='{'up' if p >= 0 else 'down'}'>{'+' if p >= 0 else ''}{p:.0f}%</span> vs the week before"
 
 
-def _videos_chart(vs: list[dict], typical: float, W: int = 960, H: int = 220) -> str:
+def _videos_chart(vs: list[dict], typical: float, width: int = 960, H: int = 220) -> str:
     n = len(vs)
     top = max([v["views"] for v in vs] + [1])
     L, B, T = 30, 24, 10
-    bw = (W - L) / n
+    bw = (width - L) / n
     y = lambda v: H - B - (H - B - T) * v / top  # noqa: E731
-    out = [f"<svg viewBox='0 0 {W} {H}' role=img aria-label='Views in the first day, per video'>",
-           f"<line x1={L} x2={W} y1={y(typical):.1f} y2={y(typical):.1f} stroke='#111' stroke-dasharray='4 4'/>"
+    out = [f"<svg viewBox='0 0 {width} {H}' role=img aria-label='Views in the first day, per video'>",
+           f"<line x1={L} x2={width} y1={y(typical):.1f} y2={y(typical):.1f} stroke='#111' stroke-dasharray='4 4'/>"
            f"<text x=0 y={y(typical) + 4:.1f}>{num(typical)}</text>"]
     for i, v in enumerate(vs):
         x = L + i * bw
@@ -2574,7 +2574,7 @@ class Handler(BaseHTTPRequestHandler):
                     db = DB.for_client(d)
                     try:
                         y, w, _ = datetime.now().isocalendar()
-                        db.add_experiment(f"{y}-W{w:02d}-{key}-{re.sub(r'[^a-z0-9]+', '-', val.lower()).strip('-')}", f"{y}-W{w:02d}",
+                        db.add_experiment(f"{y}-W{w:02d}-{key}-{re.sub(r'[^a-z0-9]+', '-', val.lower()).strip('-')}-{datetime.now():%H%M%S}", f"{y}-W{w:02d}",
                                           form["variable"], f"More {I.KEYS[key].lower()}: {val} lifts first-day views",
                                           "views_24h", "skip_rate", 14, 3)
                     except sqlite3.IntegrityError:

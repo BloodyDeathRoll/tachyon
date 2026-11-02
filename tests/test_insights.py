@@ -57,3 +57,8 @@ def test_thesis_with_zero_baseline_does_not_crash_and_stops_at_n_videos():
     vs = [vid(0, 0), vid(1, 0), vid(4, 9, "B"), vid(5, 9, "B"), vid(6, 900, "B")]
     r = I.thesis_result(exp, vs, 0)
     assert r["verdict"] == "no clear change" and r["n"] == 2 and r["avg"] == 9
+
+
+def test_thesis_start_without_timezone_counts_as_utc():
+    exp = {"variable": "pillar=B", "created_at": "2026-10-27T00:00:00", "min_samples": 1}
+    assert I.thesis_result(exp, [vid(0, 5), vid(3, 9, "B")], 5)["n"] == 1
