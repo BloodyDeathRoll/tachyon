@@ -264,6 +264,7 @@ def icon(name: str, size: int = 18) -> str:
         "back": '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
         "ext": '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
         "check": '<path d="M20 6 9 17l-5-5"/>',
+        "copy": '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
         "redo": '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
         "play": '<polygon points="6 3 20 12 6 21 6 3"/>',
         "cal": '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>',
@@ -322,6 +323,8 @@ nav a.on{background:#fff;color:var(--ink);font-weight:600}
 .dot.off{background:#EF4444}
 main{padding:28px 40px 64px;width:100%}
 h1{font-size:28px;line-height:1.15;margin:0;font-weight:700;letter-spacing:-.02em}
+.recsline{margin:0;font-size:12.5px;color:#11111173;text-align:center}.recsline i{font-style:normal;color:#bbb;margin:0 6px}.recsline a{color:var(--ink);font-weight:600;text-decoration:underline}
+.irow{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 0;border-top:1px solid var(--rule);font-size:15px}.irow:first-of-type{margin-top:12px}.irow.head{border-top:0;padding:0 0 4px}.irow.head em{font-style:normal;font-weight:400;color:var(--ink3);font-size:12px}.irow>span{flex:1}.irow strong{display:block;font-size:16px;font-weight:600}.irow small{display:block;color:var(--ink3);font-size:14px}.irow b{font-size:17px;padding:3px 10px;border-radius:8px;border:1px solid transparent}.irow b.hi{background:rgba(141,240,0,.2);border-color:#8DF000}
 .ins-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:20px}
 .ins-cols h3,.ins h3{margin:0 0 4px;font-size:16px}
 .ins-list{list-style:none;margin:10px 0 0;padding:0}
@@ -372,6 +375,7 @@ h2{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
 .tag.need{background:var(--lime);color:var(--ink);font-weight:700;font-size:12.5px;padding:5px 12px}.tag.need:before{display:none}
 .tag.sched{background:#fff;color:var(--ink)}.tag.sched:before{background:var(--blue)}
 .tag.live:before{background:var(--lime)}
+.tag.gone:before{background:#E5484D}
 .tag.busy{background:rgba(0,0,0,.6)}.tag.busy:before{background:var(--amber)}
 .empty{border:1.5px dashed var(--rule);border-radius:16px;aspect-ratio:260/290;display:grid;place-items:center;text-align:center;color:var(--ink3);padding:20px;font-size:14px}
 .back{display:inline-flex;align-items:center;gap:8px;color:var(--ink3);font-weight:500;margin-bottom:16px}
@@ -459,7 +463,7 @@ pre{white-space:pre-wrap;font:13px/1.55 ui-monospace,monospace;color:var(--ink2)
 .x{width:34px;height:34px;flex:none;border-radius:9px;border:0;background:transparent;color:var(--ink3);cursor:pointer;display:grid;place-items:center}
 .x:hover{background:var(--grey-bg);color:var(--ink)}
 .x:disabled{opacity:.3;cursor:default;background:transparent}
-.autorow{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--rule);margin-top:20px;padding-top:16px;font-size:14px;color:var(--ink2)}
+.autorow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;font-size:12px;color:var(--ink2)}
 .toggle{width:44px;height:26px;border-radius:13px;border:0;background:#D4D4D4;position:relative;cursor:pointer;flex:none;padding:0}
 .toggle i{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .15s}
 .toggle.on{background:var(--lime)}.toggle.on i{left:21px}
@@ -542,7 +546,7 @@ body.dnd .addnew{display:none}
 .upst.busy .upbar i{width:40%!important;animation:pg 1.6s ease-in-out infinite}.upst.err{color:#b42318}.upst.err .upbar{display:none}
 label.btn.off{opacity:.5;pointer-events:none}
 .upok{display:flex;align-items:center;gap:8px;margin:14px 0 0;color:#2e7d32;font-weight:600;font-size:14px}
-.dnum{font-size:22px;font-weight:800}.lnk{font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.dnum{font-size:inherit;font-weight:400}.lnk{font-weight:600;text-decoration:underline;text-underline-offset:3px}
 dialog.dlg{border:0;border-radius:18px;padding:28px 30px;width:min(480px,92vw);max-height:80vh;box-shadow:0 24px 48px rgba(0,0,0,.25)}
 dialog.dlg::backdrop{background:rgba(0,0,0,.5);backdrop-filter:blur(4px)}dialog.dlg .drops{max-height:60vh}
 .drops{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto}
@@ -1217,7 +1221,7 @@ def video_card(client: str, row, tag: tuple[str, str], db: DB) -> str:
             f"<span class=chips><span class=no title='{ESC(wk)} video {ESC(no)}'>{ESC(wk + ' · ' if wk else '')}#{ESC(no)}</span>{vo_pill(client, slot)}</span>"
             f"{pv_button(client, slot)}{dl_button(client, slot)}"
             + (f"<span class=stw title='{ESC(label)}' aria-label='{ESC(label)}'>{icon('pause' if label == 'Paused' else 'timer', 14)}</span>" if cls == "sched"
-               else f"<span class='tag {cls}'>{ESC(label)}</span>") + "</div>"
+               else f"<span class='tag {cls}{' gone' if label == 'Removed' else ''}'>{ESC(label)}</span>") + "</div>"
             f"<h3>{ESC(title_of(client, row))}</h3>{'' if cls == 'need' else f'<p>{ESC(line)}</p>'}</a>")
 
 
@@ -1300,14 +1304,25 @@ def week_card(client: str) -> str:
                 f"<a class='btn sec' href='{base}/calendar?w={wk}'>Open the week</a></div>")
     else:
         err = f"<div class=note>Last run failed: {ESC(st.get('error') or '')}</div>" if st.get("state") == "failed" else ""
-        body = (f"{err}<div class=crow><p>{total} videos, one for each slot. Claude plans them, makes them and "
-                f"sends each one here for approval.</p>{prepare_button(client, wk, 'Prepare next week')}</div>")
+        body = (f"{err}<div class=crow><p>{total} videos</p>{prepare_button(client, wk, 'Prepare next week')}</div>")
     auto = (f"<form method=post action='{base}/week' class=autorow><input type=hidden name=action value=auto>"
             f"<input type=hidden name=value value='{0 if ws['auto'] else 1}'>"
             f"<span>Prepare automatically every {ESC(ws['day'])}</span>"
             f"<button class='toggle {'on' if ws['auto'] else ''}' aria-pressed={'true' if ws['auto'] else 'false'} aria-label='Prepare automatically'><i></i></button></form>")
     return (f"<section class=card><div class=row><h2>Next week</h2><span class=muted>{span}</span></div>"
             f"<div style='margin-top:16px'>{body}</div>{auto}</section>")
+
+
+def recs_line(client: str, db: DB) -> str:
+    """One line under the Overview numbers: the recommendations, then a link to the full Insights tab."""
+    vs = I.videos(db, _zone(), lambda r: title_of(client, r))
+    recs = []
+    if len(vs) >= 3:
+        typical = median(v["views"] for v in vs)
+        recs = I.recommendations(vs, {"Topic": I.groups(vs, "pillar", typical), "How it was made": I.groups(vs, "engine", typical),
+                                      "Time of day": I.groups(vs, "part", typical)})
+    bits = [ESC(r["title"]) for r in recs] + [f"<a href='/{ESC(quote(client))}/insights'>View full insights</a>"]
+    return f"<p class=recsline>{' <i>|</i> '.join(bits)}</p>"
 
 
 def render_overview(client: str, q: dict | None = None) -> bytes:
@@ -1340,7 +1355,7 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
                 ("Link taps", total("profile_links_taps"), "last 7 days"),
             ))
         chart = views_block(client, db, None, q or {}, f"/{quote(client)}", W=600, H=170, default="hour")   # the wide column: keep text at its size
-        perf = f"<section class='card perf'>{updating(client)}<div class=perfin><div><h2>Performance</h2><div class=stats>{stats}</div></div><div>{chart}</div></div></section>"
+        perf = f"<section class='card perf'>{updating(client)}<div class=perfin><div><h2>Performance</h2><div class=stats>{stats}</div></div><div>{chart}</div></div>{recs_line(client, db)}</section>"
 
         shown = {c: sum(1 for _, t in rows if t[1] == c) for c in ORDER}
         filt = "".join(
@@ -1388,18 +1403,17 @@ def dropped_card(client: str, note: str = "") -> str:
     if not r["snapshots"]:
         body = f"<div class=crow><p>Upload your Instagram export (JSON, Followers and following) to start.</p>{up}</div>"
     elif r["snapshots"] == 1:
-        body = (f"<div class=crow><p>First export saved: <b>{num(r['followers'])}</b> followers. "
-                f"Upload the next one to see who dropped.</p>{up}</div>")
+        body = f"<div class=crow><p><b class=dnum>0</b> dropped.</p>{up}</div>"
     else:
         since = parse(r["since"]).astimezone(LOCAL).strftime("%-d %b")
         n = len(r["dropped"])
         names = "".join(f"<li><a href='https://www.instagram.com/{ESC(quote(u))}/' target=_blank rel=noopener>@{ESC(u)}</a></li>"
                         for u in r["dropped"])
-        lst = f" <a href='#' class=lnk onclick='event.preventDefault();document.getElementById(\"droplist\").showModal()'>See the list</a>" if n else ""
+        lst = f" <a href='#' class=lnk onclick='event.preventDefault();document.getElementById(\"droplist\").showModal()'>View</a>" if n else ""
         dlg = (f"<dialog class=dlg id=droplist><div class=row><h2>{n} followers dropped since {since}</h2>"
                f"<button class=x onclick='this.closest(\"dialog\").close()' aria-label='Close'>{icon('x', 16)}</button></div>"
                f"<ul class=drops>{names}</ul></dialog>") if n else ""   # outside the <p>: a dialog cannot sit in one
-        body = (f"<div class=crow><p><b class=dnum>{n}</b> {'follower' if n == 1 else 'followers'} dropped since {since}.{lst}</p>{up}</div>{dlg}")
+        body = (f"<div class=crow><p><b class=dnum>{n}</b> dropped.{lst}</p>{up}</div>{dlg}")
     at = parse(r["at"]).astimezone(LOCAL).strftime("%-d %b, %H:%M") if r["at"] else ""
     last = f"<p class=hint>Last export {at} · {num(r['followers'])} followers.</p>" if at else ""
     return (f"<section class=card id=dropped><h2>Followers who dropped</h2>{body}{status}{done}{last}"
@@ -1417,7 +1431,7 @@ def sync_card(client: str, synced: str | None = None) -> str:
         res = f"<p class=upok>{icon('check', 15)}{ESC(txt)}</p>" + (f"<p class=hint>{e} could not be checked. Try again later.</p>" if e else "")
     return (f"<section class=card id=sync><h2>Sync</h2>"
             f"<form method=post action='/{ESC(quote(client))}/sync' class=crow>"
-            f"<p>Find videos that were manually removed from Instagram and update the dashboard.</p>"
+            f"<p>Find manual uploads and removals</p>"
             f"<button class='btn sec'>{icon('redo', 16)}Sync videos</button></form>{res}"
             + ("<script>history.replaceState(null,'',location.pathname+location.hash)</script>" if res else "")
             + "</section>")
@@ -1773,8 +1787,11 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         elif not cap:
             short = "No text yet." + (" <button class='lnk linkbtn' form=gencap name=action value=gencaption>Generate</button>"
                                       if (sdir / "video.mp4").exists() else "")
+        copyhead = (f"<div class=row><h2>Post text</h2><button type=button class='x' title='Copy the post text' aria-label='Copy the post text' "
+                    f"data-t='{ESC(cap)}' onclick=\"navigator.clipboard.writeText(this.dataset.t);this.title='Copied'\">{icon('copy', 16)}</button></div>"
+                    if cap else "<h2>Post text</h2>")
         if row["state"] not in CAPTION_LOCKED and not row["published_at"]:   # editable until it goes out
-            right.append(f"<section class=card><h2>Post text</h2>"
+            right.append(f"<section class=card>{copyhead}"
                          f"<details class=capedit><summary class=crow><p class=clamp>{short}</p>"
                          f"<span class='btn sec' title='Read the full text and edit'>{icon('edit', 16)}Edit</span></summary>"
                          f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' style='margin-top:16px'>"
@@ -1783,7 +1800,7 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
                          f"<button type=button class='btn sec' onclick=\"this.closest('details').open=false\">Cancel</button></div></form></details>"
                          f"<form id=gencap method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide'></form></section>")
         elif cap:
-            right.append(f"<section class=card><h2>Post text</h2>"
+            right.append(f"<section class=card>{copyhead}"
                          f"<details class=capedit><summary class=crow><p class=clamp>{short}</p>"
                          f"<span class='btn sec' title='Read the full text'>Read</span></summary>"
                          f"<div class=capfull>{ESC(cap)}</div></details></section>")
@@ -1884,7 +1901,7 @@ def _cell(client: str, row, tag, past: bool, hl: str | None, mini: bool = False,
     _, no = slot_no(slot)
     t = ESC(title_of(client, row))
     badge = (f"<span class=stw title='{ESC(label)}' aria-label='{ESC(label)}'>{icon('pause' if label == 'Paused' else 'timer', 12)}</span>" if cls == "sched"
-             else f"<span class='tag {cls}'>{ESC(label)}</span>")   # scheduled: the stopwatch, as on the overview
+             else f"<span class='tag {cls}{' gone' if label == 'Removed' else ''}'>{ESC(label)}</span>")   # scheduled: the stopwatch, as on the overview
     if mini:
         return (f"<a class='cell mini{' hl' if slot == hl else ''}' data-cls='{cls}' href='/{ESC(quote(client))}/v/{ESC(quote(slot))}' title='{hm} · {t}'{dnd}>{img}"
                 f"<span class=chips><span class=no>#{ESC(no)}</span></span><span class='mdot {cls}'></span><span class=mt>{hm}</span>{pv_button(client, slot)}</a>")
@@ -2180,7 +2197,7 @@ def _videos_chart(vs: list[dict], typical: float, width: int = 960, H: int = 220
     L, B, T = 30, 24, 10
     bw = (width - L) / n
     y = lambda v: H - B - (H - B - T) * v / top  # noqa: E731
-    out = [f"<svg viewBox='0 0 {width} {H}' role=img aria-label='Views in the first day, per video'>",
+    out = [f"<svg viewBox='0 0 {width} {H}' role=img aria-label='Views in the first day, per video' font-size='11' fill='#888'>",
            f"<line x1={L} x2={width} y1={y(typical):.1f} y2={y(typical):.1f} stroke='#111' stroke-dasharray='4 4'/>"
            f"<text x=0 y={y(typical) + 4:.1f}>{num(typical)}</text>"]
     for i, v in enumerate(vs):
@@ -2214,36 +2231,27 @@ def _vid_li(v: dict) -> str:
             f"<b>{v['views']}</b></li>")
 
 
-def _next_card(client: str, exps: list[dict], res: dict, recs: list[dict]) -> str:
-    def line(e):
-        r = res[e["id"]]
-        if e["status"] == "decided":
-            tag = {"worked": "<b class=up>Worked</b>", "worse": "<b class=down>Worse</b>"}.get(e["verdict"], "<b>No clear change</b>")
-            return (f"<li><span>{ESC(r['value'])}<small>{ESC(I.KEYS[r['key']])} · {r['n']} videos averaged {r['avg']:.0f} first-day views "
-                    f"vs {r['base']:.0f} typical before ({'no baseline' if r['ratio'] is None else format(r['ratio'], '.1f') + 'x'})</small></span>{tag}</li>")
-        got = f"{r['avg']:.0f} avg so far vs {r['base']:.0f} typical" if r["avg"] is not None else f"typical is {r['base']:.0f}"
-        return (f"<li><span>{ESC(r['value'])}<small>{ESC(I.KEYS[r['key']])} · {got}</small></span>"
-                f"<b>{r['n']} of {r['need']} videos</b></li>")
-    running = [e for e in exps if e["status"] != "decided"]
-    done = [e for e in exps if e["status"] == "decided"]
-    c = f"/{ESC(quote(client))}/thesis"
-    rec = "".join(
-        f"<li><span>{ESC(x['text'])}<small>{ESC(x['label'])} · {x['n']} videos so far average {x['vs']:.1f}x the typical video</small></span>"
-        f"<form method=post action='{c}'><input type=hidden name=variable value='{ESC(x['variable'])}'>"
-        f"<button class='btn sec small'>Test this</button></form></li>" for x in recs)
-    parts = []
-    if running:
-        parts.append(f"<h3>Being tested</h3><ul class=ins-list>{''.join(line(e) for e in running)}</ul>")
-    if rec:
-        parts.append(f"<h3 style='margin-top:18px'>Try next</h3><ul class=ins-list>{rec}</ul>")
-    if done:
-        parts.append(f"<h3 style='margin-top:18px'>Results</h3><ul class=ins-list>{''.join(line(e) for e in done)}</ul>")
-    if not parts:
-        parts.append("<p class=muted>No recommendation yet: no group is clearly ahead of the typical video.</p>")
-    return ("<section class='card ins-card' id=next><h3>Next video</h3>"
-            "<p class=muted style='margin:2px 0 0;font-size:13.5px'>Pick an idea to test. Videos published from then on that match it are counted, "
-            "and after 3 of them we compare their first day with the typical video before.</p>"
-            f"{''.join(parts)}</section>")
+def _pct(p: int | None) -> str:
+    if p is None:
+        return "<b>–</b>"
+    return f"<b class='{'hi' if p >= 90 else ''}'>{p}%</b>"
+
+
+def _rows(items: list[tuple[str, str, int | None]], empty: str, plain: bool = False) -> str:
+    if not items:
+        return f"<p class=muted>{empty}</p>"
+    return ("<div class='irow head'><span></span><em>Certainty</em></div>" +
+            "".join(f"<div class='irow'><span>{ESC(t) if plain else f'<strong>{ESC(t)}</strong>'}"
+                    f"{f'<small>{ESC(r)}</small>' if r else ''}</span>{_pct(p)}</div>" for t, r, p in items))
+
+
+def _recs_card(recs: list[dict]) -> str:
+    rows = _rows([(r["title"], f"{r['vs']:.1f}x views", r["pct"]) for r in recs], "Nothing beats the typical video yet.")
+    return f"<section class=card><h2>Recommendations</h2>{rows}</section>"
+
+
+def _patterns_card(found: list[dict]) -> str:
+    return f"<section class=card><h2>Patterns</h2>{_rows([(f['text'], '', f['pct']) for f in found], 'No clear gaps between groups yet.', plain=True)}</section>"
 
 
 def render_insights(client: str) -> bytes:
@@ -2273,32 +2281,22 @@ def render_insights(client: str) -> bytes:
             return shell(client, "insights", body, "Insights")
         ranked = sorted(vs, key=lambda v: -v["views"])
         k = min(3, len(vs) // 2)
-        tables = {"Pillar": I.groups(vs, "pillar", typical), "How it was made": I.groups(vs, "engine", typical),
+        tables = {"Topic": I.groups(vs, "pillar", typical), "How it was made": I.groups(vs, "engine", typical),
                   "Time of day": I.groups(vs, "part", typical)}
         found = I.findings(vs, typical, tables)
         wk = I.weeks(vs)
-        exps = [dict(r) for r in db.conn.execute("SELECT * FROM experiments ORDER BY created_at DESC")
-                if r["variable"].partition("=")[0] in I.KEYS]   # the table is shared: only our pillar=/engine=/part= rows
-        res = {e["id"]: I.thesis_result(e, vs, typical) for e in exps}
-        for e in exps:   # freeze the verdict the moment there are enough videos
-            if e["status"] != "decided" and res[e["id"]]["verdict"]:
-                db.decide_experiment(e["id"], res[e["id"]]["verdict"], res[e["id"]]["n"] < 2 * I.MIN_N)
-                e["status"], e["verdict"] = "decided", res[e["id"]]["verdict"]
-        recs = I.recommendations(tables, exps)
-        nxt = _next_card(client, exps, res, recs)
+        nxt = _recs_card(I.recommendations(vs, tables))
         wk_rows = "".join(f"<tr><td>{w['week']}</td><td>{w['n']}</td><td>{w['views']:.0f}</td><td>{w['total']}</td></tr>" for w in reversed(wk))
-        why = ("<ul class=ins-find>" + "".join(f"<li>{ESC(t)}</li>" for t in found) + "</ul>") if found else \
-            "<p class=muted>No clear gaps between groups yet.</p>"
-        body = (header(client, "Insights") +
-                f"<section class=card><div class=stats>{stats}</div>"
-                f"<h3>Views in the first day, per video</h3><p class=muted style='margin:2px 0 10px;font-size:13.5px'>Green is above the typical video (dashed line). Every video is judged on its first 24 hours so new and old compare fairly.</p>"
-                f"{_videos_chart(vs, typical)}</section>"
-                f"<div class=ins-cols><section class=card><h3>What works</h3><ul class=ins-list>{''.join(_vid_li(v) for v in ranked[:k])}</ul></section>"
-                f"<section class=card><h3>What does not</h3><ul class=ins-list>{''.join(_vid_li(v) for v in ranked[::-1][:k])}</ul></section></div>"
-                f"{nxt}<section class='card ins-card'><h3>What stands out</h3>{why}"
-                "<p class=muted style='font-size:12.5px;margin:12px 0 0'>These are patterns, not proof. Instagram does not say why a video did well; with few videos, one lucky post can move a group.</p></section>"
+        perf = (f"<section class='card perf'><div class=perfin><div><h2>Performance</h2><div class=stats>{stats}</div></div>"
+                "<div><h3>First day, per video</h3><p class=muted style='margin:2px 0 8px;font-size:13px'>Green beats the typical video (dashed). "
+                f"Every video is judged on its first 24 hours.</p>{_videos_chart(vs, typical, 600, 170)}</div></div></section>")
+        pat = _patterns_card(found)
+        main = (perf +
+                f"<div class=ins-cols><section class=card><h3>What works</h3><div class='irow head'><span></span><em>Views, first day</em></div><ul class=ins-list>{''.join(_vid_li(v) for v in ranked[:k])}</ul></section>"
+                f"<section class=card><h3>What does not</h3><div class='irow head'><span></span><em>Views, first day</em></div><ul class=ins-list>{''.join(_vid_li(v) for v in ranked[::-1][:k])}</ul></section></div>"
                 f"<div class=ins-cols>{''.join(f'<section class=card><h3>{ESC(t)}</h3>{_group_table(r)}</section>' for t, r in tables.items())}"
                 f"<section class=card><h3>Week by week</h3><table class=ins-tab><tr><th></th><th>Videos</th><th>Avg views</th><th>Total</th></tr>{wk_rows}</table></section></div>")
+        body = header(client, "Insights") + f"<div class=ovgrid><div class=maincol>{main}</div><div class=side>{nxt}{pat}</div></div>"
         return shell(client, "insights", body, "Insights")
     finally:
         db.close()
@@ -2568,20 +2566,6 @@ class Handler(BaseHTTPRequestHandler):
             if parts[1] == "flag":
                 C.set_flag(name, form["flag"], form["value"] == "1")
                 return self._redirect(f"/{quote(name)}/settings")
-            if parts[1] == "thesis":   # Insights → Test this
-                key, _, val = form["variable"].partition("=")
-                if key in I.KEYS and val:
-                    db = DB.for_client(d)
-                    try:
-                        y, w, _ = datetime.now().isocalendar()
-                        db.add_experiment(f"{y}-W{w:02d}-{key}-{re.sub(r'[^a-z0-9]+', '-', val.lower()).strip('-')}-{datetime.now():%H%M%S}", f"{y}-W{w:02d}",
-                                          form["variable"], f"More {I.KEYS[key].lower()}: {val} lifts first-day views",
-                                          "views_24h", "skip_rate", 14, 3)
-                    except sqlite3.IntegrityError:
-                        pass   # already testing this one
-                    finally:
-                        db.close()
-                return self._redirect(f"/{quote(name)}/insights#next")
             if parts[1] == "pickup":   # "Look for manual posts": the hourly pickup, now
                 from spine import pickup as PK
                 try:

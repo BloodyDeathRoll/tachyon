@@ -6,6 +6,9 @@ young video is never judged against an old one. No LLM, no writes.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from itertools import combinations
+from math import comb
+import random
 from statistics import mean, median
 
 MIN_N = 3   # PLAN §7: fewer samples than this on a side is a hint, not a result
@@ -46,13 +49,51 @@ def videos(db, tz, title) -> list[dict]:
     return sorted(out, key=lambda v: v["at"])
 
 
+def certainty(vs: list[dict], key: str, name: str, groups_tested: int, lower: bool = False) -> int | None:
+    """How sure we are that a group really gets more (or, with lower=True, fewer) views than the other videos, 0-99 %.
+
+    Exact permutation test on ranks: if the group had no effect, how often would a random group of the
+    same size rank this high? Times the number of groups compared, because the more we look the more luck we find.
+    """
+    views = [v["views"] for v in vs]
+    inn = [i for i, v in enumerate(vs) if v[key] == name]
+    k, n = len(inn), len(vs)
+    if not 0 < k < n:
+        return None
+    order = sorted(views)
+    first = {x: i for i, x in reversed(list(enumerate(order)))}   # value → first position, so ties share a rank
+    rank = [(2 * first[x] + order.count(x) + 1) / 2 for x in views]   # average rank for ties
+    obs = sum(rank[i] for i in inn)
+    hit = (lambda t: t <= obs) if lower else (lambda t: t >= obs)
+    if comb(n, k) <= 20000:
+        p = sum(hit(sum(rank[i] for i in c)) for c in combinations(range(n), k)) / comb(n, k)
+    else:   # shortcut: Monte Carlo (fixed seed) beyond 20 000 groups, as skip_certainty does
+        rng = random.Random(0)
+        p = sum(hit(sum(rng.sample(rank, k))) for _ in range(20000)) / 20000
+    return min(99, round((1 - min(1.0, p * groups_tested)) * 100))
+
+
+def skip_certainty(vs: list[dict]) -> int | None:
+    """Same idea for "better videos lose fewer viewers": shuffle the skip rates 20 000 times (fixed seed)."""
+    xs = sorted((v for v in vs if v["skip"] is not None), key=lambda v: -v["views"])
+    if len(xs) < 2 * MIN_N:
+        return None
+    sk = [v["skip"] for v in xs]
+    diff = lambda a: mean(a[-MIN_N:]) - mean(a[:MIN_N])   # noqa: E731  weakest minus best
+    obs, rng, hit = diff(sk), random.Random(0), 0
+    for _ in range(20000):
+        rng.shuffle(sk)
+        hit += diff(sk) >= obs
+    return min(99, round((1 - hit / 20000) * 100))
+
+
 def groups(vs: list[dict], key: str, typical: float) -> list[dict]:
     by: dict[str, list[dict]] = {}
     for v in vs:
         by.setdefault(v[key], []).append(v)
-    rows = [{"name": k, "n": len(g), "views": mean(x["views"] for x in g),
-             "skip": mean(x["skip"] for x in g if x["skip"] is not None) if any(x["skip"] is not None for x in g) else None,
-             "vs": (mean(x["views"] for x in g) / typical) if typical else None}
+    rows = [{"name": k, "n": len(g), "views": median(x["views"] for x in g),
+             "skip": median(x["skip"] for x in g if x["skip"] is not None) if any(x["skip"] is not None for x in g) else None,
+             "vs": (median(x["views"] for x in g) / typical) if typical else None}
             for k, g in by.items()]
     return sorted(rows, key=lambda r: -r["views"])
 
@@ -66,24 +107,30 @@ def weeks(vs: list[dict]) -> list[dict]:
              "total": sum(x["views"] for x in g)} for k, g in sorted(by.items())]
 
 
-def findings(vs: list[dict], typical: float, tables: dict[str, list[dict]]) -> list[str]:
-    """Plain sentences for gaps of 1.5x or more. Small samples are said so."""
+def _subject(label: str, name: str) -> str:
+    if label == "How it was made":
+        return "Videos posted by hand in Instagram" if name == "instagram" else f"Videos made with {name}"
+    return f"{name} posts" if label == "Time of day" else f"{name} videos"
+
+
+KEY = {"Topic": "pillar", "How it was made": "engine", "Time of day": "part"}
+
+
+def findings(vs: list[dict], typical: float, tables: dict[str, list[dict]]) -> list[dict]:
+    """Plain sentences for gaps of 1.5x or more, each with how certain we are (percent)."""
     out = []
     for label, rows in tables.items():
         for r in rows:
             if r["vs"] is None or r["n"] < 2 or r["name"] in ("No pillar", "Unknown") or not (r["vs"] >= 1.5 or r["vs"] <= 0.67):
                 continue
-            sure = "" if r["n"] >= MIN_N else f" Only {r['n']} videos, so treat it as a hint."
-            word = "more" if r["vs"] >= 1 else "fewer"
-            ratio = r["vs"] if r["vs"] >= 1 else 1 / r["vs"]
+            pct = certainty(vs, KEY[label], r["name"], len(rows), lower=r["vs"] < 1)
             out.append((abs(r["vs"] - 1) * r["n"],
-                        f"{label}: {r['name']} gets {ratio:.1f}x {word} views than a typical video "
-                        f"({r['views']:.0f} vs {typical:.0f} in the first day).{sure}"))
+                        {"text": f"{_subject(label, r['name'])}: {r['vs']:.1f}x the views of a typical video, over {r['n']} videos.", "pct": pct}))
     skips = [v for v in vs if v["skip"] is not None]
     if len(skips) >= 2 * MIN_N:
         lo, hi = sorted(skips, key=lambda v: v["views"])[:MIN_N], sorted(skips, key=lambda v: -v["views"])[:MIN_N]
-        out.append((1, f"The {MIN_N} biggest videos lose {mean(v['skip'] for v in hi):.0f}% of viewers straight away; "
-                       f"the {MIN_N} smallest lose {mean(v['skip'] for v in lo):.0f}%."))
+        out.append((1, {"text": f"The {MIN_N} best videos lost {mean(v['skip'] for v in hi):.0f}% of viewers straight away; "
+                               f"the {MIN_N} weakest lost {mean(v['skip'] for v in lo):.0f}%.", "pct": skip_certainty(vs)}))
     return [t for _, t in sorted(out, key=lambda x: -x[0])][:5]
 
 
@@ -96,40 +143,18 @@ def account_week(days: list[dict], key: str, now: datetime) -> tuple[float | Non
     return span(0, 7), span(7, 14)
 
 
-# ── theses: "more of X lifts first-day views" ─────────────────────────────────
-KEYS = {"pillar": "Pillar", "engine": "How it was made", "part": "Time of day"}
-LIFT, DROP = 1.25, 0.8   # verdict bounds vs the typical video before the thesis
+# ── recommendations ───────────────────────────────────────────────────────────
+PICKS = (("Publish in the morning", "Time of day", "Morning"), ("Publish manually", "How it was made", "instagram"),
+         ("Show swell map", "Topic", "Swell map"))
 
 
-def recommendations(tables: dict[str, list[dict]], theses: list[dict]) -> list[dict]:
-    """Up to 3 "do more of X" ideas from groups beating typical by 1.3x, minus ones already being tested."""
-    taken = {t["variable"] for t in theses if t["status"] != "decided"}
+def recommendations(vs: list[dict], tables: dict[str, list[dict]]) -> list[dict]:
+    """The three moves we recommend, each with how the matching videos did against the typical video (middle video of the group)."""
     out = []
-    for (label, rows), key in zip(tables.items(), KEYS):
-        for r in rows:
-            if r["vs"] and r["vs"] >= 1.3 and r["n"] >= 2 and r["name"] not in ("No pillar", "Unknown") \
-                    and f"{key}={r['name']}" not in taken:
-                out.append({"variable": f"{key}={r['name']}", "label": label, "name": r["name"], "vs": r["vs"], "n": r["n"],
-                            "text": f"Make the next video: {r['name']}"})
-    return sorted(out, key=lambda x: -x["vs"] * x["n"])[:3]
-
-
-def thesis_result(exp: dict, vs: list[dict], typical: float) -> dict:
-    """Videos published since the thesis started that match its rule, against the typical video before it."""
-    key, _, val = exp["variable"].partition("=")
-    start = _ts(exp["created_at"])
-    if start and start.tzinfo is None:
-        start = start.replace(tzinfo=timezone.utc)
-    before = [v["views"] for v in vs if start and v["at"] < start]
-    base = median(before) if before else typical
-    got = [v["views"] for v in vs if start and v["at"] >= start and v.get(key) == val][:exp["min_samples"]]   # the first N decide it
-    avg = mean(got) if got else None
-    ratio = avg / base if avg is not None and base else None
-    n, need = len(got), exp["min_samples"]
-    if n < need:
-        verdict = None
-    elif ratio is None:
-        verdict = "no clear change"   # nothing to compare against (typical was 0)
-    else:
-        verdict = "worked" if ratio >= LIFT else "worse" if ratio <= DROP else "no clear change"
-    return {"key": key, "value": val, "n": n, "need": need, "avg": avg, "base": base, "ratio": ratio, "verdict": verdict}
+    for title, t, name in PICKS:
+        rows = tables[t]
+        r = next((x for x in rows if x["name"] == name), None)
+        if r and r["vs"] and r["vs"] > 1:   # only moves that beat the typical video
+            out.append({"title": title, "vs": r["vs"], "n": r["n"],
+                        "pct": certainty(vs, KEY[t], name, len(rows))})
+    return out

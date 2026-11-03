@@ -1028,12 +1028,12 @@ def test_followers_who_dropped_from_two_uploaded_exports(server, client_dir, tmp
     assert "Upload your Instagram export" in req(server, "GET", "/demo")[1]
     status, reply = up(export(tmp_path / "1.zip", ["ann", "bob"]))
     assert status == 200 and "Export read: 2 followers." in json.loads(reply)["html"]   # the card comes back with the result
-    assert "First export saved: <b>2</b> followers" in req(server, "GET", "/demo")[1]
+    assert "<b class=dnum>0</b> dropped." in req(server, "GET", "/demo")[1]
     assert "already in" in json.loads(up(tmp_path / "1.zip")[1])["html"]
     status, reply = up(export(tmp_path / "2.zip", ["ann"]))
     assert status == 200 and "1 dropped" in json.loads(reply)["html"]
     body = req(server, "GET", "/demo")[1]
-    assert "<b class=dnum>1</b> follower dropped since" in body and "See the list" in body
+    assert "<b class=dnum>1</b> dropped" in body and ">View</a>" in body
     assert "<dialog class=dlg id=droplist>" in body and "@bob" in body and "@ann" not in body
     bad = tmp_path / "bad.json"
     bad.write_text("{}")
@@ -1080,7 +1080,7 @@ def test_overview_views_header_and_scheduled_stopwatch(server, client_dir):
 def test_sync_videos_card_marks_removed_reels(server, monkeypatch):
     from spine.publisher import publish as P
     _, body, _ = req(server, "GET", "/demo")
-    assert "Find videos that were manually removed from Instagram and update the dashboard." in body
+    assert "Find manual uploads and removals" in body
     assert "action='/demo/sync'" in body and "Sync videos" in body
     monkeypatch.setattr(P, "sync_removed", lambda c: {"checked": 3, "removed": ["a", "b"], "errors": 1})
     status, _, loc = req(server, "POST", "/demo/sync", {})
