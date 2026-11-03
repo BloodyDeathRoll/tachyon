@@ -264,6 +264,7 @@ def icon(name: str, size: int = 18) -> str:
         "back": '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
         "ext": '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
         "check": '<path d="M20 6 9 17l-5-5"/>',
+        "copy": '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
         "redo": '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
         "play": '<polygon points="6 3 20 12 6 21 6 3"/>',
         "cal": '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>',
@@ -1430,7 +1431,7 @@ def sync_card(client: str, synced: str | None = None) -> str:
         res = f"<p class=upok>{icon('check', 15)}{ESC(txt)}</p>" + (f"<p class=hint>{e} could not be checked. Try again later.</p>" if e else "")
     return (f"<section class=card id=sync><h2>Sync</h2>"
             f"<form method=post action='/{ESC(quote(client))}/sync' class=crow>"
-            f"<p>Find manual removals</p>"
+            f"<p>Find manual uploads and removals</p>"
             f"<button class='btn sec'>{icon('redo', 16)}Sync videos</button></form>{res}"
             + ("<script>history.replaceState(null,'',location.pathname+location.hash)</script>" if res else "")
             + "</section>")
@@ -1786,8 +1787,11 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
         elif not cap:
             short = "No text yet." + (" <button class='lnk linkbtn' form=gencap name=action value=gencaption>Generate</button>"
                                       if (sdir / "video.mp4").exists() else "")
+        copyhead = (f"<div class=row><h2>Post text</h2><button type=button class='x' title='Copy the post text' aria-label='Copy the post text' "
+                    f"data-t='{ESC(cap)}' onclick=\"navigator.clipboard.writeText(this.dataset.t);this.title='Copied'\">{icon('copy', 16)}</button></div>"
+                    if cap else "<h2>Post text</h2>")
         if row["state"] not in CAPTION_LOCKED and not row["published_at"]:   # editable until it goes out
-            right.append(f"<section class=card><h2>Post text</h2>"
+            right.append(f"<section class=card>{copyhead}"
                          f"<details class=capedit><summary class=crow><p class=clamp>{short}</p>"
                          f"<span class='btn sec' title='Read the full text and edit'>{icon('edit', 16)}Edit</span></summary>"
                          f"<form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' style='margin-top:16px'>"
@@ -1796,7 +1800,7 @@ def render_video(client: str, slot: str, variant: str = "reel", music: str = "fi
                          f"<button type=button class='btn sec' onclick=\"this.closest('details').open=false\">Cancel</button></div></form></details>"
                          f"<form id=gencap method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide'></form></section>")
         elif cap:
-            right.append(f"<section class=card><h2>Post text</h2>"
+            right.append(f"<section class=card>{copyhead}"
                          f"<details class=capedit><summary class=crow><p class=clamp>{short}</p>"
                          f"<span class='btn sec' title='Read the full text'>Read</span></summary>"
                          f"<div class=capfull>{ESC(cap)}</div></details></section>")

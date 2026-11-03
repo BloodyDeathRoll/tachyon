@@ -38,6 +38,11 @@ def test_account_week_sums_this_and_previous_seven_days():
 
 def test_certainty_is_high_for_a_clear_gap_low_for_noise_and_none_for_everyone():
     vs = [vid(i, 10 + i, "A") for i in range(8)] + [vid(8 + i, 100 + i, "B") for i in range(4)]
-    assert I.certainty(vs, "pillar", "B", 1) >= 99 - 1
+    assert I.certainty(vs, "pillar", "B", 1) >= 98
     assert I.certainty(vs, "pillar", "A", 1) < 20 and I.certainty(vs, "pillar", "A", 1, lower=True) > 90
     assert I.certainty(vs, "pillar", "Z", 1) is None
+
+
+def test_certainty_does_not_hang_on_many_videos():
+    vs = [{"views": i, "pillar": "A" if i % 2 else "B"} for i in range(60)]
+    assert I.certainty(vs, "pillar", "A", 1) is not None

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from itertools import combinations
+from math import comb
 import random
 from statistics import mean, median
 
@@ -60,16 +61,16 @@ def certainty(vs: list[dict], key: str, name: str, groups_tested: int, lower: bo
     if not 0 < k < n:
         return None
     order = sorted(views)
-    rank = [(2 * order.index(x) + order.count(x) + 1) / 2 for x in views]   # average rank for ties
+    first = {x: i for i, x in reversed(list(enumerate(order)))}   # value → first position, so ties share a rank
+    rank = [(2 * first[x] + order.count(x) + 1) / 2 for x in views]   # average rank for ties
     obs = sum(rank[i] for i in inn)
-    combos = combinations(range(n), k)
-    p = sum((sum(rank[i] for i in c) <= obs) if lower else (sum(rank[i] for i in c) >= obs) for c in combos) / _choose(n, k)
+    hit = (lambda t: t <= obs) if lower else (lambda t: t >= obs)
+    if comb(n, k) <= 20000:
+        p = sum(hit(sum(rank[i] for i in c)) for c in combinations(range(n), k)) / comb(n, k)
+    else:   # shortcut: Monte Carlo (fixed seed) beyond 20 000 groups, as skip_certainty does
+        rng = random.Random(0)
+        p = sum(hit(sum(rng.sample(rank, k))) for _ in range(20000)) / 20000
     return min(99, round((1 - min(1.0, p * groups_tested)) * 100))
-
-
-def _choose(n: int, k: int) -> int:
-    from math import comb
-    return comb(n, k)
 
 
 def skip_certainty(vs: list[dict]) -> int | None:
@@ -143,16 +144,17 @@ def account_week(days: list[dict], key: str, now: datetime) -> tuple[float | Non
 
 
 # ── recommendations ───────────────────────────────────────────────────────────
-PICKS = (("Publish in the morning", 2, "Morning"), ("Publish manually", 1, "instagram"), ("Show swell map", 0, "Swell map"))
+PICKS = (("Publish in the morning", "Time of day", "Morning"), ("Publish manually", "How it was made", "instagram"),
+         ("Show swell map", "Topic", "Swell map"))
 
 
 def recommendations(vs: list[dict], tables: dict[str, list[dict]]) -> list[dict]:
     """The three moves we recommend, each with how the matching videos did against the typical video (middle video of the group)."""
-    rows = list(tables.values())
     out = []
     for title, t, name in PICKS:
-        r = next((x for x in rows[t] if x["name"] == name), None)
+        rows = tables[t]
+        r = next((x for x in rows if x["name"] == name), None)
         if r and r["vs"] and r["vs"] > 1:   # only moves that beat the typical video
             out.append({"title": title, "vs": r["vs"], "n": r["n"],
-                        "pct": certainty(vs, ("pillar", "engine", "part")[t], name, len(rows[t]))})
+                        "pct": certainty(vs, KEY[t], name, len(rows))})
     return out

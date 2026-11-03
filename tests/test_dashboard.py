@@ -1080,7 +1080,7 @@ def test_overview_views_header_and_scheduled_stopwatch(server, client_dir):
 def test_sync_videos_card_marks_removed_reels(server, monkeypatch):
     from spine.publisher import publish as P
     _, body, _ = req(server, "GET", "/demo")
-    assert "Find manual removals" in body
+    assert "Find manual uploads and removals" in body
     assert "action='/demo/sync'" in body and "Sync videos" in body
     monkeypatch.setattr(P, "sync_removed", lambda c: {"checked": 3, "removed": ["a", "b"], "errors": 1})
     status, _, loc = req(server, "POST", "/demo/sync", {})
