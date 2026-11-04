@@ -1109,6 +1109,7 @@ def test_sync_still_marks_removed_when_pickup_fails(server, monkeypatch):
     monkeypatch.setattr(P, "sync_removed", lambda c: {"checked": 3, "removed": ["a", "b"], "errors": 0})
     assert req(server, "POST", "/demo/sync", {})[2] == "/demo?synced=2-0-0-1#sync"
 
+
 def test_pause_and_play(server, client_dir, monkeypatch):
     db = DB.for_client(client_dir)
     req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})
