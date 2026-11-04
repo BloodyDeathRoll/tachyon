@@ -359,7 +359,7 @@ export async function renderQa(p: Page, slot: string): Promise<Response> {
 
 // ── the POSTs ─────────────────────────────────────────────────────────────────
 
-function field(form: FormData, name: string): string {
+export function field(form: FormData, name: string): string {
   const v = form.get(name);
   return typeof v === "string" ? v : "";
 }
@@ -480,6 +480,13 @@ async function decide(s: Slot, form: FormData, back: string): Promise<Response> 
       break;
     }
     case "approve": {
+      if (s.meta.upload) {
+        // a browser upload no PC has seen: the `spec` job's check must have passed (docs/CLOUDFLARE-PLAN.md, "Uploads")
+        const sp = s.jobs.spec;
+        if (sp?.state !== "done") throw new HttpError(409, "spec", sp?.state === "failed" ? `the file check failed: ${jobResult(sp).slice(0, 300)}` : "a PC has not checked the file yet: try again in a minute");
+        const issues = parseJson(sp.result).issues;
+        if (Array.isArray(issues) && issues.length) throw new HttpError(409, "spec", `Instagram would refuse this file: ${issues.join("; ")}`);
+      }
       let at = row.scheduled_at ? null : await previewSlot(p, slot); // the slot the calendar showed
       if (!at) {
         try {
