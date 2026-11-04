@@ -1,11 +1,14 @@
 // Tachyon Worker - the online half of docs/CLOUDFLARE-PLAN.md: Google sign-in
 // (invite-only), members per client, the job queue the PCs poll, video upload to R2,
-// spine/db.py's ops on D1, Connect Instagram (src/connect.ts) and the publishing cron
-// (src/cron.ts, src/publish.ts). No dashboard pages yet (phase 6).
+// spine/db.py's ops on D1, Connect Instagram (src/connect.ts), the publishing cron
+// (src/cron.ts, src/publish.ts) and the dashboard pages (src/pages/, phase 6, first slice).
 //
 //   POST /auth/google  {code} | {credential}       -> {token, profile, admin, clients}; also
 //                                                     sets the `s` cookie for the browser pages
 //   GET  /connect/<client>, /connect/callback, POST /connect/pick   src/connect.ts
+//   GET  /app                                      -> 302 to the user's first client's overview
+//   GET  /<client>, /<client>/v/<slot>[/byhand|/qa], POST /<client>/v/<slot>/<action>   src/pages/
+//   GET  /m/<client>/<slot>/video | cover          -> the file, for the pages' player (cookie ok)
 //   GET  /me                                       -> {profile, admin, clients}
 //   POST /auth/logout                              -> {ok}      revokes every session
 //   POST /api/hosts    {id, name, clients, caps}   -> {clients} a PC registers; clients it is
@@ -34,9 +37,13 @@ import { tick } from "./cron.ts";
 import { OPS } from "./db.ts";
 import { TokenError, verifyIdToken, type GoogleClaims } from "./google.ts";
 import { HttpError, json } from "./http.ts";
+import { insertJob, JOB_KINDS } from "./jobs.ts";
+import { clientsOf, member, type UserRow } from "./members.ts";
+import { pages } from "./pages/index.ts";
 import { mint, SESSION_TTL_MS, verify } from "./session.ts";
 
 export { HttpError };
+export type { UserRow };
 
 export interface Env {
   DB: D1Database;
@@ -59,26 +66,12 @@ const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // the Free-plan request body limit 
 const LAST_SEEN_THROTTLE_MS = 5 * 60 * 1000;
 const JOB_LEASE_MS = 5 * 60 * 1000; // a running job silent this long goes back to the queue
 const ID = /^[\w-]{1,64}$/; // client, slot and host ids
-const JOB_KINDS = new Set(["plan", "auto", "produce", "revise", "formats", "caption", "voice", "upload", "spec"]);
-const ONCE_KINDS = new Set(["plan", "auto"]); // the same command already waiting or running is the same job
-const ONCE_MS = 7 * 24 * 60 * 60 * 1000;
 const JOBS_LIST = 50;
 const MEDIA = {
   video: { ext: "mp4", type: "video/mp4", column: "r2_key" },
   cover: { ext: "jpg", type: "image/jpeg", column: "cover_key" },
 } as const;
 
-export interface UserRow {
-  id: number;
-  email: string;
-  google_sub: string | null;
-  name: string | null;
-  picture: string | null;
-  admin: number;
-  session_epoch: number;
-  created_at: number;
-  last_seen_at: number | null;
-}
 interface HostRow {
   id: string;
   user: number;
@@ -188,18 +181,6 @@ export async function bindUser(env: Env, claims: GoogleClaims): Promise<UserRow>
     await env.DB.prepare("UPDATE users SET name = ?, picture = ? WHERE id = ?").bind(claims.name, claims.picture, row.id).run();
   }
   return row;
-}
-
-/** The clients `user` manages: every client for an admin, else their memberships. */
-async function clientsOf(env: Env, user: UserRow): Promise<string[]> {
-  const q = user.admin
-    ? env.DB.prepare("SELECT id AS client FROM clients ORDER BY id")
-    : env.DB.prepare("SELECT client FROM memberships WHERE user = ? ORDER BY client").bind(user.id);
-  return (await q.all<{ client: string }>()).results.map((r) => r.client);
-}
-
-async function member(env: Env, user: UserRow, client: string): Promise<void> {
-  if (!(await clientsOf(env, user)).includes(client)) throw new HttpError(403, "member");
 }
 
 function cookie(req: Request, name: string): string {
@@ -324,20 +305,8 @@ async function enqueue(req: Request, env: Env, user: UserRow, now: number): Prom
   await member(env, user, client);
   const slot = body.slot_id == null ? null : id(body.slot_id, "slot_id");
   const payload = body.payload == null ? null : JSON.stringify(body.payload);
-  if (ONCE_KINDS.has(kind)) {
-    // two hosts, or the cron and a button, asking for the same week while it is still open: one
-    // job. A done one does not count: the operator may plan the same week again on purpose.
-    const same = await env.DB.prepare("SELECT id FROM jobs WHERE kind = ? AND client = ? AND payload IS ? AND state IN ('queued', 'running') AND created_at > ? ORDER BY id DESC LIMIT 1")
-      .bind(kind, client, payload, now - ONCE_MS)
-      .first<{ id: number }>();
-    if (same) return json(200, { id: same.id, same: true });
-  }
-  const r = await env.DB.prepare(
-    "INSERT INTO jobs (kind, client, slot_id, payload, by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-  )
-    .bind(kind, client, slot, payload, user.id, now, now)
-    .run();
-  return json(200, { id: r.meta.last_row_id });
+  // two hosts, or the cron and a button, asking for the same week while it is still open: one job
+  return json(200, await insertJob(env.DB, kind, client, slot, payload, user.id, now));
 }
 
 /** heartbeat | done | fail on a job this host is running. A lost lease is a 409:
@@ -426,7 +395,8 @@ ${setup}
     post by compare-and-set (the row must still hold the key read before the upload, and
     a video's post must still be unpublished; otherwise the new object is deleted and
     the caller gets a 409), and the previous object is deleted. GET: the object, for a
-    host's spec check and the dashboard player. */
+    host's spec check and the dashboard player; a Range request gets its part (a phone's
+    video player refuses a file it cannot seek). */
 async function media(req: Request, env: Env, user: UserRow, client: string, slot: string, name: string): Promise<Response> {
   const kind = MEDIA[name as keyof typeof MEDIA];
   if (!kind) throw new HttpError(404, "not found");
@@ -436,11 +406,21 @@ async function media(req: Request, env: Env, user: UserRow, client: string, slot
     .first<{ ig_media_id: string | null; key: string | null }>();
   if (!post) throw new HttpError(404, "slot");
   if (req.method === "GET") {
-    const obj = post.key ? await env.MEDIA.get(post.key) : null;
+    const asked = req.headers.has("Range");
+    const obj = post.key ? await env.MEDIA.get(post.key, asked ? { range: req.headers } : {}) : null;
     if (!obj) throw new HttpError(404, "file");
-    return new Response(obj.body, {
-      headers: { "Content-Type": kind.type, "Content-Length": String(obj.size), "Cache-Control": "private, no-store" },
-    });
+    const headers: Record<string, string> = { "Content-Type": kind.type, "Accept-Ranges": "bytes", "Cache-Control": "private, no-store" };
+    const r = obj.range as { offset?: number; length?: number; suffix?: number } | undefined;
+    let status = 200;
+    let length = obj.size;
+    if (asked && r) {
+      const start = r.suffix != null ? obj.size - r.suffix : r.offset ?? 0;
+      length = r.suffix ?? r.length ?? obj.size - start;
+      headers["Content-Range"] = `bytes ${start}-${start + length - 1}/${obj.size}`;
+      status = 206;
+    }
+    headers["Content-Length"] = String(length);
+    return new Response(obj.body, { status, headers });
   }
   if (req.method !== "PUT") throw new HttpError(405, "method");
   if (name === "video" && post.ig_media_id) throw new HttpError(409, "published");
@@ -484,6 +464,12 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   const p = path.split("/").slice(1);
 
   if (path === "/me" && req.method === "GET") return me(env, user);
+  if (path === "/app" && req.method === "GET") {
+    const first = (await clientsOf(env, user))[0];
+    return first ? Response.redirect(`${url.origin}/${first}`, 302) : new Response("No clients yet: ask an admin to add you to one.", { headers: { "Content-Type": "text/plain" } });
+  }
+  // the pages' player: the API's GET with the cookie allowed (the path is not under /api/)
+  if (p[0] === "m" && p.length === 4 && req.method === "GET") return media(req, env, user, id(p[1], "client"), id(p[2], "slot"), p[3] ?? "");
   if (p[0] === "connect" && p.length === 2 && req.method === "GET") {
     const client = id(p[1], "client");
     await member(env, user, client);
@@ -516,7 +502,7 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
     await member(env, user, client);
     return json(200, { result: await op({ env, client, by: user.id, now }, await readJson(req)) });
   }
-  return json(404, { error: "not found" });
+  return (await pages(req, env, ctx, user, url, now)) ?? json(404, { error: "not found" });
 }
 
 export default {
