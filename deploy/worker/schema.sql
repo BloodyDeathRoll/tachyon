@@ -157,8 +157,7 @@ CREATE TABLE IF NOT EXISTS clients (           -- the former grants.yaml
   ig_username    TEXT,
   token_enc      TEXT,                         -- Page token, encrypted with a Worker secret
   token_expires  INTEGER,
-  schedule       TEXT NOT NULL DEFAULT '{}',   -- json: slots, week_prep
-  autonomy       TEXT NOT NULL DEFAULT '{}',   -- json: auto_reply, auto_approve_pillars
+  grants         TEXT NOT NULL DEFAULT '{}',   -- json: the former grants.yaml (slots, week_prep, auto_reply, bio_link, ...)
   emergency_stop INTEGER NOT NULL DEFAULT 0,
   publisher      TEXT NOT NULL DEFAULT 'local',  -- local (a PC's crontab) | worker (the cron here)
   created_by     INTEGER,

@@ -1,12 +1,14 @@
 # Tachyon Worker
 
 The online half of [docs/CLOUDFLARE-PLAN.md](../../docs/CLOUDFLARE-PLAN.md): a
-TypeScript Cloudflare Worker with D1 (`DB`) and R2 (`MEDIA`). Phases 0–1 so far:
-Google sign-in (invite-only), members per client, the job queue the PCs poll, and
-video upload to R2. The routes are listed at the top of `src/index.ts`.
+TypeScript Cloudflare Worker with D1 (`DB`) and R2 (`MEDIA`). So far: Google sign-in
+(invite-only), members per client, the job queue the PCs poll, video upload to R2, and
+`spine/db.py`'s methods as ops on D1 (`src/db.ts`, phase 1). The routes are listed at
+the top of `src/index.ts`.
 
-Nothing in `spine/` uses it yet. The local system keeps running as it is until the
-Tachyon Cloudflare account exists and the later phases cut over.
+A PC uses it once `~/.tachyon/worker.json` names it (`spine/remote.py`); until then the
+local system runs as it is. `python -m spine.migrate_d1 <client>` writes the SQL that
+moves a client's `tachyon.db` and files online (its docstring has the two commands).
 
 ## Run without an account
 
@@ -15,6 +17,9 @@ npm install
 npm test          # esbuild bundle, then node --test against Miniflare's local D1 and R2
 npm run typecheck
 ```
+
+`tests/test_remote_db.py` (repo root, pytest) starts `test/serve.mjs`, the same Worker
+on a local port, and runs the Python `RemoteDB` against it; it skips without `node_modules`.
 
 ## When the account exists
 

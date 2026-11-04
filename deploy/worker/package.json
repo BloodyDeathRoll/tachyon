@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "esbuild src/index.ts --bundle --format=esm --log-level=warning --outfile=.test/index.mjs && node --test",
+    "test": "esbuild src/index.ts --bundle --format=esm --log-level=warning --outfile=.test/index.mjs && node --test test/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "db:local": "wrangler d1 execute tachyon --local --file schema.sql",
     "db:remote": "wrangler d1 execute tachyon --remote --file schema.sql"

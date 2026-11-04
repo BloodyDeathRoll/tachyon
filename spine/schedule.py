@@ -36,8 +36,7 @@ ACTIVE = ("IDEA", "BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL", "NE
 
 def taken_slots(db, exclude: str | None = None) -> set[str]:
     """Slots held by anything not yet published (planned videos hold theirs)."""
-    q = f"SELECT slot_id, scheduled_at FROM posts WHERE state IN ({','.join('?' * len(ACTIVE))}) AND scheduled_at IS NOT NULL"
-    return {r["scheduled_at"] for r in db.conn.execute(q, ACTIVE).fetchall() if r["slot_id"] != exclude}
+    return {r["scheduled_at"] for r in db.scheduled_times(ACTIVE) if r["slot_id"] != exclude}
 
 
 class SlotGone(ValueError):

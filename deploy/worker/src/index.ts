@@ -13,12 +13,19 @@
 //   POST /api/jobs/<id>/heartbeat | done | fail  {host, result}
 //   PUT  /api/media/<client>/<slot>/video | cover  body = the file -> {key}
 //   GET  /api/media/<client>/<slot>/video | cover  -> the file
+//   POST /api/db/<client>/<op>  {...args}          -> the op's result (src/db.ts: spine/db.py's
+//                                                     methods, for a member of the client)
 //
 // Authenticated routes take `Authorization: Bearer <session>`. session.ts and google.ts
 // are Rosa's (deploy/user-api), unchanged; the session's `sub` carries users.id here.
+// An error is {error: <code>, detail?: <sentence>}.
 
+import { OPS } from "./db.ts";
 import { TokenError, verifyIdToken, type GoogleClaims } from "./google.ts";
+import { HttpError, json } from "./http.ts";
 import { mint, SESSION_TTL_MS, verify } from "./session.ts";
+
+export { HttpError };
 
 export interface Env {
   DB: D1Database;
@@ -72,21 +79,6 @@ interface JobRow {
   by: number | null;
   created_at: number;
   updated_at: number;
-}
-
-export class HttpError extends Error {
-  status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
-
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-  });
 }
 
 async function readJson(req: Request): Promise<Record<string, unknown>> {
@@ -399,6 +391,13 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   if (p[0] === "api" && p[1] === "media" && p.length === 5) {
     return media(req, env, user, id(p[2], "client"), id(p[3], "slot"), p[4] ?? "");
   }
+  if (p[0] === "api" && p[1] === "db" && p.length === 4 && req.method === "POST") {
+    const client = id(p[2], "client");
+    const op = OPS[p[3] ?? ""];
+    if (!op) throw new HttpError(404, "op");
+    await member(env, user, client);
+    return json(200, { result: await op({ env, client, by: user.id, now }, await readJson(req)) });
+  }
   return json(404, { error: "not found" });
 }
 
@@ -407,7 +406,7 @@ export default {
     try {
       return await route(req, env, ctx);
     } catch (e) {
-      if (e instanceof HttpError) return json(e.status, { error: e.message });
+      if (e instanceof HttpError) return json(e.status, e.detail ? { error: e.message, detail: e.detail } : { error: e.message });
       console.error("tachyon", e);
       return json(500, { error: "internal" });
     }
