@@ -383,5 +383,11 @@ test("/m/<client>/<slot>/video streams for a member with the cookie, 401 without
   assert.equal(tail.status, 206);
   assert.equal(tail.headers.get("Content-Range"), "bytes 0-13/14");
   assert.equal(tail.headers.get("Content-Length"), "14");
+  const past = await call("GET", "/m/rosa/v1/video", { headers: { Range: "bytes=20-" } }); // a start past the end: 416, never "bytes 20-19"
+  assert.equal(past.status, 416);
+  assert.equal(past.headers.get("Content-Range"), "bytes */14");
+  const odd = await call("GET", "/m/rosa/v1/video", { headers: { Range: "bytes=abc" } }); // not a range: the whole file, as a plain GET
+  assert.equal(odd.status, 200);
+  assert.equal(odd.headers.get("Content-Length"), "14");
   assert.equal(part.headers.get("Content-Length"), "6");
 });

@@ -406,21 +406,25 @@ async function media(req: Request, env: Env, user: UserRow, client: string, slot
     .first<{ ig_media_id: string | null; key: string | null }>();
   if (!post) throw new HttpError(404, "slot");
   if (req.method === "GET") {
-    const asked = req.headers.has("Range");
-    const obj = post.key ? await env.MEDIA.get(post.key, asked ? { range: req.headers } : {}) : null;
-    if (!obj) throw new HttpError(404, "file");
+    if (!post.key) throw new HttpError(404, "file");
     const headers: Record<string, string> = { "Content-Type": kind.type, "Accept-Ranges": "bytes", "Cache-Control": "private, no-store" };
-    const r = obj.range as { offset?: number; length?: number; suffix?: number } | undefined;
-    let status = 200;
-    let length = obj.size;
-    if (asked && r) {
-      const start = Math.max(0, r.suffix != null ? obj.size - r.suffix : r.offset ?? 0); // a suffix longer than the file is the whole file
-      length = Math.min(r.suffix ?? r.length ?? obj.size - start, obj.size - start);
-      headers["Content-Range"] = `bytes ${start}-${start + length - 1}/${obj.size}`;
-      status = 206;
+    // one `bytes=` range, read here rather than handed to R2: what R2 answers to a range past the
+    // end is not documented (the local one serves the whole file), and the headers come from these
+    // numbers. Anything else in Range is ignored and the whole file goes, as RFC 9110 allows.
+    const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.get("Range")?.trim() ?? "");
+    if (m && (m[1] || m[2])) {
+      const head = await env.MEDIA.head(post.key);
+      if (!head) throw new HttpError(404, "file");
+      const start = m[1] ? Number(m[1]) : Math.max(0, head.size - Number(m[2]));
+      const end = m[1] && m[2] ? Math.min(Number(m[2]), head.size - 1) : head.size - 1;
+      if (start >= head.size || start > end) return new Response(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${head.size}` } });
+      const part = await env.MEDIA.get(post.key, { range: { offset: start, length: end - start + 1 } });
+      if (!part) throw new HttpError(404, "file");
+      return new Response(part.body, { status: 206, headers: { ...headers, "Content-Range": `bytes ${start}-${end}/${head.size}`, "Content-Length": String(end - start + 1) } });
     }
-    headers["Content-Length"] = String(length);
-    return new Response(obj.body, { status, headers });
+    const obj = await env.MEDIA.get(post.key);
+    if (!obj) throw new HttpError(404, "file");
+    return new Response(obj.body, { status: 200, headers: { ...headers, "Content-Length": String(obj.size) } });
   }
   if (req.method !== "PUT") throw new HttpError(405, "method");
   if (name === "video" && post.ig_media_id) throw new HttpError(409, "published");
