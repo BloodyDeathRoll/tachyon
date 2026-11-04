@@ -130,7 +130,7 @@ In flight at any time: at most the approved-but-unpublished videos, ~22 MB each.
 - `spine/worker.py` (new): host registration, job loop, lease heartbeat, R2 upload.
 - `spine/measure/insights.py`, `spine/audience.py`, `spine/pickup.py`: logic ported into the Worker's cron (Graph API only); Python versions retired. Built (phase 5): `src/insights.ts` runs every minute for a `worker` client under its publish lease, at most six media snapshots a minute (four Graph calls each) plus the account's daily and rolling rows, so an hour's snapshots spread over the first minutes of the hour and the 50-subrequest budget holds; `src/pickup.ts` runs at :17 instead, links by caption or imports a reel with its caption, meta and cover (no video: the permalink is the player). `spine/audience.py`'s import is the dashboard upload (phase 6); its `dropped` is already a DB op.
 - crontab: the four jobs replaced by the one worker service.
-- Setup script per PC: ffmpeg, Node + Remotion, venv + faster_whisper + Dia, `claude` CLI, `spine.worker login`, and a client's `assets/` folder copied from a creator (by hand, a zip).
+- Setup script per PC: ffmpeg, Node + Remotion, venv + faster_whisper + Dia, `claude` CLI, `spine.worker login`, and a client's `assets/` folder copied from a creator (by hand, a zip). Built (phase 8, the script): `deploy/setup-pc.sh <worker url>` makes `.venv` (pyyaml, playwright, kokoro, soundfile) and `~/.cache/tachyon-tts/venv` (torch with CUDA, Dia, faster-whisper), installs Remotion, signs in, installs the service file with the checkout's path. The second PC's real run waits for the account.
 
 ## Phases
 
