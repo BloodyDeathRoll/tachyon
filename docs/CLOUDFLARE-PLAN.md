@@ -18,7 +18,7 @@ creator's PC keeps the file.
 
 | Question | Decision |
 |---|---|
-| Who publishes | The Worker, from R2. It hands Instagram a public R2 URL (`video_url`); Instagram's servers download the file ("We cURL your image using the passed in URL so it must be on a public server", content-publishing guide). The key is a random string; the object is deleted once Instagram has the file. No PC needs to be on. Reverses PLAN §3's "no video_url"; the resumable upload is retired. |
+| Who publishes | The Worker, from R2. It hands Instagram a public R2 URL (`video_url`); Instagram's servers download the file ("We cURL your image using the passed in URL so it must be on a public server", content-publishing guide). The key is a random string; the object is deleted once the post is published. No PC needs to be on. Reverses PLAN §3's "no video_url"; the resumable upload is retired. |
 | Login | Google sign-in, copied from Rosa `deploy/user-api` (GIS code client, stateless HMAC session). |
 | Who generates | A PC that holds the client's assets. "Any authorised PC" was wanted, but mirroring every client's footage in R2 would not stay in the free tier, so a client's generation runs only on PCs seeded with its `assets/` folder. |
 | Clients | Created from the dashboard; brand text (`brand.md`, `strategy.md`, …) and the former `grants.yaml` fields live online. |
@@ -83,7 +83,7 @@ Stays as is: bio link redirect on Vercel (`spine/publisher/links.py`), code in g
 2. On approval the host runs an `upload` job: `video.mp4` and `cover.jpg` go to R2 under `<client>/<slot>/<random 32 hex>.mp4`. The bucket is public-read; the key is unguessable (operator 2026-11-04).
 3. The Worker's cron (every minute): due slot in QUEUED → create the REELS container with `video_url` = the R2 URL and the same parameters as today (`share_to_feed`, `thumb_offset`, `trial_params`, `collaborators`, `location_id`, `is_ai_generated`). Container id saved on the post.
 4. Later minutes: poll `status_code`; FINISHED → `media_publish`; PUBLISHED with `ig_media_id`, permalink, `published_at`; first comment posted; then MEASURING. Up to 5 polls, as today.
-5. The R2 video object is deleted the minute Instagram has the file (container `status_code` FINISHED), and also when a slot is deleted or its video replaced. The cover stays for the calendar. Before FINISHED the file must stay: Instagram fetches it after the container call.
+5. The R2 video object is deleted the minute the post is PUBLISHED (`media_publish` returned an `ig_media_id`), not at FINISHED: a publish that fails after FINISHED (quota, Graph error, container EXPIRED) is retried with a new container, and that container fetches the file again. Also deleted when a slot is deleted or its video replaced, and by a daily sweep of any object whose post is no longer QUEUED, PUBLISHING or FAILED, or is older than 14 days. The cover stays for the calendar.
 6. After publish the dashboard's player is the Instagram permalink. The local file stays on the creator's PC (`media` says where).
 7. Other formats (16:9, 1:1) are never uploaded: the creator posts them by hand from their PC.
 
@@ -123,7 +123,7 @@ In flight at any time: at most the approved-but-unpublished videos, ~22 MB each.
 0. **Spike** (1 session): operator creates the account; Worker skeleton in TS with D1, R2, the cron and Google sign-in copied from Rosa; measure D1 latency from home.
 1. **D1 behind `spine/db.py`**: schema with `client` columns, `users`, `memberships`, `clients`, `jobs`, `leases`, `hosts`, `media`; migrate `tachyon.db`; tests pass unchanged; this desktop still the only runner.
 2. **`spine/worker.py`**: jobs and leases replace the crontab; the dashboard's Generate New, Revise and formats write jobs. Still one PC. Run a week.
-3. **Worker publishes from R2**: upload job, `video_url` container, one-minute cron, delete on FINISHED, idempotency check. Dry-run first; then a test with the cron killed between container create and poll.
+3. **Worker publishes from R2**: upload job, `video_url` container, one-minute cron, delete on PUBLISHED plus the daily sweep, idempotency check. Dry-run first; then a test with the cron killed between container create and poll.
 4. **Connect Instagram**: Facebook Login in the dashboard, tokens per client in D1, weekly refresh in the cron; `.env.local` keys and `auth.py` retired.
 5. **API-only crons into the Worker**: insights, audience, pickup.
 6. **Dashboard on the Worker**: all pages, phone layout, manifest; the local dashboard kept read-only until parity.
