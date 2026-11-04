@@ -2725,8 +2725,11 @@ class Handler(BaseHTTPRequestHandler):
                         (d / "posts" / slot).mkdir(parents=True, exist_ok=True)
                         (d / "posts" / slot / "caption.txt").write_text(form["caption"])
                     row_ = db.post(slot)
-                    at = ((not row_["scheduled_at"] and preview_slot(name, db, slot))
-                          or SCH.slot_for_approval(db, row_, C.load_grants(name)))   # the slot the calendar showed
+                    try:
+                        at = ((not row_["scheduled_at"] and preview_slot(name, db, slot))
+                              or SCH.slot_for_approval(db, row_, C.load_grants(name)))   # the slot the calendar showed
+                    except SCH.SlotGone as e:
+                        return self._send(409, f"Not approved: {e} ({when(row_['scheduled_at'])}). Reschedule it, then approve.".encode(), "text/plain")
                     db.set_state(slot, "APPROVED", note=notes or None, scheduled_at=at)
                     R.dismiss(name, slot)
                 elif form.get("action") == "caption":

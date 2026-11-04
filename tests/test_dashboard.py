@@ -1237,3 +1237,13 @@ def test_approve_refuses_a_file_instagram_would_refuse(server, client_dir):
     db = DB.for_client(client_dir)
     assert db.post("w01-s1")["state"] != "APPROVED"
     db.close()
+
+
+def test_approval_keeps_planned_slot_inside_lead(client_dir):
+    db = DB.for_client(client_dir)
+    row = dict(db.post("w01-s1"), scheduled_at="2026-11-04T06:30:00+00:00")
+    at = datetime(2026, 11, 4, 6, 15, 53, tzinfo=timezone.utc)   # 14 min before the slot
+    assert SCH.slot_for_approval(db, row, at=at) == "2026-11-04T06:30:00+00:00"
+    with pytest.raises(SCH.SlotGone):   # passed: the operator reschedules, never moved silently
+        SCH.slot_for_approval(db, row, at=at.replace(minute=31))
+    db.close()
