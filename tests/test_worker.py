@@ -183,11 +183,31 @@ def test_enqueue_and_push_files(env, monkeypatch):
 
 
 def test_pull_slot_writes_the_online_files(env, monkeypatch):
-    f = fake(monkeypatch, (200, {"result": {"caption.txt": "Online\n", "meta.json": "{}\n"}}))
-    assert PULL_SLOT("rosa", "new-1") == ["caption.txt", "meta.json"]
+    f = fake(monkeypatch, (200, {"result": {"caption.txt": "Online\n", "meta.json": "{}\n", "../../evil.txt": "x"}}))
+    assert PULL_SLOT("rosa", "new-1") == ["caption.txt", "meta.json"]   # only the post's files, never a path
     sd = env / "clients" / "rosa" / "posts" / "new-1"   # made on the way: a slot planned elsewhere
     assert (sd / "caption.txt").read_text() == "Online\n" and (sd / "meta.json").read_text() == "{}\n"
+    assert not (env / "clients" / "evil.txt").exists()
     assert f.calls[0][:3] == ("POST", "http://w/api/db/rosa/files", {"slot_id": "new-1"})
+    # a job's pull: the client's files, then the slot's; the network is tried again, a refusal is not
+    import urllib.error
+    pulled = []
+    monkeypatch.setattr(C, "pull", lambda name: pulled.append(name) or [])
+
+    def flaky(client, slot):
+        pulled.append(slot)
+        if len(pulled) < 3:
+            raise urllib.error.URLError("down")
+        return []
+
+    monkeypatch.setattr(W, "pull_slot", flaky)
+    slept = []
+    W.pull("rosa", "s", sleep=slept.append)
+    assert pulled == ["rosa", "s", "rosa", "s"] and slept == [W.POLL]
+    monkeypatch.setattr(W, "pull_slot", lambda c, s: (_ for _ in ()).throw(R.RemoteError(403, "x")))
+    with pytest.raises(RuntimeError, match="could not pull"):
+        W.pull("rosa", "s", sleep=slept.append)
+    assert slept == [W.POLL]
 
 
 def test_push_changed_sends_only_what_the_job_wrote(env, monkeypatch):
@@ -214,6 +234,9 @@ def test_before_writes_the_status_the_dashboard_would_have(env, monkeypatch):
     (sd / "meta.json").write_text('{"film": {"engine": "html", "dir": "nowhere"}, "title": "T"}\n')
     (sd / "brief.md").write_text("old\n")
     produce = ["spine.manual", "produce", "rosa", "s"]
+    with pytest.raises(ValueError, match="no prompt"):   # nothing moves for an empty prompt
+        BEFORE("produce", "rosa", "s", produce, {"prompt": " "})
+    assert (sd / "brief.md").exists() and not (sd / "versions").exists()
     BEFORE("produce", "rosa", "s", produce, {"prompt": " A wave ", "engine": "html"})
     st = revise.status("rosa", "s")
     assert st["state"] == "running" and st["kind"] == "new" and st["notes"] == "A wave"
@@ -325,7 +348,7 @@ def test_end_to_end_a_job_round_trip(worker, env, monkeypatch):
     RemoteDB("rosa").create_post("e2e-1", "rosa")
     RemoteDB("rosa").set_files("e2e-1", {"caption.txt": "Edited online\n"})
     assert W.register(cfg)["clients"] == ["rosa"]
-    job_id = J.spawn("produce", "rosa", "e2e-1", ["spine.manual", "produce", "rosa", "e2e-1"], sd / "x.log")
+    job_id = J.enqueue("produce", "rosa", "e2e-1", {"argv": ["spine.manual", "produce", "rosa", "e2e-1"], "prompt": "A wave"})
     assert isinstance(job_id, int)
     jobs = R.call("GET", "/api/jobs?client=rosa&slot=e2e-1", cfg=cfg)["jobs"]
     assert [j["state"] for j in jobs] == ["queued"]
@@ -345,7 +368,9 @@ def test_end_to_end_a_job_round_trip(worker, env, monkeypatch):
     assert job["state"] == "done" and job["holder"] == "pc-e2e"
     result = json.loads(job["result"])
     assert result["media"]["sha"] == hashlib.sha256(b"vid").hexdigest()
-    assert result["files"] == {"e2e-1": ["first_comment.txt"]}   # what the job wrote went up, nothing else
-    assert RemoteDB("rosa").files("e2e-1") == {"caption.txt": "Edited online\n", "first_comment.txt": "From the job\n"}
+    assert {"first_comment.txt", "meta.json"} <= set(result["files"]["e2e-1"])   # what the job and the stash wrote went up
+    online = RemoteDB("rosa").files("e2e-1")
+    assert online["caption.txt"] == "Edited online\n" and online["first_comment.txt"] == "From the job\n"
+    assert json.loads(online["meta.json"])["engine_choice"] == "html"
     assert "ig_user_id" in (env / "clients" / "rosa" / "grants.yaml").read_text()   # pulled from the row before the job
     assert W.once(cfg) is False
