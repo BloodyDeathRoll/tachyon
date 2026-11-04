@@ -30,7 +30,10 @@ export function names(data: unknown): Set<string> {
 
 /** POST /<client>/audience/upload: the form's `file`, then back to the Overview's card. */
 export async function upload(p: Page, req: Request): Promise<Response> {
-  if (Number(req.headers.get("Content-Length") ?? "0") > MAX_BYTES + 4096) throw new HttpError(413, "size", `the file is over ${MAX_BYTES >> 20} MB: upload followers_1.json alone`);
+  // the length is known before the body is read (a chunked body is refused, as the media PUT does): formData() buffers it all
+  const len = Number(req.headers.get("Content-Length"));
+  if (!req.body || !Number.isInteger(len) || len <= 0) throw new HttpError(411, "length", "the upload needs a Content-Length: a browser form sends one");
+  if (len > MAX_BYTES + 4096) throw new HttpError(413, "size", `the file is over ${MAX_BYTES >> 20} MB: upload followers_1.json alone`);
   const file = (await req.formData().catch(() => new FormData())).get("file");
   if (!(file instanceof File) || !file.size) throw new HttpError(400, "empty", "no file: pick followers_1.json from the export");
   if (file.size > MAX_BYTES) throw new HttpError(413, "size", `the file is over ${MAX_BYTES >> 20} MB: upload followers_1.json alone`);

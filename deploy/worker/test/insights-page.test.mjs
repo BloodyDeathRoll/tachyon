@@ -73,6 +73,10 @@ test("certainty: high for a clear gap, low for noise, null for everyone, the sam
   const t = performance.now();
   assert.notEqual(certainty(many, "pillar", "A", 1), null);
   assert.ok(performance.now() - t < 50, "one test must stay far inside the 10 ms CPU budget");
+  const more = Array.from({ length: 400 }, (_, i) => vid(i, i, i % 10 ? "A" : "B")); // a big group is drawn as its complement, fewer draws past 30 ranks
+  const t2 = performance.now();
+  assert.ok([certainty(more, "pillar", "A", 1), certainty(more, "pillar", "B", 1)].every((c) => c !== null && c >= 0 && c <= 99));
+  assert.ok(performance.now() - t2 < 50, "two tests on 400 videos");
   // the best three lose few viewers, the weakest three many: one arrangement in 20 does that by luck
   const sk = [vid(0, 100, "A"), vid(1, 90, "A"), vid(2, 80, "A"), vid(3, 10, "A"), vid(4, 9, "A"), vid(5, 8, "A")].map((v, i) => ({ ...v, skip: i < 3 ? 10 : 60 }));
   assert.ok(skipCertainty(sk) >= 90 && skipCertainty(sk) <= 99);

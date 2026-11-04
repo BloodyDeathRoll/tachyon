@@ -9,7 +9,9 @@ import { posts, type Ctx, type PostRow } from "../db.ts";
 import { esc, header, num, parse, parseJson, path, shell, titleOf, type Json, type Page } from "./shell.ts";
 
 export const MIN_N = 3; // PLAN §7: fewer samples than this on a side is a hint, not a result
-const ITER = 2000; // shortcut: 2000 seeded draws per test, never the exact enumeration insights.py does up to 20000 groups; raise it if a page's CPU time allows
+const ITER = 2000; // shortcut: at most 2000 seeded draws per test, fewer past 30 ranks a draw (draws × ranks ≤ 60000), never the exact enumeration insights.py does up to 20000 groups; raise both if a page's CPU time allows
+const OPS_PER_TEST = 60_000;
+const draws = (m: number): number => Math.min(ITER, Math.ceil(OPS_PER_TEST / Math.max(1, m)));
 type Key = "pillar" | "engine" | "part";
 type Label = "Topic" | "How it was made" | "Time of day";
 const KEY: Record<Label, Key> = { Topic: "pillar", "How it was made": "engine", "Time of day": "part" };
@@ -86,12 +88,20 @@ function rng(): () => number {
 /** 1-based ranks, ties sharing their average rank. */
 function ranks(xs: number[]): number[] {
   const order = [...xs].sort((a, b) => a - b);
-  return xs.map((x) => (order.indexOf(x) + order.lastIndexOf(x)) / 2 + 1);
+  const rank = new Map<number, number>();
+  for (let i = 0; i < order.length; i++) {
+    let j = i;
+    while (order[j + 1] === order[i]) j++;
+    rank.set(order[i]!, (i + j) / 2 + 1);
+    i = j;
+  }
+  return xs.map((x) => rank.get(x)!);
 }
 
 /** How sure we are that a group gets more (lower: fewer) views than the other videos, 0-99 %:
     a permutation test on ranks, times the number of groups compared (the more we look, the
-    more luck we find). Seeded Monte Carlo, ITER draws (insights.py certainty). */
+    more luck we find). Seeded Monte Carlo (insights.py certainty); a group past half the
+    videos is drawn as its complement, so a draw never takes more than n/2 ranks. */
 export function certainty(vs: Video[], key: Key, name: string, groupsTested: number, lower = false): number | null {
   const rank = ranks(vs.map((v) => v.views));
   const inn = vs.flatMap((v, i) => (v[key] === name ? [i] : []));
@@ -99,37 +109,43 @@ export function certainty(vs: Video[], key: Key, name: string, groupsTested: num
   const n = vs.length;
   if (!(k > 0 && k < n)) return null;
   const obs = inn.reduce((a, i) => a + rank[i]!, 0);
+  const flip = k > n - k;
+  const m = flip ? n - k : k;
+  const total = rank.reduce((a, x) => a + x, 0);
+  const iter = draws(m);
   const next = rng();
   const idx = rank.map((_, i) => i);
   let hit = 0;
-  for (let t = 0; t < ITER; t++) {
+  for (let t = 0; t < iter; t++) {
     let sum = 0;
-    for (let j = 0; j < k; j++) { // k draws without replacement: a partial Fisher-Yates
+    for (let j = 0; j < m; j++) { // m draws without replacement: a partial Fisher-Yates
       const r = j + Math.floor(next() * (n - j));
       [idx[j], idx[r]] = [idx[r]!, idx[j]!];
       sum += rank[idx[j]!]!;
     }
+    if (flip) sum = total - sum;
     if (lower ? sum <= obs : sum >= obs) hit++;
   }
-  return Math.min(99, Math.round((1 - Math.min(1, (hit / ITER) * groupsTested)) * 100));
+  return Math.min(99, Math.round((1 - Math.min(1, (hit / iter) * groupsTested)) * 100));
 }
 
-/** Same idea for "better videos lose fewer viewers": shuffle the skip rates ITER times. */
+/** Same idea for "better videos lose fewer viewers": shuffle the skip rates. */
 export function skipCertainty(vs: Video[]): number | null {
   const sk = vs.filter((v) => v.skip !== null).sort((a, b) => b.views - a.views).map((v) => v.skip!);
   if (sk.length < 2 * MIN_N) return null;
   const diff = (a: number[]) => mean(a.slice(-MIN_N)) - mean(a.slice(0, MIN_N)); // weakest minus best
   const obs = diff(sk);
+  const iter = draws(sk.length);
   const next = rng();
   let hit = 0;
-  for (let t = 0; t < ITER; t++) {
+  for (let t = 0; t < iter; t++) {
     for (let i = sk.length - 1; i > 0; i--) {
       const j = Math.floor(next() * (i + 1));
       [sk[i], sk[j]] = [sk[j]!, sk[i]!];
     }
     if (diff(sk) >= obs) hit++;
   }
-  return Math.min(99, Math.round((1 - hit / ITER) * 100));
+  return Math.min(99, Math.round((1 - hit / iter) * 100));
 }
 
 export function groups(vs: Video[], key: Key, typical: number): Group[] {
@@ -157,7 +173,10 @@ function isoWeek(ms: number): string {
 
 export function weeks(vs: Video[]): { week: string; n: number; views: number; total: number }[] {
   const by = new Map<string, number[]>();
-  for (const v of vs) by.set(isoWeek(v.at), [...(by.get(isoWeek(v.at)) ?? []), v.views]);
+  for (const v of vs) {
+    const w = isoWeek(v.at);
+    by.set(w, [...(by.get(w) ?? []), v.views]);
+  }
   return [...by].sort(([a], [b]) => (a < b ? -1 : 1)).map(([week, g]) => ({ week, n: g.length, views: mean(g), total: g.reduce((a, x) => a + x, 0) }));
 }
 

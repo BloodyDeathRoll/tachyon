@@ -28,8 +28,10 @@ async function up(body, name = "followers_1.json", as = 1) {
   form.append("file", new File([body], name));
   const headers = as === null ? {} : { Cookie: `s=${await tokenFor(as)}` };
   const multipart = new Request("http://x", { method: "POST", body: form }); // serialized here: dispatchFetch sends a FormData as text
+  const bytes = await multipart.arrayBuffer();
   headers["Content-Type"] = multipart.headers.get("Content-Type");
-  const res = await mf.dispatchFetch("http://t/rosa/audience/upload", { method: "POST", headers, body: await multipart.arrayBuffer(), redirect: "manual" });
+  headers["Content-Length"] = String(bytes.byteLength); // as a browser form sends it; dispatchFetch would otherwise chunk the body
+  const res = await mf.dispatchFetch("http://t/rosa/audience/upload", { method: "POST", headers, body: bytes, redirect: "manual" });
   return { status: res.status, text: await res.text(), location: res.headers.get("Location") };
 }
 
@@ -94,6 +96,19 @@ test("refused: not JSON, no followers, the following list, a zip, too large, a s
   r = await up(new Uint8Array(MAX_BYTES + 1), "followers_1.json");
   assert.equal(r.status, 413);
   assert.match(r.text, /over 4 MB/);
+  // a chunked body has no length to check before it is buffered: refused unread
+  const form = new FormData();
+  form.append("file", new File([followers(["x"])], "followers_1.json"));
+  const multipart = new Request("http://x", { method: "POST", body: form });
+  const chunked = await mf.dispatchFetch("http://t/rosa/audience/upload", {
+    method: "POST",
+    headers: { Cookie: `s=${await tokenFor(1)}`, "Content-Type": multipart.headers.get("Content-Type") },
+    body: multipart.body,
+    duplex: "half",
+    redirect: "manual",
+  });
+  assert.equal(chunked.status, 411);
+  assert.match(await chunked.text(), /needs a Content-Length/);
   assert.equal((await up("")).status, 400);
   assert.equal((await up(followers(["x"]), "followers_1.json", 2)).status, 403);
   assert.equal((await up(followers(["x"]), "followers_1.json", null)).status, 401);
