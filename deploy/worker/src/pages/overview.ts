@@ -85,6 +85,16 @@ function scheduleCard(p: Page): string {
   return `<section class=card><div class=row><h2>Publishing schedule</h2><span class=muted>your time</span></div><p class=muted style='margin:4px 0 0;font-size:14px'>${per}, every day.</p><div class=times>${rows}</div><p class=hint>Change the times in Settings.</p></section>`;
 }
 
+/** The Prepare popup: a `plan` job for `wk` (the calendar shows it on next week too). */
+export function prepareForm(base: string, wk: string, label: string): string {
+  const engines = Object.entries(ENGINES).map(([k, v]) => `<label class=chk><input type=radio name=engine value=${k}${k === "html" ? " checked" : ""}>${esc(v)}</label>`).join("");
+  return `<details class=pop><summary class='btn pri small'>${esc(label)}</summary><div class=box>
+<form method=post action='${base}/week'><input type=hidden name=week value='${esc(wk)}'><h2>${esc(label)}</h2><fieldset class=engines><legend>Animate with</legend>${engines}</fieldset>
+<label>Instructions for this batch<textarea name=instructions rows=5 placeholder='e.g. Add our Rosa app particles to the empty dark areas.'></textarea></label>
+<p class=hint style='margin:0'>Applies to every video in the batch. Leave it empty and Claude comes up with the idea.</p>
+<div class=btns><button class='btn pri small'>Start</button></div></form></div></details>`;
+}
+
 /** Next week: how many videos it holds, the plan job's state, the Prepare button (a `plan` job). */
 async function weekCard(p: Page, jobs: Map<string, Record<string, JobRow>>): Promise<string> {
   const wk = nextWeek(p.now);
@@ -102,12 +112,7 @@ async function weekCard(p: Page, jobs: Map<string, Record<string, JobRow>>): Pro
     body = `<div class=crow><p><b>The week is planned.</b> The videos land in Needs approval as they are made.</p><a class='btn sec' href='${base}/calendar?w=${esc(wk)}'>Open the week</a></div>`;
   } else {
     const err = mine?.state === "failed" ? `<div class=note>Last run failed: ${esc(mine.result ?? "")}</div>` : "";
-    const engines = Object.entries(ENGINES).map(([k, v]) => `<label class=chk><input type=radio name=engine value=${k}${k === "html" ? " checked" : ""}>${esc(v)}</label>`).join("");
-    body = `${err}<div class=crow><p>${total} videos</p><details class=pop><summary class='btn pri small'>Prepare next week</summary><div class=box>
-<form method=post action='${base}/week'><input type=hidden name=week value='${esc(wk)}'><h2>Prepare next week</h2><fieldset class=engines><legend>Animate with</legend>${engines}</fieldset>
-<label>Instructions for this batch<textarea name=instructions rows=5 placeholder='e.g. Add our Rosa app particles to the empty dark areas.'></textarea></label>
-<p class=hint style='margin:0'>Applies to every video in the batch. Leave it empty and Claude comes up with the idea.</p>
-<div class=btns><button class='btn pri small'>Start</button></div></form></div></details></div>`;
+    body = `${err}<div class=crow><p>${total} videos</p>${prepareForm(base, wk, "Prepare next week")}</div>`;
   }
   const prep = (p.client.grants.week_prep ?? {}) as Json;
   const auto = `<div class=autorow><span>Prepare automatically every ${esc(String(prep.day ?? "Thursday"))}: ${prep.auto ? "on" : "off"} (Settings)</span></div>`;
@@ -134,11 +139,18 @@ async function droppedCard(p: Page, up: string | null): Promise<string> {
   return `<section class=card id=dropped><h2>Followers who dropped</h2>${body}${done}${last}</section>`;
 }
 
-/** Sync: the cron picks reels up at :17 every hour (src/pickup.ts); the button only says so. */
-async function syncCard(p: Page): Promise<string> {
+/** Sync: the cron picks reels up at :17 every hour (src/pickup.ts); the button runs it now
+    (settings.ts sync). `synced` is its answer, "<added>-<not checked>" or "err". */
+async function syncCard(p: Page, synced: string | null): Promise<string> {
   const last = await p.c.env.DB.prepare("SELECT ts, intent FROM journal WHERE client = ? AND action = 'meta.link_by_hand' AND by IS NULL ORDER BY id DESC LIMIT 1").bind(p.c.client).first<{ ts: string }>();
   const note = last ? `<p class=hint>Last pickup ${ago(last.ts, p.now)}.</p>` : "<p class=hint>Nothing picked up yet.</p>";
-  return `<section class=card id=sync><h2>Sync</h2><div class=crow><p>Reels posted straight to Instagram join the dashboard every hour at :17.</p><button class='btn sec' disabled>${icon("redo", 16)}Automatic</button></div>${note}</section>`;
+  let res = "";
+  if (synced === "err") res = "<p class=hint style='color:#b42318'>Could not reach Instagram. Try again later.</p>";
+  else if (synced && /^\d+-\d+$/.test(synced)) {
+    const [a, f] = synced.split("-").map(Number) as [number, number];
+    res = `<p class=upok>${icon("check", 15)}${a ? `${a} ${a === 1 ? "video" : "videos"} added.` : "Nothing new."}</p>${f ? `<p class=hint>${f} could not be checked. Try again later.</p>` : ""}`;
+  }
+  return `<section class=card id=sync><h2>Sync</h2><form method=post action='${path(p.client.id)}/sync' class=crow><p>Reels posted straight to Instagram join the dashboard every hour at :17.</p><button class='btn sec'>${icon("redo", 16)}Sync now</button></form>${note}${res}</section>`;
 }
 
 export async function renderOverview(p: Page, q: URLSearchParams): Promise<Response> {
@@ -162,7 +174,7 @@ export async function renderOverview(p: Page, q: URLSearchParams): Promise<Respo
   const perf = `<section class='card perf'><h2>Performance</h2><div class=stats>${await accountStats(p.c)}</div>${await recsLine(p, all, meta)}</section>`;
   const need = cnt("need");
   const vids = `<div class='row vhead'><h2>Videos${need ? ` <span class=tdo>${need} to approve</span>` : ""}</h2><div class=seg role=group aria-label='Show'>${filt}</div></div><div class=grid>${cards}</div>`;
-  const side = `${scheduleCard(p)}${await weekCard(p, jobs)}${await droppedCard(p, q.get("up"))}${await syncCard(p)}`;
+  const side = `${scheduleCard(p)}${await weekCard(p, jobs)}${await droppedCard(p, q.get("up"))}${await syncCard(p, q.get("synced"))}`;
   const body = `${header(p, "Overview")}<div class=ovgrid><div class=maincol>${perf}${vids}</div><div class=side>${side}</div></div>`;
   const planning = jobs.get("")?.plan?.state === "running";
   return shell(p, "overview", body, "Overview", busy || planning ? 30 : null);

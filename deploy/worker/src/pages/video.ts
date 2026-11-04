@@ -359,7 +359,7 @@ export async function renderQa(p: Page, slot: string): Promise<Response> {
 
 // ── the POSTs ─────────────────────────────────────────────────────────────────
 
-function field(form: FormData, name: string): string {
+export function field(form: FormData, name: string): string {
   const v = form.get(name);
   return typeof v === "string" ? v : "";
 }
@@ -473,6 +473,7 @@ async function decide(s: Slot, form: FormData, back: string): Promise<Response> 
       if (!["NEEDS_APPROVAL", "NEEDS_INPUT"].includes(row.state)) throw new HttpError(409, "state", `only a video waiting for review can be generated again (this one is ${row.state})`);
       const engine = field(form, "engine") in ENGINES ? field(form, "engine") : "html";
       const prompt = field(form, "prompt").trim();
+      if (!prompt) throw new HttpError(400, "prompt", "say what the new video should be"); // the host refuses an empty one too
       await setMeta(s, { engine_choice: engine, source: "prompt", plan: "manual" });
       await setState(p.c, slot, "REJECTED", "generate new", {});
       await setState(p.c, slot, "SCRIPTED", `generate new (${engine}): ${prompt.slice(0, 150)}`, {});
@@ -480,6 +481,13 @@ async function decide(s: Slot, form: FormData, back: string): Promise<Response> 
       break;
     }
     case "approve": {
+      if (s.meta.upload) {
+        // a browser upload no PC has seen: the `spec` job's check must have passed (docs/CLOUDFLARE-PLAN.md, "Uploads")
+        const sp = s.jobs.spec;
+        if (sp?.state !== "done") throw new HttpError(409, "spec", sp?.state === "failed" ? `the file check failed: ${jobResult(sp).slice(0, 300)}` : "a PC has not checked the file yet: try again in a minute");
+        const issues = parseJson(sp.result).issues;
+        if (Array.isArray(issues) && issues.length) throw new HttpError(409, "spec", `Instagram would refuse this file: ${issues.join("; ")}`);
+      }
       let at = row.scheduled_at ? null : await previewSlot(p, slot); // the slot the calendar showed
       if (!at) {
         try {

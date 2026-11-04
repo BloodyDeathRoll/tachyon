@@ -9,6 +9,11 @@
 //   GET  /<client>/v/<slot>             one video             src/pages/video.ts
 //   GET  /<client>/v/<slot>/byhand|qa
 //   POST /<client>/v/<slot>/<action>    decide | replies | ailabel | byhand | formats | remove | delete
+//   GET  /<client>/calendar             week | ?view=month   src/pages/calendar.ts
+//   POST /<client>/move                 slot, swap | at
+//   POST /<client>/new | new/upload     a prompt | the file  src/pages/newvideo.ts
+//   GET  /<client>/settings             src/pages/settings.ts
+//   POST /<client>/flag | schedule | sync
 //   GET  /<client>/insights             src/pages/insights.ts
 //   POST /<client>/audience/upload      the followers export      src/pages/audience.ts
 //   GET|POST /admin/members | clients   admins only               src/pages/admin.ts
@@ -18,11 +23,15 @@ import type { Fetcher } from "../graph.ts";
 import { HttpError } from "../http.ts";
 import { clientsOf, member, type UserRow } from "../members.ts";
 import { noClient, renderAdmin } from "./admin.ts";
-import { upload } from "./audience.ts";
+import { upload as audienceUpload } from "./audience.ts";
 import { renderInsights } from "./insights.ts";
 import { prepareWeek, renderOverview } from "./overview.ts";
 import { errorPage, path, type ClientInfo, type Page } from "./shell.ts";
 import { act, renderByhand, renderQa, renderVideo } from "./video.ts";
+// slice b
+import { move, renderCalendar } from "./calendar.ts";
+import { newPrompt, upload as newUpload } from "./newvideo.ts";
+import { flag, renderSettings, schedule, sync } from "./settings.ts";
 
 const ID = /^[\w-]{1,64}$/;
 
@@ -65,7 +74,30 @@ export async function pages(req: Request, env: Page["env"], _ctx: ExecutionConte
     });
   }
   if (parts.length === 2 && kind === "insights" && req.method === "GET") return catching(path(client), () => pageFor().then(renderInsights));
-  if (parts.length === 3 && kind === "audience" && slot === "upload" && req.method === "POST") return catching(path(client), () => pageFor().then((page) => upload(page, req)));
+  if (parts.length === 3 && kind === "audience" && slot === "upload" && req.method === "POST") return catching(path(client), () => pageFor().then((page) => audienceUpload(page, req)));
+  // slice b: the calendar, a new video and settings (calendar.ts, newvideo.ts, settings.ts); a refusal goes back to its page
+  const b = parts.length === 2 ? kind : parts.length === 3 && kind === "new" && slot === "upload" ? "upload" : undefined;
+  const bGet = req.method === "GET" && (b === "calendar" || b === "settings");
+  const bPost = req.method === "POST" && ["move", "new", "upload", "schedule", "flag", "sync"].includes(b ?? "");
+  if (bGet || bPost) {
+    const back = `${path(client)}${b === "sync" ? "" : b === "settings" || b === "schedule" || b === "flag" ? "/settings" : "/calendar"}`;
+    try {
+      await member(env, user, client);
+      const page = await pageOf(env, user, client, now);
+      if (b === "calendar") return await renderCalendar(page, req, url);
+      if (b === "settings") return renderSettings(page);
+      if (b === "upload") return await newUpload(page, req, url.searchParams);
+      if (b === "sync") return await sync(page, fetcher);
+      const form = await formOf(req);
+      if (b === "move") return await move(page, form);
+      if (b === "new") return await newPrompt(page, form);
+      if (b === "schedule") return await schedule(page, form);
+      return await flag(page, form);
+    } catch (e) {
+      if (e instanceof HttpError) return errorPage(e.status, e.detail ?? e.message, back);
+      throw e;
+    }
+  }
   const video = kind === "v" && slot !== undefined && ID.test(slot) && parts.length <= 4;
   if (!(parts.length === 1 || (kind === "week" && parts.length === 2) || video)) return null;
   try {
