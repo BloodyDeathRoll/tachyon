@@ -149,9 +149,10 @@ def pull(client: str, slot: str | None, sleep=time.sleep) -> None:
 
 
 def push_changed(client: str, since: float) -> dict[str, list[str]]:
-    """The text files a job wrote (mtime after `since`), slot by slot, sent up: a plan job makes
-    many slots, a produce or revise rewrites its own. A host runs one job at a time, so every
-    newer file is this job's. {slot: names}."""
+    """The text files newer than the job's start (`since`), slot by slot, sent up: a plan job
+    makes many slots, a produce or revise rewrites its own. A host runs one job at a time, so a
+    newer file is this job's, or one pulled in the same tick of the file clock and sent back
+    unchanged. {slot: names}."""
     out = {}
     for sd in sorted((C.client_dir(client) / "posts").glob("*/")):
         names = tuple(n for n in J.POST_FILES if (sd / n).exists() and (sd / n).stat().st_mtime >= since)
@@ -215,7 +216,7 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) ->
     payload = json.loads(job.get("payload") or "{}") if isinstance(job.get("payload"), str) else (job.get("payload") or {})
     client, slot = job["client"], job.get("slot_id")
     if job["kind"] == "spec":
-        return spec(client, slot, cfg)
+        return spec(client, slot, cfg)   # reads only the file in R2: no text files needed
     if job["kind"] == "upload":
         pull(client, slot, sleep)   # the operator's online edits, so the files sent up are the newest
         return {"keys": upload(client, slot, cfg)}
