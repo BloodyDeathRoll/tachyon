@@ -1949,7 +1949,7 @@ def render_month(client: str, month: str | None, hl: str | None = None) -> bytes
             cells = []
             for hm in hms:
                 iso_ = utc_iso(day, hm)
-                past = parse(iso_) < now_ + SCH.LEAD
+                past = parse(iso_) <= now_
                 got = items.get((day.isoformat(), hm))
                 if got:
                     cells.append(_cell(client, got[0][0], got[0][1], past, hl, mini=True, hm=hm))
@@ -2110,7 +2110,7 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
             for day in days:
                 items = cells.get((day.isoformat(), hm)) or []
                 iso = utc_iso(day, hm)
-                past = parse(iso) < now_ + SCH.LEAD
+                past = parse(iso) <= now_
                 if items:
                     g.append(_cell(client, items[0][0], items[0][1], past, hl))
                 else:
@@ -2326,13 +2326,13 @@ def render_settings(client: str) -> bytes:
 
 def _first_free_on(db: DB, day: str, grants: dict, exclude: str) -> str | None:
     taken = SCH.taken_slots(db, exclude=exclude)
-    lim = datetime.now(timezone.utc) + SCH.LEAD
+    lim = datetime.now(timezone.utc)
     d = date.fromisoformat(day)
     # the week view shows a row for every time used that week: those count as open slots on this day too
     wk = {t.strftime("%H:%M") for r in db.posts() for at in (r["published_at"] or r["scheduled_at"],) if at
           for t in (parse(at).astimezone(LOCAL),) if t.date().isocalendar()[:2] == d.isocalendar()[:2]}
     for iso in sorted(set(day_slots(grants, d).values()) | {utc_iso(d, hm) for hm in wk}, key=parse):
-        if parse(iso) >= lim and iso not in taken:
+        if parse(iso) > lim and iso not in taken:
             return iso
     return None
 
@@ -2612,8 +2612,8 @@ class Handler(BaseHTTPRequestHandler):
                         if not at:
                             return self._send(400, b"no open slot left that day", "text/plain")
                         when_ = parse(at)
-                        if when_ < datetime.now(timezone.utc) + SCH.LEAD:
-                            return self._send(400, b"that slot is too close or already past", "text/plain")
+                        if when_ <= datetime.now(timezone.utc):
+                            return self._send(400, b"that slot has already passed", "text/plain")
                         if at in SCH.taken_slots(db, exclude=slot):
                             return self._send(400, b"that slot is taken", "text/plain")
                         db.move(slot, at)
