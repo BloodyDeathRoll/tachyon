@@ -45,6 +45,9 @@ def test_grants_come_from_the_row_and_go_back_to_it(remote, monkeypatch):
     body = f.calls[2][2]
     assert body["emergency_stop"] is True and body["grants"]["slots"] == ["06:30"]
     assert not {"page_id", "ig_user_id", "ig_username", "emergency_stop", "display_name"} & set(body["grants"])   # columns, not grants
+    f.answers.append((200, {"result": True}))
+    C.save_grants("rosa", {"slots": ["18:30"]})   # no emergency_stop key: the stop is left as it is
+    assert f.calls[3][2] == {"grants": {"slots": ["18:30"]}, "emergency_stop": None}
     assert (remote / "clients" / "rosa" / "grants.yaml").read_text() == "page_id: old\n"   # the file is not the store any more
 
 
@@ -83,7 +86,12 @@ def test_a_job_pulls_first_and_tries_again_over_the_network(remote, monkeypatch)
     slept = []
     W.run_job(job, R.config(), runner=ok, sleep=slept.append)
     assert len(tries) == 3 and slept == [W.POLL, W.POLL] and len(ran) == 2
-    monkeypatch.setattr(C, "pull", lambda name: (_ for _ in ()).throw(R.RemoteError(403, "member")))
-    with pytest.raises(RuntimeError, match="could not pull"):   # not a member any more: no retry, the job fails
+    for status in (403, 404):   # not a member any more, or no such client: no retry, the job fails
+        monkeypatch.setattr(C, "pull", lambda name, s=status: (_ for _ in ()).throw(R.RemoteError(s, "x")))
+        with pytest.raises(RuntimeError, match="could not pull"):
+            W.run_job(job, R.config(), runner=ok, sleep=slept.append)
+    assert len(ran) == 2 and len(slept) == 2
+    monkeypatch.setattr(C, "pull", lambda name: (_ for _ in ()).throw(R.RemoteError(503, "down")))
+    with pytest.raises(RuntimeError, match="could not pull"):   # the Worker down: tried three times first
         W.run_job(job, R.config(), runner=ok, sleep=slept.append)
-    assert len(ran) == 2
+    assert len(slept) == 4

@@ -76,7 +76,8 @@ def load_grants(name: str) -> dict:
 def save_grants(name: str, grants: dict) -> None:
     db = _remote(name)
     if db:
-        db.set_grants({k: v for k, v in grants.items() if k not in COLUMNS}, emergency_stop=bool(grants.get("emergency_stop")))
+        db.set_grants({k: v for k, v in grants.items() if k not in COLUMNS},
+                      emergency_stop=bool(grants["emergency_stop"]) if "emergency_stop" in grants else None)   # absent: left as it is
         return
     (client_dir(name) / "grants.yaml").write_text(yaml.safe_dump(grants, sort_keys=False))
 
@@ -92,13 +93,19 @@ def pull(name: str) -> list[str]:
         return []
     d = CLIENTS / name
     d.mkdir(parents=True, exist_ok=True)
+
+    def put(fname: str, text: str) -> None:
+        tmp = d / (fname + ".tmp")   # whole or not at all: a prompt may read the file mid-write
+        tmp.write_text(text)
+        tmp.replace(d / fname)
+
     written = []
     for f in db.client_files():
-        if "/" in f["name"] or not f["name"].endswith(".md"):
+        if "/" in f["name"] or "\\" in f["name"] or not f["name"].endswith(".md"):
             continue   # never a path, never anything but the markdown
-        (d / f["name"]).write_text(f["text"])
+        put(f["name"], f["text"])
         written.append(f["name"])
-    (d / "grants.yaml").write_text(yaml.safe_dump(_row_grants(db.client_row()), sort_keys=False))
+    put("grants.yaml", yaml.safe_dump(_row_grants(db.client_row()), sort_keys=False))
     written.append("grants.yaml")
     return written
 

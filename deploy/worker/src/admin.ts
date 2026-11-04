@@ -27,7 +27,7 @@ export async function invite(env: { DB: D1Database }, body: Body, now: number): 
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   if (!EMAIL.test(email)) throw new HttpError(400, "email");
   try {
-    const r = await env.DB.prepare("INSERT INTO users (email, admin, created_at) VALUES (?, ?, ?)").bind(email, body.admin ? 1 : 0, now).run();
+    const r = await env.DB.prepare("INSERT INTO users (email, admin, created_at) VALUES (?, ?, ?)").bind(email, body.admin === true ? 1 : 0, now).run();
     return json(200, { id: r.meta.last_row_id });
   } catch (e) {
     if (String(e).includes("UNIQUE")) throw new HttpError(409, "exists", `${email} is invited already`);

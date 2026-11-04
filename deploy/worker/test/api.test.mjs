@@ -150,7 +150,7 @@ test("the sign-in page carries the Google client id and needs no session", async
 
 test("an admin invites, adds members and clients; a member cannot", async () => {
   assert.equal((await call("GET", "/api/admin/users", { as: 1 })).status, 403);
-  const carol = (await call("POST", "/api/admin/users", { as: 3, body: { email: " Carol@Example.com " } })).data.id;
+  const carol = (await call("POST", "/api/admin/users", { as: 3, body: { email: " Carol@Example.com ", admin: "false" } })).data.id; // only `true` makes an admin
   assert.equal((await call("POST", "/api/admin/users", { as: 3, body: { email: "carol@example.com" } })).status, 409);
   assert.equal((await call("POST", "/api/admin/users", { as: 3, body: { email: "nope" } })).status, 400);
   assert.equal((await call("POST", "/api/admin/clients", { as: 3, body: { id: "zed", name: "Zed Surf" } })).status, 200);

@@ -328,7 +328,9 @@ export const OPS: Record<string, (c: Ctx, a: Args) => Promise<unknown>> = {
   async client(c) {
     return clientRow(c);
   },
-  /** grants.yaml's keys (not the columns beside them) and the emergency stop. */
+  /** grants.yaml's keys (not the columns beside them) and the emergency stop. Any member: a
+      member does everything for the client (docs/CLOUDFLARE-PLAN.md, "Access"), the stop
+      included, as on the local settings page. The request body's 64 KB cap bounds the size. */
   async set_grants(c, a) {
     const given = obj(a.grants, "grants");
     const grants = Object.fromEntries(Object.entries(given).filter(([k]) => !CLIENT_COLUMNS.has(k)));

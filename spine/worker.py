@@ -160,7 +160,8 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) ->
             C.pull(client)
             break
         except (OSError, R.RemoteError) as e:
-            if i == REPORT_TRIES - 1 or isinstance(e, R.RemoteError) and e.status in (401, 403):
+            passing = isinstance(e, OSError) or e.status >= 500   # the network or the Worker down: worth another try
+            if i == REPORT_TRIES - 1 or not passing:
                 raise RuntimeError(f"could not pull {client}'s files: {e}") from e   # the job fails before it starts: stale text makes wrong films
             sleep(POLL)
     log = log_dir() / f"job-{job['id']}.log"
