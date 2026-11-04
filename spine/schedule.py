@@ -9,7 +9,6 @@ from __future__ import annotations
 from datetime import datetime, time, timedelta, timezone
 
 DEFAULT_SLOTS = ["06:30", "18:30"]   # UTC, clients/<name>/strategy.md
-LEAD = timedelta(minutes=30)          # auto-picked slots only (next_free); planned and manual slots just need to be ahead
 
 
 def _slots(grants: dict | None) -> list[time]:
@@ -18,14 +17,14 @@ def _slots(grants: dict | None) -> list[time]:
 
 
 def next_free(taken: set[str], grants: dict | None = None, at: datetime | None = None) -> str:
-    """First slot ≥ at + LEAD whose ISO timestamp is not in `taken`."""
-    at = (at or datetime.now(timezone.utc)) + LEAD
+    """First slot still ahead of `at` whose ISO timestamp is not in `taken`."""
+    at = at or datetime.now(timezone.utc)
     day = at.date()
     for _ in range(366):
         for t in _slots(grants):
             dt = datetime.combine(day, t, tzinfo=timezone.utc)
             iso = dt.isoformat(timespec="seconds")
-            if dt >= at and iso not in taken:
+            if dt > at and iso not in taken:
                 return iso
         day += timedelta(days=1)
     raise RuntimeError("no free slot within a year")
