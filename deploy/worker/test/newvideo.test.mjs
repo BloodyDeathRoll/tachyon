@@ -64,6 +64,15 @@ test("the add box opens for ?add=<slot>; a prompt books the slot and asks a PC t
   assert.equal((await call("POST", "/rosa/new", { form: { at: AT2, engine: "gif" } })).status, 303);
   assert.equal((await post("2099-w02-02")).engine, "html");
   assert.equal(JSON.parse((await job("produce", "2099-w02-02")).payload).engine, "html");
+  const journal = (await env.DB.prepare("SELECT action, json_extract(intent, '$.to') AS t FROM journal WHERE target = '2099-w02-01' ORDER BY id").all()).results;
+  assert.deepEqual(journal.map((x) => [x.action, x.t]), [["post.create", null], ["post.state", "BRIEFED"]]);
+  // one batch: a write that fails partway leaves no row, no job, and the slot free
+  await env.DB.prepare("INSERT INTO post_files (client, slot_id, name, text, updated_at) VALUES ('rosa', '2099-w02-03', 'meta.json', 'stray', 0)").run();
+  assert.equal((await call("POST", "/rosa/new", { form: { at: "2099-01-07T06:30:00+00:00", prompt: "x" } })).status, 500);
+  assert.equal(await post("2099-w02-03"), null);
+  assert.equal(await job("produce", "2099-w02-03"), null);
+  assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM journal WHERE target = '2099-w02-03'").first()).n, 0);
+  await env.DB.prepare("DELETE FROM post_files WHERE slot_id = '2099-w02-03'").run();
 });
 
 test("an upload streams into R2, lands in Needs approval with a spec job; approve waits for the check", async () => {
@@ -120,6 +129,15 @@ test("a refused upload leaves no row: not a video, a taken slot, no body", async
   assert.equal(await post("2099-w02-04"), null);
   assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM journal WHERE target = '2099-w02-04'").first()).n, 0);
   assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM jobs WHERE kind = 'spec'").first()).n, 1);
+  // a failure after the file is in R2 takes the file and the rows back out
+  await env.DB.prepare("INSERT INTO post_files (client, slot_id, name, text, updated_at) VALUES ('rosa', '2099-w02-04', 'meta.json', 'stray', 0)").run();
+  assert.equal((await upload(at, "a.mp4", "ok")).status, 500);
+  assert.equal(await post("2099-w02-04"), null);
+  assert.equal((await env.MEDIA.list({ prefix: "rosa/2099-w02-04/" })).objects.length, 0);
+  assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM media WHERE slot_id = '2099-w02-04'").first()).n, 0);
+  assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM journal WHERE target = '2099-w02-04'").first()).n, 0);
+  assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM jobs WHERE kind = 'spec'").first()).n, 1);
+  await env.DB.prepare("DELETE FROM post_files WHERE slot_id = '2099-w02-04'").run();
   // the slot is still free
   assert.equal((await upload(at, "a.mp4", "ok")).status, 303);
   assert.equal((await post("2099-w02-04")).state, "NEEDS_APPROVAL");

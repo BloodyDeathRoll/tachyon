@@ -15,7 +15,7 @@ import { Budget, countedDB, countedFetch, countedR2 } from "../budget.ts";
 import { PUBLISH_LEASE_MS, releaseLease, takeLease } from "../cron.ts";
 import { open } from "../crypto.ts";
 import { OPS } from "../db.ts";
-import type { Fetcher } from "../graph.ts";
+import { GraphError, type Fetcher } from "../graph.ts";
 import { HttpError } from "../http.ts";
 import { pickup } from "../pickup.ts";
 import { slots } from "./schedule.ts";
@@ -38,14 +38,15 @@ function switchRow(act: string, flag: string, on: boolean, label: string, desc: 
   return `<form class=switch method=post action='${act}'><div><b>${label}</b><div class=muted style='font-size:14px'>${desc}</div></div><input type=hidden name=flag value='${flag}'><input type=hidden name=value value='${on ? 0 : 1}'><button class='btn ${cls}'>${button}</button></form>`;
 }
 
-/** The daily slots as time fields (app.py schedule_card), saved as UTC. */
+/** The daily slots as time fields (app.py schedule_card), saved as UTC. Enter in a field submits
+    the form's first button, so a hidden Save comes before the first remove button. */
 function scheduleCard(p: Page): string {
   const times = slots(p.client.grants);
   const n = times.length;
   const rows = times.map((t, i) => `<div class=tfield><span>Post ${i + 1}</span><input type=time name=t value='${esc(t)}' data-utc='${esc(t)}' required aria-label='Post ${i + 1} time'><button class=x name=remove value=${i} formnovalidate${n === 1 ? " disabled" : ""} aria-label='Remove post ${i + 1}' title='Remove'>&times;</button></div>`).join("");
   const per = ({ 1: "Once a day", 2: "Twice a day", 3: "Three times a day" } as Record<number, string>)[n] ?? `${n} times a day`;
   return `<section class=card style='margin-top:24px'><div class=row><h2>Publishing schedule</h2><span class=muted>your time</span></div><p class=muted style='margin:4px 0 0;font-size:14px'>${per}, every day.</p>
-<form method=post action='${path(p.client.id)}/schedule'><input type=hidden name=tz value=0><div class=times>${rows}</div>
+<form method=post action='${path(p.client.id)}/schedule'><input type=hidden name=tz value=0><button name=save value=1 hidden tabindex=-1 aria-hidden=true></button><div class=times>${rows}</div>
 <div class=btns style='margin-top:0;justify-content:flex-end'><button class='btn dark small' name=save value=1>Save</button><button class='btn sec small' name=add value=1 formnovalidate${n >= MAX_SLOTS ? " disabled" : ""}>+ Add a post</button></div></form><script>${LOCAL_JS}</script></section>`;
 }
 
@@ -88,12 +89,14 @@ export function freeTime(ts: string[]): string {
 
 /** POST /<client>/schedule: the times as the browser showed them (local, `tz` minutes behind UTC), stored UTC. */
 export async function schedule(p: Page, form: FormData): Promise<Response> {
-  let ts = form.getAll("t").filter((t): t is string => typeof t === "string" && t !== "");
-  if (!ts.length) ts = [...form.keys()].filter((k) => /^t\d+$/.test(k)).sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))).map((k) => field(form, k)).filter(Boolean);
-  if (form.has("remove") && ts.length > 1) {
+  // the fields as rendered, empties included: `remove` indexes the rows on the page
+  let raw = form.getAll("t").map(String);
+  if (!raw.length) raw = [...form.keys()].filter((k) => /^t\d+$/.test(k)).sort((a, b) => Number(a.slice(1)) - Number(b.slice(1))).map((k) => field(form, k));
+  if (form.has("remove") && raw.filter(Boolean).length > 1) {
     const i = Number(field(form, "remove"));
-    if (i >= 0 && i < ts.length) ts.splice(i, 1);
+    if (i >= 0 && i < raw.length) raw.splice(i, 1);
   }
+  const ts = raw.filter(Boolean);
   if (ts.some((t) => !/^([01]\d|2[0-3]):[0-5]\d$/.test(t))) throw new HttpError(400, "t", "a time is HH:MM");
   if (form.has("add")) {
     if (ts.length >= MAX_SLOTS) throw new HttpError(400, "slots", `at most ${MAX_SLOTS} posts a day`);
@@ -112,16 +115,18 @@ export async function schedule(p: Page, form: FormData): Promise<Response> {
 export async function sync(p: Page, fetcher: Fetcher): Promise<Response> {
   const r = await p.env.DB.prepare("SELECT token_enc FROM clients WHERE id = ?").bind(p.client.id).first<{ token_enc: string | null }>();
   if (!r?.token_enc || !p.client.ig_user_id) throw new HttpError(409, "connect", "Instagram is not connected: Connect it first");
+  const token = await open(r.token_enc, p.env.TOKEN_SECRET); // a token that does not open is a 500, not "Meta down"
   const lease = `publish:${p.client.id}`;
   const holder = `sync-${p.user.id}-${p.now}`;
   if (!(await takeLease(p.env, lease, holder, p.now, PUBLISH_LEASE_MS))) throw new HttpError(409, "busy", "the publisher is running for this client: try again in a minute");
   let synced: string;
   try {
     const b = new Budget(SYNC_BUDGET);
-    const out = await pickup({ DB: countedDB(p.env.DB, b), MEDIA: countedR2(p.env.MEDIA, b) }, p.client, await open(r.token_enc, p.env.TOKEN_SECRET), p.now, countedFetch(fetcher, b), b);
+    const out = await pickup({ DB: countedDB(p.env.DB, b), MEDIA: countedR2(p.env.MEDIA, b) }, p.client, token, p.now, countedFetch(fetcher, b), b);
     synced = `${out.filter((x) => "slot_id" in x).length}-${out.filter((x) => !("slot_id" in x)).length}`;
-  } catch {
-    synced = "err"; // Meta down or a bad token: the card says so
+  } catch (e) {
+    if (!(e instanceof GraphError)) console.error("sync", p.client.id, e); // Meta refusing is expected; anything else is in the log
+    synced = "err";
   } finally {
     await releaseLease(p.env, lease, holder);
   }
