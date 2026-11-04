@@ -169,9 +169,15 @@ test("reject needs a note and asks a PC for the re-render; revoke takes the appr
   assert.equal((await call("POST", "/rosa/v/r1/decide", { form: { action: "reject", notes: " " } })).status, 400);
   assert.equal((await call("POST", "/rosa/v/r1/decide", { form: { action: "reject", notes: "faster please" } })).status, 303);
   assert.equal((await post("r1")).state, "REJECTED");
-  const job = await env.DB.prepare("SELECT * FROM jobs WHERE kind = 'revise' AND slot_id = 'r1'").first();
+  await call("POST", "/rosa/v/r1/decide", { form: { action: "reject", notes: "faster please" } }); // a double click: the same open job
+  const jobs = (await env.DB.prepare("SELECT * FROM jobs WHERE kind = 'revise' AND slot_id = 'r1'").all()).results;
+  assert.equal(jobs.length, 1);
+  const job = jobs[0];
   assert.deepEqual(JSON.parse(job.payload), { argv: ["spine.revise", "run", "rosa", "r1"], notes: "faster please" });
   assert.equal(job.by, 1);
+  await waiting("r2", { meta: { upload: "x.mp4" } }); // no film to edit: refused, not silently REJECTED
+  assert.equal((await call("POST", "/rosa/v/r2/decide", { form: { action: "reject", notes: "faster" } })).status, 409);
+  assert.equal((await post("r2")).state, "NEEDS_APPROVAL");
   assert.match((await call("GET", "/rosa/v/r1")).text, /waiting for a PC/);
   assert.match((await call("GET", "/rosa")).text, /Re-rendering/); // queued counts: app.py wrote "running" on fork
   assert.equal((await call("POST", "/rosa/v/a1/decide", { form: { action: "revoke" } })).status, 303);
@@ -216,6 +222,7 @@ test("publish now moves the slot to now and queues it; pause and resume", async 
   assert.equal((await call("POST", "/rosa/v/a2/decide", { form: { action: "custom", at: "2031-05-04T09:17", tz: "-120" } })).status, 303);
   assert.equal((await post("a2")).scheduled_at, "2031-05-04T07:17:00+00:00");
   assert.equal((await call("POST", "/rosa/v/a2/decide", { form: { action: "custom", at: "2001-01-01T00:00", tz: "0" } })).status, 400);
+  assert.equal((await call("POST", "/rosa/v/a2/decide", { form: { action: "custom", at: "2031-05-04T09:17", tz: "" } })).status, 400); // no zone from the browser: not UTC by default
   assert.equal((await call("POST", "/rosa/v/n1/decide", { form: { action: "custom", at: "2031-05-04T07:17", tz: "0" } })).status, 409); // a2 holds it
 });
 
@@ -246,7 +253,9 @@ test("Generate New, the formats and the caption writer are jobs with the argv a 
   const m = await meta("g1");
   assert.equal(m.engine_choice, "remotion");
   assert.equal(m.source, "prompt");
-  assert.equal((await call("POST", "/rosa/v/g1/decide", { form: { action: "generate" } })).status, 409); // already being made
+  assert.equal((await call("POST", "/rosa/v/g1/decide", { form: { action: "generate", prompt: "again" } })).status, 409); // already being made
+  await waiting("g2");
+  assert.equal((await call("POST", "/rosa/v/g2/decide", { form: { action: "generate", prompt: " " } })).status, 400); // nothing to make
   assert.match((await call("GET", "/rosa")).text, /In production/);
   assert.equal((await call("POST", "/rosa/v/g1/delete")).status, 409); // a job is open for it
   // a failed job shows its error and offers a re-run

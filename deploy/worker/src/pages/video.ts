@@ -166,7 +166,7 @@ function whenTools(s: Slot, at: string | null): string {
     : "";
   const utc = at ? ` data-utc='${new Date(parse(at) ?? 0).toISOString()}'` : "";
   const custom = `<details class=pop><summary class='btn sec'>${icon("clock", 16)}Custom time</summary><div class=box><form method=post action='${act}' class=btns style='margin:0'>
-<input type=datetime-local name=at required aria-label='Custom time'${utc}><input type=hidden name=tz value=0><button class='btn dark' name=action value=custom>Save</button></form></div></details>`;
+<input type=datetime-local name=at required aria-label='Custom time'${utc}><input type=hidden name=tz value=''><button class='btn dark' name=action value=custom>Save</button></form></div></details>`;
   return `<div class='btns whentools'>${now}${custom}</div>`;
 }
 
@@ -454,8 +454,9 @@ function customTime(form: FormData): number {
   const m = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(:\d{2})?$/.exec(field(form, "at"));
   const ms = m ? Date.parse(`${m[1]}:00Z`) : NaN;
   if (Number.isNaN(ms)) throw new HttpError(400, "at", "pick a date and time");
-  const tz = Number(field(form, "tz") || 0);
-  return ms + (Number.isFinite(tz) ? tz : 0) * 60_000;
+  const tz = Number(field(form, "tz"));
+  if (field(form, "tz") === "" || !Number.isFinite(tz)) throw new HttpError(400, "tz", "the browser did not say its time zone (the page's script sets it): try again with JavaScript on");
+  return ms + tz * 60_000;
 }
 
 async function decide(s: Slot, form: FormData, back: string): Promise<Response> {
@@ -474,10 +475,10 @@ async function decide(s: Slot, form: FormData, back: string): Promise<Response> 
       const engine = field(form, "engine") in ENGINES ? field(form, "engine") : "html";
       const prompt = field(form, "prompt").trim();
       if (!prompt) throw new HttpError(400, "prompt", "say what the new video should be"); // the host refuses an empty one too
+      await enqueue(s, "produce", { argv: ["spine.manual", "produce", p.client.id, slot], prompt, engine }); // first: SCRIPTED with no job would wait forever
       await setMeta(s, { engine_choice: engine, source: "prompt", plan: "manual" });
       await setState(p.c, slot, "REJECTED", "generate new", {});
       await setState(p.c, slot, "SCRIPTED", `generate new (${engine}): ${prompt.slice(0, 150)}`, {});
-      await enqueue(s, "produce", { argv: ["spine.manual", "produce", p.client.id, slot], prompt, engine });
       break;
     }
     case "approve": {
@@ -535,9 +536,10 @@ async function decide(s: Slot, form: FormData, back: string): Promise<Response> 
       break;
     case "reject": {
       if (!notes) throw new HttpError(400, "notes", "a rejection needs a note: say what should change");
-      await setState(p.c, slot, "REJECTED", notes, {});
       const film = (s.meta.film ?? {}) as Json;
-      if (film.engine === "remotion" || film.engine === "html") await enqueue(s, "revise", { argv: ["spine.revise", "run", p.client.id, slot], notes });
+      if (film.engine !== "remotion" && film.engine !== "html") throw new HttpError(409, "film", `this video has no film a note can edit (${film.engine ?? "an upload or a template"}): use Generate New instead`);
+      await setState(p.c, slot, "REJECTED", notes, {});
+      await enqueue(s, "revise", { argv: ["spine.revise", "run", p.client.id, slot], notes });
       break;
     }
     default:
