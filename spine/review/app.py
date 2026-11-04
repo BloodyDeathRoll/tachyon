@@ -1139,7 +1139,8 @@ GEN_BTN = ("<button type=button class='btn sec' onclick=\"document.getElementByI
 
 def generate_box(client: str, slot: str) -> str:
     """Generate New: a new script and film for this slot (the current cut is kept as a version)."""
-    return (f"<dialog class=dlg id=gennew><form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' class=rgbox>"
+    return (f"<dialog class=dlg id=gennew><form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' class=rgbox "
+            f"onsubmit=\"return confirm('Replace this video with a new one? The current cut stays under its versions.')\">"
             f"<input type=hidden name=action value=generate><h2>Generate new</h2>{engine_pick()}"
             f"<label>What should the video be?<textarea name=prompt rows=5 placeholder='e.g. Same message, but lead with the swell map'></textarea></label>"
             f"<p class=hint style='margin:0'>{EMPTY_HINT} This video is replaced; the current cut stays under its versions.</p>"

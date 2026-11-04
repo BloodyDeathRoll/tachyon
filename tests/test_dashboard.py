@@ -146,6 +146,11 @@ def test_prepare_next_week_and_auto_toggle(server, client_dir, monkeypatch):
     assert "Next week" in body and "Prepare automatically every Thursday" in body
 
 
+def test_generate_new_asks_first(server):
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "id=gennew" in body and "onsubmit=\"return confirm('Replace this video" in body
+
+
 def test_planned_slot_is_kept_on_approval(server, client_dir):
     db = DB.for_client(client_dir)
     db.conn.execute("UPDATE posts SET scheduled_at='2099-01-05T18:30:00+00:00' WHERE slot_id='w01-s1'")
