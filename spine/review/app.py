@@ -2721,15 +2721,16 @@ class Handler(BaseHTTPRequestHandler):
                     bad = [v for v in R.spec_verdicts(d / "posts" / slot).values() if "FAIL" in v]
                     if bad:
                         return self._send(409, ("Instagram would refuse this file: " + "; ".join(bad)).encode(), "text/plain")
-                    if "caption" in form:
+                    row_ = db.post(slot)
+                    at = None if row_["scheduled_at"] else preview_slot(name, db, slot)   # the slot the calendar showed
+                    if not at:
+                        try:
+                            at = SCH.slot_for_approval(db, row_, C.load_grants(name))
+                        except SCH.SlotGone as e:
+                            return self._send(409, f"Not approved: {e} ({when(row_['scheduled_at'])}). Reschedule it, then approve.".encode(), "text/plain")
+                    if "caption" in form:   # only once the approve goes through
                         (d / "posts" / slot).mkdir(parents=True, exist_ok=True)
                         (d / "posts" / slot / "caption.txt").write_text(form["caption"])
-                    row_ = db.post(slot)
-                    try:
-                        at = ((not row_["scheduled_at"] and preview_slot(name, db, slot))
-                              or SCH.slot_for_approval(db, row_, C.load_grants(name)))   # the slot the calendar showed
-                    except SCH.SlotGone as e:
-                        return self._send(409, f"Not approved: {e} ({when(row_['scheduled_at'])}). Reschedule it, then approve.".encode(), "text/plain")
                     db.set_state(slot, "APPROVED", note=notes or None, scheduled_at=at)
                     R.dismiss(name, slot)
                 elif form.get("action") == "caption":

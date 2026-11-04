@@ -83,6 +83,16 @@ def test_approve_refuses_a_passed_slot(server, client_dir):
     db.close()
 
 
+def test_refused_approve_keeps_the_old_caption(server, client_dir):
+    db = DB.for_client(client_dir)
+    db.conn.execute("UPDATE posts SET scheduled_at='2020-01-01T06:30:00+00:00' WHERE slot_id='w01-s1'")
+    db.conn.commit()
+    db.close()
+    status, _, _ = req(server, "POST", "/demo/decide", {"slot": "w01-s1", "action": "approve", "caption": "edited"})
+    assert status == 409
+    assert (client_dir / "posts" / "w01-s1" / "caption.txt").read_text() == "first caption"
+
+
 def test_reject_requires_note(server, client_dir):
     status, body, _ = req(server, "POST", "/demo/decide", {"slot": "w01-s1", "action": "reject", "note": ""})
     assert status == 400 and "note" in body
