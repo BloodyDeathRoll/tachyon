@@ -3,9 +3,13 @@
 Written 2026-10-29, revised 2026-11-04 (operator decisions below). Built so far: the
 Worker skeleton in `deploy/worker/` (schema, sign-in, members, jobs, R2 upload; tests run
 locally, nothing deployed, see its README), phase 1 (`spine/db.py` on D1 through the
-Worker, `spine/migrate_d1.py`) and phase 2 (`spine/worker.py`, the host loop; `spine/jobs.py`,
-the dashboard's spawns as jobs; `GET /login`; `deploy/tachyon-worker.service`). Everything
-else is executed later, phase by phase.
+Worker, `spine/migrate_d1.py`), phase 2 (`spine/worker.py`, the host loop; `spine/jobs.py`,
+the dashboard's spawns as jobs; `GET /login`; `deploy/tachyon-worker.service`), phase 3
+(`src/connect.ts`: Facebook Login, the Page pick, the token sealed with `src/crypto.ts`) and
+phase 4's code (`src/publish.ts`, `src/cron.ts`: the publisher from R2 under a lease, the
+daily sweep and `auto` job; the `upload` job sends the text files up; `PUT`/`POST` on a video
+in the local dashboard sends them again). Phase 4's dry run and kill tests need the account.
+Everything else is executed later, phase by phase.
 
 ## Goal
 
@@ -97,13 +101,14 @@ In flight at any time: at most the approved-but-unpublished videos, ~22 MB each.
 ## Publish safety (must land before the Worker publishes)
 
 - Creating a container publishes nothing. An invocation that died between container create and saving the container id leaves an orphan container, which is harmless (it expires after 24 h). The next minute creates a new one. The double-post risk is only around `media_publish`.
-- Before `media_publish` the cron sets the post to PUBLISHING. A PUBLISHING post with a container id and no `ig_media_id` is never sent to `media_publish` again blindly: the Worker first reads the container's `status_code`. `PUBLISHED` ("The container's media object has been published", IG Container reference, read 2026-11-04): it is on Instagram, so it is never published again. The Worker looks in `/{ig_user_id}/media` (as `spine/pickup.py` does today) for media whose `timestamp` is after the PUBLISHING time and whose caption matches. Exactly one: record its `ig_media_id` and permalink. None or several: mark the slot FAILED "published, link it by hand", without a retry. `FINISHED`: the publish did not happen, call `media_publish`. `IN_PROGRESS`: wait for the next minute, never publish; 5 minutes after the PUBLISHING time, FAILED "stuck in Instagram". `EXPIRED` or `ERROR`: a new container.
+- Before `media_publish` the cron sets the post to PUBLISHING. A PUBLISHING post with a container id and no `ig_media_id` is never sent to `media_publish` again blindly: the Worker first reads the container's `status_code`. `PUBLISHED` ("The container's media object has been published", IG Container reference, read 2026-11-04): it is on Instagram, so it is never published again. The Worker looks in `/{ig_user_id}/media` (as `spine/pickup.py` does today) for media whose `timestamp` is after the PUBLISHING time and whose caption matches. Exactly one: record its `ig_media_id` and permalink. None or several: MANUAL_HANDOFF "published, link it by hand" (not FAILED: FAILED → QUEUED is a legal retry, and a retry here could post twice; MANUAL_HANDOFF only goes to PUBLISHED by hand or REJECTED). `FINISHED`: the publish did not happen, call `media_publish`. `IN_PROGRESS`: wait for the next minute, never publish; 5 minutes after the PUBLISHING time, FAILED "stuck in Instagram". `EXPIRED` or `ERROR`: FAILED with the status (the operator re-queues; the second failure hands off, as `publish.py` does), not a new container on its own: an ERROR is usually the file, and a retry would loop.
+- A due slot whose caption is empty, or whose first comment holds a URL, goes back to NEEDS_APPROVAL with the reason (a retry cannot fix either). The quota and an emergency stop leave it QUEUED and log why.
 - `publish_lock` becomes the `leases` row; a second cron invocation for the same client exits.
 - `spec_check` stays local, before upload; the Worker never publishes an object that no host checked.
 
 ## Instagram connection
 
-- Dashboard: Connect → Facebook Login dialog (the Meta app, `META_APP_ID`), callback on the Worker exchanges the code for a long-lived user token, lists the Pages, the member picks one, the Worker stores the Page token encrypted on the `clients` row with its expiry. The weekly refresh moves into the cron.
+- Dashboard: Connect → Facebook Login dialog (the Meta app, `META_APP_ID`), callback on the Worker exchanges the code for a long-lived user token, lists the Pages, the member picks one, the Worker stores the Page token encrypted on the `clients` row with its expiry. Built (phase 3, `src/connect.ts`): `GET /connect/<client>` for a member in the browser (the session rides on the `s` cookie set at sign-in), the callback authenticated by the state the Worker signed for that member and client, the Pages with their tokens sealed in `pending_connects` for ten minutes, `POST /connect/pick` stores the Page token (`src/crypto.ts`, AES-GCM under `TOKEN_SECRET`) with `data_access_expires_at` from `debug_token`, journaled as `meta.connect`. No weekly refresh in the cron: a Page token has no expiry of its own; the data-access date is on the row for the dashboard to warn about, and the member connects again before it.
 - While the Meta app is in development mode only people with a role on the app (admin, developer, tester) can connect. The main developer account is blocked until 2026-11-21; Tachyon runs on app `1497581085764373`. Members who will connect clients get added as testers until the app goes live.
 
 ## Dashboard

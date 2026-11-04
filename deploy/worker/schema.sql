@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS posts (
   version        INTEGER NOT NULL DEFAULT 0,   -- optimistic lock: a stale save is refused
   r2_key         TEXT,                         -- the video in R2, from upload until published
   cover_key      TEXT,                         -- the cover in R2, kept
+  container_id   TEXT,                         -- the REELS container while PUBLISHING (src/publish.ts)
+  publishing_at  TEXT,                         -- when PUBLISHING began: the stuck timer, the recovery window
   created_at     TEXT NOT NULL,
   updated_at     TEXT NOT NULL,
   PRIMARY KEY (client, slot_id)
@@ -195,6 +197,13 @@ CREATE TABLE IF NOT EXISTS jobs (              -- local work, claimed by a host 
   updated_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS jobs_open ON jobs(state, client, created_at);
+CREATE TABLE IF NOT EXISTS pending_connects (  -- Facebook Login done, the Page not picked yet (src/connect.ts)
+  id        TEXT PRIMARY KEY,                  -- random, the form's secret
+  user      INTEGER NOT NULL,
+  client    TEXT NOT NULL,
+  pages_enc TEXT NOT NULL,                     -- the Pages with their tokens, sealed
+  expires   INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS leases (            -- one publisher per client inside the cron
   name   TEXT PRIMARY KEY,
   holder TEXT,

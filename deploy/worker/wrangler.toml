@@ -11,7 +11,17 @@ enabled = true
 [vars]
 # Public OAuth client id of the Tachyon Google project. Empty until the account exists.
 GOOGLE_CLIENT_ID = ""
-# Secrets, NOT here: `npx wrangler secret put SESSION_SECRET`, `... GOOGLE_CLIENT_SECRET`.
+# The Meta app (docs/CLOUDFLARE-PLAN.md, "Instagram connection"): its public id. Empty until set.
+META_APP_ID = ""
+# The public base of the media bucket (r2.dev or a custom domain, no trailing slash): Instagram
+# fetches `<MEDIA_PUBLIC_URL>/<r2_key>`. Empty until the bucket is public.
+MEDIA_PUBLIC_URL = ""
+# Secrets, NOT here: `npx wrangler secret put SESSION_SECRET`, `... GOOGLE_CLIENT_SECRET`,
+# `... META_APP_SECRET`, `... TOKEN_SECRET` (seals the Page tokens), `... VERCEL_TOKEN` (the bio link).
+
+[triggers]
+# The one Cron Trigger, every minute: publish steps, then the daily sweep (src/cron.ts).
+crons = ["* * * * *"]
 
 [[d1_databases]]
 binding = "DB"

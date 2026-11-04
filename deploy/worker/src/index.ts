@@ -1,8 +1,11 @@
-// Tachyon Worker - the online half of docs/CLOUDFLARE-PLAN.md. Phases 0-1: Google
-// sign-in (invite-only), members per client, the job queue the PCs poll, and video
-// upload to R2. No dashboard, publisher or cron yet; those are later phases.
+// Tachyon Worker - the online half of docs/CLOUDFLARE-PLAN.md: Google sign-in
+// (invite-only), members per client, the job queue the PCs poll, video upload to R2,
+// spine/db.py's ops on D1, Connect Instagram (src/connect.ts) and the publishing cron
+// (src/cron.ts, src/publish.ts). No dashboard pages yet (phase 6).
 //
-//   POST /auth/google  {code} | {credential}       -> {token, profile, admin, clients}
+//   POST /auth/google  {code} | {credential}       -> {token, profile, admin, clients}; also
+//                                                     sets the `s` cookie for the browser pages
+//   GET  /connect/<client>, /connect/callback, POST /connect/pick   src/connect.ts
 //   GET  /me                                       -> {profile, admin, clients}
 //   POST /auth/logout                              -> {ok}      revokes every session
 //   POST /api/hosts    {id, name, clients, caps}   -> {clients} a PC registers; clients it is
@@ -20,10 +23,12 @@
 //   POST /api/db/<client>/<op>  {...args}          -> the op's result (src/db.ts: spine/db.py's
 //                                                     methods, for a member of the client)
 //
-// Authenticated routes take `Authorization: Bearer <session>`. session.ts and google.ts
-// are Rosa's (deploy/user-api), unchanged; the session's `sub` carries users.id here.
-// An error is {error: <code>, detail?: <sentence>}.
+// Authenticated routes take `Authorization: Bearer <session>` (the PCs) or the `s`
+// cookie (the browser). session.ts and google.ts are Rosa's (deploy/user-api), unchanged;
+// the session's `sub` carries users.id here. An error is {error: <code>, detail?: <sentence>}.
 
+import { callback, pick, startUrl } from "./connect.ts";
+import { tick } from "./cron.ts";
 import { OPS } from "./db.ts";
 import { TokenError, verifyIdToken, type GoogleClaims } from "./google.ts";
 import { HttpError, json } from "./http.ts";
@@ -37,7 +42,14 @@ export interface Env {
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string; // secret: needed to exchange a code for an ID token
   SESSION_SECRET: string;
+  META_APP_ID: string;
+  META_APP_SECRET: string; // secret
+  TOKEN_SECRET: string; // secret: seals the Page tokens (src/crypto.ts)
+  MEDIA_PUBLIC_URL: string;
+  VERCEL_TOKEN?: string; // secret: the bio link
 }
+
+const COOKIE = "s";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const MAX_BODY_BYTES = 64 * 1024;
@@ -45,7 +57,9 @@ const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // the Free-plan request body limit 
 const LAST_SEEN_THROTTLE_MS = 5 * 60 * 1000;
 const JOB_LEASE_MS = 5 * 60 * 1000; // a running job silent this long goes back to the queue
 const ID = /^[\w-]{1,64}$/; // client, slot and host ids
-const JOB_KINDS = new Set(["plan", "produce", "revise", "formats", "caption", "voice", "upload", "spec"]);
+const JOB_KINDS = new Set(["plan", "auto", "produce", "revise", "formats", "caption", "voice", "upload", "spec"]);
+const ONCE_KINDS = new Set(["plan", "auto"]); // the same command again within a week is the same job
+const ONCE_MS = 7 * 24 * 60 * 60 * 1000;
 const JOBS_LIST = 50;
 const MEDIA = {
   video: { ext: "mp4", type: "video/mp4", column: "r2_key" },
@@ -186,10 +200,18 @@ async function member(env: Env, user: UserRow, client: string): Promise<void> {
   if (!(await clientsOf(env, user)).includes(client)) throw new HttpError(403, "member");
 }
 
+function cookie(req: Request, name: string): string {
+  for (const part of (req.headers.get("Cookie") ?? "").split(";")) {
+    const [k, ...v] = part.trim().split("=");
+    if (k === name) return v.join("=");
+  }
+  return "";
+}
+
 /** The signed-in user for this request, or a 401. Touches last_seen_at at most every 5 min. */
 async function auth(req: Request, env: Env, ctx: ExecutionContext, now: number): Promise<UserRow> {
   const h = req.headers.get("Authorization") ?? "";
-  const token = h.startsWith("Bearer ") ? h.slice(7).trim() : "";
+  const token = h.startsWith("Bearer ") ? h.slice(7).trim() : cookie(req, COOKIE);
   if (!token) throw new HttpError(401, "auth");
   const session = await verify(token, env.SESSION_SECRET, now);
   if (!session) throw new HttpError(401, "auth");
@@ -228,8 +250,10 @@ async function signIn(req: Request, env: Env, now: number): Promise<Response> {
   }
   const row = await bindUser(env, claims);
   const token = await mint({ sub: String(row.id), exp: now + SESSION_TTL_MS, ep: row.session_epoch }, env.SESSION_SECRET);
-  const res = await me(env, row);
-  return json(200, { token, ...((await res.json()) as object) });
+  const res = json(200, { token, ...((await (await me(env, row)).json()) as object) });
+  // the browser pages (Connect, later the dashboard) ride on the cookie; Lax keeps a cross-site POST from carrying it
+  res.headers.append("Set-Cookie", `${COOKIE}=${token}; Path=/; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}; HttpOnly; Secure; SameSite=Lax`);
+  return res;
 }
 
 // ── hosts and jobs ────────────────────────────────────────────────────────────
@@ -295,6 +319,13 @@ async function enqueue(req: Request, env: Env, user: UserRow, now: number): Prom
   await member(env, user, client);
   const slot = body.slot_id == null ? null : id(body.slot_id, "slot_id");
   const payload = body.payload == null ? null : JSON.stringify(body.payload);
+  if (ONCE_KINDS.has(kind)) {
+    // two hosts, or the cron and a button, asking for the same week: one job
+    const same = await env.DB.prepare("SELECT id FROM jobs WHERE kind = ? AND client = ? AND payload IS ? AND state != 'failed' AND created_at > ? ORDER BY id DESC LIMIT 1")
+      .bind(kind, client, payload, now - ONCE_MS)
+      .first<{ id: number }>();
+    if (same) return json(200, { id: same.id, same: true });
+  }
   const r = await env.DB.prepare(
     "INSERT INTO jobs (kind, client, slot_id, payload, by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
   )
@@ -439,11 +470,19 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   if (path === "/") return json(200, { ok: true, service: "tachyon" });
   if (path === "/login" && req.method === "GET") return loginPage(env);
   if (path === "/auth/google" && req.method === "POST") return signIn(req, env, now);
+  // back from Facebook: the signed state, not a session, says who this is
+  if (path === "/connect/callback" && req.method === "GET") return callback(env, url, now);
+  if (path === "/connect/pick" && req.method === "POST") return pick(env, await req.formData(), now);
 
   const user = await auth(req, env, ctx, now);
   const p = path.split("/").slice(1);
 
   if (path === "/me" && req.method === "GET") return me(env, user);
+  if (p[0] === "connect" && p.length === 2 && req.method === "GET") {
+    const client = id(p[1], "client");
+    await member(env, user, client);
+    return Response.redirect(await startUrl(env, url.origin, user.id, client, now), 302);
+  }
   if (path === "/auth/logout" && req.method === "POST") {
     await env.DB.prepare("UPDATE users SET session_epoch = session_epoch + 1 WHERE id = ?").bind(user.id).run();
     return json(200, { ok: true });
@@ -478,5 +517,8 @@ export default {
       console.error("tachyon", e);
       return json(500, { error: "internal" });
     }
+  },
+  async scheduled(event: ScheduledController, env: Env): Promise<void> {
+    console.log("cron", JSON.stringify(await tick(env, event.scheduledTime)));
   },
 } satisfies ExportedHandler<Env>;

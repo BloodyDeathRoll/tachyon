@@ -36,8 +36,14 @@ export interface PostRow {
   state: string;
   scheduled_at: string | null;
   ig_media_id: string | null;
+  permalink: string | null;
+  published_at: string | null;
   qa_rounds: number;
   version: number;
+  r2_key: string | null;
+  cover_key: string | null;
+  container_id: string | null;
+  publishing_at: string | null;
   [k: string]: unknown;
 }
 
@@ -108,13 +114,32 @@ function journalStmt(c: Ctx, action: string, target: string | null, intent: unkn
   );
 }
 
+/** One journal row (written before an act); its id for the outcome. */
+export async function journal(c: Ctx, action: string, target: string | null, intent: unknown): Promise<number> {
+  return (await journalStmt(c, action, target, intent).run()).meta.last_row_id;
+}
+
+export async function journalOutcome(c: Ctx, id: number, outcome: unknown): Promise<void> {
+  await c.env.DB.prepare("UPDATE journal SET outcome = ? WHERE client = ? AND id = ?").bind(dumps(outcome), c.client, id).run();
+}
+
+/** How many times the slot went to FAILED (the publisher hands off after the second). */
+export async function failCount(c: Ctx, slot: string): Promise<number> {
+  const r = await c.env.DB.prepare(
+    "SELECT count(*) AS n FROM journal WHERE client = ? AND target = ? AND action = 'post.state' AND json_extract(intent, '$.to') = 'FAILED'",
+  )
+    .bind(c.client, slot)
+    .first<{ n: number }>();
+  return r?.n ?? 0;
+}
+
 export async function post(c: Ctx, slot: string): Promise<PostRow> {
   const row = await c.env.DB.prepare("SELECT * FROM posts WHERE client = ? AND slot_id = ?").bind(c.client, slot).first<PostRow>();
   if (!row) throw new HttpError(404, "slot", `no post ${slot}`);
   return row;
 }
 
-async function posts(c: Ctx, state: string | null): Promise<PostRow[]> {
+export async function posts(c: Ctx, state: string | null): Promise<PostRow[]> {
   const q = state
     ? c.env.DB.prepare("SELECT * FROM posts WHERE client = ? AND state = ? ORDER BY scheduled_at, slot_id").bind(c.client, state)
     : c.env.DB.prepare("SELECT * FROM posts WHERE client = ? ORDER BY scheduled_at, slot_id").bind(c.client);
@@ -249,24 +274,57 @@ async function followerDropped(c: Ctx): Promise<Args> {
   return out;
 }
 
+const POST_FILES = new Set(["caption.txt", "first_comment.txt", "meta.json"]); // posts/<slot>/ text the publisher reads
+
+/** posts/<slot>/'s text files from post_files: {name: text}. */
+export async function files(c: Ctx, slot: string): Promise<Record<string, string>> {
+  const rows = (await c.env.DB.prepare("SELECT name, text FROM post_files WHERE client = ? AND slot_id = ?").bind(c.client, slot).all<{ name: string; text: string }>()).results;
+  return Object.fromEntries(rows.map((r) => [r.name, r.text]));
+}
+
+/** The clients row without its token. */
+export async function clientRow(c: Ctx): Promise<Record<string, unknown>> {
+  const row = await c.env.DB.prepare(
+    "SELECT id, name, ig_user_id, page_id, ig_username, token_enc IS NOT NULL AS connected, token_expires, grants, emergency_stop, publisher FROM clients WHERE id = ?",
+  )
+    .bind(c.client)
+    .first<Record<string, unknown>>();
+  if (!row) throw new HttpError(404, "client", `no client ${c.client}`);
+  return { ...row, connected: Boolean(row.connected), grants: JSON.parse(String(row.grants ?? "{}")) as unknown };
+}
+
 export const OPS: Record<string, (c: Ctx, a: Args) => Promise<unknown>> = {
   async journal(c, a) {
     const action = str(a.action, "action");
     if (action.startsWith("post.")) throw new HttpError(400, "action", "post.* entries are written by the ops themselves"); // fail_count reads them
-    const r = await journalStmt(c, action, optStr(a.target, "target"), a.intent ?? null).run();
-    return r.meta.last_row_id;
+    return journal(c, action, optStr(a.target, "target"), a.intent ?? null);
   },
   async journal_outcome(c, a) {
-    await c.env.DB.prepare("UPDATE journal SET outcome = ? WHERE client = ? AND id = ?").bind(dumps(a.outcome), c.client, num(a.id, "id")).run();
+    await journalOutcome(c, num(a.id, "id"), a.outcome);
     return true;
   },
   async fail_count(c, a) {
-    const r = await c.env.DB.prepare(
-      "SELECT count(*) AS n FROM journal WHERE client = ? AND target = ? AND action = 'post.state' AND json_extract(intent, '$.to') = 'FAILED'",
-    )
-      .bind(c.client, slotId(a.slot_id))
-      .first<{ n: number }>();
-    return r?.n ?? 0;
+    return failCount(c, slotId(a.slot_id));
+  },
+  async files(c, a) {
+    return files(c, slotId(a.slot_id));
+  },
+  /** posts/<slot>/caption.txt, first_comment.txt, meta.json as the PC has them; a missing name is left alone. */
+  async set_files(c, a) {
+    const slot = slotId(a.slot_id);
+    await post(c, slot);
+    const given = obj(a.files, "files");
+    const stmts = Object.entries(given).map(([name, text]) => {
+      if (!POST_FILES.has(name)) throw new HttpError(400, "files", `${name} is not one of ${[...POST_FILES].join(", ")}`);
+      return c.env.DB.prepare(
+        "INSERT INTO post_files (client, slot_id, name, text, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(client, slot_id, name) DO UPDATE SET text = excluded.text, updated_by = excluded.updated_by, updated_at = excluded.updated_at",
+      ).bind(c.client, slot, name, str(text, name), c.by, c.now);
+    });
+    if (stmts.length) await c.env.DB.batch(stmts);
+    return true;
+  },
+  async client(c) {
+    return clientRow(c);
   },
   async set_permalink(c, a) {
     await c.env.DB.prepare("UPDATE posts SET permalink = ? WHERE client = ? AND slot_id = ? AND ig_media_id IS NOT NULL AND permalink IS NULL")

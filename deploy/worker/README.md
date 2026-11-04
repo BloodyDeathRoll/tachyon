@@ -34,6 +34,24 @@ npm run typecheck
 `tests/test_remote_db.py` (repo root, pytest) starts `test/serve.mjs`, the same Worker
 on a local port, and runs the Python `RemoteDB` against it; it skips without `node_modules`.
 
+## Publishing from the Worker (phase 4 cutover, per client)
+
+The cron (`src/cron.ts`, every minute) publishes for every `clients` row whose
+`publisher` is `worker` and that has a token. Nothing publishes until both hold.
+
+1. Make the bucket public (`npx wrangler r2 bucket domain` or its r2.dev URL) and set
+   `MEDIA_PUBLIC_URL` in `wrangler.toml`; secrets `TOKEN_SECRET`, `META_APP_SECRET`,
+   `VERCEL_TOKEN` (`npx wrangler secret put ...`), `META_APP_ID` in `wrangler.toml`.
+2. Connect the client: `<worker url>/connect/<client>` in a browser signed in at `/login`.
+3. On the creator's PC the host loop runs (`spine.worker run`). Approving a video in the
+   local dashboard enqueues an `upload` job: the host sends `video.mp4`, `cover.jpg` and
+   the text files up. Every later change to the video's caption, comment or meta is sent
+   again by the dashboard.
+4. Right after a publish: remove the crontab's `spine.publisher.publish --queue` line,
+   then `npx wrangler d1 execute tachyon --remote --command "UPDATE clients SET publisher = 'worker' WHERE id = '<client>'"`.
+   Rollback is the reverse order. The two never both publish.
+5. First, a dry week with the kill tests in docs/CLOUDFLARE-PLAN.md phase 4.
+
 ## When the account exists
 
 Only on the Tachyon account (not Rosa's, not OneShot's). Use a scoped API token
