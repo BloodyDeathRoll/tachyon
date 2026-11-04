@@ -66,7 +66,7 @@ def _check_slot(client: str, at: str) -> str:
     if dt.tzinfo is None:
         raise ValueError("slot time needs a timezone")
     dt = dt.astimezone(timezone.utc)
-    if dt < datetime.now(timezone.utc) + SCH.LEAD:
+    if dt <= datetime.now(timezone.utc):
         raise ValueError("that slot is in the past")
     if dt.time().replace(second=0, microsecond=0) not in SCH._slots(C.load_grants(client)) or dt.second:
         raise ValueError("that is not one of the publishing slots")
