@@ -19,7 +19,7 @@ creator's PC keeps the file.
 | Question | Decision |
 |---|---|
 | Who publishes | The Worker, from R2. It hands Instagram a public R2 URL (`video_url`); Instagram's servers download the file ("We cURL your image using the passed in URL so it must be on a public server", content-publishing guide). The key is a random string; the object is deleted once the post is published. No PC needs to be on. Reverses PLAN §3's "no video_url"; the resumable upload is retired. |
-| Login | Google sign-in, copied from Rosa `deploy/user-api` (GIS code client, stateless HMAC session). |
+| Login | Google sign-in, copied from Rosa `deploy/user-api` (GIS code client, stateless HMAC session). Invite-only: a Google account signs in only if its email has a `users` row. An admin adds users by email. The first admin is seeded by hand in phase 0 (`wrangler d1 execute`). |
 | Who generates | A PC that holds the client's assets. "Any authorised PC" was wanted, but mirroring every client's footage in R2 would not stay in the free tier, so a client's generation runs only on PCs seeded with its `assets/` folder. |
 | Clients | Created from the dashboard; brand text (`brand.md`, `strategy.md`, …) and the former `grants.yaml` fields live online. |
 | Instagram connection | A Connect button: Facebook Login in the dashboard, Page pick, token stored per client. No more token pasting. |
@@ -60,13 +60,13 @@ Stays as is: bio link redirect on Vercel (`spine/publisher/links.py`), code in g
 
 ## New tables
 
-- `users(id PK = Google sub, email, name, admin, created_at)`.
+- `users(id PK = Google sub, email UNIQUE, name, admin, created_at)`. An invited user has a row with `id` null until their first sign-in.
 - `memberships(user, client)` — a member manages the client. Every page and route checks it.
 - `clients(id, name, ig_user_id, page_id, token_enc, token_expires, ig_username, schedule, autonomy JSON, emergency_stop, created_by)`.
 - `client_files(client, name, text, version, updated_by, updated_at)` — the brand markdown.
 - `hosts(id, user, name, clients JSON, caps JSON, last_seen)` — a PC: which clients it holds assets for, what it can do (`render`, `voice`, `claude`). Registered by `spine/worker.py` on start.
 - `jobs(id, kind, client, slot_id, state, holder, until, payload, result, by, created_at)` — local work: `plan`, `produce`, `revise`, `formats`, `voice`, `upload`. A host may claim a job only if its `clients` list has the job's client.
-- `leases(name PK, holder, until)` — one publisher per client inside the Worker.
+- `leases(name PK, holder, until)` — one publisher per client inside the Worker. D1 has no locks: a lease is taken by one conditional `UPDATE leases SET holder=?, until=? WHERE name=? AND until < now` (row inserted once per client), and is held only if the result's `meta.changes` is 1. Job claims use the same pattern on `jobs`.
 - `media(slot_id, host, path, sha, size)` — which PC holds which file. For "the file is on <host>" in the dashboard, and for the upload job.
 - `by` column on journal and every state change; `version` integer on `posts` (optimistic lock: a stale save is refused).
 
@@ -74,16 +74,16 @@ Stays as is: bio link redirect on Vercel (`spine/publisher/links.py`), code in g
 
 - Needs a PC: Generate New, Revise, Generate other formats, voice-over, `week auto` plan and produce. The dashboard writes a `jobs` row; a host for that client picks it up. No host online → the job waits; the dashboard shows "waiting for a PC with <client>'s files" and the hosts' last-seen times.
 - Needs no PC (Worker only): approve, hold, reschedule, pause, emergency stop, publish now, remove a live post, caption and first-comment edits, AI label, replies, music pick (metadata), insights, audience, pickup, Connect Instagram, members and clients.
-- `spine/worker.py`: on start registers the host (user from the stored session, clients from the folders under `clients/` that have `assets/`); polls `GET /api/jobs/next?host=…`; heartbeats the lease; runs the job with the existing `spine` code; posts the result. Started by systemd user service or cron on each PC. Each job runs under that PC's `claude` login, so the creator's Claude account pays for the creator's clients.
+- `spine/worker.py`: on start registers the host (user from the stored session, clients from the folders under `clients/` that have `assets/`); polls `GET /api/jobs/next?host=…` every 60 s (the poll also sets `hosts.last_seen`, written at most every 5 min); heartbeats a claimed job every 60 s while it runs; runs the job with the existing `spine` code; posts the result. Started by systemd user service or cron on each PC. Each job runs under that PC's `claude` login, so the creator's Claude account pays for the creator's clients.
 - `week auto`: the Worker's cron enqueues one `plan` job per client on the client's prep day; the produce jobs follow from the plan on the same host.
 
 ## Video lifecycle
 
 1. Rendered locally; `spec_check` passes; the host records it in `media`.
-2. On approval the host runs an `upload` job: `video.mp4` and `cover.jpg` go to R2 under `<client>/<slot>/<random 32 hex>.mp4`. The bucket is public-read; the key is unguessable (operator 2026-11-04).
+2. On approval the host runs an `upload` job: `video.mp4` and `cover.jpg` go to R2 under `<client>/<slot>/<random 32 hex>.mp4`. The bucket is public-read; the key is unguessable (operator 2026-11-04). Upload path: the PC sends the file to the Worker (`PUT /api/media/<slot>`), and the Worker streams the request body into `R2.put` without buffering or reading it.
 3. The Worker's cron (every minute): due slot in QUEUED → create the REELS container with `video_url` = the R2 URL and the same parameters as today (`share_to_feed`, `thumb_offset`, `trial_params`, `collaborators`, `location_id`, `is_ai_generated`). Container id saved on the post.
 4. Later minutes: poll `status_code`; FINISHED → `media_publish`; PUBLISHED with `ig_media_id`, permalink, `published_at`; first comment posted; then MEASURING. Up to 5 polls, as today.
-5. The R2 video object is deleted the minute the post is PUBLISHED (`media_publish` returned an `ig_media_id`), not at FINISHED: a publish that fails after FINISHED (quota, Graph error, container EXPIRED) is retried with a new container, and that container fetches the file again. Also deleted when a slot is deleted or its video replaced, and by a daily sweep of any object whose post is no longer QUEUED, PUBLISHING or FAILED, or is older than 14 days. The cover stays for the calendar.
+5. The R2 video object is deleted the minute the post is PUBLISHED (`media_publish` returned an `ig_media_id`), not at FINISHED: a publish that fails after FINISHED (quota, Graph error, container EXPIRED) is retried with a new container, and that container fetches the file again. Also deleted when a slot is deleted or its video replaced, and by a daily sweep of any object whose post is no longer QUEUED, PUBLISHING or FAILED, or has no post row. Age alone never deletes a video: a QUEUED slot far in the future keeps its file. The cover stays for the calendar.
 6. After publish the dashboard's player is the Instagram permalink. The local file stays on the creator's PC (`media` says where).
 7. Other formats (16:9, 1:1) are never uploaded: the creator posts them by hand from their PC.
 
@@ -91,7 +91,7 @@ In flight at any time: at most the approved-but-unpublished videos, ~22 MB each.
 
 ## Publish safety (must land before the Worker publishes)
 
-- Before creating a container: check the journal intent and Instagram (`/me/media` recent, caption match) for an existing post of this slot. A cron invocation that died after container create must not post twice on the next minute.
+- The cron writes a journal intent row (slot, time) before the container create call, and the container id right after it. On the next minute, an intent with no container id means the invocation died inside that window. The Worker then checks `/me/media` for any post published after the intent time. Found: record it as this slot's post. Not found or unclear: mark the slot FAILED "check Instagram before retrying" and never retry it on its own. A cron invocation that died after container create must not post twice.
 - `publish_lock` becomes the `leases` row; a second cron invocation for the same client exits.
 - `spec_check` stays local, before upload; the Worker never publishes an object that no host checked.
 
@@ -106,7 +106,7 @@ In flight at any time: at most the approved-but-unpublished videos, ~22 MB each.
 - Target: the Worker serves the same pages from D1, writing `jobs` rows where the Python ran subprocesses. Responsive at phone width, with a web-app manifest so it installs on a phone's home screen. The layout already fits a phone except the calendar grid, which needs a day-list view.
 - Pages gate on membership: the client switcher lists only the user's clients; admins also see Members and Clients pages.
 - Video player: the R2 object until publish, the Instagram permalink after; a video on a PC only shows "on <host>".
-- Uploads (`/new/upload`, `/audience/upload`): an uploaded video goes to R2 the same way as an approved one and a `media` row names no host; an audience export is text and goes to D1.
+- Uploads (`/new/upload`, `/audience/upload`): an uploaded video goes to R2 the same way as an approved one and a `media` row names no host; an audience export is text and goes to D1. This is the one case where a video sits in the public bucket before approval: the file comes from a browser, so there is no PC to keep it on. Accepted: the key is unguessable, and the object is deleted with the slot.
 
 ## Local code changes
 
@@ -123,8 +123,8 @@ In flight at any time: at most the approved-but-unpublished videos, ~22 MB each.
 0. **Spike** (1 session): operator creates the account; Worker skeleton in TS with D1, R2, the cron and Google sign-in copied from Rosa; measure D1 latency from home.
 1. **D1 behind `spine/db.py`**: schema with `client` columns, `users`, `memberships`, `clients`, `jobs`, `leases`, `hosts`, `media`; migrate `tachyon.db`; tests pass unchanged; this desktop still the only runner.
 2. **`spine/worker.py`**: jobs and leases replace the crontab; the dashboard's Generate New, Revise and formats write jobs. Still one PC. Run a week.
-3. **Worker publishes from R2**: upload job, `video_url` container, one-minute cron, delete on PUBLISHED plus the daily sweep, idempotency check. Dry-run first; then a test with the cron killed between container create and poll.
-4. **Connect Instagram**: Facebook Login in the dashboard, tokens per client in D1, weekly refresh in the cron; `.env.local` keys and `auth.py` retired.
+3. **Connect Instagram**: Facebook Login in the dashboard, tokens per client in D1, weekly refresh in the cron; `.env.local` keys and `auth.py` retired. Comes before phase 4 because the Worker needs the tokens in D1 to publish.
+4. **Worker publishes from R2**: upload job, `video_url` container, one-minute cron, delete on PUBLISHED plus the daily sweep, idempotency check. Dry-run first; then a test with the cron killed between container create and poll.
 5. **API-only crons into the Worker**: insights, audience, pickup.
 6. **Dashboard on the Worker**: all pages, phone layout, manifest; the local dashboard kept read-only until parity.
 7. **Clients and members from the dashboard**: `client_files`, `clients` rows, `pull(client)`; the Rosa folder's markdown migrated.
@@ -136,11 +136,18 @@ Each phase = one PR, GitHub agent review on the final commit, operator OK before
 ## Free-plan limits
 
 From Rosa `deploy/user-api/README.md`: Workers Free 100k requests/day; D1 Free 5M row reads + 100k row writes/day, 5 GB; R2 10 GB.
-From developers.cloudflare.com/workers/platform/limits (read 2026-11-04): Workers Free 10 ms CPU time per invocation, 50 subrequests per request, 5 Cron Triggers per account, 100 MB request body on a Free-plan domain.
+From developers.cloudflare.com/workers/platform/limits (read 2026-11-04): Workers Free 10 ms CPU time per invocation, 50 subrequests per request, 5 Cron Triggers per account, 100 MB request body on a Free-plan domain. A subrequest is "any request a Worker makes using the Fetch API or to Cloudflare services like R2, KV, or D1", so D1 and R2 binding calls count.
+From developers.cloudflare.com/r2/buckets/public-buckets (read 2026-11-04): "Public access through `r2.dev` subdomains is rate-limited and should only be used for development purposes." A custom domain on the bucket needs a zone in the same Cloudflare account.
 
-What that means here: the cron every minute is 1,440 requests/day and one trigger. The Worker never moves video bytes itself (Instagram fetches from R2), so the 10 ms CPU budget is API calls only. The hourly insights pass must chunk across minutes once a client passes ~45 live posts (one subrequest per post). A 22 MB upload from a PC to the Worker fits the 100 MB body limit.
+What that means here:
+- Requests/day (100k): the cron is 1,440. Each PC polls every 60 s: 1,440 per PC. Phone and desktop dashboard use: assume under 2,000 per user. Two PCs and two users come to about 8,000.
+- D1 writes/day (100k): `hosts.last_seen` at most every 5 min is 288 per PC; job heartbeats are 60 per running hour. Posts, journal and insights rows add a few thousand.
+- CPU (10 ms): the Worker never processes video bytes. Instagram fetches from R2, and the upload is a streamed `R2.put`. So the CPU budget is API calls and HTML only. A 22 MB upload from a PC to the Worker fits the 100 MB body limit.
+- Subrequests (50 per invocation): Graph calls, D1 queries and R2 calls share one budget. Each cron minute works through a queue (publish steps first, then insights, audience, pickup) across all clients and stops at 40 subrequests. Work left over runs the next minute.
 
 ## Open decisions
+
+- `video_url` host: `r2.dev` is rate-limited and for development only (quote above), and a custom domain needs a zone, which the "no domain bought" decision rules out. Option: the Worker serves the object itself at `tachyon.<account>.workers.dev/v/<key>`, streaming it from a private bucket. Test Instagram's fetch on `r2.dev` in the phase 0 spike, and decide then.
 
 - Phone notifications for "needs approval" and "failed": web push from the Worker. Nice to have, a later run (operator 2026-11-04).
 - The two users' Claude accounts: a client's generation is billed to whichever member's PC holds its assets. Fine for Rosa (one creator); revisit if a client gets two creators.
