@@ -107,7 +107,7 @@ test("a PC registers with the clients it is a member of; an id belongs to one us
     body: { id: "pc-a", name: "Alice's PC", clients: ["rosa", "acme"], caps: ["render"] },
   });
   assert.equal(r.status, 200);
-  assert.deepEqual(r.data.clients, ["rosa"]);
+  assert.deepEqual(r.data, { clients: ["rosa"], dropped: ["acme"] });
   assert.equal((await call("POST", "/api/hosts", { as: 2, body: { id: "pc-a", clients: ["rosa"] } })).status, 409);
   assert.deepEqual((await call("POST", "/api/hosts", { as: 2, body: { id: "pc-b", clients: ["rosa"] } })).data.clients, []);
 });

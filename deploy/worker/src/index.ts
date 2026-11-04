@@ -30,6 +30,7 @@ export interface Env {
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const MAX_BODY_BYTES = 64 * 1024;
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // the Free-plan request body limit (docs/CLOUDFLARE-PLAN.md, limits)
 const LAST_SEEN_THROTTLE_MS = 5 * 60 * 1000;
 const JOB_LEASE_MS = 5 * 60 * 1000; // a running job silent this long goes back to the queue
 const ID = /^[\w-]{1,64}$/; // client, slot and host ids
@@ -248,7 +249,8 @@ async function registerHost(req: Request, env: Env, user: UserRow, now: number):
   const hostId = id(body.id, "id");
   const name = typeof body.name === "string" && body.name.length <= 100 ? body.name : hostId;
   const mine = await clientsOf(env, user);
-  const clients = strings(body.clients).filter((c) => mine.includes(c));
+  const asked = strings(body.clients);
+  const clients = asked.filter((c) => mine.includes(c));
   const r = await env.DB.prepare(
     `INSERT INTO hosts (id, user, name, clients, caps, last_seen) VALUES (?1, ?2, ?3, ?4, ?5, ?6)
      ON CONFLICT(id) DO UPDATE SET name = excluded.name, clients = excluded.clients, caps = excluded.caps,
@@ -257,7 +259,7 @@ async function registerHost(req: Request, env: Env, user: UserRow, now: number):
     .bind(hostId, user.id, name, JSON.stringify(clients), JSON.stringify(strings(body.caps)), now)
     .run();
   if (r.meta.changes !== 1) throw new HttpError(409, "host"); // the id belongs to another user
-  return json(200, { clients });
+  return json(200, { clients, dropped: asked.filter((c) => !clients.includes(c)) });
 }
 
 /** Claim the oldest open job for one of the host's clients. The claim is one
@@ -290,8 +292,8 @@ async function nextJob(url: URL, env: Env, ctx: ExecutionContext, user: UserRow,
 
 async function enqueue(req: Request, env: Env, user: UserRow, now: number): Promise<Response> {
   const body = await readJson(req);
-  const kind = id(body.kind, "kind");
-  if (!JOB_KINDS.has(kind)) throw new HttpError(400, "kind");
+  const kind = body.kind;
+  if (typeof kind !== "string" || !JOB_KINDS.has(kind)) throw new HttpError(400, "kind");
   const client = id(body.client, "client");
   await member(env, user, client);
   const slot = body.slot_id == null ? null : id(body.slot_id, "slot_id");
@@ -327,8 +329,10 @@ async function updateJob(req: Request, env: Env, user: UserRow, jobId: number, a
 // ── media ─────────────────────────────────────────────────────────────────────
 
 /** PUT: the file streams into R2 under an unguessable key, the key is written on the
-    post, and the previous object (a replaced video) is deleted. A published post's
-    video is final. GET: the object, for a host's spec check and the dashboard player. */
+    post by compare-and-set (the row must still hold the key read before the upload, and
+    a video's post must still be unpublished; otherwise the new object is deleted and
+    the caller gets a 409), and the previous object is deleted. GET: the object, for a
+    host's spec check and the dashboard player. */
 async function media(req: Request, env: Env, user: UserRow, client: string, slot: string, name: string): Promise<Response> {
   const kind = MEDIA[name as keyof typeof MEDIA];
   if (!kind) throw new HttpError(404, "not found");
@@ -348,9 +352,19 @@ async function media(req: Request, env: Env, user: UserRow, client: string, slot
   if (name === "video" && post.ig_media_id) throw new HttpError(409, "published");
   const len = Number(req.headers.get("Content-Length"));
   if (!req.body || !Number.isInteger(len) || len <= 0) throw new HttpError(411, "length");
+  if (len > MAX_UPLOAD_BYTES) throw new HttpError(413, "size");
   const key = `${client}/${slot}/${hex32()}.${kind.ext}`;
   await env.MEDIA.put(key, req.body, { httpMetadata: { contentType: kind.type } });
-  await env.DB.prepare(`UPDATE posts SET ${kind.column} = ? WHERE client = ? AND slot_id = ?`).bind(key, client, slot).run();
+  const guard = name === "video" ? " AND ig_media_id IS NULL" : "";
+  const r = await env.DB.prepare(
+    `UPDATE posts SET ${kind.column} = ? WHERE client = ? AND slot_id = ? AND ${kind.column} IS ?${guard}`,
+  )
+    .bind(key, client, slot, post.key)
+    .run();
+  if (r.meta.changes !== 1) {
+    await env.MEDIA.delete(key);
+    throw new HttpError(409, "changed");
+  }
   if (post.key) await env.MEDIA.delete(post.key);
   return json(200, { key });
 }

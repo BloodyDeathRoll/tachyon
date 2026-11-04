@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS post_files (        -- posts/<slot>/caption.txt, firs
 
 CREATE TABLE IF NOT EXISTS users (
   id            INTEGER PRIMARY KEY,
-  email         TEXT NOT NULL UNIQUE,         -- lower-case. An admin invites by email
+  email         TEXT NOT NULL UNIQUE CHECK (email = lower(email)),   -- an admin invites by email
   google_sub    TEXT UNIQUE,                  -- null until the first sign-in binds it
   name          TEXT,
   picture       TEXT,
