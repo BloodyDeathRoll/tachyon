@@ -2,6 +2,11 @@
 
 grants.yaml holds identifiers and autonomy flags, never secrets. Tokens live in the
 environment (TACHYON_<CLIENT>_TOKEN) or a .env the operator manages.
+
+With a Worker configured (spine/remote.py) the grants are the `clients` row online
+(docs/CLOUDFLARE-PLAN.md, "What moves where"): load_grants reads it, save_grants writes it,
+and pull() writes the row and the brand markdown (client_files) to clients/<name>/ before a
+generation, so the prompts keep reading files. The folder itself stays: the assets live there.
 """
 
 from __future__ import annotations
@@ -12,8 +17,11 @@ from pathlib import Path
 
 import yaml
 
+from . import remote as R
+
 ROOT = Path(__file__).resolve().parent.parent
 CLIENTS = ROOT / "clients"
+COLUMNS = ("page_id", "ig_user_id", "ig_username", "emergency_stop")   # grants keys kept as columns online
 
 DEFAULT_GRANTS = {
     "page_id": None,
@@ -42,15 +50,54 @@ def client_dir(name: str) -> Path:
     return d
 
 
+def _remote(name: str):
+    from .db import RemoteDB   # local import: db imports nothing from here, but keep the cycle out
+    cfg = R.config()
+    return RemoteDB(name, cfg) if cfg else None
+
+
+def _row_grants(row: dict) -> dict:
+    """The clients row as grants.yaml's dict: the JSON plus the columns."""
+    data = dict(row.get("grants") or {})
+    data.update({k: row.get(k) for k in COLUMNS if k != "emergency_stop"})
+    data["emergency_stop"] = bool(row.get("emergency_stop"))
+    data.setdefault("display_name", row.get("name"))
+    return data
+
+
 def load_grants(name: str) -> dict:
-    data = yaml.safe_load((client_dir(name) / "grants.yaml").read_text()) or {}
+    db = _remote(name)
+    data = _row_grants(db.client_row()) if db else (yaml.safe_load((client_dir(name) / "grants.yaml").read_text()) or {})
     merged = {**DEFAULT_GRANTS, **data}
     merged["auto_reply"] = {**DEFAULT_GRANTS["auto_reply"], **(data.get("auto_reply") or {})}
     return merged
 
 
 def save_grants(name: str, grants: dict) -> None:
+    db = _remote(name)
+    if db:
+        db.set_grants({k: v for k, v in grants.items() if k not in COLUMNS}, emergency_stop=bool(grants.get("emergency_stop")))
+        return
     (client_dir(name) / "grants.yaml").write_text(yaml.safe_dump(grants, sort_keys=False))
+
+
+def pull(name: str) -> list[str]:
+    """Before a generation on this PC: the client's brand markdown and grants from online to
+    clients/<name>/, so the prompts and spine/week.py keep reading files. The names written."""
+    db = _remote(name)
+    if not db:
+        return []
+    d = CLIENTS / name
+    d.mkdir(parents=True, exist_ok=True)
+    written = []
+    for f in db.client_files():
+        if "/" in f["name"] or not f["name"].endswith(".md"):
+            continue   # never a path, never anything but the markdown
+        (d / f["name"]).write_text(f["text"])
+        written.append(f["name"])
+    (d / "grants.yaml").write_text(yaml.safe_dump(_row_grants(db.client_row()), sort_keys=False))
+    written.append("grants.yaml")
+    return written
 
 
 def set_flag(name: str, dotted: str, value: bool) -> dict:

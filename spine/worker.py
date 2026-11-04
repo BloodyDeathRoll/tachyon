@@ -155,6 +155,7 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run) -> dict:
         raise ValueError(f"refused: a {job['kind']} job for {client} cannot run {' '.join(argv)}")
     if job["kind"] not in NO_SLOT and argv[3] != slot:
         raise ValueError(f"refused: the job is for slot {slot}, the command for {argv[3]}")
+    C.pull(client)   # the brand text and grants as they are online, before the prompts read them
     log = log_dir() / f"job-{job['id']}.log"
     with log.open("a") as out:
         r = runner([sys.executable, "-m", *argv], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT)

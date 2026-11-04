@@ -175,6 +175,22 @@ test("journal outcome, permalink backfill, experiments, engage, costs, conversio
   assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM conversions").first()).n, 1);
 });
 
+test("the clients row: grants in, columns out; the brand markdown with versions", async () => {
+  assert.equal((await op("set_grants", { grants: { slots: ["06:30"], page_id: "x" }, emergency_stop: true })).status, 200);
+  const row = (await op("client")).result;
+  assert.deepEqual(row.grants, { slots: ["06:30"] }); // page_id is a column, not a grant
+  assert.equal(row.emergency_stop, 1);
+  assert.equal(row.page_id, null);
+  assert.equal(row.token_enc, undefined);
+  await op("set_grants", { grants: { slots: ["18:30"] } });
+  assert.equal((await op("client")).result.emergency_stop, 1); // left alone when not given
+  assert.equal((await op("set_client_file", { name: "../brand.md", text: "x" })).status, 400);
+  await op("set_client_file", { name: "brand.md", text: "# One" });
+  await op("set_client_file", { name: "brand.md", text: "# Two" });
+  const files = (await op("client_files")).result;
+  assert.deepEqual(files.map((f) => [f.name, f.text, f.version, f.updated_by]), [["brand.md", "# Two", 2, 1]]);
+});
+
 test("follower import is one step and idempotent; dropped compares the newest two", async () => {
   const a = await op("import_followers", { taken_at: "2026-01-01T00:00:00+00:00", sha: "a", source: "a.zip", followers: ["ann", "bo", "cy"], following: ["zed"] });
   assert.equal(typeof a.result, "number");

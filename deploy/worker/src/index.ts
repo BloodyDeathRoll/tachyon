@@ -22,11 +22,13 @@
 //   GET  /api/media/<client>/<slot>/video | cover  -> the file
 //   POST /api/db/<client>/<op>  {...args}          -> the op's result (src/db.ts: spine/db.py's
 //                                                     methods, for a member of the client)
+//   /api/admin/users | memberships | clients       -> src/admin.ts, admins only
 //
 // Authenticated routes take `Authorization: Bearer <session>` (the PCs) or the `s`
 // cookie (the browser). session.ts and google.ts are Rosa's (deploy/user-api), unchanged;
 // the session's `sub` carries users.id here. An error is {error: <code>, detail?: <sentence>}.
 
+import { admin } from "./admin.ts";
 import { callback, pick, startUrl } from "./connect.ts";
 import { tick } from "./cron.ts";
 import { OPS } from "./db.ts";
@@ -500,6 +502,11 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   }
   if (p[0] === "api" && p[1] === "media" && p.length === 5) {
     return media(req, env, user, id(p[2], "client"), id(p[3], "slot"), p[4] ?? "");
+  }
+  if (p[0] === "api" && p[1] === "admin") {
+    if (!user.admin) throw new HttpError(403, "admin");
+    const r = await admin(req, env, p, () => readJson(req), user.id, now);
+    if (r) return r;
   }
   if (p[0] === "api" && p[1] === "db" && p.length === 4 && req.method === "POST") {
     const client = id(p[2], "client");
