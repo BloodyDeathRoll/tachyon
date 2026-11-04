@@ -3,7 +3,7 @@
 // A job's payload carries the exact `python -m` argv spine/worker.py ARGV allows for its kind.
 
 export const JOB_KINDS = new Set(["plan", "auto", "produce", "revise", "formats", "caption", "voice", "upload", "spec"]);
-export const ONCE_KINDS = new Set(["plan", "auto"]); // the same command already waiting or running is the same job
+export const ONCE_KINDS = new Set(["plan", "auto", "produce", "revise"]); // the same command already waiting or running is the same job (a double click)
 export const ONCE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface JobRow {
