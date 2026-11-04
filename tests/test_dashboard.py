@@ -108,10 +108,11 @@ def test_running_revision_shows_rerendering_tag(server, client_dir):
     assert "Rendering the new version" in body and "http-equiv=refresh" in body
 
 
-def test_next_free_skips_taken_and_respects_lead():
+def test_next_free_skips_taken_and_has_no_lead():
     at = datetime(2026, 10, 25, 6, 10, tzinfo=timezone.utc)
-    assert SCH.next_free(set(), at=at) == "2026-10-25T18:30:00+00:00"   # 06:30 is inside the 30-min lead
-    assert SCH.next_free({"2026-10-25T18:30:00+00:00"}, at=at) == "2026-10-26T06:30:00+00:00"
+    assert SCH.next_free(set(), at=at) == "2026-10-25T06:30:00+00:00"   # 20 min ahead is still ahead
+    assert SCH.next_free({"2026-10-25T06:30:00+00:00"}, at=at) == "2026-10-25T18:30:00+00:00"
+    assert SCH.next_free(set(), at=at.replace(minute=30)) == "2026-10-25T18:30:00+00:00"   # exactly now has passed
 
 
 def test_media_supports_range(server, client_dir):
