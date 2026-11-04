@@ -134,7 +134,8 @@ export async function backfillPermalinks(c: Ctx, graph: Graph, budget: number, a
   const done: string[] = [];
   for (const p of all ?? (await posts(c, null))) {
     if (done.length >= budget) break;
-    if (!p.ig_media_id || p.permalink || p.state === "REMOVED" || c.now - parse(p.published_at) > HOURLY_DAYS * 24 * 3600_000) continue;
+    if (!p.ig_media_id || p.permalink || p.state === "REMOVED") continue;
+    if (p.published_at && c.now - parse(p.published_at) > HOURLY_DAYS * 24 * 3600_000) continue; // no date at all: still worth the call
     try {
       const link = (await graph.media(p.ig_media_id)).permalink;
       if (typeof link !== "string") continue;

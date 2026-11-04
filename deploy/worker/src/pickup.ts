@@ -6,17 +6,22 @@
 // minute as the publisher, under its lease, so a reel being posted right now is never taken.
 
 import { Budget } from "./budget.ts";
-import { iso, journal, journalOutcome, post, posts, setState, type Ctx } from "./db.ts";
+import { iso, journalIfChanged, post, posts, type Ctx } from "./db.ts";
 import { Graph, type Fetcher } from "./graph.ts";
+import { HttpError } from "./http.ts";
 
 type Json = Record<string, unknown>;
 export const FIELDS = "id,caption,timestamp,permalink,media_product_type,media_url,thumbnail_url";
 export const PER_RUN = 5; // new imports per run
 export const FIRST_LOOK_MS = 7 * 24 * 3600_000; // an account with nothing linked yet: only the last week
 export const HAND_FROM = new Set(["NEEDS_APPROVAL", "APPROVED", "QUEUED", "PAUSED", "FAILED", "MANUAL_HANDOFF"]);
-export const IMPORT_COST = 14; // subrequests one import needs: two batches, the cover fetch and put, eight state changes
-export const LINK_COST = 8;
+// subrequests, as test/insights.test.mjs counts them: the state walks are one batch each, not
+// one setState per step (three calls each)
+export const IMPORT_COST = 8; // the id read, the row, the cover fetch and put, the rest in one batch
+export const LINK_COST = 4;
 const MAX_COVER = 10 * 1024 * 1024;
+// the states a reel posted by hand walks through, journaled as if it had been made here
+const WALK = ["BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL", "MANUAL_HANDOFF", "PUBLISHED", "MEASURING"];
 
 /** Meta's `2026-11-04T10:00:00+0000` as unix ms (0 when unreadable). */
 export function ms(ts: unknown): number {
@@ -58,15 +63,28 @@ export async function newSlotId(c: Ctx, at: string): Promise<string> {
   return `${prefix}-${String(Math.max(0, ...nums) + 1).padStart(2, "0")}`;
 }
 
+/** The journal rows of a state walk, each applied only if the UPDATE before them in the batch
+    held (`changes()` stays 1 through the inserts: a journal insert changes one row too). */
+function walked(c: Ctx, slot: string, from: string, states: string[], note: string | null, extra: Json): D1PreparedStatement[] {
+  return states.map((to, i) => journalIfChanged(c, "post.state", slot, { from: i ? states[i - 1] : from, to, note: to === "MANUAL_HANDOFF" ? note : null, ...(to === "PUBLISHED" ? extra : {}) }));
+}
+
+/** The slot waiting for this reel: MANUAL_HANDOFF (if not there yet), PUBLISHED with the reel's
+    id, MEASURING, in one batch guarded by the row's version. */
 async function linkByHand(c: Ctx, slot: string, r: Json): Promise<void> {
   const row = await post(c, slot);
   if (row.ig_media_id === r.id) return;
   if (!HAND_FROM.has(row.state)) throw new Error(`${slot} is ${row.state}; only unpublished slots can be linked`);
-  const j = await journal(c, "meta.link_by_hand", slot, { media: r.id });
-  if (row.state !== "MANUAL_HANDOFF") await setState(c, slot, "MANUAL_HANDOFF", "posted by hand in the Instagram app", {});
-  await setState(c, slot, "PUBLISHED", null, { ig_media_id: String(r.id), permalink: (r.permalink as string) ?? null, published_at: when(String(r.timestamp)) });
-  await journalOutcome(c, j, r);
-  await setState(c, slot, "MEASURING", null, {});
+  const published = { ig_media_id: String(r.id), permalink: (r.permalink as string) ?? null, published_at: when(String(r.timestamp)) };
+  const steps = [...(row.state === "MANUAL_HANDOFF" ? [] : ["MANUAL_HANDOFF"]), "PUBLISHED", "MEASURING"];
+  const res = await c.env.DB.batch([
+    c.env.DB.prepare(
+      "UPDATE posts SET state = 'MEASURING', ig_media_id = ?, permalink = ?, published_at = ?, updated_at = ?, version = version + 1 WHERE client = ? AND slot_id = ? AND version = ? AND ig_media_id IS NULL",
+    ).bind(published.ig_media_id, published.permalink, published.published_at, iso(c.now), c.client, slot, row.version),
+    journalIfChanged(c, "meta.link_by_hand", slot, { media: r.id, outcome: r }),
+    ...walked(c, slot, row.state, steps, "posted by hand in the Instagram app", published),
+  ]);
+  if (res[0]!.meta.changes !== 1) throw new HttpError(409, "changed", `${slot} changed under the link`);
 }
 
 async function newSlot(c: Ctx, env: { MEDIA: R2Bucket }, r: Json, fetcher: Fetcher): Promise<string> {
@@ -92,16 +110,17 @@ async function newSlot(c: Ctx, env: { MEDIA: R2Bucket }, r: Json, fetcher: Fetch
       }
     }
     const meta = { slot_id: slot, title: title(caption), source: "instagram", plan: "pickup", story: false, permalink: r.permalink ?? null, duration_s: null };
+    const published = { ig_media_id: String(r.id), permalink: (r.permalink as string) ?? null, published_at: at };
+    // the files, then the whole walk to MEASURING with its journal, one batch
     await c.env.DB.batch([
       c.env.DB.prepare("INSERT INTO post_files (client, slot_id, name, text, updated_by, updated_at) VALUES (?, ?, 'caption.txt', ?, NULL, ?), (?, ?, 'meta.json', ?, NULL, ?)").bind(
         c.client, slot, caption ? caption + "\n" : "", c.now, c.client, slot, JSON.stringify(meta, null, 2) + "\n", c.now,
       ),
-      c.env.DB.prepare("UPDATE posts SET cover_key = ? WHERE client = ? AND slot_id = ?").bind(coverKey, c.client, slot),
+      c.env.DB.prepare(
+        "UPDATE posts SET cover_key = ?, state = 'MEASURING', ig_media_id = ?, permalink = ?, published_at = ?, updated_at = ?, version = version + 1 WHERE client = ? AND slot_id = ? AND state = 'IDEA'",
+      ).bind(coverKey, published.ig_media_id, published.permalink, published.published_at, iso(c.now), c.client, slot),
+      ...walked(c, slot, "IDEA", WALK, "posted straight to Instagram, picked up", published),
     ]);
-    for (const st of ["BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL"]) await setState(c, slot, st, null, {});
-    await setState(c, slot, "MANUAL_HANDOFF", "posted straight to Instagram, picked up", {});
-    await setState(c, slot, "PUBLISHED", null, { ig_media_id: String(r.id), permalink: (r.permalink as string) ?? null, published_at: at });
-    await setState(c, slot, "MEASURING", null, {});
   } catch (e) {
     const live = ["PUBLISHED", "MEASURING"].includes((await post(c, slot)).state);
     if (!live) {

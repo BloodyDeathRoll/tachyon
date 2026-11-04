@@ -22,7 +22,7 @@ export const DAY_MS = 24 * 60 * 60 * 1000;
 export const GRACE_MS = DAY_MS; // an object this young may belong to an upload whose row is not written yet
 export const AUTO_HOUR_UTC = 7; // the crontab ran `week auto` at 07:00 local; here 07:00 UTC
 export const PICKUP_MINUTE = 17; // the crontab's insights hour: `17 * * * *`
-export const PICKUP_COST = 6; // the list, the posts, the captions; each link or import then checks its own cost
+export const PICKUP_COST = 4; // the list, the posts, the captions; each link or import then checks its own cost
 type Json = Record<string, unknown>;
 
 /** Take `name` for `ttl` ms. True only if nobody holds it (a run-out lease counts as free). */

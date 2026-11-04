@@ -3,12 +3,12 @@
 // linking a reel posted by hand, importing one, and the cron minute that runs them.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { Budget } from "../src/budget.ts";
-import { tick } from "../src/cron.ts";
+import { Budget, countedDB, countedFetch, countedR2 } from "../src/budget.ts";
+import { PICKUP_COST, tick } from "../src/cron.ts";
 import { seal } from "../src/crypto.ts";
 import { iso, OPS, setState } from "../src/db.ts";
 import { derived, due, hourKey, PER_MINUTE, step } from "../src/insights.ts";
-import { newSlotId, pickup, title, when } from "../src/pickup.ts";
+import { IMPORT_COST, LINK_COST, newSlotId, pickup, title, when } from "../src/pickup.ts";
 import { start } from "./harness.mjs";
 
 const T0 = Date.parse("2030-03-10T10:17:00Z"); // minute 17: the pickup minute
@@ -117,12 +117,18 @@ test("a minute does at most PER_MINUTE media snapshots, then the account rows; t
   await step(env, await rosa(), "tok", T0 + 120_000, fetcher);
 });
 
-test("a missing permalink is filled in from the media", async () => {
+test("a missing permalink is filled in from the media, for a month after publish or with no date at all", async () => {
   await env.DB.prepare("UPDATE posts SET permalink = NULL WHERE slot_id = 'a'").run();
   script.push({ body: { id: "m-a", permalink: "https://instagram.com/reel/m-a2" } });
   const log = await step(env, await rosa(), "tok", T0 + 120_000, fetcher);
   assert.deepEqual(log, ["permalinks: a"]);
   assert.equal((await post("a")).permalink, "https://instagram.com/reel/m-a2");
+  await env.DB.prepare("UPDATE posts SET permalink = NULL WHERE slot_id IN ('c', 'b')").run(); // c: 40 days old, left alone
+  await env.DB.prepare("UPDATE posts SET published_at = NULL WHERE slot_id = 'b'").run(); // no date: still asked
+  script.push({ body: { id: "m-b", permalink: "https://instagram.com/reel/m-b" } });
+  assert.deepEqual(await step(env, await rosa(), "tok", T0 + 120_000, fetcher), ["permalinks: b"]);
+  assert.equal(script.length, 0);
+  await env.DB.prepare("UPDATE posts SET published_at = ? WHERE slot_id = 'b'").bind(iso(T0 - 8 * 24 * 3600_000)).run();
 });
 
 test("pickup links a slot waiting with the same caption and imports a new reel with its cover", async () => {
@@ -140,7 +146,10 @@ test("pickup links a slot waiting with the same caption and imports a new reel w
     ] } },
     { bytes: new Uint8Array([255, 216, 255]) },
   );
-  const out = await pickup(env, await rosa(), "tok", T0, fetcher);
+  // counted as the cron counts it: one link and one import must fit the costs the cron plans with
+  const b = new Budget();
+  const out = await pickup({ ...env, DB: countedDB(env.DB, b), MEDIA: countedR2(env.MEDIA, b) }, await rosa(), "tok", T0, countedFetch(fetcher, b), b);
+  assert.ok(b.used <= PICKUP_COST + LINK_COST + IMPORT_COST, `a link and an import cost ${b.used}`);
   assert.deepEqual(out, [
     { media: "m-hand", slot_id: "w", linked: true },
     { media: "m-new", slot_id: "2030-w10-01", linked: false },
@@ -158,14 +167,17 @@ test("pickup links a slot waiting with the same caption and imports a new reel w
   const f = await OPS.files(ctx(), { slot_id: "2030-w10-01" });
   assert.equal(f["caption.txt"], "A fresh one. Second sentence.\n");
   assert.equal(JSON.parse(f["meta.json"]).plan, "pickup");
-  const j = await env.DB.prepare("SELECT action FROM journal WHERE target = 'w' ORDER BY id").all().then((r) => r.results.map((x) => x.action));
-  assert.ok(j.includes("meta.link_by_hand"));
+  const j = await env.DB.prepare("SELECT action, json_extract(intent, '$.to') AS t FROM journal WHERE target = 'w' AND id > (SELECT max(id) FROM journal WHERE target = 'w' AND json_extract(intent, '$.to') = 'NEEDS_APPROVAL') ORDER BY id").all().then((r) => r.results);
+  assert.deepEqual(j.map((x) => [x.action, x.t]), [["meta.link_by_hand", null], ["post.state", "MANUAL_HANDOFF"], ["post.state", "PUBLISHED"], ["post.state", "MEASURING"]]);
+  const walk = await env.DB.prepare("SELECT json_extract(intent, '$.to') AS t FROM journal WHERE target = '2030-w10-01' AND action = 'post.state' ORDER BY id").all().then((r) => r.results.map((x) => x.t));
+  assert.deepEqual(walk, ["BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL", "MANUAL_HANDOFF", "PUBLISHED", "MEASURING"]);
+  assert.equal(n.version, 1);
   // the same list again: nothing new
   script.push({ body: { data: [{ id: "m-new", caption: "A fresh one.", timestamp: "2030-03-10T09:30:00+0000", media_product_type: "REELS" }] } });
   assert.deepEqual(await pickup(env, await rosa(), "tok", T0 + 1000, fetcher), []);
   // a new reel with no budget left for an import waits for the next hour
   script.push({ body: { data: [{ id: "m-late", caption: "Late", timestamp: "2030-03-10T10:00:00+0000", media_product_type: "REELS" }] } });
-  assert.deepEqual(await pickup(env, await rosa(), "tok", T0 + 1000, fetcher, new Budget(8)), [{ media: "m-late", skipped: "budget" }]);
+  assert.deepEqual(await pickup(env, await rosa(), "tok", T0 + 1000, fetcher, new Budget(IMPORT_COST - 1)), [{ media: "m-late", skipped: "budget" }]);
   assert.equal(await post("2030-w10-02"), null);
 });
 
