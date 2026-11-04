@@ -18,7 +18,7 @@ creator's PC keeps the file.
 
 | Question | Decision |
 |---|---|
-| Who publishes | The Worker, from R2. It pushes the bytes to Instagram with the same resumable upload the PC does today (`rupload.facebook.com`), so the file is never public. No PC needs to be on. |
+| Who publishes | The Worker, from R2. It hands Instagram a public R2 URL (`video_url`); Instagram's servers download the file ("We cURL your image using the passed in URL so it must be on a public server", content-publishing guide). The key is a random string; the object is deleted once Instagram has the file. No PC needs to be on. Reverses PLAN §3's "no video_url"; the resumable upload is retired. |
 | Login | Google sign-in, copied from Rosa `deploy/user-api` (GIS code client, stateless HMAC session). |
 | Who generates | A PC that holds the client's assets. "Any authorised PC" was wanted, but mirroring every client's footage in R2 would not stay in the free tier, so a client's generation runs only on PCs seeded with its `assets/` folder. |
 | Clients | Created from the dashboard; brand text (`brand.md`, `strategy.md`, …) and the former `grants.yaml` fields live online. |
@@ -80,10 +80,10 @@ Stays as is: bio link redirect on Vercel (`spine/publisher/links.py`), code in g
 ## Video lifecycle
 
 1. Rendered locally; `spec_check` passes; the host records it in `media`.
-2. On approval the host runs an `upload` job: `video.mp4` and `cover.jpg` go to R2 under `<client>/<slot>/`. The bucket is private.
-3. The Worker's cron (every minute): due slot in QUEUED → create the REELS container with `upload_type=resumable` and the same parameters as today (`share_to_feed`, `thumb_offset`, `trial_params`, `collaborators`, `location_id`, `is_ai_generated`), then stream the R2 object to `rupload.facebook.com/ig-api-upload/<container>` (`Graph.upload` ported). Container id saved on the post. Instagram's other way, `video_url`, makes Instagram's servers download the file from a public URL ("We cURL your image using the passed in URL so it must be on a public server", content-publishing guide); not used.
+2. On approval the host runs an `upload` job: `video.mp4` and `cover.jpg` go to R2 under `<client>/<slot>/<random 32 hex>.mp4`. The bucket is public-read; the key is unguessable (operator 2026-11-04).
+3. The Worker's cron (every minute): due slot in QUEUED → create the REELS container with `video_url` = the R2 URL and the same parameters as today (`share_to_feed`, `thumb_offset`, `trial_params`, `collaborators`, `location_id`, `is_ai_generated`). Container id saved on the post.
 4. Later minutes: poll `status_code`; FINISHED → `media_publish`; PUBLISHED with `ig_media_id`, permalink, `published_at`; first comment posted; then MEASURING. Up to 5 polls, as today.
-5. The R2 video object is deleted the minute the post is PUBLISHED, and also when a slot is deleted or its video replaced. The cover stays for the calendar.
+5. The R2 video object is deleted the minute Instagram has the file (container `status_code` FINISHED), and also when a slot is deleted or its video replaced. The cover stays for the calendar. Before FINISHED the file must stay: Instagram fetches it after the container call.
 6. After publish the dashboard's player is the Instagram permalink. The local file stays on the creator's PC (`media` says where).
 7. Other formats (16:9, 1:1) are never uploaded: the creator posts them by hand from their PC.
 
@@ -112,7 +112,7 @@ In flight at any time: at most the approved-but-unpublished videos, ~22 MB each.
 
 - `spine/db.py`: talk to D1 through the Worker API instead of `sqlite3.connect`. One module, all callers keep their methods. Auth: the host's session token (the same Google session, saved on the PC by `spine.worker login`).
 - `spine/clients.py`: `load_grants` reads the `clients` row; `client_dir` unchanged; a `pull(client)` writes `client_files` to disk before a generation.
-- `spine/publisher/publish.py` and `graph.py` (`Graph.upload`): `publish_slot` ported to the Worker, reading the file from R2; the Python keeps `spec_check` and the R2 upload. `auth.py` retired.
+- `spine/publisher/publish.py`: `publish_slot` ported to the Worker (`video_url`, no `Graph.upload`); the Python keeps `spec_check` and the R2 upload. `auth.py` retired.
 - `spine/worker.py` (new): host registration, job loop, lease heartbeat, R2 upload.
 - `spine/measure/insights.py`, `spine/audience.py`, `spine/pickup.py`: logic ported into the Worker's cron (Graph API only); Python versions retired.
 - crontab: the four jobs replaced by the one worker service.
@@ -123,7 +123,7 @@ In flight at any time: at most the approved-but-unpublished videos, ~22 MB each.
 0. **Spike** (1 session): operator creates the account; Worker skeleton in TS with D1, R2, the cron and Google sign-in copied from Rosa; measure D1 latency from home.
 1. **D1 behind `spine/db.py`**: schema with `client` columns, `users`, `memberships`, `clients`, `jobs`, `leases`, `hosts`, `media`; migrate `tachyon.db`; tests pass unchanged; this desktop still the only runner.
 2. **`spine/worker.py`**: jobs and leases replace the crontab; the dashboard's Generate New, Revise and formats write jobs. Still one PC. Run a week.
-3. **Worker publishes from R2**: upload job, resumable upload streamed from R2, one-minute cron, delete after publish, idempotency check. Dry-run first; then a test with the cron killed between container create and poll.
+3. **Worker publishes from R2**: upload job, `video_url` container, one-minute cron, delete on FINISHED, idempotency check. Dry-run first; then a test with the cron killed between container create and poll.
 4. **Connect Instagram**: Facebook Login in the dashboard, tokens per client in D1, weekly refresh in the cron; `.env.local` keys and `auth.py` retired.
 5. **API-only crons into the Worker**: insights, audience, pickup.
 6. **Dashboard on the Worker**: all pages, phone layout, manifest; the local dashboard kept read-only until parity.
@@ -138,7 +138,7 @@ Each phase = one PR, GitHub agent review on the final commit, operator OK before
 From Rosa `deploy/user-api/README.md`: Workers Free 100k requests/day; D1 Free 5M row reads + 100k row writes/day, 5 GB; R2 10 GB.
 From developers.cloudflare.com/workers/platform/limits (read 2026-11-04): Workers Free 10 ms CPU time per invocation, 50 subrequests per request, 5 Cron Triggers per account, 100 MB request body on a Free-plan domain.
 
-What that means here: the cron every minute is 1,440 requests/day and one trigger. Streaming a 22 MB object from R2 to Instagram is I/O, not CPU; the spike measures the CPU used. The hourly insights pass must chunk across minutes once a client passes ~45 live posts (one subrequest per post). A 22 MB upload from a PC to the Worker fits the 100 MB body limit.
+What that means here: the cron every minute is 1,440 requests/day and one trigger. The Worker never moves video bytes itself (Instagram fetches from R2), so the 10 ms CPU budget is API calls only. The hourly insights pass must chunk across minutes once a client passes ~45 live posts (one subrequest per post). A 22 MB upload from a PC to the Worker fits the 100 MB body limit.
 
 ## Open decisions
 
