@@ -175,6 +175,25 @@ test("pickup links a slot waiting with the same caption and imports a new reel w
   // the same list again: nothing new
   script.push({ body: { data: [{ id: "m-new", caption: "A fresh one.", timestamp: "2030-03-10T09:30:00+0000", media_product_type: "REELS" }] } });
   assert.deepEqual(await pickup(env, await rosa(), "tok", T0 + 1000, fetcher), []);
+  // an import whose row moved on under it (the UPDATE matched nothing) is cleaned up and reported
+  const racy = {
+    ...env,
+    DB: new Proxy(env.DB, {
+      get(t, k) {
+        if (k !== "batch") return typeof t[k] === "function" ? t[k].bind(t) : t[k];
+        return async (stmts) => {
+          if (stmts.length > 2) await env.DB.prepare("UPDATE posts SET state = 'BRIEFED' WHERE slot_id = '2030-w10-02'").run();
+          return t.batch(stmts);
+        };
+      },
+    }),
+  };
+  script.push({ body: { data: [{ id: "m-race", caption: "Raced", timestamp: "2030-03-10T10:00:00+0000", media_product_type: "REELS" }] } });
+  const raced = await pickup(racy, await rosa(), "tok", T0 + 1000, fetcher);
+  assert.equal(raced.length, 1);
+  assert.match(raced[0].error, /moved on under the import/);
+  assert.equal(await post("2030-w10-02"), null);
+  assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM journal WHERE target = '2030-w10-02'").first()).n, 0);
   // a new reel with no budget left for an import waits for the next hour
   script.push({ body: { data: [{ id: "m-late", caption: "Late", timestamp: "2030-03-10T10:00:00+0000", media_product_type: "REELS" }] } });
   assert.deepEqual(await pickup(env, await rosa(), "tok", T0 + 1000, fetcher, new Budget(IMPORT_COST - 1)), [{ media: "m-late", skipped: "budget" }]);

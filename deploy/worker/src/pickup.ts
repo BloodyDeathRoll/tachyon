@@ -112,7 +112,7 @@ async function newSlot(c: Ctx, env: { MEDIA: R2Bucket }, r: Json, fetcher: Fetch
     const meta = { slot_id: slot, title: title(caption), source: "instagram", plan: "pickup", story: false, permalink: r.permalink ?? null, duration_s: null };
     const published = { ig_media_id: String(r.id), permalink: (r.permalink as string) ?? null, published_at: at };
     // the files, then the whole walk to MEASURING with its journal, one batch
-    await c.env.DB.batch([
+    const res = await c.env.DB.batch([
       c.env.DB.prepare("INSERT INTO post_files (client, slot_id, name, text, updated_by, updated_at) VALUES (?, ?, 'caption.txt', ?, NULL, ?), (?, ?, 'meta.json', ?, NULL, ?)").bind(
         c.client, slot, caption ? caption + "\n" : "", c.now, c.client, slot, JSON.stringify(meta, null, 2) + "\n", c.now,
       ),
@@ -121,6 +121,7 @@ async function newSlot(c: Ctx, env: { MEDIA: R2Bucket }, r: Json, fetcher: Fetch
       ).bind(coverKey, published.ig_media_id, published.permalink, published.published_at, iso(c.now), c.client, slot),
       ...walked(c, slot, "IDEA", WALK, "posted straight to Instagram, picked up", published),
     ]);
+    if (res[1]!.meta.changes !== 1) throw new HttpError(409, "changed", `${slot} moved on under the import`); // the catch cleans up
   } catch (e) {
     const live = ["PUBLISHED", "MEASURING"].includes((await post(c, slot)).state);
     if (!live) {
@@ -187,7 +188,7 @@ export async function pickup(
         out.push({ media: r.id, slot_id: await newSlot(c, env, r, fetcher), linked: false });
       }
     } catch (e) {
-      out.push({ media: r.id, error: String(e).slice(0, 300) }); // one bad reel must not stop the others
+      out.push({ media: r.id, error: (e instanceof HttpError && e.detail ? e.detail : String(e)).slice(0, 300) }); // one bad reel must not stop the others
     }
   }
   return out;
