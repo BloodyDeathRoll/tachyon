@@ -356,16 +356,19 @@ async function media(req: Request, env: Env, user: UserRow, client: string, slot
   const key = `${client}/${slot}/${hex32()}.${kind.ext}`;
   await env.MEDIA.put(key, req.body, { httpMetadata: { contentType: kind.type } });
   const guard = name === "video" ? " AND ig_media_id IS NULL" : "";
-  const r = await env.DB.prepare(
-    `UPDATE posts SET ${kind.column} = ? WHERE client = ? AND slot_id = ? AND ${kind.column} IS ?${guard}`,
-  )
-    .bind(key, client, slot, post.key)
-    .run();
-  if (r.meta.changes !== 1) {
-    await env.MEDIA.delete(key);
-    throw new HttpError(409, "changed");
+  let changes = 0;
+  try {
+    const r = await env.DB.prepare(
+      `UPDATE posts SET ${kind.column} = ? WHERE client = ? AND slot_id = ? AND ${kind.column} IS ?${guard}`,
+    )
+      .bind(key, client, slot, post.key)
+      .run();
+    changes = r.meta.changes;
+  } finally {
+    if (changes !== 1) await env.MEDIA.delete(key); // no row points at it, whatever the cause
   }
-  if (post.key) await env.MEDIA.delete(post.key);
+  if (changes !== 1) throw new HttpError(409, "changed");
+  if (post.key) await env.MEDIA.delete(post.key).catch(() => {}); // unreferenced now; the daily sweep gets it
   return json(200, { key });
 }
 
