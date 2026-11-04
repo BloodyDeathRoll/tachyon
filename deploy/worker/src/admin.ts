@@ -68,6 +68,8 @@ export async function admin(req: Request, env: { DB: D1Database }, p: string[], 
   if (p[2] === "users" && p.length === 3 && m === "GET") return users(env);
   if (p[2] === "users" && p.length === 3 && m === "POST") return invite(env, await body(), now);
   if (p[2] === "users" && p.length === 4 && m === "DELETE" && /^\d{1,12}$/.test(p[3] ?? "")) {
+    // an admin cannot remove themself, so one admin always remains; nothing demotes an admin
+    // (the only way to make one is the invite's `admin` flag)
     if (Number(p[3]) === by) throw new HttpError(400, "self", "an admin cannot remove themself");
     await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(Number(p[3])).run(); // memberships and hosts cascade; sessions die with the row
     return json(200, { ok: true });

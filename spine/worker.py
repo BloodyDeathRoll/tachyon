@@ -136,7 +136,7 @@ def spec(client: str, slot: str, cfg: dict) -> dict:
         return {"issues": spec_check.check_file(p)}
 
 
-def run_job(job: dict, cfg: dict, *, runner=subprocess.run) -> dict:
+def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) -> dict:
     """Run one claimed job; the result for `done`. Raises with the reason for `fail`."""
     payload = json.loads(job.get("payload") or "{}") if isinstance(job.get("payload"), str) else (job.get("payload") or {})
     client, slot = job["client"], job.get("slot_id")
@@ -155,7 +155,14 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run) -> dict:
         raise ValueError(f"refused: a {job['kind']} job for {client} cannot run {' '.join(argv)}")
     if job["kind"] not in NO_SLOT and argv[3] != slot:
         raise ValueError(f"refused: the job is for slot {slot}, the command for {argv[3]}")
-    C.pull(client)   # the brand text and grants as they are online, before the prompts read them
+    for i in range(REPORT_TRIES):   # the brand text and grants as they are online, before the prompts read them
+        try:
+            C.pull(client)
+            break
+        except (OSError, R.RemoteError) as e:
+            if i == REPORT_TRIES - 1 or isinstance(e, R.RemoteError) and e.status in (401, 403):
+                raise RuntimeError(f"could not pull {client}'s files: {e}") from e   # the job fails before it starts: stale text makes wrong films
+            sleep(POLL)
     log = log_dir() / f"job-{job['id']}.log"
     with log.open("a") as out:
         r = runner([sys.executable, "-m", *argv], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT)
@@ -183,7 +190,7 @@ def once(cfg: dict, *, runner=subprocess.run, sleep=time.sleep) -> bool:
     t = threading.Thread(target=_beat, args=(job["id"], cfg, stop), daemon=True)
     t.start()
     try:
-        result = run_job(job, cfg, runner=runner)
+        result = run_job(job, cfg, runner=runner, sleep=sleep)
         action, body = "done", result
     except Exception as e:  # noqa: BLE001 — the job failed; the queue hears why
         action, body = "fail", str(e)[-TAIL - 100:]

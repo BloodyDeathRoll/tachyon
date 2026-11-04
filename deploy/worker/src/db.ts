@@ -275,7 +275,7 @@ async function followerDropped(c: Ctx): Promise<Args> {
 }
 
 const POST_FILES = new Set(["caption.txt", "first_comment.txt", "meta.json"]); // posts/<slot>/ text the publisher reads
-const CLIENT_COLUMNS = new Set(["page_id", "ig_user_id", "ig_username", "emergency_stop"]); // grants.yaml keys that are clients columns
+const CLIENT_COLUMNS = new Set(["page_id", "ig_user_id", "ig_username", "emergency_stop", "display_name"]); // grants.yaml keys that are clients columns (display_name: `name`)
 const CLIENT_FILE = /^[\w-]{1,64}\.md$/;
 
 /** posts/<slot>/'s text files from post_files: {name: text}. */

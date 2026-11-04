@@ -21,7 +21,7 @@ from . import remote as R
 
 ROOT = Path(__file__).resolve().parent.parent
 CLIENTS = ROOT / "clients"
-COLUMNS = ("page_id", "ig_user_id", "ig_username", "emergency_stop")   # grants keys kept as columns online
+COLUMNS = ("page_id", "ig_user_id", "ig_username", "emergency_stop", "display_name")   # grants keys kept as columns online (display_name is clients.name)
 
 DEFAULT_GRANTS = {
     "page_id": None,
@@ -59,9 +59,9 @@ def _remote(name: str):
 def _row_grants(row: dict) -> dict:
     """The clients row as grants.yaml's dict: the JSON plus the columns."""
     data = dict(row.get("grants") or {})
-    data.update({k: row.get(k) for k in COLUMNS if k != "emergency_stop"})
+    data.update({k: row.get(k) for k in ("page_id", "ig_user_id", "ig_username")})
     data["emergency_stop"] = bool(row.get("emergency_stop"))
-    data.setdefault("display_name", row.get("name"))
+    data["display_name"] = row.get("name")
     return data
 
 
@@ -83,7 +83,10 @@ def save_grants(name: str, grants: dict) -> None:
 
 def pull(name: str) -> list[str]:
     """Before a generation on this PC: the client's brand markdown and grants from online to
-    clients/<name>/, so the prompts and spine/week.py keep reading files. The names written."""
+    clients/<name>/, so the prompts and spine/week.py keep reading files. The names written.
+    The online copy is the store: a file edited on the PC is overwritten, and a file deleted
+    online stays here (nothing deletes a client_files row yet; when something does, pull
+    should remove what is gone)."""
     db = _remote(name)
     if not db:
         return []
