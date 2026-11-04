@@ -393,7 +393,8 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   }
   if (p[0] === "api" && p[1] === "db" && p.length === 4 && req.method === "POST") {
     const client = id(p[2], "client");
-    const op = OPS[p[3] ?? ""];
+    const name = p[3] ?? "";
+    const op = Object.hasOwn(OPS, name) ? OPS[name] : undefined; // not Object.prototype's keys
     if (!op) throw new HttpError(404, "op");
     await member(env, user, client);
     return json(200, { result: await op({ env, client, by: user.id, now }, await readJson(req)) });

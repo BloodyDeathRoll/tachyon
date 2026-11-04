@@ -325,8 +325,9 @@ class DB:
 
     def fail_count(self, slot_id: str) -> int:
         """How many times the slot went to FAILED (publish.py hands off after the second)."""
-        return sum(1 for _ in self.conn.execute(
-            "SELECT 1 FROM journal WHERE target=? AND action='post.state' AND intent LIKE '%\"to\": \"FAILED\"%'", (slot_id,)))
+        return self.conn.execute(
+            "SELECT count(*) FROM journal WHERE target=? AND action='post.state' AND json_extract(intent, '$.to')='FAILED'",
+            (slot_id,)).fetchone()[0]
 
     def delete_snapshots(self, post_id: str | None, source: str, window: str) -> None:
         self.conn.execute("DELETE FROM metric_snapshots WHERE post_id IS ? AND source=? AND window=?", (post_id, source, window))
@@ -387,7 +388,7 @@ class RemoteDB:
     post, state.IllegalTransition for a refused transition, ValueError for bad fields; anything
     else is a remote.RemoteError."""
 
-    RETRIES = 3   # on "changed": the post moved under a state change; read again, decide again
+    RETRIES = 3   # on "changed": the post moved under a write; the Worker reads it again and decides again
 
     def __init__(self, client: str, cfg: dict | None = None):
         self.client = client
@@ -399,16 +400,20 @@ class RemoteDB:
         pass
 
     def _op(self, op: str, **args):
-        try:
-            return R.call("POST", f"/api/db/{self.client}/{op}", args, cfg=self.cfg)["result"]
-        except R.RemoteError as e:
-            if e.status == 404 and e.error == "slot":
-                raise KeyError(args.get("slot_id")) from None
-            if e.status == 409 and e.error == "transition":
-                raise S.IllegalTransition(e.detail or e.error) from None
-            if e.status == 400 and e.error in ("fields", "move", "value"):
-                raise ValueError(e.detail or e.error) from None
-            raise
+        for i in range(self.RETRIES):
+            try:
+                return R.call("POST", f"/api/db/{self.client}/{op}", args, cfg=self.cfg)["result"]
+            except R.RemoteError as e:
+                if e.status == 409 and e.error == "changed" and i < self.RETRIES - 1:
+                    continue
+                if e.status == 404 and e.error == "slot":
+                    raise KeyError(args.get("slot_id")) from None
+                if e.status == 409 and e.error == "transition":
+                    raise S.IllegalTransition(e.detail or e.error) from None
+                if e.status == 400 and e.error in ("fields", "move", "value"):
+                    raise ValueError(e.detail or e.error) from None
+                raise
+        raise AssertionError("unreachable")
 
     def _rows(self, op: str, **args) -> list[Row]:
         return [Row(r) for r in self._op(op, **args)]
@@ -439,13 +444,7 @@ class RemoteDB:
         return self._rows("posts", state=state)
 
     def set_state(self, slot_id: str, to: str, note: str | None = None, **updates) -> Row:
-        for i in range(self.RETRIES):
-            try:
-                return Row(self._op("set_state", slot_id=slot_id, to=to, note=note, updates=updates))
-            except R.RemoteError as e:
-                if not (e.status == 409 and e.error == "changed" and i < self.RETRIES - 1):
-                    raise
-        raise AssertionError("unreachable")
+        return Row(self._op("set_state", slot_id=slot_id, to=to, note=note, updates=updates))
 
     MOVABLE = DB.MOVABLE
 

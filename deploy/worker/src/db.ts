@@ -152,10 +152,16 @@ export async function setState(c: Ctx, slot: string, to: string, note: string | 
     sets.push(`${k} = ?`);
     vals.push(v);
   }
-  const r = await c.env.DB.batch([
-    c.env.DB.prepare(`UPDATE posts SET ${sets.join(", ")} WHERE client = ? AND slot_id = ? AND version = ?`).bind(...vals, c.client, slot, row.version),
-    journalIfChanged(c, "post.state", slot, { from: frm, to, note, ...updates }),
-  ]);
+  let r: D1Result[];
+  try {
+    r = await c.env.DB.batch([
+      c.env.DB.prepare(`UPDATE posts SET ${sets.join(", ")} WHERE client = ? AND slot_id = ? AND version = ?`).bind(...vals, c.client, slot, row.version),
+      journalIfChanged(c, "post.state", slot, { from: frm, to, note, ...updates }),
+    ]);
+  } catch (e) {
+    if (String(e).includes("UNIQUE")) throw new HttpError(409, "exists", `ig_media_id ${updates.ig_media_id} is another post's`);
+    throw e;
+  }
   if (r[0]!.meta.changes !== 1) throw changed();
   return post(c, slot);
 }
@@ -194,6 +200,7 @@ async function move(c: Ctx, slot: string, at: string | null, swap: string | null
     export is already in. One batch: the snapshot row and its members land together. */
 async function importFollowers(c: Ctx, a: Args): Promise<number | null> {
   const sha = str(a.sha, "sha");
+  if (await c.env.DB.prepare("SELECT 1 FROM follower_snapshots WHERE client = ? AND file_sha = ?").bind(c.client, sha).first()) return null;
   const followers = list(a.followers, "followers");
   const following = a.following == null ? null : list(a.following, "following");
   const members: [string, string][] = [...followers.map((u): [string, string] => ["follower", u]), ...(following ?? []).map((u): [string, string] => ["following", u])];
@@ -244,7 +251,9 @@ async function followerDropped(c: Ctx): Promise<Args> {
 
 export const OPS: Record<string, (c: Ctx, a: Args) => Promise<unknown>> = {
   async journal(c, a) {
-    const r = await journalStmt(c, str(a.action, "action"), optStr(a.target, "target"), a.intent ?? null).run();
+    const action = str(a.action, "action");
+    if (action.startsWith("post.")) throw new HttpError(400, "action", "post.* entries are written by the ops themselves"); // fail_count reads them
+    const r = await journalStmt(c, action, optStr(a.target, "target"), a.intent ?? null).run();
     return r.meta.last_row_id;
   },
   async journal_outcome(c, a) {

@@ -62,10 +62,17 @@ def test_errors_map_to_the_local_exceptions(monkeypatch):
 
 
 def test_a_changed_post_is_read_again(monkeypatch):
-    fake = Fake((409, {"error": "changed"}), (200, {"result": {"slot_id": "s", "state": "BRIEFED"}}))
+    fake = Fake((409, {"error": "changed"}), (200, {"result": {"slot_id": "s", "state": "BRIEFED"}}),
+                (409, {"error": "changed"}), (200, {"result": True}),
+                (409, {"error": "changed"}), (409, {"error": "changed"}), (409, {"error": "changed"}))
     monkeypatch.setattr(R, "opener", fake)
-    row = RemoteDB("rosa", CFG).set_state("s", "BRIEFED")
-    assert row["state"] == "BRIEFED" and len(fake.calls) == 2
+    db = RemoteDB("rosa", CFG)
+    assert db.set_state("s", "BRIEFED")["state"] == "BRIEFED" and len(fake.calls) == 2
+    db.move("s", "2030-01-01T06:30:00+00:00")   # every op retries the same way
+    assert len(fake.calls) == 4
+    with pytest.raises(R.RemoteError, match="changed"):   # three losses in a row: give up
+        db.set_scheduled("s", "2030-01-01T06:30:00+00:00")
+    assert len(fake.calls) == 7
 
 
 def test_row_reads_like_sqlite():

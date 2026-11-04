@@ -30,6 +30,7 @@ const QUEUED = ["BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL", "APPR
 test("only a member reaches a client's ops; an unknown op is a 404", async () => {
   assert.equal((await op("posts", {}, 2)).status, 403);
   assert.equal((await op("dance")).status, 404);
+  for (const inherited of ["constructor", "toString", "__proto__", "hasOwnProperty"]) assert.equal((await op(inherited)).status, 404, inherited);
   assert.equal((await op("posts", {}, 3)).status, 200); // admin
 });
 
@@ -69,6 +70,17 @@ test("illegal transition leaves the row alone; publishing is idempotent on the s
   const again = await op("set_state", { slot_id: "s", to: "PUBLISHING" });
   assert.equal(again.status, 409);
   assert.match(again.detail, /already published/);
+  assert.equal((await op("fail_count", { slot_id: "s" })).result, 1);
+  // an ig_media_id another post holds is a 409 exists, not a 500; the row is untouched
+  await op("create_post", { slot_id: "dup" });
+  await walk("dup", ...QUEUED, "PUBLISHING");
+  const dup = await op("set_state", { slot_id: "dup", to: "PUBLISHED", updates: { ig_media_id: "1789" } });
+  assert.equal(dup.status, 409);
+  assert.equal(dup.error, "exists");
+  assert.equal((await op("post", { slot_id: "dup" })).result.state, "PUBLISHING");
+  // post.* journal rows are the ops' own: a member cannot fake a failure
+  const forged = await op("journal", { action: "post.state", target: "s", intent: { to: "FAILED" } });
+  assert.equal(forged.status, 400);
   assert.equal((await op("fail_count", { slot_id: "s" })).result, 1);
 });
 
