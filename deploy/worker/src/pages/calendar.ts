@@ -133,7 +133,7 @@ async function month(p: Page, m: string, move: string | null): Promise<string> {
   const { items, metas } = await placed(p);
   const byDay = new Map<number, Map<string, Item>>();
   for (const it of items) {
-    const day = it.at - ((it.at - start) % DAY_MS);
+    const day = Math.floor((it.at - start) / DAY_MS) * DAY_MS + start; // floor, not %: a video before the grid must not land on its first day
     if (day < start || day > end) continue;
     const got = byDay.get(day) ?? new Map<string, Item>();
     if (!got.has(hm(it.at))) got.set(hm(it.at), it);
@@ -160,8 +160,13 @@ async function month(p: Page, m: string, move: string | null): Promise<string> {
 export async function renderCalendar(p: Page, req: Request, url: URL): Promise<Response> {
   const base = `${path(p.client.id)}/calendar`;
   const q = url.searchParams;
-  // no query: the view the cookie remembers (app.py's GET router)
-  const saved = decodeURIComponent(new RegExp(`(?:^|;\\s*)cal_${p.client.id}=([^;]*)`).exec(req.headers.get("Cookie") ?? "")?.[1] ?? "");
+  // no query: the view the cookie remembers (app.py's GET router); a malformed cookie counts as none
+  let saved = "";
+  try {
+    saved = decodeURIComponent(new RegExp(`(?:^|;\\s*)cal_${p.client.id}=([^;]*)`).exec(req.headers.get("Cookie") ?? "")?.[1] ?? "");
+  } catch {
+    saved = "";
+  }
   if (!url.search && saved.startsWith("?") && saved.length > 1) return redirect(base + saved);
   const move = ID.test(q.get("move") ?? "") ? q.get("move") : null;
   const isMonth = q.get("view") === "month";

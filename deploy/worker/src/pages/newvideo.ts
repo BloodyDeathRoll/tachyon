@@ -10,11 +10,12 @@
 //   POST /<client>/new                    at, prompt, engine
 //   POST /<client>/new/upload?at=&name=   body = the file (the box's script sends it)
 
-import { iso, OPS, setState } from "../db.ts";
+import { iso, journalIfChanged, OPS } from "../db.ts";
 import { HttpError } from "../http.ts";
 import { media } from "../index.ts";
 import { insertJob } from "../jobs.ts";
 import { newSlotId, walked } from "../pickup.ts";
+import { dropVideo } from "../publish.ts";
 import { slots, takenSlots } from "./schedule.ts";
 import { ENGINES, esc, parse, path, redirect, type Page } from "./shell.ts";
 import { field } from "./video.ts";
@@ -54,21 +55,39 @@ export function addBox(p: Page, at: string | null): string {
 <div class=btns><button class='btn pri small'>Generate</button></div></form><script>${UP_JS}</script></section>`;
 }
 
-/** POST /<client>/new: book the slot, BRIEFED, a `produce` job with the prompt (manual.py add_prompt). */
+/** POST /<client>/new: book the slot, BRIEFED, a `produce` job with the prompt (manual.py
+    add_prompt), in one batch: a failure leaves no row and the slot free. */
 export async function newPrompt(p: Page, form: FormData): Promise<Response> {
   const at = await checkSlot(p, field(form, "at"));
   const engine = field(form, "engine") in ENGINES ? field(form, "engine") : "html";
   const prompt = field(form, "prompt").trim();
   const slot = await newSlotId(p.c, at);
-  await OPS.create_post!(p.c, { slot_id: slot, fields: { scheduled_at: at, angle: "New video", engine: engine === "html" ? "html" : "remotion" } });
-  await OPS.set_files!(p.c, { slot_id: slot, files: { "meta.json": JSON.stringify({ slot_id: slot, title: "New video", source: "prompt", plan: "manual", engine_choice: engine }, null, 2) + "\n" } });
-  await setState(p.c, slot, "BRIEFED", null, {});
-  await insertJob(p.env.DB, "produce", p.client.id, slot, JSON.stringify({ argv: ["spine.manual", "produce", p.client.id, slot], prompt, engine }), p.user.id, p.now);
+  const fields = { scheduled_at: at, angle: "New video", engine: engine === "html" ? "html" : "remotion" };
+  const meta = { slot_id: slot, title: "New video", source: "prompt", plan: "manual", engine_choice: engine };
+  const payload = { argv: ["spine.manual", "produce", p.client.id, slot], prompt, engine };
+  await p.env.DB.batch([
+    p.env.DB.prepare("INSERT INTO posts (client, slot_id, state, scheduled_at, angle, engine, created_at, updated_at) VALUES (?, ?, 'IDEA', ?, ?, ?, ?, ?)").bind(
+      p.client.id, slot, fields.scheduled_at, fields.angle, fields.engine, iso(p.now), iso(p.now),
+    ),
+    journalIfChanged(p.c, "post.create", slot, { client: p.client.id, ...fields }),
+    p.env.DB.prepare("INSERT INTO post_files (client, slot_id, name, text, updated_by, updated_at) VALUES (?, ?, 'meta.json', ?, ?, ?)").bind(p.client.id, slot, JSON.stringify(meta, null, 2) + "\n", p.user.id, p.now),
+    p.env.DB.prepare("UPDATE posts SET state = 'BRIEFED', updated_at = ?, version = version + 1 WHERE client = ? AND slot_id = ? AND state = 'IDEA'").bind(iso(p.now), p.client.id, slot),
+    journalIfChanged(p.c, "post.state", slot, { from: "IDEA", to: "BRIEFED", note: null }),
+    p.env.DB.prepare("INSERT INTO jobs (kind, client, slot_id, payload, by, created_at, updated_at) VALUES ('produce', ?, ?, ?, ?, ?, ?)").bind(p.client.id, slot, JSON.stringify(payload), p.user.id, p.now, p.now),
+  ]);
   return redirect(path(p.client.id, slot));
 }
 
-/** POST /<client>/new/upload: the row, the file into R2 (or no row), the walk to NEEDS_APPROVAL,
-    a `media` row with no host, a `spec` job (manual.py add_upload). */
+/** Nothing half-made stays behind: the R2 object if the row has one, then every row of the slot. */
+async function undo(p: Page, slot: string): Promise<void> {
+  await dropVideo(p.env, p.client.id, slot);
+  await p.env.DB.batch(["posts", "post_files", "media"].map((t) => p.env.DB.prepare(`DELETE FROM ${t} WHERE client = ? AND slot_id = ?`).bind(p.client.id, slot)).concat(
+    p.env.DB.prepare("DELETE FROM journal WHERE client = ? AND target = ?").bind(p.client.id, slot),
+  ));
+}
+
+/** POST /<client>/new/upload: the row, the file into R2, the walk to NEEDS_APPROVAL, a `media`
+    row with no host, a `spec` job (manual.py add_upload); a failure anywhere undoes it all. */
 export async function upload(p: Page, req: Request, q: URLSearchParams): Promise<Response> {
   const name = q.get("name") || "upload.mp4";
   if (!VIDEO_EXT.has((/\.[^.]*$/.exec(name)?.[0] ?? "").toLowerCase())) throw new HttpError(400, "name", `not a video file: ${name}`);
@@ -78,24 +97,20 @@ export async function upload(p: Page, req: Request, q: URLSearchParams): Promise
   await OPS.create_post!(p.c, { slot_id: slot, fields: { scheduled_at: at, angle: title, engine: "upload" } });
   try {
     await media(new Request(req, { method: "PUT" }), p.env, p.user, p.client.id, slot, "video"); // the API's PUT: the body streams on into R2
-  } catch (e) {
-    // no file, no row: the slot is free again
-    await p.env.DB.batch([
-      p.env.DB.prepare("DELETE FROM posts WHERE client = ? AND slot_id = ?").bind(p.client.id, slot),
-      p.env.DB.prepare("DELETE FROM journal WHERE client = ? AND target = ?").bind(p.client.id, slot),
+    const meta = { slot_id: slot, title, source: "upload", upload: `uploads/${slot}.mp4`, uploaded_name: name, plan: "manual", share_to_feed: true, story: true, trial: false };
+    const res = await p.env.DB.batch([
+      p.env.DB.prepare("INSERT INTO post_files (client, slot_id, name, text, updated_by, updated_at) VALUES (?1, ?2, 'caption.txt', '', ?3, ?4), (?1, ?2, 'meta.json', ?5, ?3, ?4)").bind(
+        p.client.id, slot, p.user.id, p.now, JSON.stringify(meta, null, 2) + "\n",
+      ),
+      p.env.DB.prepare("UPDATE posts SET state = 'NEEDS_APPROVAL', updated_at = ?, version = version + 1 WHERE client = ? AND slot_id = ? AND state = 'IDEA'").bind(iso(p.now), p.client.id, slot),
+      ...walked(p.c, slot, "IDEA", TO_APPROVAL, null, {}),
+      p.env.DB.prepare("INSERT INTO media (client, slot_id, host, path, sha, size) VALUES (?, ?, '', ?, NULL, ?)").bind(p.client.id, slot, name, Number(req.headers.get("Content-Length"))),
     ]);
+    if (res[1]!.meta.changes !== 1) throw new HttpError(409, "changed", `${slot} moved on under the upload`);
+    await insertJob(p.env.DB, "spec", p.client.id, slot, null, p.user.id, p.now);
+  } catch (e) {
+    await undo(p, slot);
     throw e;
   }
-  const meta = { slot_id: slot, title, source: "upload", upload: `uploads/${slot}.mp4`, uploaded_name: name, plan: "manual", share_to_feed: true, story: true, trial: false };
-  const res = await p.env.DB.batch([
-    p.env.DB.prepare("INSERT INTO post_files (client, slot_id, name, text, updated_by, updated_at) VALUES (?1, ?2, 'caption.txt', '', ?3, ?4), (?1, ?2, 'meta.json', ?5, ?3, ?4)").bind(
-      p.client.id, slot, p.user.id, p.now, JSON.stringify(meta, null, 2) + "\n",
-    ),
-    p.env.DB.prepare("UPDATE posts SET state = 'NEEDS_APPROVAL', updated_at = ?, version = version + 1 WHERE client = ? AND slot_id = ? AND state = 'IDEA'").bind(iso(p.now), p.client.id, slot),
-    ...walked(p.c, slot, "IDEA", TO_APPROVAL, null, {}),
-    p.env.DB.prepare("INSERT INTO media (client, slot_id, host, path, sha, size) VALUES (?, ?, '', ?, NULL, ?)").bind(p.client.id, slot, name, Number(req.headers.get("Content-Length"))),
-  ]);
-  if (res[1]!.meta.changes !== 1) throw new HttpError(409, "changed", `${slot} moved on under the upload`);
-  await insertJob(p.env.DB, "spec", p.client.id, slot, null, p.user.id, p.now);
   return redirect(path(p.client.id, slot));
 }

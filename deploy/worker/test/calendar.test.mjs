@@ -61,6 +61,7 @@ test("the week view: the video on its slot, open slots with Add new, the nav, th
   assert.equal(back.status, 303);
   assert.equal(back.headers.get("Location"), "/rosa/calendar?w=2099-W02");
   assert.equal((await call("GET", "/rosa/calendar")).status, 200); // no cookie: this week
+  assert.equal((await call("GET", "/rosa/calendar", { headers: { Cookie: "cal_rosa=%E0%A4%A" } })).status, 200); // a malformed cookie: as none
   // a time off the daily slots gets its own row, on every day
   await waiting("c2", "2099-01-08T12:00:00+00:00");
   const off = await call("GET", "/rosa/calendar?w=2099-W02");
@@ -94,6 +95,10 @@ test("the month view: the days, mini cells, open future slots, the nav", async (
   assert.equal(r.text.match(/class='mday/g).length, 35); // 29 Dec – 1 Feb
   assert.match(r.headers.get("Set-Cookie"), /^cal_rosa=%3Fview%3Dmonth%26m%3D2099-01;/);
   assert.equal((await call("GET", "/rosa/calendar?view=month&m=nope")).status, 200); // this month
+  // a video the night before the grid's first day belongs to the month before, not to that day
+  await waiting("c6", "2098-12-28T23:00:00+00:00");
+  assert.doesNotMatch((await call("GET", "/rosa/calendar?view=month&m=2099-01")).text, /href='\/rosa\/v\/c6'/);
+  assert.match((await call("GET", "/rosa/calendar?view=month&m=2098-12")).text, /href='\/rosa\/v\/c6'/);
 });
 
 test("move: Swap on another video, Move here on an open slot; taken, past and live refused", async () => {

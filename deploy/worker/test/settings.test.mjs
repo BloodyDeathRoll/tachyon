@@ -74,7 +74,9 @@ test("the switches flip the grants; the emergency stop shows on every page; anyt
 });
 
 test("the posting times: shown local, stored UTC; add fills the longest gap; never below one, at most six", async () => {
-  assert.match((await call("GET", "/rosa/settings")).text, /name=t value='06:30' data-utc='06:30'/);
+  const form = /<form method=post action='\/rosa\/schedule'>[\s\S]*?<\/form>/.exec((await call("GET", "/rosa/settings")).text)[0];
+  assert.match(form, /name=t value='06:30' data-utc='06:30'/);
+  assert.match(/<button[^>]*>/.exec(form)[0], /name=save/); // Enter in a field submits the first button: Save, not a remove
   let r = await call("POST", "/rosa/schedule", { form: { t1: "19:00", t2: "07:15", tz: "-120" } }); // two hours ahead of UTC
   assert.equal(r.status, 303);
   assert.equal(r.headers.get("Location"), "/rosa/settings");
@@ -98,6 +100,11 @@ test("the posting times: shown local, stored UTC; add fills the longest gap; nev
   const six = Object.fromEntries(["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"].map((t, i) => [`t${i + 1}`, t]));
   assert.equal((await call("POST", "/rosa/schedule", { form: { ...six, add: "1" } })).status, 400);
   assert.equal((await call("POST", "/rosa/schedule", { form: { tz: "0" } })).status, 400); // nothing kept
+  // remove counts the rows as the page shows them, an emptied field included
+  await call("POST", "/rosa/schedule", { form: new URLSearchParams([["t", "06:30"], ["t", ""], ["t", "18:30"], ["remove", "2"], ["tz", "0"]]).toString() });
+  assert.deepEqual((await client()).grants.slots, ["06:30"]);
+  await call("POST", "/rosa/schedule", { form: new URLSearchParams([["t", "06:30"], ["t", ""], ["t", "18:30"], ["remove", "1"], ["tz", "0"]]).toString() });
+  assert.deepEqual((await client()).grants.slots, ["06:30", "18:30"]);
   // a day wraps
   await call("POST", "/rosa/schedule", { form: { t1: "01:00", tz: "-120" } });
   assert.deepEqual((await client()).grants.slots, ["23:00"]);
