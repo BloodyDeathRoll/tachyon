@@ -1,0 +1,234 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url(inter-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #000; }
+body { font-family: Inter, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+.abs { position: absolute; }
+video { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; }
+#bgA, #bgB { position: absolute; inset: 0; overflow: hidden; }
+canvas { position: absolute; left: 0; pointer-events: none; }
+#stage { position: absolute; inset: 0; perspective: 2600px; perspective-origin: 540px 900px; }
+#cam { position: absolute; inset: 0; transform-origin: 0 0; }
+#phone { position: absolute; left: 220px; top: 565px; width: 640px; height: 1338px; border-radius: 92px;
+  background: linear-gradient(145deg, #2a2f3a, #0b0d12 40%, #1c2029); padding: 20px;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.14), 0 60px 120px rgba(0,0,0,.55), 0 20px 40px rgba(0,0,0,.35);
+  transform-style: preserve-3d; }
+#screen { position: relative; width: 600px; height: 1298px; border-radius: 74px; overflow: hidden; background: #f4f3f3; }
+#page { position: absolute; left: 0; top: 0; width: 600px; }
+.piece { width: 600px; background-image: url(spot-pipeline-full.png); background-size: 600px auto; background-repeat: no-repeat; }
+#nav { position: absolute; left: 0; bottom: 0; width: 600px; height: 160px; background: url(spot-pipeline.png) no-repeat;
+  background-size: 600px auto; background-position: 0 -1138px; }
+.h { font-weight: 800; letter-spacing: -0.045em; line-height: .98; }
+.line { overflow: hidden; padding-bottom: .08em; }
+.line > span { display: inline-block; }
+.pill { display: inline-flex; align-items: center; padding: 0 .42em; height: 1.14em; border-radius: 999px; background: #24b161; color: #fff; font-weight: 800; letter-spacing: -0.02em; }
+#end { position: absolute; left: 65px; width: 950px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+#btn { margin-top: 56px; padding: 30px 62px; border-radius: 999px; background: #11b7f2; color: #fff; font-weight: 800; font-size: 46px; letter-spacing: -0.01em; }
+</style></head>
+<body>
+<div id="bgA"><video id="vA" src="283533_large.mp4" muted playsinline preload="auto"></video><div id="shadeA" class="abs" style="inset:0"></div></div>
+<canvas id="pBack" width="1080" height="1274" style="top:646px"></canvas>
+
+<div id="stage"><div id="cam">
+  <div id="phone"><div id="screen">
+    <div id="page">
+      <!-- the live page, with the cam embed and the nav (baked into a full-page shot) cut out -->
+      <div id="ring" class="abs" style="border:3px solid #24b161; border-radius:22px"></div>
+      <div class="piece" id="pA"></div><div class="piece" id="pB"></div><div class="piece" id="pC"></div>
+    </div>
+    <div id="nav"></div>
+  </div></div>
+</div></div>
+
+<div id="hook" class="abs h" style="left:65px; width:950px; font-size:150px; transform-origin:0 0">
+  <div class="line"><span id="h1">Pipeline,</span></div>
+  <div class="line"><span id="h2"><span style="color:#11b7f2">16 days</span> out</span></div>
+</div>
+<div id="plan" class="abs h" style="left:65px; width:950px; font-size:118px">
+  <div class="line"><span id="g1">Plan it now.</span></div>
+  <div class="line"><span id="g2">Wed 4 <span class="pill" style="margin-left:.1em">Good</span></span></div>
+</div>
+
+<div id="bgB"><video id="vB" src="1306-145340152_medium.mp4" muted playsinline preload="auto" style="filter:contrast(1.15) saturate(1.4)"></video><div class="abs" style="inset:0; background:radial-gradient(120% 60% at 50% 40%, rgba(3,14,48,.45), rgba(2,8,28,.82)); mix-blend-mode:multiply"></div></div>
+<canvas id="pEnd" width="1080" height="1274" style="top:646px"></canvas>
+<div id="end">
+  <img id="logo" src="rosa-icon.svg" style="width:190px; height:190px">
+  <div id="e1" class="h" style="font-size:76px; margin-top:52px">Pipeline, 16 days out.</div>
+  <div id="e2" class="h" style="font-size:56px; margin-top:22px; font-weight:600; letter-spacing:-0.02em">it's free.</div>
+  <div id="btn">Install it</div>
+  <div id="e3" style="font-size:42px; font-weight:600; margin-top:40px">link in bio</div>
+</div>
+
+<script>
+const variant = new URLSearchParams(location.search).get("variant") === "story" ? "story" : "reel";
+const SAFE_TOP = variant === "story" ? 269 : 285;
+const $ = (id) => document.getElementById(id);
+
+// ── easing ──
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const inOut = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const outExpo = (x) => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const outBack = (x, s = 1.4) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
+const inExpo = (x) => x <= 0 ? 0 : Math.pow(2, 10 * x - 10);
+const quint = (x) => x < .5 ? 16 * x ** 5 : 1 - Math.pow(-2 * x + 2, 5) / 2;
+
+// ── timeline (s) ──
+const T = { rise: 2.5, scroll: 4.1, top: 8.2, zoom: 9.5, out: 13.0, end: 13.5, dur: 19 };
+
+// ── page pieces, in capture px (1170 wide): header + day strip, rating card, hourly + tide ──
+const K = 600 / 1170;
+const PIECES = [["pA", 0, 610], ["pB", 1452, 2268], ["pC", 2500, 5469]];
+let pageH = 0;
+for (const [id, a, b] of PIECES) {
+  const el = $(id);
+  el.style.height = (b - a) * K + "px";
+  el.style.backgroundPosition = `0 ${-a * K}px`;
+  pageH += (b - a);
+}
+// the floating nav pill only, from the viewport shot: it stays put while the page scrolls under it
+$("nav").style.clipPath = `inset(${(2292 - 2220) * K}px ${48 * K}px ${(2532 - 2488) * K}px ${48 * K}px round ${98 * K}px)`;
+$("nav").style.height = (2532 - 2220) * K + "px";
+$("nav").style.backgroundPosition = `0 ${-2220 * K}px`;
+
+// ── Rosa particles: the app's sign-in screen field (rosa/web particles.ts + SignInScreen.tsx:
+// palette, density 1.4, speed 1, alpha .3, 460 css px band, screen blend) made a pure function of t ──
+const CSS = 1080 / 390;                              // app css px -> film px (phone 390 wide)
+const BW = 390, BH = 460;
+const N = Math.round(BW * BH / 11000 * 1.4);
+const PAL = ["125, 185, 240", "94, 205, 205"];
+const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1e6) / 1e6; };
+const SLOTS = Array.from({ length: N }, (_, i) => ({ life: 4 * (0.8 + hash("l" + i) * 0.4), off: hash("o" + i) * 4 }));
+function particles(cv, t, o) {
+  const c = cv.getContext("2d");
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
+  if (o <= 0) return;
+  cv.style.opacity = o;
+  c.setTransform(CSS, 0, 0, CSS, 0, 0);
+  // the mesh the specks rise out of (.signin-glow)
+  let g = c.createRadialGradient(BW * .18, BH * 1.3, 0, BW * .18, BH * 1.3, BH * 1.0);
+  g.addColorStop(0, "rgba(22,51,122,.55)"); g.addColorStop(.72, "rgba(22,51,122,0)");
+  c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  g = c.createRadialGradient(BW * .82, BH * 1.2, 0, BW * .82, BH * 1.2, BH * .9);
+  g.addColorStop(0, "rgba(13,148,136,.4)"); g.addColorStop(.7, "rgba(13,148,136,0)");
+  c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  const ps = [];
+  SLOTS.forEach(({ life, off }, i) => {
+    const k = Math.floor((t + off) / life), age = t + off - k * life, f = age * 60;
+    const r = (s) => hash(s + i + "-" + k);
+    const depth = Math.pow(r("d"), 0.85), rad = 0.5 + depth * (3.2 - 0.5), blur = (1 - depth) * 4.5;
+    const vy = -(0.24 + depth * 1.4), vx = (r("v") - 0.5) * (0.05 + depth * 0.28);
+    const ph = r("p") * 6.283, ws = 0.004 + r("w") * 0.012, wa = 0.05 + depth * 0.4;
+    const x = r("x") * BW + vx * f + (wa / ws) * (Math.cos(ph) - Math.cos(ph + ws * f));
+    const y = BH + r("y") * 30 + vy * f;
+    const tw = r("t") * 6.283 + (0.008 + r("s") * 0.025) * f;
+    const lf = age / life, env = lf < .15 ? lf / .15 : lf > .7 ? (1 - lf) / .3 : 1;
+    const a = clamp((0.22 + depth * 0.7) * 0.3 * Math.min(1, (BH - y) / 80) * Math.min(1, y / (BH * .55)) * (0.75 + Math.sin(tw) * .25) * env);
+    if (a > 0.002 && y > -10) ps.push({ x, y, rad, depth, bucket: Math.round(blur), a, col: PAL[Math.floor(r("c") * PAL.length)] });
+  });
+  ps.sort((p, q) => p.depth - q.depth);
+  const dot = (p, rad, blur, a) => {           // sprite blur is in device px at dpr 2 = blur/2 css px
+    c.filter = blur ? `blur(${blur / 2 * CSS}px)` : "none";
+    c.globalAlpha = a; c.fillStyle = `rgb(${p.col})`;
+    c.beginPath(); c.arc(p.x, p.y, rad, 0, 6.283); c.fill();
+  };
+  for (const p of ps) if (p.bucket === 0 && p.rad > 1.4) dot(p, p.rad * 2.6, 8, p.a * .55);
+  for (const p of ps) dot(p, p.rad, p.bucket, p.a);
+  c.filter = "none"; c.globalAlpha = 1;
+}
+for (const cv of [$("pBack"), $("pEnd")]) cv.style.mixBlendMode = "screen";
+
+// ── footage: seek and wait for the frame ──
+function seekVideo(v, s) {
+  s = Math.max(0, Math.min(s, (v.duration || 30) - 0.05));
+  if (v.readyState >= 2 && Math.abs(v.currentTime - s) < 1e-3) return Promise.resolve();
+  return new Promise((res) => {
+    const done = () => { v.removeEventListener("seeked", done); res(); };
+    v.addEventListener("seeked", done);
+    v.currentTime = s;
+  });
+}
+const loaded = (v) => v.readyState >= 1 ? Promise.resolve() : new Promise((r) => v.addEventListener("loadedmetadata", r, { once: true }));
+
+// ── reveal: line slides up out of its mask, a touch of blur to sharp ──
+function rise(el, t, a, b, d = .7) {
+  const i = outExpo(seg(t, a, a + d)), o = 1 - inOut(seg(t, b - .35, b));
+  el.style.transform = `translateY(${(1 - i) * 105 + (1 - o) * -40}%)`;
+  el.style.opacity = Math.min(i * 1.4, o);
+  el.style.filter = `blur(${(1 - i) * 10}px)`;
+}
+
+async function seek(t) {
+  // background A: the hook footage, slow push; dims and softens once the phone is the subject
+  const vA = $("vA"), vB = $("vB");
+  const ph = inOut(seg(t, T.rise, T.rise + 1.4));
+  $("vA").style.transform = `scale(${1.06 + t * 0.012})`;
+  $("vA").style.filter = `blur(${ph * 6}px) saturate(${1 + .1 * ph})`;
+  $("shadeA").style.background = `linear-gradient(180deg, rgba(2,8,24,${.55 + .2 * ph}) 0%, rgba(2,8,24,${.15 + .5 * ph}) 40%, rgba(2,8,24,${.35 + .45 * ph}) 100%)`;
+  const endIn = inOut(seg(t, T.out + .2, T.end + .4));
+  $("bgA").style.opacity = 1 - endIn;
+  particles($("pBack"), t, seg(t, T.rise, T.rise + 1) * (1 - endIn));
+
+  // phone: rises in from below with a 3D settle, a slow float while it is held
+  const r = seg(t, T.rise, T.rise + 1.3), e = outExpo(r);
+  const fl = seg(t, T.rise + 1, T.out) ;
+  const ry = Math.sin(t * .55 + .4) * 3 * fl, rx = Math.sin(t * .4 + 1.1) * 1.5 * fl;
+  $("phone").style.transform = `translateY(${(1 - e) * 1500}px) rotateX(${(1 - e) * 32 + rx}deg) rotateY(${ry}deg) rotateZ(${(1 - e) * -6}deg) scale(${lerp(.9, 1, e)})`;
+  $("phone").style.visibility = t < T.rise ? "hidden" : "visible";
+
+  // page: smooth scroll down through the day, then back up to the days ahead; the nav never moves
+  const down = quint(seg(t, T.scroll, T.top - .4)), up = inOut(seg(t, T.top, T.zoom - .1));
+  const sc = 1350 * down * (1 - up);
+  $("page").style.transform = `translateY(${-sc * K}px)`;
+
+  // camera: eases closer onto the day that rates Good, then pushes through it into the end card
+  const z = inOut(seg(t, T.zoom, T.zoom + 1.9)), zx = Math.pow(seg(t, T.out, T.out + .8), 2.2);
+  const tile = { x: 220 + 20 + 793 * K, y: 565 + 20 + 383 * K };
+  const s = lerp(1, 1.5, z) * lerp(1, 7, zx);
+  // keep the whole phone width in frame: zoom on the phone's centre line, push into the tile only on the exit
+  const fx = lerp(540, 540 + (tile.x - 540) * zx, z), fy = lerp(960, tile.y, z);
+  const cx = 540, cy = lerp(960, 1000, z);
+  $("cam").style.transform = `translate(${cx}px, ${cy}px) scale(${s}) translate(${-fx}px, ${-fy}px)`;
+  // a green ring draws in around the Good day (Wed 4 column, capture px 718-868 x 160-570)
+  const rg = outExpo(seg(t, T.zoom + 1.2, T.zoom + 2));
+  Object.assign($("ring").style, { left: 712 * K + "px", top: 160 * K + "px", width: 162 * K + "px", height: 450 * K + "px",
+    opacity: rg, transform: `scale(${lerp(1.25, 1, rg)})`, boxShadow: `0 0 ${18 * rg}px rgba(36,177,97,.45)` });
+  $("cam").style.filter = zx > 0 ? `blur(${zx * 14}px)` : "none";
+  $("stage").style.opacity = 1 - seg(t, T.out + .35, T.end + .2);
+
+  // words
+  $("hook").style.top = SAFE_TOP + lerp(20, 0, ph) + "px";
+  $("hook").style.transform = `scale(${lerp(1, .8, ph)})`;
+  $("plan").style.top = SAFE_TOP + 4 + "px";
+  rise($("h1"), t, .25, T.zoom - .1, .8);
+  rise($("h2"), t, .55, T.zoom - .1, .8);
+  rise($("g1"), t, T.zoom + .5, T.out + .2);
+  rise($("g2"), t, T.zoom + .8, T.out + .2);
+
+  // end card
+  $("bgB").style.opacity = endIn;
+  $("vB").style.transform = `scale(${lerp(1.25, 1.08, outExpo(seg(t, T.out + .2, T.end + 1.5)))})`;
+  particles($("pEnd"), t, endIn);
+  const E = T.end;
+  $("end").style.top = SAFE_TOP + 150 + "px";
+  const lg = seg(t, E, E + .8);
+  $("logo").style.transform = `scale(${lerp(.5, 1, outBack(lg))})`;
+  $("logo").style.opacity = clamp(lg * 3);
+  const pop = (el, a) => { const k = outExpo(seg(t, a, a + .8)); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * 50}px)`; };
+  pop($("e1"), E + .2); pop($("e2"), E + .35); pop($("btn"), E + .55); pop($("e3"), E + .75);
+  const glow = 34 + 12 * Math.sin(t * 2.6);
+  $("btn").style.boxShadow = `0 0 ${glow}px rgba(17,183,242,.7), 0 0 ${glow * 2.4}px rgba(17,183,242,.3)`;
+  $("end").style.visibility = t < E ? "hidden" : "visible";
+
+  const jobs = [];
+  if (t < T.end + .6) jobs.push(loaded(vA).then(() => seekVideo(vA, 1 + t)));
+  if (t > T.out) jobs.push(loaded(vB).then(() => seekVideo(vB, 1 + t - T.out)));
+  await Promise.all(jobs);
+}
+window.__film = { seek, duration: T.dur };
+</script>
+</body></html>

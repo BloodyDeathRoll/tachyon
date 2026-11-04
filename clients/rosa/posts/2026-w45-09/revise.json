@@ -1,0 +1,38 @@
+{
+ "state": "done",
+ "step": "done",
+ "notes": "the mobile device you've selected has a camera on to the cuts off the design. Remove the camera black box.\r\nThe blue background screen isnt great. Replace with a new video.\r\nThere is a black dot after It's free. It should be white",
+ "rounds": [
+  {
+   "notes": "Too jumpy, we hardly see the app, the videos are both way too overused as well as almost completely dark. Bad take. Redo",
+   "at": "2026-10-31T11:04:12+00:00"
+  },
+  {
+   "notes": "You keep planning the video to fit instagram cuts. STOP IT. Use the whole screen.\r\nAdd the Rosa app particles animation on the bottom of blank areas",
+   "at": "2026-10-31T11:14:46+00:00"
+  },
+  {
+   "notes": "Re do the voice over for the last sentence:\r\n\"Grab it free at Rosa dot Surf\"\r\nAnd replace the closing video/image background, you use this too much",
+   "at": "2026-10-31T11:24:56+00:00"
+  },
+  {
+   "notes": "the mobile device you've selected has a camera on to the cuts off the design. Remove the camera black box.\r\nThe blue background screen isnt great. Replace with a new video.\r\nThere is a black dot after It's free. It should be white",
+   "at": "2026-10-31T11:45:32+00:00"
+  }
+ ],
+ "error": null,
+ "skip_edit": false,
+ "revoice": false,
+ "changes": "All three notes are fixed. Type-check (`tsc`) passes, and I looked at stills at 2 s, 4.1 s and 8 s.\n\n- `lib.tsx`: `Phone` has a new `island` option, on by default, so other films keep the camera notch.\n- `film-2026-w45-09.tsx`: the phone is shown without the camera black box (`island={false}`).\n- `film-2026-w45-09.tsx`: the blue background is replaced with surf footage `footage/310248_large.mp4` from 1.6 s to 8.8 s.\n- `film-2026-w45-09.tsx`: the dot after \"It's free\" is now white.\n\n`310248_large.mp4` already appears in 16 other films, so it isn't fresh footage. The voice-over and caption are unchanged.",
+ "kind": null,
+ "no_change": false,
+ "updated_at": "2026-10-31T15:20:18+00:00",
+ "vo_before": "Honestly, best part of my week is that buzz. Swell alert, it says Good, I'm already waxing up. Grab it for free, at Roza dot surf.",
+ "verdicts": {
+  "reel": "VERDICT: WARN (worst band 0.50x; text or UI in a band shows as > 0.6x)",
+  "story": "VERDICT: WARN (worst band 0.50x; text or UI in a band shows as > 0.6x)",
+  "reel spec": "VERDICT: PASS",
+  "story spec": "VERDICT: PASS"
+ },
+ "failed_at": "2026-10-31T15:05:21+00:00"
+}

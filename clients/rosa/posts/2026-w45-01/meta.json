@@ -1,0 +1,41 @@
+{
+  "slot_id": "2026-w45-01",
+  "title": "Phone drops in",
+  "pillar": "Free, and why",
+  "angle": "A Pixabay barrel fills the frame, then the phone slams in from above at full size and bounces to rest dead centre with home.png on screen. Three kinetic words punch on around it, one per beat: \"Free.\", \"3,500+ spots.\", \"16 days.\". The phone spins a half turn to spots.png and shrinks to a corner as the wave footage takes over. End card: logo, white \"Your spots. Free.\", space, glowing blue button \"rosa.surf\".",
+  "hook_formula": "The surf forecast that's just free",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Body Movin (Tony Dark Eyes), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w45-01",
+    "story": "film-2026-w45-01-story",
+    "source": "engines/remotion/src/films/film-2026-w45-01.tsx",
+    "music": "clients/rosa/assets/music/surf-rock-summer-325576.mp3"
+  },
+  "track": "ig:702309931531251",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w45-01",
+  "plan": "2026-W45",
+  "motion": "teslachartz-c58b32",
+  "theme": "light",
+  "duration_s": 15.06,
+  "audio_configuration": {
+    "audio_id": "702309931531251",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Body Movin",
+    "artist": "Tony Dark Eyes",
+    "cover": "https://scontent-lga3-2.xx.fbcdn.net/v/t39.30808-1/415893583_916288226530660_5955815784762171763_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=jXjIlpFqAtcQ7kNvwG4t9al&_nc_oc=AdpLMrlWTSXMg5y7sj2_Q7n6lYYbDO8-MLT1heas1HsgZxVA0kNjFnTl9r0ydM5E7F8&_nc_zt=24&_nc_ht=scontent-lga3-2.xx&edm=AOP_XFkEAAAA&_nc_gid=Pv4WzuUbdOKmKyIpidx-kQ&oh=00_AQRDheecstHJqC5CT8K-qmt7NwEhpu5LfyGVp9TNMHdFIw&oe=6AEBA195",
+    "duration": 167.7,
+    "link": null,
+    "preview_of": "ig:702309931531251"
+  }
+}

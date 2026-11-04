@@ -1,0 +1,28 @@
+{
+  "slot_id": "2026-w45-03",
+  "title": "Bento rating bars",
+  "pillar": "Why this rating",
+  "angle": "Tiles snap together into a bento grid on a deep blue field: a big tile with spot-pipeline.png, then smaller tiles that pop in with Size, Period and Wind words, each tile flashing its rating colour. The grid collapses into one tile reading \"Good, and here's why\". The phone grows out of that tile to full screen and tilts toward camera. End card: logo, white \"Every rating has a reason.\", space, glowing blue button \"rosa.surf\".",
+  "hook_formula": "Good. But why Good?",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Retro Surf Rock (Tunetank), baked in",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w45-03",
+    "story": "film-2026-w45-03-story",
+    "source": "engines/remotion/src/films/film-2026-w45-03.tsx",
+    "music": "clients/rosa/assets/music/retro-surf-rock-348237.mp3"
+  },
+  "track": "retro-surf-rock",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w45-03",
+  "plan": "2026-W45",
+  "motion": "bizibeast-10f264",
+  "theme": "light",
+  "duration_s": 15.06
+}

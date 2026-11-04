@@ -1,0 +1,241 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url(inter-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #000; }
+body { font-family: Inter, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+.abs { position: absolute; }
+video { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; }
+canvas { position: absolute; left: 0; pointer-events: none; mix-blend-mode: screen; }
+#bg { position: absolute; inset: 0; background: radial-gradient(1000px 1200px at 50% 38%, #08243f 0%, #03101f 52%, #000 100%); }
+#orb { position: absolute; left: 0; top: 0; width: 1100px; height: 1100px; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(17,183,242,.30), rgba(3,42,250,.12) 55%, rgba(3,42,250,0)); }
+#stage { position: absolute; inset: 0; perspective: 2400px; perspective-origin: 540px 960px; }
+/* phone at its settled size; the search pose scales it down */
+#phone { position: absolute; left: 110px; top: 52px; width: 860px; height: 1815px; border-radius: 118px;
+  background: linear-gradient(145deg, #2c313c, #0b0d12 40%, #1c2029); padding: 20px; transform-style: preserve-3d;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.14), 0 70px 140px rgba(0,0,0,.6), 0 24px 48px rgba(0,0,0,.4); }
+#screen { position: relative; width: 820px; height: 1775px; border-radius: 98px; overflow: hidden; background: #050608; }
+#search { position: absolute; inset: 0; background: url(search.png) 0 0 / 820px auto no-repeat; }
+#hit { position: absolute; left: 0; width: 820px; background: rgba(255,255,255,.07); }
+#ripple { position: absolute; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,255,255,.45), rgba(255,255,255,.18) 70%, rgba(255,255,255,0)); }
+#spot { position: absolute; inset: 0; background: #050608; overflow: hidden; }
+#page { position: absolute; left: 0; top: 0; width: 820px; }
+.piece { width: 820px; background-image: url(spot-supertubos-full.png); background-size: 820px auto; background-repeat: no-repeat; }
+#nav { position: absolute; left: 0; bottom: 0; width: 820px; background: url(spot-supertubos-full.png) no-repeat; background-size: 820px auto; }
+#glare { position: absolute; inset: 0; border-radius: 98px; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,0) 35%, rgba(255,255,255,.09) 48%, rgba(255,255,255,0) 60%); background-size: 300% 100%; }
+.h { font-weight: 800; letter-spacing: -0.045em; line-height: .98; }
+.line { overflow: hidden; padding-bottom: .08em; }
+.line > span { display: inline-block; }
+#bgEnd { position: absolute; inset: 0; overflow: hidden; }
+#end { position: absolute; left: 65px; width: 950px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+#btn { margin-top: 64px; padding: 30px 66px; border-radius: 999px; background: #11b7f2; color: #fff; font-weight: 800; font-size: 46px; letter-spacing: -0.01em; }
+</style></head>
+<body>
+<svg width="0" height="0" style="position:absolute"><filter id="unglow" color-interpolation-filters="sRGB">
+  <feColorMatrix type="matrix" values="1 0 0 0 0  0 .85 .15 0 0  .55 0 .45 0 0  0 0 0 1 0"/></filter></svg>
+<div id="bg"></div>
+<div id="orb"></div>
+<canvas id="pBack" width="1080" height="1274" style="top:646px"></canvas>
+
+<div id="hook" class="abs h" style="left:65px; width:950px; font-size:146px">
+  <div class="line"><span id="h1">Any break.</span></div>
+  <div class="line"><span id="h2" style="color:#11b7f2">One search.</span></div>
+</div>
+
+<div id="stage">
+  <div id="phone"><div id="screen">
+    <div id="search"><div id="hit"></div><div id="ripple"></div></div>
+    <div id="spot">
+      <!-- the live page from a full-page shot, with the nav (baked in at the first viewport) cut out -->
+      <div id="page"><div class="piece" id="pA"></div><div class="piece" id="pG" style="filter:url(#unglow)"></div><div class="piece" id="pB"></div></div>
+      <!-- the app's own bottom glow + particles stay at the screen bottom as the page scrolls -->
+      <canvas id="pScreen" width="820" height="967" style="top:auto; bottom:0"></canvas>
+      <div id="nav"></div>
+    </div>
+    <div id="glare"></div>
+  </div></div>
+</div>
+
+<div id="bgEnd"><video id="vEnd" src="218670_large.mp4" muted playsinline preload="auto" style="filter:contrast(1.08) saturate(1.2)"></video>
+  <div class="abs" style="inset:0; background:linear-gradient(180deg, rgba(2,10,30,.72) 0%, rgba(2,10,30,.5) 45%, rgba(2,10,30,.78) 100%)"></div></div>
+<canvas id="pEnd" width="1080" height="1274" style="top:646px"></canvas>
+<div id="end">
+  <img id="logo" src="rosa-icon.svg" style="width:190px; height:190px">
+  <div id="e1" class="h" style="font-size:80px; margin-top:52px">Any break. One search.</div>
+  <div id="e2" class="h" style="font-size:58px; margin-top:24px; font-weight:600; letter-spacing:-0.02em">it's free.</div>
+  <div id="btn">Install it</div>
+  <div id="e3" style="font-size:44px; font-weight:600; margin-top:44px">link in bio</div>
+</div>
+
+<script>
+const variant = new URLSearchParams(location.search).get("variant") === "story" ? "story" : "reel";
+const SAFE_TOP = variant === "story" ? 269 : 285;
+const $ = (id) => document.getElementById(id);
+
+// ── easing ──
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const inOut = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const sine = (x) => -(Math.cos(Math.PI * x) - 1) / 2;
+const outExpo = (x) => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const outBack = (x, s = 1.4) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
+
+// ── timeline (s) ──
+const T = { rise: 0.5, tap: 3.3, push: 3.55, big: 4.7, scroll: 5.0, still: 12.0, out: 12.4, end: 13.3, dur: 18 };
+
+// ── capture px (1170 wide) -> screen px (820 wide) ──
+const K = 820 / 1170;
+// page pieces: everything above the baked nav, then from the 15:00 row on
+// (pG carries the viewport-fixed glow baked into the shot; #unglow pulls its blue down so it scrolls as plain page)
+const PIECES = [["pA", 0, 1750], ["pG", 1750, 2296], ["pB", 2536, 4659]];
+for (const [id, a, b] of PIECES) {
+  $(id).style.height = (b - a) * K + "px";
+  $(id).style.backgroundPosition = `0 ${-a * K}px`;
+}
+const SCROLL = 1520;                                   // capture px: through the day to the tide
+// the floating nav pill only, from the first viewport (2532 tall): it stays put while the page moves under it
+$("nav").style.height = (2532 - 2220) * K + "px";
+$("nav").style.backgroundPosition = `0 ${-2220 * K}px`;
+$("nav").style.clipPath = `inset(${(2292 - 2220) * K}px ${48 * K}px ${(2532 - 2488) * K}px ${48 * K}px round ${98 * K}px)`;
+// search: the Supertubos row (capture y 520-660), tapped on its name
+Object.assign($("hit").style, { top: 520 * K + "px", height: 140 * K + "px" });
+const TAP = { x: 300 * K, y: 570 * K };
+
+// ── Rosa particles: the app's bottom field (rosa/web particles.ts + BottomGlow: palette, density 1.4,
+// speed 1, alpha .3, 460 css px band, screen blend) made a pure function of t ──
+const BW = 390, BH = 460;
+const N = Math.round(BW * BH / 11000 * 1.4);
+const PAL = ["125, 185, 240", "94, 205, 205"];
+const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1e6) / 1e6; };
+const SLOTS = Array.from({ length: N }, (_, i) => ({ life: 4 * (0.8 + hash("l" + i) * 0.4), off: hash("o" + i) * 4 }));
+function particles(cv, t, o) {
+  const c = cv.getContext("2d");
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
+  cv.style.opacity = o;
+  if (o <= 0) return;
+  const CSS = cv.width / BW;                           // app css px -> canvas px
+  c.setTransform(CSS, 0, 0, CSS, 0, 0);
+  let g = c.createRadialGradient(BW * .18, BH * 1.3, 0, BW * .18, BH * 1.3, BH * 1.0);
+  g.addColorStop(0, "rgba(22,51,122,.55)"); g.addColorStop(.72, "rgba(22,51,122,0)");
+  c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  g = c.createRadialGradient(BW * .82, BH * 1.2, 0, BW * .82, BH * 1.2, BH * .9);
+  g.addColorStop(0, "rgba(13,148,136,.4)"); g.addColorStop(.7, "rgba(13,148,136,0)");
+  c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  const ps = [];
+  SLOTS.forEach(({ life, off }, i) => {
+    const k = Math.floor((t + off) / life), age = t + off - k * life, f = age * 60;
+    const r = (s) => hash(s + i + "-" + k);
+    const depth = Math.pow(r("d"), 0.85), rad = 0.5 + depth * (3.2 - 0.5), blur = (1 - depth) * 4.5;
+    const vy = -(0.24 + depth * 1.4), vx = (r("v") - 0.5) * (0.05 + depth * 0.28);
+    const ph = r("p") * 6.283, ws = 0.004 + r("w") * 0.012, wa = 0.05 + depth * 0.4;
+    const x = r("x") * BW + vx * f + (wa / ws) * (Math.cos(ph) - Math.cos(ph + ws * f));
+    const y = BH + r("y") * 30 + vy * f;
+    const tw = r("t") * 6.283 + (0.008 + r("s") * 0.025) * f;
+    const lf = age / life, env = lf < .15 ? lf / .15 : lf > .7 ? (1 - lf) / .3 : 1;
+    const a = clamp((0.22 + depth * 0.7) * 0.3 * Math.min(1, (BH - y) / 80) * Math.min(1, y / (BH * .55)) * (0.75 + Math.sin(tw) * .25) * env);
+    if (a > 0.002 && y > -10) ps.push({ x, y, rad, depth, bucket: Math.round(blur), a, col: PAL[Math.floor(r("c") * PAL.length)] });
+  });
+  ps.sort((p, q) => p.depth - q.depth);
+  const dot = (p, rad, blur, a) => {
+    c.filter = blur ? `blur(${blur / 2 * CSS}px)` : "none";
+    c.globalAlpha = a; c.fillStyle = `rgb(${p.col})`;
+    c.beginPath(); c.arc(p.x, p.y, rad, 0, 6.283); c.fill();
+  };
+  for (const p of ps) if (p.bucket === 0 && p.rad > 1.4) dot(p, p.rad * 2.6, 8, p.a * .55);
+  for (const p of ps) dot(p, p.rad, p.bucket, p.a);
+  c.filter = "none"; c.globalAlpha = 1;
+}
+
+// ── footage: seek and wait for the frame ──
+function seekVideo(v, s) {
+  s = Math.max(0, Math.min(s, (v.duration || 30) - 0.05));
+  if (v.readyState >= 2 && Math.abs(v.currentTime - s) < 1e-3) return Promise.resolve();
+  return new Promise((res) => {
+    const done = () => { v.removeEventListener("seeked", done); res(); };
+    v.addEventListener("seeked", done);
+    v.currentTime = s;
+  });
+}
+const loaded = (v) => v.readyState >= 1 ? Promise.resolve() : new Promise((r) => v.addEventListener("loadedmetadata", r, { once: true }));
+
+// ── reveal: a line slides up out of its mask, blur to sharp; leaves upward ──
+function rise(el, t, a, b, d = .7) {
+  const i = outExpo(seg(t, a, a + d)), o = 1 - inOut(seg(t, b - .4, b));
+  el.style.transform = `translateY(${(1 - i) * 105 + (1 - o) * -110}%)`;
+  el.style.opacity = Math.min(i * 1.4, 1 - seg(t, b - .2, b));
+  el.style.filter = `blur(${(1 - i) * 10 + (1 - o) * 6}px)`;
+}
+
+async function seek(t) {
+  const endIn = inOut(seg(t, T.out + .3, T.end + .2));
+
+  // backdrop: deep ocean navy, a slow accent glow that drifts behind the phone
+  $("bg").style.opacity = 1 - endIn;
+  const ox = 540 + Math.sin(t * .35) * 120, oy = lerp(1250, 900, inOut(seg(t, T.push, T.big))) + Math.cos(t * .28) * 80;
+  $("orb").style.transform = `translate(${ox - 550}px, ${oy - 550}px) scale(${1 + .06 * Math.sin(t * .5)})`;
+  $("orb").style.opacity = seg(t, 0, .8) * (1 - endIn);
+  particles($("pBack"), t, seg(t, 0, .8) * (1 - endIn));
+
+  // phone: swings up out of the bottom into the lower two thirds (search pose), then settles large
+  const r = outExpo(seg(t, T.rise, T.rise + 1.4));
+  const b = inOut(seg(t, T.push - .1, T.big));                         // search pose -> large pose
+  const x = Math.pow(seg(t, T.out, T.out + .9), 2);                     // exit: drops out of frame
+  const fl = seg(t, T.rise + 1, T.out);
+  const ry = Math.sin(t * .5 + .4) * 4 * fl - Math.sin(Math.PI * b) * 9;
+  const rx = Math.sin(t * .37 + 1.1) * 2 * fl;
+  const s = lerp(.78, 1, b) * lerp(1, .82, x);
+  const ty = lerp(1358 - 959.5, 0, b) + (1 - r) * 1700 + x * 2300 + Math.sin(t * .6) * 6 * fl;
+  $("phone").style.transform = `translateY(${ty}px) rotateX(${(1 - r) * 38 + rx + x * 18}deg) rotateY(${ry}deg) rotateZ(${(1 - r) * -7 + x * 6}deg) scale(${s * lerp(.92, 1, r)})`;
+  $("phone").style.visibility = t < T.rise || x >= 1 ? "hidden" : "visible";
+  $("glare").style.backgroundPosition = `${lerp(110, -10, seg(t, T.rise + .2, T.big + 1.5))}% 0`;
+
+  // search: the Supertubos row lights, a tap ripples on its name
+  const hit = seg(t, T.tap - .05, T.tap + .1) * (1 - seg(t, T.push + .4, T.push + .6));
+  $("hit").style.opacity = hit;
+  const rp = seg(t, T.tap, T.tap + .55);
+  const rr = lerp(20, 150, outExpo(rp));
+  Object.assign($("ripple").style, { left: TAP.x - rr + "px", top: TAP.y - rr + "px", width: rr * 2 + "px", height: rr * 2 + "px",
+    opacity: rp > 0 && rp < 1 ? (1 - rp) : 0 });
+  // spot page pushes in from the right, the search slides back under it
+  const pu = outExpo(seg(t, T.push, T.push + .7));
+  $("spot").style.transform = `translateX(${(1 - pu) * 820}px)`;
+  $("spot").style.boxShadow = `-30px 0 60px rgba(0,0,0,${.5 * (1 - pu)})`;
+  $("spot").style.visibility = t < T.push ? "hidden" : "visible";
+  $("search").style.transform = `translateX(${-pu * 240}px)`;
+  $("search").style.filter = `brightness(${1 - .5 * pu})`;
+
+  // spot page: one slow scroll through the day; only the content moves, the nav stays
+  const sc = SCROLL * sine(seg(t, T.scroll, T.still));
+  $("page").style.transform = `translateY(${-sc * K}px)`;
+  particles($("pScreen"), t, seg(sc, 0, 500));
+
+  // words: the hook sits above the phone, leaves as the phone grows
+  $("hook").style.top = SAFE_TOP + 20 + "px";
+  rise($("h1"), t, .15, T.push + .2, .8);
+  rise($("h2"), t, .45, T.push + .3, .8);
+
+  // end card over a fresh ocean clip
+  $("bgEnd").style.opacity = endIn;
+  $("vEnd").style.transform = `scale(${lerp(1.22, 1.06, outExpo(seg(t, T.out + .3, T.end + 2)))})`;
+  particles($("pEnd"), t, endIn);
+  const E = T.end;
+  $("end").style.top = SAFE_TOP + 150 + "px";
+  const lg = seg(t, E, E + .8);
+  $("logo").style.transform = `scale(${lerp(.5, 1, outBack(lg))})`;
+  $("logo").style.opacity = clamp(lg * 3);
+  const pop = (el, a) => { const k = outExpo(seg(t, a, a + .8)); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * 50}px)`; };
+  pop($("e1"), E + .2); pop($("e2"), E + .35); pop($("btn"), E + .55); pop($("e3"), E + .75);
+  const glow = 30 + 10 * Math.sin(t * 2.6);
+  $("btn").style.boxShadow = `0 0 ${glow}px rgba(17,183,242,.65), 0 0 ${glow * 2.4}px rgba(17,183,242,.28)`;
+  $("end").style.visibility = t < E ? "hidden" : "visible";
+
+  if (t > T.out) { const v = $("vEnd"); await loaded(v); await seekVideo(v, 2 + t - T.out); }
+}
+window.__film = { seek, duration: T.dur };
+</script>
+</body></html>

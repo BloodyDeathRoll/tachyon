@@ -1,0 +1,51 @@
+{
+  "slot_id": "2026-w45-09",
+  "title": "Friday dawn patrol",
+  "pillar": "Swell alert moment",
+  "angle": "Hard fast cuts in rhythm: dark Pixabay dawn water, phone buzz, the phone whipping in at a steep angle with spot-pipeline.png, the rating flashing Good. Each cut flips the phone's size and position: tiny top left, huge bottom right, centre. Last cut is wave footage with the phone sliding up from below. End card: logo, white \"Let the swell find you.\", space, glowing blue button \"rosa.surf\".",
+  "hook_formula": "Weekend swell incoming",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "In My Life (Instrumental) (Afro Sound Machine), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w45-09",
+    "story": "film-2026-w45-09-story",
+    "source": "engines/remotion/src/films/film-2026-w45-09.tsx",
+    "music": "clients/rosa/assets/music/old-steel-449645.mp3"
+  },
+  "track": "ig:843481004054430",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w45-09",
+  "plan": "2026-W45",
+  "motion": "ratheejaisal-1f4538",
+  "theme": "light",
+  "voiceover_script": "Honestly, best part of my week is that buzz. Swell alert, it says Good, I'm already waxing up. Grab it free at Roza dot surf.",
+  "voiceover_voice": "dia:seed8",
+  "voiceover": {
+    "script": "Honestly, best part of my week is that buzz. Swell alert, it says Good, I'm already waxing up. Grab it for free, at Roza dot surf.",
+    "voice": "dia:seed8",
+    "speed": 1.08,
+    "start": 0.5,
+    "file": "vo.wav",
+    "engine": "dia-1.6b (Nari Labs, Apache-2.0), local GPU"
+  },
+  "duration_s": 15.06,
+  "audio_configuration": {
+    "audio_id": "843481004054430",
+    "audio_volume": 30,
+    "video_volume": 100
+  },
+  "track_info": {
+    "title": "In My Life (Instrumental)",
+    "artist": "Afro Sound Machine",
+    "cover": "https://scontent-lga3-2.xx.fbcdn.net/v/t39.30808-1/305171578_601831374948026_8468505820639484634_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=WJxgrEUOfOsQ7kNvwG2eSMq&_nc_oc=AdqbwPEnV4kh-pxkwoJfDepDS-J0_ZAKbCMNquPBm2RPm8pisiG6nBcRONc0hXxidOA&_nc_zt=24&_nc_ht=scontent-lga3-2.xx&edm=AOP_XFkEAAAA&_nc_gid=SxKyXcHN3uyiGk-X2bPekw&oh=00_AQScOKQy-ytJOarE2jPqE4CaZVGSSXUNq6tK-RvjY1E2yg&oe=6AEBEFBB",
+    "duration": 181.1,
+    "link": null,
+    "preview_of": "ig:843481004054430"
+  }
+}

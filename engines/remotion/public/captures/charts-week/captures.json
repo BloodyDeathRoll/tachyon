@@ -1,0 +1,295 @@
+{
+ "url": "https://rosa.surf/charts?theme=dark",
+ "at": [
+  15,
+  -75
+ ],
+ "viewport": "390x844@3x",
+ "frames": [
+  {
+   "file": "00.png",
+   "frame": 0,
+   "max": 56
+  },
+  {
+   "file": "01.png",
+   "frame": 1,
+   "max": 56
+  },
+  {
+   "file": "02.png",
+   "frame": 2,
+   "max": 56
+  },
+  {
+   "file": "03.png",
+   "frame": 3,
+   "max": 56
+  },
+  {
+   "file": "04.png",
+   "frame": 4,
+   "max": 56
+  },
+  {
+   "file": "05.png",
+   "frame": 5,
+   "max": 56
+  },
+  {
+   "file": "06.png",
+   "frame": 6,
+   "max": 56
+  },
+  {
+   "file": "07.png",
+   "frame": 7,
+   "max": 56
+  },
+  {
+   "file": "08.png",
+   "frame": 8,
+   "max": 56
+  },
+  {
+   "file": "09.png",
+   "frame": 9,
+   "max": 56
+  },
+  {
+   "file": "10.png",
+   "frame": 10,
+   "max": 56
+  },
+  {
+   "file": "11.png",
+   "frame": 11,
+   "max": 56
+  },
+  {
+   "file": "12.png",
+   "frame": 12,
+   "max": 56
+  },
+  {
+   "file": "13.png",
+   "frame": 13,
+   "max": 56
+  },
+  {
+   "file": "14.png",
+   "frame": 14,
+   "max": 56
+  },
+  {
+   "file": "15.png",
+   "frame": 15,
+   "max": 56
+  },
+  {
+   "file": "16.png",
+   "frame": 16,
+   "max": 56
+  },
+  {
+   "file": "17.png",
+   "frame": 17,
+   "max": 56
+  },
+  {
+   "file": "18.png",
+   "frame": 18,
+   "max": 56
+  },
+  {
+   "file": "19.png",
+   "frame": 19,
+   "max": 56
+  },
+  {
+   "file": "20.png",
+   "frame": 20,
+   "max": 56
+  },
+  {
+   "file": "21.png",
+   "frame": 21,
+   "max": 56
+  },
+  {
+   "file": "22.png",
+   "frame": 22,
+   "max": 56
+  },
+  {
+   "file": "23.png",
+   "frame": 23,
+   "max": 56
+  },
+  {
+   "file": "24.png",
+   "frame": 24,
+   "max": 56
+  },
+  {
+   "file": "25.png",
+   "frame": 25,
+   "max": 56
+  },
+  {
+   "file": "26.png",
+   "frame": 26,
+   "max": 56
+  },
+  {
+   "file": "27.png",
+   "frame": 27,
+   "max": 56
+  },
+  {
+   "file": "28.png",
+   "frame": 28,
+   "max": 56
+  },
+  {
+   "file": "29.png",
+   "frame": 29,
+   "max": 56
+  },
+  {
+   "file": "30.png",
+   "frame": 30,
+   "max": 56
+  },
+  {
+   "file": "31.png",
+   "frame": 31,
+   "max": 56
+  },
+  {
+   "file": "32.png",
+   "frame": 32,
+   "max": 56
+  },
+  {
+   "file": "33.png",
+   "frame": 33,
+   "max": 56
+  },
+  {
+   "file": "34.png",
+   "frame": 34,
+   "max": 56
+  },
+  {
+   "file": "35.png",
+   "frame": 35,
+   "max": 56
+  },
+  {
+   "file": "36.png",
+   "frame": 36,
+   "max": 56
+  },
+  {
+   "file": "37.png",
+   "frame": 37,
+   "max": 56
+  },
+  {
+   "file": "38.png",
+   "frame": 38,
+   "max": 56
+  },
+  {
+   "file": "39.png",
+   "frame": 39,
+   "max": 56
+  },
+  {
+   "file": "40.png",
+   "frame": 40,
+   "max": 56
+  },
+  {
+   "file": "41.png",
+   "frame": 41,
+   "max": 56
+  },
+  {
+   "file": "42.png",
+   "frame": 42,
+   "max": 56
+  },
+  {
+   "file": "43.png",
+   "frame": 43,
+   "max": 56
+  },
+  {
+   "file": "44.png",
+   "frame": 44,
+   "max": 56
+  },
+  {
+   "file": "45.png",
+   "frame": 45,
+   "max": 56
+  },
+  {
+   "file": "46.png",
+   "frame": 46,
+   "max": 56
+  },
+  {
+   "file": "47.png",
+   "frame": 47,
+   "max": 56
+  },
+  {
+   "file": "48.png",
+   "frame": 48,
+   "max": 56
+  },
+  {
+   "file": "49.png",
+   "frame": 49,
+   "max": 56
+  },
+  {
+   "file": "50.png",
+   "frame": 50,
+   "max": 56
+  },
+  {
+   "file": "51.png",
+   "frame": 51,
+   "max": 56
+  },
+  {
+   "file": "52.png",
+   "frame": 52,
+   "max": 56
+  },
+  {
+   "file": "53.png",
+   "frame": 53,
+   "max": 56
+  },
+  {
+   "file": "54.png",
+   "frame": 54,
+   "max": 56
+  },
+  {
+   "file": "55.png",
+   "frame": 55,
+   "max": 56
+  },
+  {
+   "file": "56.png",
+   "frame": 56,
+   "max": 56
+  }
+ ]
+}

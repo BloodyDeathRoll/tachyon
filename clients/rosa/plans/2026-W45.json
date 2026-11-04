@@ -1,0 +1,28 @@
+{
+ "state": "done",
+ "step": "done",
+ "done": 13,
+ "total": 13,
+ "error": null,
+ "started_at": "2026-10-31T09:57:03+00:00",
+ "instructions": "We're running the flow with the new 88 styles for the first time.\r\nKeep us on brand with Rosa colors, incorporate new videos from pixabay or any other free to use source. Keep the closing titles as we revised in the last videos: Logo, white texts, some space, a blue button with white texts, somewhat glowing.\r\nIn the posts texts - keep our structure: a few paragraphs, dot [line drop] dot [line drop] dot [linedrop] and the hash.\r\nKeep things fun, energetic and dynamic. V.O should be surfer dudes, boys or girls, happy, chill yet excited about the app and the surf\r\nAlso, Rosa currently has over 3,500 spots (old number not relevant). Make sure you show dark and light versions of the app (on different videos. on the same video stay consistent). \r\nYou can play with the size and position of the mobile screen mockup, it doesnt always have to be screen on one side and text on the other, like on the previous batch.\r\nMain thing: give us something that pops - an animation that pops on the users feed and sends them either to rosa.surf or to our instagram page",
+ "updated_at": "2026-10-31T11:25:34+00:00",
+ "slots": [
+  "2026-w45-01",
+  "2026-w45-02",
+  "2026-w45-03",
+  "2026-w45-04",
+  "2026-w45-05",
+  "2026-w45-06",
+  "2026-w45-07",
+  "2026-w45-08",
+  "2026-w45-09",
+  "2026-w45-10",
+  "2026-w45-11",
+  "2026-w45-12",
+  "2026-w45-13"
+ ],
+ "producing_at": "2026-10-31T09:57:03+00:00",
+ "current": null,
+ "failed": []
+}

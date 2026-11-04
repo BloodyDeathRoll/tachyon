@@ -1,0 +1,41 @@
+{
+  "slot_id": "2026-w45-17",
+  "title": "Search to Uluwatu",
+  "pillar": "Spot spotlight",
+  "angle": "One message: any break you love is one search away, free. Open on the real search screen filling the lower two thirds of the frame, hook text in the top third, and \"Ulu\" types itself into the search field while the results list settles. A tap on Uluwatu flows straight into its spot page, phone still large, then one smooth ease-out scroll down the forecast while the bottom nav stays fixed in place. The camera pulls back just enough to land the line \"16 days ahead, any spot\" over the app, with the Rosa particles rising and fading in the empty bottom area throughout. Close on the W44 · 03 end card (white text under the logo, white glowing button with space above it, white \"link in bio\") over a fresh ocean clip not used on recent closers.",
+  "hook_formula": "Type a spot. Get 16 days.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Deep Blue (Giulio Cercato), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w45-17",
+    "story": "film-2026-w45-17-story",
+    "source": "engines/remotion/src/films/film-2026-w45-17.tsx",
+    "music": "clients/rosa/assets/music/surf-rock-summer-325576.mp3"
+  },
+  "track": "ig:421348377170726",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w45-17",
+  "plan": "manual",
+  "motion": null,
+  "theme": "dark",
+  "duration_s": 15.06,
+  "audio_configuration": {
+    "audio_id": "421348377170726",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Deep Blue",
+    "artist": "Giulio Cercato",
+    "cover": "https://scontent-lga3-2.xx.fbcdn.net/v/t39.30808-1/469664734_1119322796867067_2405028789482486743_n.jpg?stp=c159.159.682.682a_dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=1oZtTFco-hIQ7kNvwHsouLV&_nc_oc=Adolzs8qAgJIQ1Pf5bXWuSHdhSGVnfGrNdfmYVmsSOLBOSSX6zQkOf30rmi1iEHmrC4&_nc_zt=24&_nc_ht=scontent-lga3-2.xx&edm=AOP_XFkEAAAA&_nc_gid=BMMarlzz3c1SP1hw3CP8mA&oh=00_AQRXc--Z4yVsTKUHTKZF40SPFS4qNvm_CxzXhQSnHsdL2w&oe=6AEC237D",
+    "duration": 138.7,
+    "link": null,
+    "preview_of": "ig:421348377170726"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "slot_id": "2026-w45-16",
+  "title": "Uluwatu, why it rates",
+  "pillar": "Why this rating",
+  "angle": "One message: Rosa tells you why a day rates, not just a number. Open on the Uluwatu spot page (spot-uluwatu-full, dark) filling the whole screen, the phone big from the first frame over slow ocean footage, Rosa particles rising from the bottom and fading as they rise in any empty dark area.\nThe phone eases in close on the rating, then scrolls smoothly down to the Size, Period and Wind bars with the bottom nav staying fixed; each bar gets one large white word as it comes into view: \"Size\", \"Period\", \"Wind\".\nA final beat holds on Wind with the line \"Wind can only polish.\" while the phone glides back out to full size.\nClose on the W44 · 03 end card: logo, white text under it, a glowing button with white text a little below, white \"link in bio\", over fresh footage not used in recent closers.",
+  "hook_formula": "Why is Uluwatu rated that?",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Surf Rock Summer (BFCMUSIC), baked in",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w45-16",
+    "story": "film-2026-w45-16-story",
+    "source": "engines/remotion/src/films/film-2026-w45-16.tsx",
+    "music": "clients/rosa/assets/music/surf-rock-summer-325576.mp3"
+  },
+  "track": "surf-rock-summer",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w45-16",
+  "plan": "manual",
+  "motion": null,
+  "theme": "dark",
+  "duration_s": 16.04
+}

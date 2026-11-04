@@ -1,0 +1,41 @@
+{
+  "slot_id": "2026-w45-04",
+  "title": "Swell map flyover",
+  "pillar": "Swell map",
+  "angle": "The camera flies low over charts.png laid flat in 3D like a coastline, swell colours rolling under it. It banks up to reveal the whole phone standing on the map, then dives to map.png and lands on one spot card. Pixabay rolling swell plays behind the tilted phone. End card: logo, white \"Watch the swell roll in.\", space, glowing blue button \"rosa.surf/charts\".",
+  "hook_formula": "Fly over this week's swell",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "You Can Do It Too (Instrumental) (Jennah Bell), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w45-04",
+    "story": "film-2026-w45-04-story",
+    "source": "engines/remotion/src/films/film-2026-w45-04.tsx",
+    "music": "clients/rosa/assets/music/surf-rock-204622.mp3"
+  },
+  "track": "ig:973266493758189",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w45-04",
+  "plan": "2026-W45",
+  "motion": "twoclipping-d89be5",
+  "theme": "dark",
+  "duration_s": 15.06,
+  "audio_configuration": {
+    "audio_id": "973266493758189",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "You Can Do It Too (Instrumental)",
+    "artist": "Jennah Bell",
+    "cover": "https://scontent-lga3-2.xx.fbcdn.net/v/t1.6435-1/37360759_10155455828266283_4383609322135879680_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=VYeF-ciCbWEQ7kNvwG6T-eO&_nc_oc=Adp-cONDqn9ZQmEr_AQUt1sRGfBoQ6OukV5YKFfTceblAbF154VtqMGJHpA3YmTh3JI&_nc_zt=24&_nc_ht=scontent-lga3-2.xx&edm=AOP_XFkEAAAA&_nc_gid=YnDDpMcDND-K1D-PU6FUhg&oh=00_AQSzPvnZOU4-jH2LAJEA0gjGmRTm73zspIVGTMxlTDEoPA&oe=6B0D5409",
+    "duration": 246.9,
+    "link": null,
+    "preview_of": "ig:973266493758189"
+  }
+}
