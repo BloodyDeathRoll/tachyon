@@ -10,6 +10,17 @@ A PC uses it once `~/.tachyon/worker.json` names it (`spine/remote.py`); until t
 local system runs as it is. `python -m spine.migrate_d1 <client>` writes the SQL that
 moves a client's `tachyon.db` and files online (its docstring has the two commands).
 
+## A PC as a host (phase 2)
+
+1. `python -m spine.worker login https://tachyon.<account>.workers.dev`: opens nothing
+   itself; sign in at `<that url>/login` in a browser, paste the token it shows.
+2. `python -m spine.worker run`, or install `deploy/tachyon-worker.service` (its header
+   has the commands). The host registers with the clients whose `clients/<c>/assets/` it
+   holds and polls for jobs every minute.
+3. With a Worker configured, the dashboard's Generate week, Generate New, Revise, other
+   formats and caption buttons write `jobs` rows (`spine/jobs.py`) instead of forking; the
+   host runs them. Remove the crontab's `spine.week auto` line: the host runs it daily.
+
 ## Run without an account
 
 ```sh

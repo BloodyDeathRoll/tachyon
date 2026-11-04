@@ -1,0 +1,22 @@
+# This PC as a Tachyon host: the job loop (spine/worker.py), started at login and kept running.
+#
+#   python -m spine.worker login <api-url>          # once, writes ~/.tachyon/worker.json
+#   cp deploy/tachyon-worker.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now tachyon-worker
+#   loginctl enable-linger $USER                    # keeps it running with no session open
+#
+# Replaces the crontab entry `0 7 * * * ... spine.week auto`; the publish entry stays until phase 4
+# (docs/CLOUDFLARE-PLAN.md). Logs: ~/.tachyon/logs/worker.log and job-<id>.log.
+
+[Unit]
+Description=Tachyon worker (job queue host)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/Projects/tachyon
+ExecStart=/usr/bin/python3 -m spine.worker run
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=default.target

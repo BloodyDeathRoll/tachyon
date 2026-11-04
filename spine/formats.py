@@ -23,7 +23,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import clients as C
+from . import jobs as J
 from . import revise as R
+from .remote import RemoteError
 
 ROOT = Path(__file__).resolve().parent.parent
 REMOTION = ROOT / "engines" / "remotion"
@@ -305,10 +307,8 @@ def start(client: str, slot: str, ratios: list[str]) -> None:
             return
         _status(client, slot, state="running", current=ratios[0], wanted=ratios, error=None, pid=None)
         try:
-            with (C.client_dir(client) / "posts" / slot / "formats.log").open("a") as log:
-                subprocess.Popen([sys.executable, "-m", "spine.formats", "make", client, slot, *ratios], cwd=ROOT,
-                                 stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
-        except OSError as e:
+            J.spawn("formats", client, slot, ["spine.formats", "make", client, slot, *ratios], C.client_dir(client) / "posts" / slot / "formats.log")
+        except (OSError, RemoteError) as e:
             _status(client, slot, state="failed", error=f"could not start: {e}")
     finally:
         os.close(fd)   # releases the lock

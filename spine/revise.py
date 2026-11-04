@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import clients as C
+from . import jobs as J
 from .db import DB
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -99,9 +100,7 @@ def start(client: str, slot: str, notes: str) -> None:
 
 
 def _spawn(client: str, slot: str) -> None:
-    log = (C.client_dir(client) / "posts" / slot / "revise.log").open("a")
-    subprocess.Popen([sys.executable, "-m", "spine.revise", "run", client, slot], cwd=ROOT,
-                     stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    J.spawn("revise", client, slot, ["spine.revise", "run", client, slot], C.client_dir(client) / "posts" / slot / "revise.log")
 
 
 def failed(client: str, slot: str) -> bool:

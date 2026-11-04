@@ -7,10 +7,14 @@
 //   POST /auth/logout                              -> {ok}      revokes every session
 //   POST /api/hosts    {id, name, clients, caps}   -> {clients} a PC registers; clients it is
 //                                                     not a member of are dropped
+//   GET  /login                                    -> the sign-in page: Google, then the session
+//                                                     token to paste into `spine.worker login`
 //   GET  /api/jobs/next?host=<id>                  -> job | 204  claim the oldest open job for
 //                                                     the host's clients (5 min lease)
+//   GET  /api/jobs?client=<c>[&slot=<s>]           -> the client's last 50 jobs, newest first
 //   POST /api/jobs     {kind, client, slot_id, payload} -> {id}
-//   POST /api/jobs/<id>/heartbeat | done | fail  {host, result}
+//   POST /api/jobs/<id>/heartbeat | done | fail  {host, result}   done with result.media
+//                                                     {path, sha, size} records the file on the host
 //   PUT  /api/media/<client>/<slot>/video | cover  body = the file -> {key}
 //   GET  /api/media/<client>/<slot>/video | cover  -> the file
 //   POST /api/db/<client>/<op>  {...args}          -> the op's result (src/db.ts: spine/db.py's
@@ -41,7 +45,8 @@ const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // the Free-plan request body limit 
 const LAST_SEEN_THROTTLE_MS = 5 * 60 * 1000;
 const JOB_LEASE_MS = 5 * 60 * 1000; // a running job silent this long goes back to the queue
 const ID = /^[\w-]{1,64}$/; // client, slot and host ids
-const JOB_KINDS = new Set(["plan", "produce", "revise", "formats", "voice", "upload", "spec"]);
+const JOB_KINDS = new Set(["plan", "produce", "revise", "formats", "caption", "voice", "upload", "spec"]);
+const JOBS_LIST = 50;
 const MEDIA = {
   video: { ext: "mp4", type: "video/mp4", column: "r2_key" },
   cover: { ext: "jpg", type: "image/jpeg", column: "cover_key" },
@@ -299,7 +304,8 @@ async function enqueue(req: Request, env: Env, user: UserRow, now: number): Prom
 }
 
 /** heartbeat | done | fail on a job this host is running. A lost lease is a 409:
-    the job was handed to another host, so this one's result is dropped. */
+    the job was handed to another host, so this one's result is dropped. A done
+    result's `media` ({path, sha, size}) says the slot's video is on this host. */
 async function updateJob(req: Request, env: Env, user: UserRow, jobId: number, action: string, now: number): Promise<Response> {
   const body = await readJson(req);
   const host = await hostOf(env, user, body.host);
@@ -315,7 +321,59 @@ async function updateJob(req: Request, env: Env, user: UserRow, jobId: number, a
     .bind(...set[1], now, jobId, host.id)
     .run();
   if (r.meta.changes !== 1) throw new HttpError(409, "lease");
+  const media = action === "done" && typeof body.result === "object" && body.result !== null ? (body.result as Record<string, unknown>).media : null;
+  if (media && typeof media === "object") {
+    const m = media as Record<string, unknown>;
+    const job = await env.DB.prepare("SELECT client, slot_id FROM jobs WHERE id = ?").bind(jobId).first<{ client: string; slot_id: string | null }>();
+    if (job?.slot_id && typeof m.path === "string") {
+      await env.DB.prepare(
+        "INSERT INTO media (client, slot_id, host, path, sha, size) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(client, slot_id, host) DO UPDATE SET path = excluded.path, sha = excluded.sha, size = excluded.size",
+      )
+        .bind(job.client, job.slot_id, host.id, m.path, typeof m.sha === "string" ? m.sha : null, typeof m.size === "number" ? m.size : null)
+        .run();
+    }
+  }
   return json(200, { ok: true });
+}
+
+async function listJobs(url: URL, env: Env, user: UserRow): Promise<Response> {
+  const client = id(url.searchParams.get("client"), "client");
+  await member(env, user, client);
+  const slot = url.searchParams.get("slot");
+  const q = slot
+    ? env.DB.prepare(`SELECT * FROM jobs WHERE client = ? AND slot_id = ? ORDER BY id DESC LIMIT ${JOBS_LIST}`).bind(client, id(slot, "slot"))
+    : env.DB.prepare(`SELECT * FROM jobs WHERE client = ? ORDER BY id DESC LIMIT ${JOBS_LIST}`).bind(client);
+  return json(200, { jobs: (await q.all<JobRow>()).results });
+}
+
+/** The sign-in page: Google's button, then the session token for `python -m spine.worker login`. */
+function loginPage(env: Env): Response {
+  const setup = env.GOOGLE_CLIENT_ID
+    ? `<div id="g"></div>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script>
+window.onload = () => {
+  google.accounts.id.initialize({ client_id: ${JSON.stringify(env.GOOGLE_CLIENT_ID)}, callback: async (r) => {
+    const x = await fetch("/auth/google", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ credential: r.credential }) });
+    const j = await x.json();
+    if (!x.ok) { m.textContent = "Refused: " + j.error + (j.error === "invite" ? " (ask an admin to invite this email)" : ""); return; }
+    m.textContent = "Signed in as " + j.profile.email + ". Copy the token into: python -m spine.worker login " + location.origin;
+    t.hidden = false; t.value = j.token;
+  } });
+  google.accounts.id.renderButton(g, { theme: "outline", size: "large" });
+};
+</script>`
+    : "<p>Not configured yet: GOOGLE_CLIENT_ID is empty (wrangler.toml).</p>";
+  const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tachyon sign-in</title>
+<style>body{font:16px system-ui,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem;color:#111}textarea{width:100%;height:8rem;font:13px monospace}</style>
+<h1>Tachyon</h1>
+<p>Sign in with the Google account an admin invited.</p>
+${setup}
+<p id="m"></p>
+<textarea id="t" readonly hidden></textarea>
+</html>`;
+  return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }
 
 // ── media ─────────────────────────────────────────────────────────────────────
@@ -372,6 +430,7 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   const now = Date.now();
 
   if (path === "/") return json(200, { ok: true, service: "tachyon" });
+  if (path === "/login" && req.method === "GET") return loginPage(env);
   if (path === "/auth/google" && req.method === "POST") return signIn(req, env, now);
 
   const user = await auth(req, env, ctx, now);
@@ -384,6 +443,7 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   }
   if (path === "/api/hosts" && req.method === "POST") return registerHost(req, env, user, now);
   if (path === "/api/jobs/next" && req.method === "GET") return nextJob(url, env, ctx, user, now);
+  if (path === "/api/jobs" && req.method === "GET") return listJobs(url, env, user);
   if (path === "/api/jobs" && req.method === "POST") return enqueue(req, env, user, now);
   if (p[0] === "api" && p[1] === "jobs" && p.length === 4 && /^\d{1,12}$/.test(p[2] ?? "") && req.method === "POST") {
     return updateJob(req, env, user, Number(p[2]), p[3] ?? "", now);

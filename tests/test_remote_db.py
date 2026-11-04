@@ -1,42 +1,19 @@
 """spine/db.py RemoteDB: the Worker's answers come back as the local DB's exceptions (a
 fake transport), and the same scenarios as test_state_db.py pass against the real Worker
-in Miniflare (deploy/worker/test/serve.mjs; skipped when its node_modules are missing)."""
+in Miniflare (the `worker` fixture in conftest.py; skipped without node_modules)."""
 
 from __future__ import annotations
 
-import io
 import json
-import subprocess
-import urllib.error
-from pathlib import Path
 
 import pytest
 
 from spine import remote as R
 from spine import state as S
 from spine.db import DB, RemoteDB, Row
+from tests.fakes import FakeWorker as Fake
 
-ROOT = Path(__file__).resolve().parent.parent
-WORKER = ROOT / "deploy" / "worker"
 CFG = {"api": "http://w", "token": "t", "host": "pc"}
-
-
-class Fake:
-    """An opener answering from a script of (status, body) per call; records the requests."""
-
-    def __init__(self, *answers):
-        self.answers, self.calls = list(answers), []
-
-    def __call__(self, req, timeout=0):
-        self.calls.append((req.get_method(), req.full_url, json.loads(req.data) if req.data else None))
-        status, body = self.answers.pop(0)
-        if status >= 400:
-            raise urllib.error.HTTPError(req.full_url, status, "x", {}, io.BytesIO(json.dumps(body).encode()))
-        r = io.BytesIO(json.dumps(body).encode())
-        r.status = status
-        r.__enter__ = lambda *a: r
-        r.__exit__ = lambda *a: None
-        return r
 
 
 def test_errors_map_to_the_local_exceptions(monkeypatch):
@@ -55,7 +32,7 @@ def test_errors_map_to_the_local_exceptions(monkeypatch):
     with pytest.raises(R.RemoteError) as e:
         db.posts()
     assert e.value.status == 401
-    assert fake.calls[0] == ("POST", "http://w/api/db/rosa/post", {"slot_id": "s"})
+    assert fake.calls[0][:3] == ("POST", "http://w/api/db/rosa/post", {"slot_id": "s"})
     assert fake.calls[1][2] == {"slot_id": "s", "to": "PUBLISHED", "note": None, "updates": {}}
     with pytest.raises(ValueError, match="not acme"):
         db.create_post("s", "acme")
@@ -97,21 +74,6 @@ def test_for_client_picks_the_worker_from_the_environment(monkeypatch, tmp_path)
 
 
 # ── against the Worker in Miniflare ──────────────────────────────────────────
-
-@pytest.fixture(scope="module")
-def worker():
-    if not (WORKER / "node_modules").exists():
-        pytest.skip("deploy/worker has no node_modules (npm install)")
-    p = subprocess.Popen(["node", "test/serve.mjs"], cwd=WORKER, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-    try:
-        line = p.stdout.readline()
-        if not line:
-            pytest.fail(f"serve.mjs gave no address (exit {p.wait()})")
-        yield json.loads(line)
-    finally:
-        p.stdin.close()
-        p.wait(timeout=30)
-
 
 @pytest.fixture
 def db(worker, monkeypatch, tmp_path):
