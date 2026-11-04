@@ -172,6 +172,8 @@ const ICONS: Record<string, string> = {
   chart: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 16V9"/><path d="M12 16V5"/><path d="M17 16v-5"/>',
   pause: '<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>',
   download: '<path d="M12 15V3"/><path d="m7 10 5 5 5-5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>',
+  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  briefcase: '<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>',
 };
 
 export function icon(name: string, size = 18): string {
@@ -336,6 +338,16 @@ pre{white-space:pre-wrap;font:13px/1.55 ui-monospace,monospace;color:var(--ink2)
  main{padding:16px 16px 48px}.vpage{grid-template-columns:1fr}.player{position:static}.vpage .c3{grid-column:auto}
  .stats{grid-template-columns:repeat(2,1fr);row-gap:18px}.stat:nth-child(3){border-left:0;padding-left:0}
  .grid{grid-template-columns:repeat(2,1fr);gap:12px}.card{padding:20px 16px}h1{font-size:24px}.tiles{grid-template-columns:repeat(2,1fr)}}
+.recsline i{font-style:normal;color:#bbb;margin:0 6px}
+.irow{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 0;border-top:1px solid var(--rule);font-size:15px}.irow:first-of-type{margin-top:12px}.irow.head{border-top:0;padding:0 0 4px}.irow.head em{font-style:normal;font-weight:400;color:var(--ink3);font-size:12px}.irow>span{flex:1}.irow strong{display:block;font-size:16px;font-weight:600}.irow small{display:block;color:var(--ink3);font-size:14px}.irow b{font-size:17px;padding:3px 10px;border-radius:8px;border:1px solid transparent}.irow b.hi{background:rgba(141,240,0,.2);border-color:#8DF000}
+.ins-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:20px}.ins-cols h3{margin:0 0 4px;font-size:16px}
+.ins-list{list-style:none;margin:10px 0 0;padding:0}.ins-list li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--rule);font-size:14.5px}.ins-list li:first-child{border-top:0}.ins-list small{display:block;color:var(--ink3);font-size:12.5px}.ins-list b{white-space:nowrap}
+.ins-tab{width:100%;border-collapse:collapse;font-size:14px;margin-top:8px}.ins-tab th{color:var(--ink3);font-weight:500;text-align:right;font-size:12.5px;padding:6px 0}.ins-tab td{text-align:right;padding:9px 0;border-top:1px solid var(--rule)}.ins-tab th:first-child,.ins-tab td:first-child{text-align:left}.ins-tab .few{color:var(--ink3);font-size:12px}
+.up{color:#2e7d32}.down{color:#c62828}
+.perfin{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:36px;align-items:stretch}.perfin>div:first-child{display:flex;flex-direction:column}.perfin>div:first-child .stats{margin:auto 0}.perfin svg{width:100%;height:auto}.perfin h3{margin:0 0 4px;font-size:16px}
+.wide{overflow-x:auto}.jobs th{text-align:left;font-weight:500;color:var(--ink3);font-size:12.5px;padding:0 12px 4px 0}.jobs td{padding-right:12px}.jobs select{font:inherit;min-height:32px}
+@media (max-width:1900px){.perfin{grid-template-columns:1fr;gap:24px}}
+@media (max-width:800px){.ins-cols{grid-template-columns:1fr}}
 `;
 
 // the times in the browser's zone; the custom-time form's local value and the offset it posts back
@@ -364,12 +376,15 @@ export function shell(p: Page, active: string, body: string, title: string, refr
   const base = path(p.client.id);
   const others = p.nav.map((c) => `<li><a href='${path(c.id)}'>${avatar(c.name)}${esc(c.name)}</a></li>`).join("");
   const nav = NAV.map(([key, href, ic, label]) => `<a href='${base}${href}' class='${key === active ? "on" : ""}'>${icon(ic)}${label}</a>`).join("");
+  const adminNav = p.user.admin ? [["members", "users", "Members"], ["clients", "briefcase", "Clients"]].map(([key, ic, label]) => `<a href='/admin/${key}' class='${key === active ? "on" : ""}'>${icon(ic!)}${label}</a>`).join("") : "";
   const status = d.stop ? "<span class='dot off'></span>Emergency stop is on" : "<span class=dot></span>Running";
   const html = `<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>
+<link rel=manifest href=/manifest.webmanifest>
+<meta name=theme-color content='#111'>
 ${refresh ? `<meta http-equiv=refresh content=${refresh}>` : ""}<title>${esc(title)} · ${esc(d.name)} · Tachyon</title><style>${CSS}</style>
 <div class=shell><aside><a class=brand href='/app'>Tachyon</a>
 <details class=proj><summary>${avatar(d.name)}<span><b>${esc(d.name)}</b>${d.handle ? `<small>@${esc(d.handle)}</small>` : ""}</span><span class=chev>${icon("chev", 16)}</span></summary><ul>${others}</ul></details>
-<nav>${nav}</nav><div class=foot>${status}</div></aside><main>${body}</main></div>
+<nav>${nav}${adminNav}</nav><div class=foot>${status}</div></aside><main>${body}</main></div>
 <script>${TIME_JS}</script></html>`;
   return page(html, 200);
 }
