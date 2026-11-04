@@ -1,12 +1,17 @@
-// The one Cron Trigger, every minute (docs/CLOUDFLARE-PLAN.md, "Split"): a publish step for
-// each client the Worker publishes for, each under a lease (D1 has no locks; a lease is one
-// conditional UPDATE), then the daily R2 sweep and the daily `week auto` job per client.
+// The one Cron Trigger, every minute (docs/CLOUDFLARE-PLAN.md, "Split"): for each client
+// the Worker publishes for, under one lease (D1 has no locks; a lease is one conditional
+// UPDATE): a publish step, then the hour's pickup (minute 17, as the crontab ran it) or a
+// few insight snapshots; then the daily R2 sweep and the daily `week auto` job per client.
 // Every D1, R2 and fetch call is a subrequest (50 per invocation on the Free plan): the
 // minute counts them (src/budget.ts) and stops at the budget; the clients take turns
-// going first, so none starves. A publish step is up to ~20 calls, the sweep 3.
+// going first, so none starves. A publish step is up to ~20 calls, a media snapshot 5,
+// pickup a list plus two per import, the sweep 3.
 
 import { Budget, countedDB, countedFetch, countedR2 } from "./budget.ts";
+import { open } from "./crypto.ts";
 import { type Fetcher } from "./graph.ts";
+import { step as insights } from "./insights.ts";
+import { pickup } from "./pickup.ts";
 import { publishClient, type ClientRow, type PublishEnv } from "./publish.ts";
 
 export interface CronEnv extends PublishEnv {}
@@ -16,6 +21,8 @@ export const PUBLISH_COST = 20; // subrequests a client's step may need: the lea
 export const DAY_MS = 24 * 60 * 60 * 1000;
 export const GRACE_MS = DAY_MS; // an object this young may belong to an upload whose row is not written yet
 export const AUTO_HOUR_UTC = 7; // the crontab ran `week auto` at 07:00 local; here 07:00 UTC
+export const PICKUP_MINUTE = 17; // the crontab's insights hour: `17 * * * *`
+export const PICKUP_COST = 15; // the list, the posts, then up to two calls per import
 type Json = Record<string, unknown>;
 
 /** Take `name` for `ttl` ms. True only if nobody holds it (a run-out lease counts as free). */
@@ -85,11 +92,23 @@ export async function tick(raw: CronEnv, now: number, fetcher: Fetcher = fetch, 
       out[client.id] = "busy";
       continue;
     }
+    const lines: string[] = [];
     try {
-      out[client.id] = await publishClient(env, client, now, counted);
+      lines.push(...(await publishClient(env, client, now, counted)));
+      if (client.token_enc && client.ig_user_id) {
+        // measuring and pickup share the lease: a reel being posted this minute is never picked up
+        const token = await open(client.token_enc, env.TOKEN_SECRET);
+        if (new Date(now).getUTCMinutes() === PICKUP_MINUTE) {
+          if (budget.has(PICKUP_COST)) for (const r of await pickup(env, client, token, now, counted)) lines.push(`pickup ${JSON.stringify(r)}`);
+          else lines.push("pickup: budget"); // next hour
+        } else {
+          lines.push(...(await insights(env, client, token, now, counted, budget)).map((l) => `insights ${l}`));
+        }
+      }
+      out[client.id] = lines;
     } catch (e) {
-      out[client.id] = `error: ${e}`;
-      console.error("publish", client.id, e);
+      out[client.id] = [...lines, `error: ${e}`];
+      console.error("cron", client.id, e);
     } finally {
       await releaseLease(env, name, holder);
     }

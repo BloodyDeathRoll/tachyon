@@ -206,8 +206,10 @@ test("pre-flight: quota, emergency stop, a missing file, no caption, a URL in th
 
 test("the cron: a lease per client, the sweep, the daily auto job", async () => {
   await env.DB.prepare("DELETE FROM posts WHERE state IN ('QUEUED', 'PUBLISHING')").run();
+  await env.DB.prepare("UPDATE posts SET state = 'REMOVED' WHERE ig_media_id IS NOT NULL").run(); // no media to measure here
+  script.push({ body: { data: [] } }, { body: { followers_count: 1 } }, { body: { data: [] } }, { body: { followers_count: 1 } });
   const out = await tick(env, T0 + 1000, fetcher);
-  assert.deepEqual(out.rosa, []); // nothing due
+  assert.deepEqual(out.rosa, ["insights account", "insights account7d"]); // nothing due to publish; the account rows measured
   assert.equal(out.acme, undefined); // publisher 'local'
   assert.ok(out.subrequests > 0 && out.subrequests <= 40, String(out.subrequests));
   assert.ok(await takeLease(env, "publish:rosa", "other", T0 + 2000, 55_000));
