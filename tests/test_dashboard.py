@@ -146,6 +146,11 @@ def test_prepare_next_week_and_auto_toggle(server, client_dir, monkeypatch):
     assert "Next week" in body and "Prepare automatically every Thursday" in body
 
 
+def test_generate_new_asks_first(server):
+    _, body, _ = req(server, "GET", "/demo/v/w01-s1")
+    assert "id=gennew" in body and "onsubmit=\"return confirm('Replace this video" in body
+
+
 def test_planned_slot_is_kept_on_approval(server, client_dir):
     db = DB.for_client(client_dir)
     db.conn.execute("UPDATE posts SET scheduled_at='2099-01-05T18:30:00+00:00' WHERE slot_id='w01-s1'")
@@ -1222,3 +1227,30 @@ def test_approve_refuses_a_file_instagram_would_refuse(server, client_dir):
     db = DB.for_client(client_dir)
     assert db.post("w01-s1")["state"] != "APPROVED"
     db.close()
+
+
+def test_approval_keeps_planned_slot_inside_lead(client_dir):
+    db = DB.for_client(client_dir)
+    row = dict(db.post("w01-s1"), scheduled_at="2026-11-04T06:30:00+00:00")
+    at = datetime(2026, 11, 4, 6, 15, 53, tzinfo=timezone.utc)   # 14 min before the slot
+    assert SCH.slot_for_approval(db, row, at=at) == "2026-11-04T06:30:00+00:00"
+    with pytest.raises(SCH.SlotGone):   # passed: the operator reschedules, never moved silently
+        SCH.slot_for_approval(db, row, at=at.replace(minute=31))
+    with pytest.raises(SCH.SlotGone, match="passed"):   # exactly now counts as passed
+        SCH.slot_for_approval(db, row, at=at.replace(minute=30, second=0))
+    db.close()
+
+
+def test_approval_refuses_a_planned_slot_another_post_holds(client_dir):
+    db = DB.for_client(client_dir)
+    db.create_post("w01-s9", "demo", scheduled_at="2099-11-04T06:30:00+00:00")
+    row = dict(db.post("w01-s1"), scheduled_at="2099-11-04T06:30:00+00:00")
+    with pytest.raises(SCH.SlotGone, match="taken"):
+        SCH.slot_for_approval(db, row)
+    db.close()
+
+
+def test_manual_slot_in_the_past_is_refused(client_dir):
+    from spine import manual as M
+    with pytest.raises(ValueError, match="past"):
+        M._check_slot("demo", "2020-01-01T06:30:00+00:00")

@@ -1135,7 +1135,8 @@ GEN_BTN = ("<button type=button class='btn sec' onclick=\"document.getElementByI
 
 def generate_box(client: str, slot: str) -> str:
     """Generate New: a new script and film for this slot (the current cut is kept as a version)."""
-    return (f"<dialog class=dlg id=gennew><form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' class=rgbox>"
+    return (f"<dialog class=dlg id=gennew><form method=post action='/{ESC(quote(client))}/v/{ESC(quote(slot))}/decide' class=rgbox "
+            f"onsubmit=\"return confirm('Replace this video with a new one? The current cut stays under its versions.')\">"
             f"<input type=hidden name=action value=generate><h2>Generate new</h2>{engine_pick()}"
             f"<label>What should the video be?<textarea name=prompt rows=5 placeholder='e.g. Same message, but lead with the swell map'></textarea></label>"
             f"<p class=hint style='margin:0'>{EMPTY_HINT} This video is replaced; the current cut stays under its versions.</p>"
@@ -1923,7 +1924,7 @@ def render_month(client: str, month: str | None, hl: str | None = None) -> bytes
             cells = []
             for hm in hms:
                 iso_ = utc_iso(day, hm)
-                past = parse(iso_) < now_ + SCH.LEAD
+                past = parse(iso_) <= now_
                 got = items.get((day.isoformat(), hm))
                 if got:
                     cells.append(_cell(client, got[0][0], got[0][1], past, hl, mini=True, hm=hm))
@@ -2084,7 +2085,7 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
             for day in days:
                 items = cells.get((day.isoformat(), hm)) or []
                 iso = utc_iso(day, hm)
-                past = parse(iso) < now_ + SCH.LEAD
+                past = parse(iso) <= now_
                 if items:
                     g.append(_cell(client, items[0][0], items[0][1], past, hl))
                 else:
@@ -2300,13 +2301,13 @@ def render_settings(client: str) -> bytes:
 
 def _first_free_on(db: DB, day: str, grants: dict, exclude: str) -> str | None:
     taken = SCH.taken_slots(db, exclude=exclude)
-    lim = datetime.now(timezone.utc) + SCH.LEAD
+    lim = datetime.now(timezone.utc)
     d = date.fromisoformat(day)
     # the week view shows a row for every time used that week: those count as open slots on this day too
     wk = {t.strftime("%H:%M") for r in db.posts() for at in (r["published_at"] or r["scheduled_at"],) if at
           for t in (parse(at).astimezone(LOCAL),) if t.date().isocalendar()[:2] == d.isocalendar()[:2]}
     for iso in sorted(set(day_slots(grants, d).values()) | {utc_iso(d, hm) for hm in wk}, key=parse):
-        if parse(iso) >= lim and iso not in taken:
+        if parse(iso) > lim and iso not in taken:
             return iso
     return None
 
@@ -2580,8 +2581,8 @@ class Handler(BaseHTTPRequestHandler):
                         if not at:
                             return self._send(400, b"no open slot left that day", "text/plain")
                         when_ = parse(at)
-                        if when_ < datetime.now(timezone.utc) + SCH.LEAD:
-                            return self._send(400, b"that slot is too close or already past", "text/plain")
+                        if when_ <= datetime.now(timezone.utc):
+                            return self._send(400, b"that slot has already passed", "text/plain")
                         if at in SCH.taken_slots(db, exclude=slot):
                             return self._send(400, b"that slot is taken", "text/plain")
                         db.move(slot, at)
@@ -2689,12 +2690,16 @@ class Handler(BaseHTTPRequestHandler):
                     bad = [v for v in R.spec_verdicts(d / "posts" / slot).values() if "FAIL" in v]
                     if bad:
                         return self._send(409, ("Instagram would refuse this file: " + "; ".join(bad)).encode(), "text/plain")
-                    if "caption" in form:
+                    row_ = db.post(slot)
+                    at = None if row_["scheduled_at"] else preview_slot(name, db, slot)   # the slot the calendar showed
+                    if not at:
+                        try:
+                            at = SCH.slot_for_approval(db, row_, C.load_grants(name))
+                        except SCH.SlotGone as e:
+                            return self._send(409, f"Not approved: {e} ({when(row_['scheduled_at'])}). Reschedule it, then approve.".encode(), "text/plain")
+                    if "caption" in form:   # only once the approve goes through
                         (d / "posts" / slot).mkdir(parents=True, exist_ok=True)
                         (d / "posts" / slot / "caption.txt").write_text(form["caption"])
-                    row_ = db.post(slot)
-                    at = ((not row_["scheduled_at"] and preview_slot(name, db, slot))
-                          or SCH.slot_for_approval(db, row_, C.load_grants(name)))   # the slot the calendar showed
                     db.set_state(slot, "APPROVED", note=notes or None, scheduled_at=at)
                     R.dismiss(name, slot)
                 elif form.get("action") == "caption":

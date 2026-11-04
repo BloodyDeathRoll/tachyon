@@ -19,7 +19,7 @@ def client_dir(tmp_path, monkeypatch):
     (d / "posts" / "w01-s1" / "caption.txt").write_text("first caption")
     (d / "posts" / "w01-s1" / "qa.md").write_text("VERDICT: APPROVED")
     db = DB.for_client(d)
-    db.create_post("w01-s1", "demo", pillar="proof", hook_formula="#5", scheduled_at="2026-11-02T17:00")
+    db.create_post("w01-s1", "demo", pillar="proof", hook_formula="#5", scheduled_at="2099-11-02T17:00")   # ahead: approval keeps it
     for s in ["BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL"]:
         db.set_state("w01-s1", s)
     db.close()
@@ -69,6 +69,28 @@ def test_approve_saves_edited_caption_and_moves_state(server, client_dir):
     db = DB.for_client(client_dir)
     assert db.post("w01-s1")["state"] == "APPROVED"
     db.close()
+
+
+def test_approve_refuses_a_passed_slot(server, client_dir):
+    db = DB.for_client(client_dir)
+    db.conn.execute("UPDATE posts SET scheduled_at='2020-01-01T06:30:00+00:00' WHERE slot_id='w01-s1'")
+    db.conn.commit()
+    db.close()
+    status, body, _ = req(server, "POST", "/demo/decide", {"slot": "w01-s1", "action": "approve"})
+    assert status == 409 and "Reschedule" in body
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["state"] == "NEEDS_APPROVAL"
+    db.close()
+
+
+def test_refused_approve_keeps_the_old_caption(server, client_dir):
+    db = DB.for_client(client_dir)
+    db.conn.execute("UPDATE posts SET scheduled_at='2020-01-01T06:30:00+00:00' WHERE slot_id='w01-s1'")
+    db.conn.commit()
+    db.close()
+    status, _, _ = req(server, "POST", "/demo/decide", {"slot": "w01-s1", "action": "approve", "caption": "edited"})
+    assert status == 409
+    assert (client_dir / "posts" / "w01-s1" / "caption.txt").read_text() == "first caption"
 
 
 def test_reject_requires_note(server, client_dir):

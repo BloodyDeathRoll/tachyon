@@ -254,3 +254,13 @@ def test_instagram_tab_opens_at_once_and_loads_its_list_after(server, client_dir
     assert not [c for c in calls if c.get("source") == "instagram"]   # the page never waits on Instagram
     _, body, _ = req(server, "GET", "/demo/v/w01-s1?music=ig&rows=1")
     assert "<b>Song</b>" in body and "tracks data-wait" not in body and "<html" not in body
+
+
+def test_move_into_a_slot_minutes_away(server, client_dir):  # noqa: F811
+    from datetime import datetime, timedelta, timezone
+    soon = (datetime.now(timezone.utc) + timedelta(minutes=5)).replace(microsecond=0).isoformat()
+    status, _, _ = req(server, "POST", "/demo/move", {"slot": "w01-s1", "at": soon})
+    assert status == 200                                                   # no 30-min lead
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["scheduled_at"] == soon
+    db.close()

@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime, time, timedelta, timezone
 
 DEFAULT_SLOTS = ["06:30", "18:30"]   # UTC, clients/<name>/strategy.md
-LEAD = timedelta(minutes=30)          # never schedule closer than this to now
+LEAD = timedelta(minutes=30)          # auto-picked slots only (next_free); planned and manual slots just need to be ahead
 
 
 def _slots(grants: dict | None) -> list[time]:
@@ -41,16 +41,24 @@ def taken_slots(db, exclude: str | None = None) -> set[str]:
     return {r["scheduled_at"] for r in db.conn.execute(q, ACTIVE).fetchall() if r["slot_id"] != exclude}
 
 
+class SlotGone(ValueError):
+    """The planned slot passed or was taken: the operator picks a new one, never us."""
+
+
 def slot_for_approval(db, row, grants: dict | None = None, at: datetime | None = None) -> str:
-    """Keep a planned slot if it is still ahead and free; otherwise the next free one."""
+    """Keep the planned slot while it is still ahead, however close; refuse once it is gone.
+    Only a video with no slot yet gets the next free one."""
     at = at or datetime.now(timezone.utc)
     taken = taken_slots(db, exclude=row["slot_id"])
     planned = row["scheduled_at"]
     if planned:
         dt = datetime.fromisoformat(planned.replace("Z", "+00:00"))
         dt = dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-        if dt >= at + LEAD and planned not in taken:
-            return planned
+        if dt <= at:
+            raise SlotGone("its slot has passed")
+        if planned in taken:
+            raise SlotGone("its slot is taken")
+        return planned
     return next_free(taken, grants, at)
 
 
