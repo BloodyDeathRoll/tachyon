@@ -365,10 +365,10 @@ async function media(req: Request, env: Env, user: UserRow, client: string, slot
       .run();
     changes = r.meta.changes;
   } finally {
-    if (changes !== 1) await env.MEDIA.delete(key); // no row points at it, whatever the cause
+    if (changes !== 1) await env.MEDIA.delete(key).catch(() => {}); // no row points at it, whatever the cause
   }
   if (changes !== 1) throw new HttpError(409, "changed");
-  if (post.key) await env.MEDIA.delete(post.key).catch(() => {}); // unreferenced now; the daily sweep gets it
+  if (post.key) await env.MEDIA.delete(post.key).catch(() => {}); // unreferenced now, so not an error
   return json(200, { key });
 }
 
