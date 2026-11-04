@@ -473,6 +473,7 @@ async function decide(s: Slot, form: FormData, back: string): Promise<Response> 
       if (!["NEEDS_APPROVAL", "NEEDS_INPUT"].includes(row.state)) throw new HttpError(409, "state", `only a video waiting for review can be generated again (this one is ${row.state})`);
       const engine = field(form, "engine") in ENGINES ? field(form, "engine") : "html";
       const prompt = field(form, "prompt").trim();
+      if (!prompt) throw new HttpError(400, "prompt", "say what the new video should be"); // the host refuses an empty one too
       await setMeta(s, { engine_choice: engine, source: "prompt", plan: "manual" });
       await setState(p.c, slot, "REJECTED", "generate new", {});
       await setState(p.c, slot, "SCRIPTED", `generate new (${engine}): ${prompt.slice(0, 150)}`, {});

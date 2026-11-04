@@ -125,15 +125,33 @@ def pull_slot(client: str, slot: str) -> list[str]:
     from .db import RemoteDB
     sd = C.client_dir(client) / "posts" / slot
     sd.mkdir(parents=True, exist_ok=True)
-    files = RemoteDB(client).files(slot)
+    files = {name: text for name, text in RemoteDB(client).files(slot).items() if name in J.POST_FILES}   # never a path
     for name, text in files.items():
         (sd / name).write_text(text)
     return sorted(files)
 
 
+def pull(client: str, slot: str | None, sleep=time.sleep) -> None:
+    """The brand text and grants, then the slot's online edits, before the job reads or sends
+    them. The network or the Worker down: tried again; refused (not a member, no such client):
+    the job fails before it starts, stale text makes wrong films."""
+    for i in range(REPORT_TRIES):
+        try:
+            C.pull(client)
+            if slot:
+                pull_slot(client, slot)
+            return
+        except (OSError, R.RemoteError) as e:
+            passing = isinstance(e, OSError) or e.status >= 500
+            if i == REPORT_TRIES - 1 or not passing:
+                raise RuntimeError(f"could not pull {client}'s files: {e}") from e
+            sleep(POLL)
+
+
 def push_changed(client: str, since: float) -> dict[str, list[str]]:
     """The text files a job wrote (mtime after `since`), slot by slot, sent up: a plan job makes
-    many slots, a produce or revise rewrites its own. {slot: names}."""
+    many slots, a produce or revise rewrites its own. A host runs one job at a time, so every
+    newer file is this job's. {slot: names}."""
     out = {}
     for sd in sorted((C.client_dir(client) / "posts").glob("*/")):
         names = tuple(n for n in J.POST_FILES if (sd / n).exists() and (sd / n).stat().st_mtime >= since)
@@ -149,6 +167,8 @@ def before(kind: str, client: str, slot: str | None, argv: list[str], payload: d
         WK.begin(client, argv[3], payload.get("instructions"), payload.get("engine"))
     elif kind == "produce":
         prompt = str(payload.get("prompt") or "").strip()
+        if not prompt:   # before stash moves the cut away for nothing
+            raise ValueError("no prompt")
         st = RV.status(client, slot) or {}
         if not (st.get("state") == "failed" and st.get("kind") == "new" and st.get("notes") == prompt):
             M.stash(client, slot, prompt, str(payload.get("engine") or "html"))
@@ -196,9 +216,8 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) ->
     client, slot = job["client"], job.get("slot_id")
     if job["kind"] == "spec":
         return spec(client, slot, cfg)
-    if slot:   # the operator's edits online (caption, meta) before this PC reads or sends the files
-        pull_slot(client, slot)
     if job["kind"] == "upload":
+        pull(client, slot, sleep)   # the operator's online edits, so the files sent up are the newest
         return {"keys": upload(client, slot, cfg)}
     argv = payload.get("argv")
     if not isinstance(argv, list) or not all(isinstance(a, str) for a in argv):
@@ -211,19 +230,11 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) ->
         raise ValueError(f"refused: a {job['kind']} job for {client} cannot run {' '.join(argv)}")
     if job["kind"] not in NO_SLOT and argv[3] != slot:
         raise ValueError(f"refused: the job is for slot {slot}, the command for {argv[3]}")
-    for i in range(REPORT_TRIES):   # the brand text and grants as they are online, before the prompts read them
-        try:
-            C.pull(client)
-            break
-        except (OSError, R.RemoteError) as e:
-            passing = isinstance(e, OSError) or e.status >= 500   # the network or the Worker down: worth another try
-            if i == REPORT_TRIES - 1 or not passing:
-                raise RuntimeError(f"could not pull {client}'s files: {e}") from e   # the job fails before it starts: stale text makes wrong films
-            sleep(POLL)
-    before(job["kind"], client, slot, argv, payload)
+    pull(client, slot, sleep)
     log = log_dir() / f"job-{job['id']}.log"
     log.touch()   # the job's start on the file clock (coarser than time.time()): what push_changed compares against
-    since = log.stat().st_mtime
+    since = log.stat().st_mtime   # before `before`: what it writes (the stashed meta) goes up too
+    before(job["kind"], client, slot, argv, payload)
     with log.open("a") as out:
         r = runner([sys.executable, "-m", *argv], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT)
     if r.returncode != 0:
