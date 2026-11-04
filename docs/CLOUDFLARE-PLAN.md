@@ -60,7 +60,7 @@ Stays as is: bio link redirect on Vercel (`spine/publisher/links.py`), code in g
 
 ## New tables
 
-- `users(id PK, google_sub UNIQUE, email UNIQUE, name, admin, created_at)`. `id` is internal, so an invited user can be given memberships at once; `google_sub` is null until their first sign-in.
+- `users(id PK, google_sub UNIQUE, email UNIQUE, name, admin, created_at)`. `id` is internal, so an invited user can be given memberships at once; `google_sub` is null until their first sign-in. That sign-in binds `google_sub` to the row by email only if the Google ID token has `email_verified` true (as Rosa `deploy/user-api/src/google.ts` requires). After the bind, sign-in matches on `google_sub` only, so a later email change keeps the account.
 - `memberships(user, client)` — a member manages the client. Every page and route checks it.
 - `clients(id, name, ig_user_id, page_id, token_enc, token_expires, ig_username, schedule, autonomy JSON, emergency_stop, created_by)`.
 - `client_files(client, name, text, version, updated_by, updated_at)` — the brand markdown.
@@ -88,12 +88,12 @@ Stays as is: bio link redirect on Vercel (`spine/publisher/links.py`), code in g
 6. After publish the dashboard's player is the Instagram permalink. The local file stays on the creator's PC (`media` says where).
 7. Other formats (16:9, 1:1) are never uploaded: the creator posts them by hand from their PC.
 
-In flight at any time: at most the approved-but-unpublished videos, ~22 MB each. A week of 14 is ~300 MB of the 10 GB.
+In flight at any time: at most the approved-but-unpublished videos, ~22 MB each. A week of 14 is ~300 MB of the 10 GB. FAILED and HELD posts keep their files too, so the dashboard warns when the bucket passes 5 GB.
 
 ## Publish safety (must land before the Worker publishes)
 
 - Creating a container publishes nothing. An invocation that died between container create and saving the container id leaves an orphan container, which is harmless (it expires after 24 h). The next minute creates a new one. The double-post risk is only around `media_publish`.
-- Before `media_publish` the cron sets the post to PUBLISHING. A PUBLISHING post with a container id and no `ig_media_id` is never sent to `media_publish` again blindly: the Worker first reads the container's `status_code`. `PUBLISHED` ("The container's media object has been published", IG Container reference, read 2026-11-04): it is on Instagram, so it is never published again. The Worker looks in `/{ig_user_id}/media` (as `spine/pickup.py` does today) for media whose `timestamp` is after the PUBLISHING time and whose caption matches. Exactly one: record its `ig_media_id` and permalink. None or several: mark the slot FAILED "published, link it by hand", without a retry. `FINISHED`: the publish did not happen, call `media_publish`. `EXPIRED` or `ERROR`: a new container.
+- Before `media_publish` the cron sets the post to PUBLISHING. A PUBLISHING post with a container id and no `ig_media_id` is never sent to `media_publish` again blindly: the Worker first reads the container's `status_code`. `PUBLISHED` ("The container's media object has been published", IG Container reference, read 2026-11-04): it is on Instagram, so it is never published again. The Worker looks in `/{ig_user_id}/media` (as `spine/pickup.py` does today) for media whose `timestamp` is after the PUBLISHING time and whose caption matches. Exactly one: record its `ig_media_id` and permalink. None or several: mark the slot FAILED "published, link it by hand", without a retry. `FINISHED`: the publish did not happen, call `media_publish`. `IN_PROGRESS`: wait for the next minute, never publish. `EXPIRED` or `ERROR`: a new container.
 - `publish_lock` becomes the `leases` row; a second cron invocation for the same client exits.
 - `spec_check` stays local, before upload; the Worker never publishes an object that no host checked.
 
@@ -112,7 +112,7 @@ In flight at any time: at most the approved-but-unpublished videos, ~22 MB each.
 
 ## Local code changes
 
-- `spine/db.py`: talk to D1 through the Worker API instead of `sqlite3.connect`. One module, all callers keep their methods. Auth: the host's session token (the same Google session, saved on the PC by `spine.worker login`).
+- `spine/db.py`: talk to D1 through the Worker API instead of `sqlite3.connect`. One module, all callers keep their methods. Auth: the host's session token (the same Google session, saved on the PC by `spine.worker login`). Every call is a Worker request and may be a D1 write, so a job's writes are batched: one request per state change, not per row.
 - `spine/clients.py`: `load_grants` reads the `clients` row; `client_dir` unchanged; a `pull(client)` writes `client_files` to disk before a generation.
 - `spine/publisher/publish.py`: `publish_slot` ported to the Worker (`video_url`, no `Graph.upload`); the Python keeps `spec_check` and the R2 upload. `auth.py` retired.
 - `spine/worker.py` (new): host registration, job loop, lease heartbeat, R2 upload.
@@ -122,11 +122,11 @@ In flight at any time: at most the approved-but-unpublished videos, ~22 MB each.
 
 ## Phases
 
-0. **Spike** (1 session): operator creates the account; Worker skeleton in TS with D1, R2, the cron and Google sign-in copied from Rosa; measure D1 latency and one publish step's CPU time (to set N, below); one test REELS container with `video_url` on `r2.dev` and one on a Worker route, to settle the `video_url` host (open decisions).
+0. **Spike** (1 session): operator creates the account; Worker skeleton in TS with D1, R2, the cron and Google sign-in copied from Rosa; measure D1 latency and one publish step's CPU time (to set N, below); one test REELS container with `video_url` on `r2.dev` and one on a Worker route that answers `Range` requests (`R2.get` with `range`), to settle the `video_url` host (open decisions).
 1. **D1 behind `spine/db.py`**: schema with `client` columns, `users`, `memberships`, `clients`, `jobs`, `leases`, `hosts`, `media`; migrate `tachyon.db`; tests pass unchanged; this desktop still the only runner.
 2. **`spine/worker.py`**: jobs and leases replace the crontab; the dashboard's Generate New, Revise and formats write jobs. Still one PC. Run a week.
 3. **Connect Instagram**: Facebook Login in the dashboard, tokens per client in D1, weekly refresh in the cron. The local publisher keeps the `.env.local` keys until phase 4 takes over; `auth.py` and the keys are retired in phase 9. Comes before phase 4 because the Worker needs the tokens in D1 to publish. The full Worker dashboard is phase 6, so this phase adds only the Worker routes it needs: a Connect page behind sign-in, the Facebook Login callback and the Page pick.
-4. **Worker publishes from R2**: upload job, `video_url` container, one-minute cron, delete on PUBLISHED plus the daily sweep, idempotency check. Dry-run first; then a test with the cron killed between container create and poll.
+4. **Worker publishes from R2**: upload job, `video_url` container, one-minute cron, delete on PUBLISHED plus the daily sweep, idempotency check. The local dashboard's approve writes the `upload` job (the Worker dashboard comes in phase 6). Dry-run first; then three kill tests: between container create and poll, after PUBLISHING is set and before `media_publish`, and after `media_publish` returned and before `ig_media_id` is saved.
 5. **API-only crons into the Worker**: insights, audience, pickup.
 6. **Dashboard on the Worker**: all pages, phone layout, manifest; the local dashboard kept read-only until parity.
 7. **Clients and members from the dashboard**: `client_files`, `clients` rows, `pull(client)`; the Rosa folder's markdown migrated.
@@ -142,14 +142,14 @@ From developers.cloudflare.com/workers/platform/limits (read 2026-11-04): Worker
 From developers.cloudflare.com/r2/buckets/public-buckets (read 2026-11-04): "Public access through `r2.dev` subdomains is rate-limited and should only be used for development purposes." A custom domain on the bucket needs a zone in the same Cloudflare account.
 
 What that means here:
-- Requests/day (100k): the cron is 1,440. Each PC polls every 60 s: 1,440 per PC. Phone and desktop dashboard use: assume under 2,000 per user. Two PCs and two users come to about 8,000.
-- D1 writes/day (100k): `hosts.last_seen` at most every 5 min is 288 per PC; job heartbeats are 60 per running hour. Posts, journal and insights rows add a few thousand.
+- Requests/day (100k): the cron is 1,440. Each PC polls every 60 s: 1,440 per PC. Phone and desktop dashboard use: assume under 2,000 per user. `spine/db.py` calls from running jobs: assume under 500 per job, a few dozen jobs a week. Two PCs and two users come to about 10,000.
+- D1 writes/day (100k): `hosts.last_seen` at most every 5 min is 288 per PC; job heartbeats are 60 per running hour. Posts, journal and insights rows, job writes included, add a few thousand.
 - CPU (10 ms): the Worker never processes video bytes. Instagram fetches from R2, and the upload is a streamed `R2.put`. So the CPU budget is API calls and HTML only. If the Worker serves `video_url` itself (open decisions), each Instagram fetch is a Worker request, and the response must stream the R2 object body (`new Response(obj.body)`) without buffering it. A 22 MB upload from a PC to the Worker fits the 100 MB body limit.
-- Subrequests (50 per invocation): Graph calls, D1 queries and R2 calls share one budget. Each cron minute works through a queue (publish steps first, then insights, audience, pickup, the daily R2 sweep) across all clients. It stops at 40 subrequests or N publish steps, whichever comes first. Work left over runs the next minute. A Worker cannot time itself ("`Date.now()` returns the time of the last I/O. It does not advance during code execution", Workers security model, read 2026-11-04), so N is a fixed count. The phase 0 spike sets it from the CPU time the dashboard reports for one client's publish step (token decryption, HMAC, Graph JSON parsing). The sweep is one `list()` and one batched `delete()`: each takes up to 1,000 keys (R2 Workers API reference), so about 2 subrequests a day.
+- Subrequests (50 per invocation): Graph calls, D1 queries and R2 calls share one budget. Each cron minute works through a queue (publish steps first, then insights, audience, pickup, the daily R2 sweep) across all clients. It stops at 40 subrequests or N publish steps, whichever comes first. Work left over runs the next minute. A Worker cannot time itself ("`Date.now()` returns the time of the last I/O. It does not advance during code execution", Workers security model, read 2026-11-04), so N is a fixed count. The phase 0 spike sets it from the CPU time the dashboard reports for one client's publish step (token decryption, HMAC, Graph JSON parsing). The sweep is one `list()`, one D1 query for the state of every listed slot, and one batched `delete()`: list and delete take up to 1,000 keys (R2 Workers API reference), so about 3 subrequests a day.
 
 ## Open decisions
 
-- `video_url` host: `r2.dev` is rate-limited and for development only (quote above), and a custom domain needs a zone, which the "no domain bought" decision rules out. Option: the Worker serves the object itself at `tachyon.<account>.workers.dev/v/<key>`, streaming it from a private bucket. Test Instagram's fetch on `r2.dev` in the phase 0 spike, and decide then.
+- `video_url` host: `r2.dev` is rate-limited and for development only (quote above), and a custom domain needs a zone, which the "no domain bought" decision rules out. Option: the Worker serves the object itself at `tachyon.<account>.workers.dev/v/<key>`, streaming it from a private bucket and answering `Range` requests. Test Instagram's fetch on `r2.dev` in the phase 0 spike, and decide then.
 
 - Phone notifications for "needs approval" and "failed": web push from the Worker. Nice to have, a later run (operator 2026-11-04).
 - The two users' Claude accounts: a client's generation is billed to whichever member's PC holds its assets. Fine for Rosa (one creator); revisit if a client gets two creators.
