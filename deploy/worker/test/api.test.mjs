@@ -5,6 +5,8 @@
 // runs in Node against the same D1 (Node >= 22.18 imports the .ts source directly).
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { readFile } from "node:fs/promises";
+import { RESERVED } from "../src/admin.ts";
 import { bindUser, HttpError } from "../src/index.ts";
 import { mint } from "../src/session.ts";
 import { NOW, SECRET, start } from "./harness.mjs";
@@ -148,6 +150,14 @@ test("the sign-in page carries the Google client id and needs no session", async
   assert.match(r.data, /spine\.worker login/);
 });
 
+test("every first path segment index.ts routes is a reserved client id", async () => {
+  // a client id that is also a route's first segment would be shadowed: the list in admin.ts must follow the routes
+  const src = await readFile(new URL("../src/index.ts", import.meta.url), "utf8");
+  const first = [...src.matchAll(/path === "\/([\w-]+)(?:\/[^"]*)?"|p\[0\] === "([\w-]+)"|path\.startsWith\("\/([\w-]+)\//g)].map((m) => m[1] ?? m[2] ?? m[3]);
+  assert.ok(first.length >= 6, "the route patterns changed shape: update this test");
+  for (const s of new Set(first)) assert.ok(RESERVED.has(s), `${s} is routed by index.ts but not reserved in admin.ts`);
+});
+
 test("an admin invites, adds members and clients; a member cannot", async () => {
   assert.equal((await call("GET", "/api/admin/users", { as: 1 })).status, 403);
   const carol = (await call("POST", "/api/admin/users", { as: 3, body: { email: " Carol@Example.com ", admin: "false" } })).data.id; // only `true` makes an admin
@@ -155,6 +165,7 @@ test("an admin invites, adds members and clients; a member cannot", async () => 
   assert.equal((await call("POST", "/api/admin/users", { as: 3, body: { email: "nope" } })).status, 400);
   assert.equal((await call("POST", "/api/admin/clients", { as: 3, body: { id: "zed", name: "Zed Surf" } })).status, 200);
   assert.equal((await call("POST", "/api/admin/clients", { as: 3, body: { id: "zed" } })).status, 409);
+  assert.equal((await call("POST", "/api/admin/clients", { as: 3, body: { id: "api" } })).status, 400); // a path of the Worker's own
   assert.equal((await call("POST", "/api/admin/memberships", { as: 3, body: { user: carol, client: "nope" } })).status, 404);
   assert.equal((await call("POST", "/api/admin/memberships", { as: 3, body: { user: carol, client: "zed" } })).status, 200);
   const users = (await call("GET", "/api/admin/users", { as: 3 })).data.users;
