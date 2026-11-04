@@ -1102,6 +1102,13 @@ def test_sync_videos_card_picks_up_uploads_and_marks_removed_reels(server, monke
     assert "Could not reach Instagram. Try again later." in req(server, "GET", "/demo?synced=err")[1]
 
 
+def test_sync_still_marks_removed_when_pickup_fails(server, monkeypatch):
+    from spine import pickup as PK
+    from spine.publisher import publish as P
+    monkeypatch.setattr(PK, "pickup", lambda c: (_ for _ in ()).throw(RuntimeError("media fetch failed")))
+    monkeypatch.setattr(P, "sync_removed", lambda c: {"checked": 3, "removed": ["a", "b"], "errors": 0})
+    assert req(server, "POST", "/demo/sync", {})[2] == "/demo?synced=2-0-0-1#sync"
+
 def test_pause_and_play(server, client_dir, monkeypatch):
     db = DB.for_client(client_dir)
     req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})

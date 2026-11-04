@@ -2546,6 +2546,9 @@ class Handler(BaseHTTPRequestHandler):
                 from spine.publisher.publish import sync_removed
                 try:
                     res = PK.pickup(name)
+                except Exception:  # noqa: BLE001 — pickup down: still sync removals, count it as one failure
+                    res = [{"error": "pickup"}]
+                try:
                     r = sync_removed(name)
                     n = (f"{len(r['removed'])}-{r['errors']}-{sum(1 for x in res if 'slot_id' in x)}-{sum(1 for x in res if 'error' in x)}")
                 except Exception:  # noqa: BLE001 — no token or network: say so on the card
