@@ -412,12 +412,14 @@ async function media(req: Request, env: Env, user: UserRow, client: string, slot
     // end is not documented (the local one serves the whole file), and the headers come from these
     // numbers. Anything else in Range is ignored and the whole file goes, as RFC 9110 allows.
     const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.get("Range")?.trim() ?? "");
-    if (m && (m[1] || m[2])) {
+    // an end before the start is not a range either (RFC 9110: ignored); a key is never overwritten
+    // (a replaced video gets a new key), so the head's size holds for the get that follows
+    if (m && (m[1] || m[2]) && !(m[1] && m[2] && Number(m[2]) < Number(m[1]))) {
       const head = await env.MEDIA.head(post.key);
       if (!head) throw new HttpError(404, "file");
       const start = m[1] ? Number(m[1]) : Math.max(0, head.size - Number(m[2]));
       const end = m[1] && m[2] ? Math.min(Number(m[2]), head.size - 1) : head.size - 1;
-      if (start >= head.size || start > end) return new Response(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${head.size}` } });
+      if (start >= head.size) return new Response(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${head.size}` } });
       const part = await env.MEDIA.get(post.key, { range: { offset: start, length: end - start + 1 } });
       if (!part) throw new HttpError(404, "file");
       return new Response(part.body, { status: 206, headers: { ...headers, "Content-Range": `bytes ${start}-${end}/${head.size}`, "Content-Length": String(end - start + 1) } });

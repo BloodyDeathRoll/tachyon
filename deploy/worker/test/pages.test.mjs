@@ -389,5 +389,9 @@ test("/m/<client>/<slot>/video streams for a member with the cookie, 401 without
   const odd = await call("GET", "/m/rosa/v1/video", { headers: { Range: "bytes=abc" } }); // not a range: the whole file, as a plain GET
   assert.equal(odd.status, 200);
   assert.equal(odd.headers.get("Content-Length"), "14");
+  const back = await call("GET", "/m/rosa/v1/video", { headers: { Range: "bytes=5-2" } }); // an end before the start: not a range either
+  assert.equal(back.status, 200);
+  assert.equal(back.headers.get("Content-Length"), "14");
+  assert.equal((await call("GET", "/m/rosa/v1/video", { headers: { Range: "bytes=-0" } })).status, 416); // an empty suffix: nothing to give
   assert.equal(part.headers.get("Content-Length"), "6");
 });
