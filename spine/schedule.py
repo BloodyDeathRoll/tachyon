@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import datetime, time, timedelta, timezone
 
 DEFAULT_SLOTS = ["06:30", "18:30"]   # UTC, clients/<name>/strategy.md
-LEAD = timedelta(minutes=30)          # never schedule closer than this to now
+LEAD = timedelta(minutes=30)          # auto-picked slots only (next_free); planned and manual slots just need to be ahead
 
 
 def _slots(grants: dict | None) -> list[time]:
