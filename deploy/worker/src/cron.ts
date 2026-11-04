@@ -22,7 +22,7 @@ export const DAY_MS = 24 * 60 * 60 * 1000;
 export const GRACE_MS = DAY_MS; // an object this young may belong to an upload whose row is not written yet
 export const AUTO_HOUR_UTC = 7; // the crontab ran `week auto` at 07:00 local; here 07:00 UTC
 export const PICKUP_MINUTE = 17; // the crontab's insights hour: `17 * * * *`
-export const PICKUP_COST = 15; // the list, the posts, then up to two calls per import
+export const PICKUP_COST = 6; // the list, the posts, the captions; each link or import then checks its own cost
 type Json = Record<string, unknown>;
 
 /** Take `name` for `ttl` ms. True only if nobody holds it (a run-out lease counts as free). */
@@ -99,7 +99,7 @@ export async function tick(raw: CronEnv, now: number, fetcher: Fetcher = fetch, 
         // measuring and pickup share the lease: a reel being posted this minute is never picked up
         const token = await open(client.token_enc, env.TOKEN_SECRET);
         if (new Date(now).getUTCMinutes() === PICKUP_MINUTE) {
-          if (budget.has(PICKUP_COST)) for (const r of await pickup(env, client, token, now, counted)) lines.push(`pickup ${JSON.stringify(r)}`);
+          if (budget.has(PICKUP_COST)) for (const r of await pickup(env, client, token, now, counted, budget)) lines.push(`pickup ${JSON.stringify(r)}`);
           else lines.push("pickup: budget"); // next hour
         } else {
           lines.push(...(await insights(env, client, token, now, counted, budget)).map((l) => `insights ${l}`));

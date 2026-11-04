@@ -3,6 +3,7 @@
 // linking a reel posted by hand, importing one, and the cron minute that runs them.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { Budget } from "../src/budget.ts";
 import { tick } from "../src/cron.ts";
 import { seal } from "../src/crypto.ts";
 import { iso, OPS, setState } from "../src/db.ts";
@@ -70,7 +71,7 @@ test("what is due: the windows after publish, one hourly row per hour, the accou
   const work = await due(ctx(), T0);
   assert.deepEqual(
     work.map((w) => (w.kind === "media" ? `${w.slot}:${w.window}` : w.kind === "hourly" ? `${w.slot}:h` : w.kind)),
-    ["a:24h", "a:h", "b:24h", "b:72h", "b:7d", "b:h", "c:24h", "c:72h", "c:7d", "account", "account7d"],
+    ["a:24h", "b:24h", "b:72h", "b:7d", "c:24h", "c:72h", "c:7d", "a:h", "b:h", "account", "account7d"],
   );
 });
 
@@ -86,8 +87,9 @@ test("a minute does at most PER_MINUTE media snapshots, then the account rows; t
   assert.equal(log.length, PER_MINUTE + 2);
   assert.deepEqual(log.slice(-2), ["account", "account7d"]);
   assert.equal(script.length, 0);
-  const a = await snaps("a");
-  assert.deepEqual(a.map((s) => s.window), ["24h", "h:2030-03-10T10"]);
+  assert.equal((await post("b")).state, "ANALYZED"); // its 7d snapshot landed in the first minute: windows go first
+  let a = await snaps("a");
+  assert.deepEqual(a.map((s) => s.window), ["24h"]);
   const m = JSON.parse(a[0].metrics);
   assert.equal(m.views, 10);
   assert.equal(m.reels_skip_rate, null);
@@ -104,9 +106,15 @@ test("a minute does at most PER_MINUTE media snapshots, then the account rows; t
   for (let i = 0; i < 9 - PER_MINUTE; i++) script.push(...mediaAnswers(1, 1));
   await step(env, await rosa(), "tok", T0 + 60_000, fetcher);
   assert.equal(script.length, 0);
-  assert.equal((await post("b")).state, "ANALYZED"); // its 7d snapshot landed
   assert.equal((await post("a")).state, "MEASURING");
+  a = await snaps("a");
+  assert.deepEqual(a.map((s) => s.window), ["24h", "h:2030-03-10T10"]);
   assert.deepEqual(await due(ctx(), T0 + 120_000), []);
+  // a minute with little budget stops before the first snapshot and says so
+  await env.DB.prepare("DELETE FROM metric_snapshots WHERE window = 'h:2030-03-10T10'").run();
+  assert.deepEqual(await step(env, await rosa(), "tok", T0 + 120_000, fetcher, new Budget(3)), ["budget"]);
+  for (let i = 0; i < 2; i++) script.push(...mediaAnswers(1, 1));
+  await step(env, await rosa(), "tok", T0 + 120_000, fetcher);
 });
 
 test("a missing permalink is filled in from the media", async () => {
@@ -155,6 +163,10 @@ test("pickup links a slot waiting with the same caption and imports a new reel w
   // the same list again: nothing new
   script.push({ body: { data: [{ id: "m-new", caption: "A fresh one.", timestamp: "2030-03-10T09:30:00+0000", media_product_type: "REELS" }] } });
   assert.deepEqual(await pickup(env, await rosa(), "tok", T0 + 1000, fetcher), []);
+  // a new reel with no budget left for an import waits for the next hour
+  script.push({ body: { data: [{ id: "m-late", caption: "Late", timestamp: "2030-03-10T10:00:00+0000", media_product_type: "REELS" }] } });
+  assert.deepEqual(await pickup(env, await rosa(), "tok", T0 + 1000, fetcher, new Budget(8)), [{ media: "m-late", skipped: "budget" }]);
+  assert.equal(await post("2030-w10-02"), null);
 });
 
 test("the cron minute runs pickup at :17 and insights otherwise, after the publish step", async () => {

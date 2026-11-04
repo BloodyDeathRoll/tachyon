@@ -10,7 +10,7 @@
 // one, a refusal recorded as null.
 
 import { Budget } from "./budget.ts";
-import { files, iso, posts, setState, type Ctx } from "./db.ts";
+import { files, iso, posts, setState, type Ctx, type PostRow } from "./db.ts";
 import { Graph, GraphError, type Fetcher } from "./graph.ts";
 
 type Json = Record<string, unknown>;
@@ -27,7 +27,7 @@ export type Work = { kind: "media"; slot: string; window: string } | { kind: "ho
 
 export function derived(m: Record<string, number | null>, durationS: number | null): Json {
   const reach = m.reach ?? 0;
-  const r = (k: string) => (reach ? (m[k] ?? 0) / reach : null);
+  const r = (k: string) => (reach ? (m[k] ?? 0) / reach : null); // a refused metric counts as 0, as spine/measure/insights.py has it
   const out: Json = { sends_per_reach: r("shares"), likes_per_reach: r("likes"), saves_per_reach: r("saved"), follows_per_reach: r("follows"), comments_per_reach: r("comments") };
   const avg = m.ig_reels_avg_watch_time;
   if (avg != null && durationS) out.hold = avg / 1000 / durationS; // Meta returns milliseconds
@@ -61,22 +61,25 @@ async function addSnapshot(c: Ctx, postId: string | null, source: string, window
     .run();
 }
 
-/** What is due now, media first in publish order. The reads are narrow: this hour's rows, the
-    three windows' rows, today's daily row. */
-export async function due(c: Ctx, now: number): Promise<Work[]> {
+/** What is due now: the windows (the measures the dashboard reads) before the hourly rows,
+    then the account rows. The reads are narrow: this hour's rows, the three windows' rows,
+    today's daily row. `all` is the client's posts, read once by the caller. */
+export async function due(c: Ctx, now: number, all?: PostRow[]): Promise<Work[]> {
   const db = c.env.DB;
-  const live = (await posts(c, null)).filter((p) => p.ig_media_id && p.published_at && p.state !== "REMOVED");
+  const live = (all ?? (await posts(c, null))).filter((p) => p.ig_media_id && p.published_at && p.state !== "REMOVED");
   const have = new Set(
     (await db.prepare("SELECT post_id || '|' || window AS k FROM metric_snapshots WHERE client = ? AND source = 'ig_media' AND window IN ('24h', '72h', '7d')").bind(c.client).all<{ k: string }>()).results.map((r) => r.k),
   );
   const hour = hourKey(now);
   const hourly = new Set((await db.prepare("SELECT post_id FROM metric_snapshots WHERE client = ? AND window = ?").bind(c.client, hour).all<{ post_id: string }>()).results.map((r) => r.post_id));
-  const out: Work[] = [];
+  const windows: Work[] = [];
+  const hours: Work[] = [];
   for (const p of live) {
     const pub = parse(p.published_at);
-    for (const [w, delta] of Object.entries(WINDOWS)) if (!have.has(`${p.slot_id}|${w}`) && now >= pub + delta) out.push({ kind: "media", slot: p.slot_id, window: w });
-    if (now - pub <= HOURLY_DAYS * 24 * 3600_000 && !hourly.has(p.slot_id)) out.push({ kind: "hourly", slot: p.slot_id });
+    for (const [w, delta] of Object.entries(WINDOWS)) if (!have.has(`${p.slot_id}|${w}`) && now >= pub + delta) windows.push({ kind: "media", slot: p.slot_id, window: w });
+    if (now - pub <= HOURLY_DAYS * 24 * 3600_000 && !hourly.has(p.slot_id)) hours.push({ kind: "hourly", slot: p.slot_id });
   }
+  const out: Work[] = [...windows, ...hours];
   const today = new Date(now).toISOString().slice(0, 10);
   const daily = await db.prepare("SELECT 1 FROM metric_snapshots WHERE client = ? AND post_id IS NULL AND source = 'ig_account' AND window = 'daily' AND json_extract(metrics, '$.date') = ?").bind(c.client, today).first();
   if (!daily) out.push({ kind: "account" });
@@ -124,12 +127,14 @@ async function one(c: Ctx, graph: Graph, igUserId: string, w: Work, bySlot: Map<
   ]);
 }
 
-/** A post whose permalink lookup failed at publish time gets it on a later run (one call each). */
-export async function backfillPermalinks(c: Ctx, graph: Graph, budget: number): Promise<string[]> {
+/** A post whose permalink lookup failed at publish time gets it on a later run (one call
+    each), for HOURLY_DAYS after publish: a reel deleted on Instagram would otherwise cost a
+    call every minute forever. */
+export async function backfillPermalinks(c: Ctx, graph: Graph, budget: number, all?: PostRow[]): Promise<string[]> {
   const done: string[] = [];
-  for (const p of await posts(c, null)) {
+  for (const p of all ?? (await posts(c, null))) {
     if (done.length >= budget) break;
-    if (!p.ig_media_id || p.permalink || p.state === "REMOVED") continue;
+    if (!p.ig_media_id || p.permalink || p.state === "REMOVED" || c.now - parse(p.published_at) > HOURLY_DAYS * 24 * 3600_000) continue;
     try {
       const link = (await graph.media(p.ig_media_id)).permalink;
       if (typeof link !== "string") continue;
@@ -156,8 +161,9 @@ export async function step(
   const graph = new Graph(token, fetcher);
   const log: string[] = [];
   if (!client.ig_user_id) return log;
-  const bySlot = new Map((await posts(c, null)).filter((p) => p.ig_media_id).map((p) => [p.slot_id, { ig_media_id: String(p.ig_media_id), state: p.state }]));
-  const work = await due(c, now);
+  const all = await posts(c, null); // once a minute, shared by every step below
+  const bySlot = new Map(all.filter((p) => p.ig_media_id).map((p) => [p.slot_id, { ig_media_id: String(p.ig_media_id), state: p.state }]));
+  const work = await due(c, now, all);
   const media = work.filter((w) => w.kind === "media" || w.kind === "hourly").slice(0, PER_MINUTE);
   const account = work.filter((w) => w.kind === "account" || w.kind === "account7d");
   for (const w of [...media, ...account]) {
@@ -172,7 +178,7 @@ export async function step(
       log.push(`${w.kind}${"slot" in w ? " " + w.slot : ""}: ${e}`); // next minute again
     }
   }
-  const links = await backfillPermalinks(c, graph, Math.max(0, Math.min(PER_MINUTE - media.length, Math.floor(budget.left / 2))));
+  const links = await backfillPermalinks(c, graph, Math.max(0, Math.min(PER_MINUTE - media.length, Math.floor(budget.left / 2))), all);
   if (links.length) log.push(`permalinks: ${links.join(", ")}`);
   return log;
 }

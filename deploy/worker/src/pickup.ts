@@ -5,6 +5,7 @@
 // No video is downloaded: after publish the permalink is the player. Runs in the same
 // minute as the publisher, under its lease, so a reel being posted right now is never taken.
 
+import { Budget } from "./budget.ts";
 import { iso, journal, journalOutcome, post, posts, setState, type Ctx } from "./db.ts";
 import { Graph, type Fetcher } from "./graph.ts";
 
@@ -13,7 +14,14 @@ export const FIELDS = "id,caption,timestamp,permalink,media_product_type,media_u
 export const PER_RUN = 5; // new imports per run
 export const FIRST_LOOK_MS = 7 * 24 * 3600_000; // an account with nothing linked yet: only the last week
 export const HAND_FROM = new Set(["NEEDS_APPROVAL", "APPROVED", "QUEUED", "PAUSED", "FAILED", "MANUAL_HANDOFF"]);
+export const IMPORT_COST = 14; // subrequests one import needs: two batches, the cover fetch and put, eight state changes
+export const LINK_COST = 8;
 const MAX_COVER = 10 * 1024 * 1024;
+
+/** Meta's `2026-11-04T10:00:00+0000` as unix ms (0 when unreadable). */
+export function ms(ts: unknown): number {
+  return Date.parse(String(ts ?? "").replace(/([+-]\d\d)(\d\d)$/, "$1:$2")) || 0;
+}
 
 export function key(text: unknown): string {
   return String(text ?? "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -30,7 +38,7 @@ export function title(caption: string): string {
 
 /** Meta's `2026-11-04T10:00:00+0000` as ISO seconds, the form the Python tables hold. */
 export function when(ts: string): string {
-  return iso(Date.parse(ts.replace(/([+-]\d\d)(\d\d)$/, "$1:$2")));
+  return iso(ms(ts));
 }
 
 function isoWeek(ms: number): string {
@@ -73,8 +81,8 @@ async function newSlot(c: Ctx, env: { MEDIA: R2Bucket }, r: Json, fetcher: Fetch
       c.client, iso(c.now), slot, JSON.stringify({ client: c.client, scheduled_at: at, angle: title(caption), engine: "instagram" }),
     ),
   ]);
+  let coverKey: string | null = null;
   try {
-    let coverKey: string | null = null;
     if (typeof r.thumbnail_url === "string") {
       const res = await fetcher(r.thumbnail_url);
       const bytes = res.ok ? await res.arrayBuffer() : null;
@@ -97,11 +105,13 @@ async function newSlot(c: Ctx, env: { MEDIA: R2Bucket }, r: Json, fetcher: Fetch
   } catch (e) {
     const live = ["PUBLISHED", "MEASURING"].includes((await post(c, slot)).state);
     if (!live) {
-      // nothing half-made stays behind
+      // nothing half-made stays behind: the rows, their history, the cover
       await c.env.DB.batch([
         c.env.DB.prepare("DELETE FROM posts WHERE client = ? AND slot_id = ?").bind(c.client, slot),
         c.env.DB.prepare("DELETE FROM post_files WHERE client = ? AND slot_id = ?").bind(c.client, slot),
+        c.env.DB.prepare("DELETE FROM journal WHERE client = ? AND target = ?").bind(c.client, slot),
       ]);
+      if (coverKey) await env.MEDIA.delete(coverKey).catch(() => {}); // the sweep gets it otherwise
     }
     throw e;
   }
@@ -110,7 +120,14 @@ async function newSlot(c: Ctx, env: { MEDIA: R2Bucket }, r: Json, fetcher: Fetch
 
 /** Link or import every unlinked recent reel posted since the oldest linked one, at most
     PER_RUN imports. One entry per reel. */
-export async function pickup(env: { DB: D1Database; MEDIA: R2Bucket }, client: { id: string; ig_user_id: string | null }, token: string, now: number, fetcher: Fetcher = fetch): Promise<Json[]> {
+export async function pickup(
+  env: { DB: D1Database; MEDIA: R2Bucket },
+  client: { id: string; ig_user_id: string | null },
+  token: string,
+  now: number,
+  fetcher: Fetcher = fetch,
+  budget = new Budget(Number.POSITIVE_INFINITY),
+): Promise<Json[]> {
   const c: Ctx = { env, client: client.id, by: null, now };
   const out: Json[] = [];
   if (!client.ig_user_id) return out;
@@ -118,26 +135,35 @@ export async function pickup(env: { DB: D1Database; MEDIA: R2Bucket }, client: {
   const rows = await graph.recentMedia(client.ig_user_id, FIELDS, 25);
   const all = await posts(c, null);
   const linked = new Set(all.filter((p) => p.ig_media_id).map((p) => p.ig_media_id));
-  const stamps = all.filter((p) => p.ig_media_id && p.published_at).map((p) => Date.parse(String(p.published_at).replace(/([+-]\d\d)(\d\d)$/, "$1:$2")) || 0);
+  const stamps = all.filter((p) => p.ig_media_id && p.published_at).map((p) => ms(p.published_at));
   const since = stamps.length ? Math.min(...stamps) : now - FIRST_LOOK_MS; // never older reels (made before, or deleted here)
+  // the captions of the slots not live yet, one read
+  const handOff = new Set(all.filter((p) => HAND_FROM.has(p.state)).map((p) => p.slot_id));
   const waiting = new Map<string, string>();
-  for (const p of all) {
-    if (!HAND_FROM.has(p.state)) continue;
-    const cap = await c.env.DB.prepare("SELECT text FROM post_files WHERE client = ? AND slot_id = ? AND name = 'caption.txt'").bind(c.client, p.slot_id).first<{ text: string }>();
-    const k = key(cap?.text);
-    if (k && !waiting.has(k)) waiting.set(k, p.slot_id);
+  const captions = (await c.env.DB.prepare("SELECT slot_id, text FROM post_files WHERE client = ? AND name = 'caption.txt' ORDER BY slot_id").bind(c.client).all<{ slot_id: string; text: string }>()).results;
+  for (const cap of captions) {
+    const k = key(cap.text);
+    if (handOff.has(cap.slot_id) && k && !waiting.has(k)) waiting.set(k, cap.slot_id);
   }
   let imports = 0;
   for (const r of [...rows].reverse()) {
     // oldest first: slot numbers follow posting order
-    if (linked.has(String(r.id)) || r.media_product_type !== "REELS" || (Date.parse(String(r.timestamp).replace(/([+-]\d\d)(\d\d)$/, "$1:$2")) || 0) < since) continue;
+    if (linked.has(String(r.id)) || r.media_product_type !== "REELS" || ms(r.timestamp) < since) continue;
     try {
       const slot = waiting.get(key(r.caption));
       if (slot) {
+        if (!budget.has(LINK_COST)) {
+          out.push({ media: r.id, skipped: "budget" }); // next hour
+          continue;
+        }
         waiting.delete(key(r.caption));
         await linkByHand(c, slot, r);
         out.push({ media: r.id, slot_id: slot, linked: true });
       } else if (imports < PER_RUN) {
+        if (!budget.has(IMPORT_COST)) {
+          out.push({ media: r.id, skipped: "budget" });
+          continue;
+        }
         imports++;
         out.push({ media: r.id, slot_id: await newSlot(c, env, r, fetcher), linked: false });
       }
