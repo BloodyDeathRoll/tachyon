@@ -373,7 +373,14 @@ ${setup}
 <p id="m"></p>
 <textarea id="t" readonly hidden></textarea>
 </html>`;
-  return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
+  return new Response(html, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "Content-Security-Policy":
+        "default-src 'self'; script-src 'unsafe-inline' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com/gsi/; connect-src 'self' https://accounts.google.com/gsi/; style-src 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data:",
+    },
+  });
 }
 
 // ── media ─────────────────────────────────────────────────────────────────────

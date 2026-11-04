@@ -5,8 +5,10 @@
 #   systemctl --user daemon-reload && systemctl --user enable --now tachyon-worker
 #   loginctl enable-linger $USER                    # keeps it running with no session open
 #
-# Replaces the crontab entry `0 7 * * * ... spine.week auto`; the publish entry stays until phase 4
-# (docs/CLOUDFLARE-PLAN.md). Logs: ~/.tachyon/logs/worker.log and job-<id>.log.
+# Edit WorkingDirectory and ExecStart for another checkout path or a venv's python. The crontab's
+# `week auto` and publish entries stay until phase 4 (docs/CLOUDFLARE-PLAN.md). Logs:
+# ~/.tachyon/logs/worker.log and job-<id>.log. Exit 3 is a dead session: it is not restarted;
+# run `login` again, then `systemctl --user start tachyon-worker`.
 
 [Unit]
 Description=Tachyon worker (job queue host)
@@ -17,6 +19,7 @@ WorkingDirectory=%h/Projects/tachyon
 ExecStart=/usr/bin/python3 -m spine.worker run
 Restart=always
 RestartSec=60
+RestartPreventExitStatus=3
 
 [Install]
 WantedBy=default.target

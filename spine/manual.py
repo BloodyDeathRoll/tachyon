@@ -28,6 +28,7 @@ from . import jobs as J
 from . import revise as R
 from . import week as W
 from .db import DB
+from .remote import RemoteError
 
 ROOT = Path(__file__).resolve().parent.parent
 UPLOADS = ROOT / "engines" / "remotion" / "public" / "uploads"
@@ -177,7 +178,11 @@ def write_caption(client: str, slot: str) -> None:
     """Background: Claude watches the upload (frames + speech) and writes its caption."""
     sd = C.client_dir(client) / "posts" / slot
     (sd / "caption.writing").touch()   # the page shows "Writing…" until spine.caption removes it
-    J.spawn("caption", client, slot, ["spine.caption", "write", client, slot], sd / "revise.log")
+    try:
+        J.spawn("caption", client, slot, ["spine.caption", "write", client, slot], sd / "revise.log")
+    except (OSError, RemoteError):
+        (sd / "caption.writing").unlink(missing_ok=True)
+        raise
 
 
 def add_prompt(client: str, at: str, prompt: str, engine: str = "html") -> str:
@@ -250,7 +255,11 @@ def regenerate(client: str, slot: str, prompt: str, engine: str = "html") -> Non
 def start(client: str, slot: str) -> None:
     R._write_status(client, slot, state="running", step="planning", kind="new", error=None,
                     notes=(C.client_dir(client) / "posts" / slot / "prompt.txt").read_text().strip())
-    J.spawn("produce", client, slot, ["spine.manual", "produce", client, slot], C.client_dir(client) / "posts" / slot / "revise.log")
+    try:
+        J.spawn("produce", client, slot, ["spine.manual", "produce", client, slot], C.client_dir(client) / "posts" / slot / "revise.log")
+    except (OSError, RemoteError) as e:   # nothing is running: the page must not say so
+        R._write_status(client, slot, state="failed", error=f"could not start: {e}", failed_at=R.now())
+        raise
 
 
 def produce(client: str, slot: str) -> int:

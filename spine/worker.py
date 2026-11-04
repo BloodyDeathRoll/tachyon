@@ -6,16 +6,16 @@
 
 On start the host registers with the clients whose assets/ folder it holds. It polls
 GET /api/jobs/next every 60 s; a claimed job runs here (`python -m <argv>` from the job's
-payload, or the upload and spec jobs below) with a heartbeat every 60 s, then done or fail
-is reported. A lapsed or revoked session stops the loop: run `login` again. The daily
-`week auto` runs from here too (it replaces the crontab entry `0 7 * * * spine.week auto`).
+payload, checked against ARGV below, or the upload and spec jobs) with a heartbeat every
+60 s, then done or fail is reported. A lapsed or revoked session stops the loop (exit 3):
+run `login` again. The crontab's `week auto` entry stays until the Worker's cron enqueues
+it (phase 4).
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-import os
 import re
 import shutil
 import socket
@@ -33,9 +33,13 @@ from . import remote as R
 ROOT = Path(__file__).resolve().parent.parent
 POLL = 60
 HEARTBEAT = 60
-AUTO_HOUR = 7            # local time; the crontab ran `week auto` at 07:00
 TAIL = 600               # characters of a failed job's output kept in its result
+REPORT_TRIES = 3         # done/fail over a flaky network: a lost report would re-run the job
 ID = re.compile(r"[^\w-]+")
+# what a job of each kind may run: module, subcommand, then the job's client and slot (or the week)
+ARGV = {"plan": ("spine.week", "prepare"), "produce": ("spine.manual", "produce"), "revise": ("spine.revise", "run"),
+        "formats": ("spine.formats", "make"), "caption": ("spine.caption", "write")}
+MAKES_VIDEO = {"produce", "revise", "formats"}   # kinds after which the slot's video.mp4 is reported
 
 
 def log_dir() -> Path:
@@ -136,17 +140,22 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run) -> dict:
     if job["kind"] == "spec":
         return spec(client, slot, cfg)
     argv = payload.get("argv")
-    if not isinstance(argv, list) or not argv or not all(isinstance(a, str) for a in argv):
+    if not isinstance(argv, list) or not all(isinstance(a, str) for a in argv):
         raise ValueError("the job has no argv")
-    if argv[0].split(".")[0] != "spine":   # a job runs this repo's modules, nothing else
-        raise ValueError(f"refused: {argv[0]} is not a spine module")
+    # a job runs the one command its kind allows, for its own client and slot: a member of one
+    # client must not run work for another, nor the publisher
+    want = ARGV.get(job["kind"])
+    if not want or tuple(argv[:2]) != want or len(argv) < 4 or argv[2] != client:
+        raise ValueError(f"refused: a {job['kind']} job for {client} cannot run {' '.join(argv)}")
+    if job["kind"] != "plan" and argv[3] != slot:
+        raise ValueError(f"refused: the job is for slot {slot}, the command for {argv[3]}")
     log = log_dir() / f"job-{job['id']}.log"
     with log.open("a") as out:
         r = runner([sys.executable, "-m", *argv], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT)
     if r.returncode != 0:
         tail = log.read_text()[-TAIL:] if log.exists() else ""
         raise RuntimeError(f"exit {r.returncode}: {tail}")
-    return {"returncode": 0, "media": media_of(client, slot, cfg)}
+    return {"returncode": 0, "media": media_of(client, slot, cfg) if job["kind"] in MAKES_VIDEO else None}
 
 
 def _beat(job_id: int, cfg: dict, stop: threading.Event) -> None:
@@ -157,7 +166,7 @@ def _beat(job_id: int, cfg: dict, stop: threading.Event) -> None:
             say(f"job {job_id}: heartbeat failed: {e}")
 
 
-def once(cfg: dict, *, runner=subprocess.run) -> bool:
+def once(cfg: dict, *, runner=subprocess.run, sleep=time.sleep) -> bool:
     """One poll. Runs the job it gets, reports it. True when a job ran."""
     job = R.call("GET", f"/api/jobs/next?host={host_id(cfg)}", cfg=cfg)
     if not job:
@@ -174,45 +183,30 @@ def once(cfg: dict, *, runner=subprocess.run) -> bool:
     finally:
         stop.set()
         t.join(timeout=5)
-    try:
-        R.call("POST", f"/api/jobs/{job['id']}/{action}", {"host": host_id(cfg), "result": body}, cfg=cfg)
-    except R.RemoteError as e:
-        if e.status == 409:   # the lease was lost (another host has it): our result is dropped
-            say(f"job {job['id']}: lease lost, result dropped")
-        else:
-            raise
+    for i in range(REPORT_TRIES):
+        try:
+            R.call("POST", f"/api/jobs/{job['id']}/{action}", {"host": host_id(cfg), "result": body}, cfg=cfg)
+            break
+        except R.RemoteError as e:
+            if e.status != 409:
+                raise
+            say(f"job {job['id']}: lease lost, result dropped")   # another host has it now
+            break
+        except OSError as e:   # the network: a lost report would re-run the job after the lease
+            if i == REPORT_TRIES - 1:
+                raise
+            say(f"job {job['id']}: report failed ({e}), trying again")
+            sleep(POLL)
     say(f"job {job['id']}: {action}")
     return True
-
-
-def auto_week(cfg: dict, done: dict, now: datetime | None = None) -> list[str]:
-    """`week auto` once a day per client from AUTO_HOUR local (the crontab's 07:00 entry). `done`
-    remembers the day it ran per client."""
-    from . import week as W
-    now = now or datetime.now()
-    out = []
-    if now.hour < AUTO_HOUR:
-        return out
-    for c in host_clients():
-        if done.get(c) == now.date().isoformat():
-            continue
-        try:
-            W.auto(c)
-            out.append(c)
-        except Exception as e:  # noqa: BLE001 — tomorrow again; one client must not stop the others
-            say(f"week auto {c}: {e}")
-        done[c] = now.date().isoformat()
-    return out
 
 
 def run(cfg: dict, *, sleep=time.sleep) -> int:
     reg = register(cfg)
     say(f"host {host_id(cfg)} registered: clients {reg['clients']}" + (f", not a member of {reg['dropped']}" if reg.get("dropped") else ""))
-    auto_done: dict = {}
     while True:
         try:
-            auto_week(cfg, auto_done)
-            if not once(cfg):
+            if not once(cfg, sleep=sleep):
                 sleep(POLL)
         except R.RemoteError as e:
             if e.status == 401:

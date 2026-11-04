@@ -19,7 +19,9 @@ moves a client's `tachyon.db` and files online (its docstring has the two comman
    holds and polls for jobs every minute.
 3. With a Worker configured, the dashboard's Generate week, Generate New, Revise, other
    formats and caption buttons write `jobs` rows (`spine/jobs.py`) instead of forking; the
-   host runs them. Remove the crontab's `spine.week auto` line: the host runs it daily.
+   host runs them. A job runs only its kind's command for its own client and slot
+   (`spine/worker.py` `ARGV`). The crontab's `spine.week auto` and publish lines stay
+   until phase 4's cron takes them over.
 
 ## Run without an account
 

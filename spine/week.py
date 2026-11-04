@@ -33,6 +33,7 @@ from . import clients as C
 from . import revise as R
 from . import schedule as SCH
 from .db import DB
+from .remote import RemoteError
 
 ROOT = Path(__file__).resolve().parent.parent
 FILMS = ROOT / "engines" / "remotion" / "src" / "films"
@@ -154,7 +155,11 @@ def start(client: str, week: str, instructions: str | None = None, engine: str |
     engine = engine if engine in ENGINES else last_engine(client)   # the daily auto run: the last batch's choice
     _status(client, week, state="running", step="planning", done=0, total=len(free_slot_times(client, week)), error=None,
             started_at=now(), instructions=instructions.strip(), engine=engine)
-    J.spawn("plan", client, None, ["spine.week", "prepare", client, week], plans_dir(client) / f"{week}.log")
+    try:
+        J.spawn("plan", client, None, ["spine.week", "prepare", client, week], plans_dir(client) / f"{week}.log")
+    except (OSError, RemoteError) as e:   # nothing is running: the page must not say so
+        _status(client, week, state="failed", error=f"could not start: {e}")
+        raise
 
 
 def _claude(prompt: str, allowed: str, timeout: int) -> str:

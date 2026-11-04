@@ -7,7 +7,6 @@ import hashlib
 import json
 import subprocess
 import sys
-from datetime import datetime
 
 import pytest
 import yaml
@@ -82,9 +81,9 @@ def test_no_job_is_a_quiet_poll(env, monkeypatch):
     assert f.calls[0][:2] == ("GET", "http://w/api/jobs/next?host=pc-a")
 
 
-def test_a_failed_job_reports_its_tail_and_a_strange_argv_is_refused(env, monkeypatch):
-    job = {"id": 8, "kind": "revise", "client": "rosa", "slot_id": None, "payload": {"argv": ["spine.revise", "run", "rosa", "s"]}}
-    f = fake(monkeypatch, (200, job), (200, {"ok": True}), (200, {**job, "id": 9, "payload": {"argv": ["os"]}}), (200, {"ok": True}))
+def test_a_failed_job_reports_its_tail(env, monkeypatch):
+    job = {"id": 8, "kind": "revise", "client": "rosa", "slot_id": "s", "payload": {"argv": ["spine.revise", "run", "rosa", "s"]}}
+    f = fake(monkeypatch, (200, job), (200, {"ok": True}))
 
     def runner(cmd, **kw):
         kw["stdout"].write("boom\n")
@@ -92,14 +91,54 @@ def test_a_failed_job_reports_its_tail_and_a_strange_argv_is_refused(env, monkey
 
     W.once(CFG, runner=runner)
     assert f.calls[1][1].endswith("/api/jobs/8/fail") and f.calls[1][2]["result"] == "exit 1: boom\n"
-    W.once(CFG, runner=runner)
-    assert f.calls[3][1].endswith("/api/jobs/9/fail") and "not a spine module" in f.calls[3][2]["result"]
 
 
-def test_a_lost_lease_drops_the_result(env, monkeypatch):
+@pytest.mark.parametrize("kind, slot, argv", [
+    ("revise", "s", ["os"]),
+    ("revise", "s", ["spine.publisher.publish", "rosa", "s"]),               # not the kind's command
+    ("revise", "s", ["spine.revise", "run", "acme", "s"]),                    # another client
+    ("revise", "s", ["spine.revise", "run", "rosa", "other"]),                # another slot
+    ("plan", None, ["spine.week", "prepare", "acme", "2026-W10"]),            # another client's week
+    ("produce", "s", ["spine.manual", "produce", "rosa"]),                    # too short
+    ("upload", "s", None),                                                    # kinds without argv are the worker's own
+])
+def test_a_job_runs_only_its_kind_s_command_for_its_own_client(env, monkeypatch, kind, slot, argv):
+    ran = []
+    job = {"id": 9, "kind": kind if argv else "voice", "client": "rosa", "slot_id": slot, "payload": {"argv": argv} if argv else None}
+    with pytest.raises(ValueError):
+        W.run_job(job, CFG, runner=lambda cmd, **kw: ran.append(cmd))
+    assert ran == []
+
+
+def test_only_video_making_jobs_report_a_file(env, monkeypatch):
+    sd = env / "clients" / "rosa" / "posts" / "s"
+    sd.mkdir()
+    (sd / "video.mp4").write_bytes(b"vid")
+    ok = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0)  # noqa: E731
+    assert W.run_job({"id": 1, "kind": "caption", "client": "rosa", "slot_id": "s", "payload": {"argv": ["spine.caption", "write", "rosa", "s"]}}, CFG, runner=ok)["media"] is None
+    assert W.run_job({"id": 2, "kind": "revise", "client": "rosa", "slot_id": "s", "payload": {"argv": ["spine.revise", "run", "rosa", "s"]}}, CFG, runner=ok)["media"]["size"] == 3
+
+
+def test_a_lost_lease_drops_the_result_and_a_flaky_report_is_tried_again(env, monkeypatch):
+    import urllib.error
     job = {"id": 10, "kind": "plan", "client": "rosa", "slot_id": None, "payload": {"argv": ["spine.week", "prepare", "rosa", "2026-W10"]}}
+    ok = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0)  # noqa: E731
     fake(monkeypatch, (200, job), (409, {"error": "lease"}))
-    assert W.once(CFG, runner=lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0)) is True
+    assert W.once(CFG, runner=ok) is True
+    f = fake(monkeypatch, (200, job), (200, {"ok": True}))
+    first = f.answers.copy()
+    calls = {"n": 0}
+
+    def flaky(req, timeout=0):
+        if req.full_url.endswith("/done") and calls["n"] < 2:
+            calls["n"] += 1
+            raise urllib.error.URLError("down")
+        return f(req, timeout)
+
+    monkeypatch.setattr(R, "opener", flaky)
+    slept = []
+    assert W.once(CFG, runner=ok, sleep=slept.append) is True
+    assert calls["n"] == 2 and slept == [W.POLL, W.POLL] and f.answers == [] and first[1] == (200, {"ok": True})
 
 
 def test_upload_puts_the_video_and_the_cover(env, monkeypatch):
@@ -153,23 +192,33 @@ def test_login_checks_the_session_and_saves_it(env, monkeypatch):
     assert oct(p.stat().st_mode)[-3:] == "600"
 
 
-def test_week_auto_runs_once_a_day_from_seven(env, monkeypatch):
-    ran = []
-    monkeypatch.setattr(week, "auto", lambda c: ran.append(c) or 0)
-    done = {}
-    assert W.auto_week(CFG, done, datetime(2026, 1, 1, 6, 59)) == []
-    assert W.auto_week(CFG, done, datetime(2026, 1, 1, 7, 0)) == ["rosa"]
-    assert W.auto_week(CFG, done, datetime(2026, 1, 1, 12, 0)) == []
-    assert W.auto_week(CFG, done, datetime(2026, 1, 2, 9, 0)) == ["rosa"]
-    assert ran == ["rosa", "rosa"]
-
-
 def test_run_stops_when_the_session_is_dead(env, monkeypatch):
-    monkeypatch.setattr(week, "auto", lambda c: 0)
     fake(monkeypatch, (200, {"clients": ["rosa"], "dropped": []}), (204, None), (401, {"error": "auth"}))
     slept = []
     assert W.run(CFG, sleep=slept.append) == 3
     assert slept == [W.POLL]
+
+
+def test_a_spawn_that_cannot_reach_the_worker_leaves_no_running_status(env, monkeypatch, tmp_path):
+    import urllib.error
+    from spine import manual, revise
+    monkeypatch.setattr(R, "opener", lambda req, timeout=0: (_ for _ in ()).throw(urllib.error.URLError("down")))
+    sd = env / "clients" / "rosa" / "posts" / "s"
+    sd.mkdir()
+    (sd / "prompt.txt").write_text("x\n")
+    with pytest.raises(OSError):
+        manual.start("rosa", "s")
+    assert revise.status("rosa", "s")["state"] == "failed" and "could not start" in revise.status("rosa", "s")["error"]
+    with pytest.raises(OSError):
+        manual.write_caption("rosa", "s")
+    assert not (sd / "caption.writing").exists()
+    with pytest.raises(OSError):
+        revise.start("rosa", "s", "notes")
+    assert revise.status("rosa", "s")["state"] == "failed"
+    monkeypatch.setattr(week, "free_slot_times", lambda c, w: [])
+    with pytest.raises(OSError):
+        week.start("rosa", "2026-W10", "")
+    assert week.status("rosa", "2026-W10")["state"] == "failed"
 
 
 # ── against the Worker in Miniflare ──────────────────────────────────────────
@@ -183,11 +232,13 @@ def test_end_to_end_a_job_round_trip(worker, env, monkeypatch):
     sd.mkdir()
     (sd / "video.mp4").write_bytes(b"vid")
     assert W.register(cfg)["clients"] == ["rosa"]
-    job_id = J.spawn("produce", "rosa", "e2e-1", ["spine.state"], sd / "x.log")   # `python -m spine.state` runs and exits 0
+    job_id = J.spawn("produce", "rosa", "e2e-1", ["spine.manual", "produce", "rosa", "e2e-1"], sd / "x.log")
     assert isinstance(job_id, int)
     jobs = R.call("GET", "/api/jobs?client=rosa&slot=e2e-1", cfg=cfg)["jobs"]
     assert [j["state"] for j in jobs] == ["queued"]
-    assert W.once(cfg) is True
+    ran = []
+    assert W.once(cfg, runner=lambda cmd, **kw: ran.append(cmd) or subprocess.CompletedProcess(cmd, 0)) is True
+    assert ran == [[sys.executable, "-m", "spine.manual", "produce", "rosa", "e2e-1"]]
     job = R.call("GET", "/api/jobs?client=rosa&slot=e2e-1", cfg=cfg)["jobs"][0]
     assert job["state"] == "done" and job["holder"] == "pc-e2e"
     assert json.loads(job["result"])["media"]["sha"] == hashlib.sha256(b"vid").hexdigest()
