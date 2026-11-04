@@ -1,0 +1,28 @@
+{
+  "slot_id": "2026-w45-10",
+  "title": "Swell as particles",
+  "pillar": "Swell map",
+  "angle": "Thousands of blue particles stream across a black frame like a swell train. They pour into the phone screen and settle into charts.png, the swell colours lighting up. The phone rotates in 3D, the particles keep flowing past it toward a pin on the coast. End card: logo, white \"See it coming.\", space, glowing blue button \"rosa.surf/charts\".",
+  "hook_formula": "See the swell before it lands",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Surf Rock Summer (BFCMUSIC), baked in",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w45-10",
+    "story": "film-2026-w45-10-story",
+    "source": "engines/remotion/src/films/film-2026-w45-10.tsx",
+    "music": "clients/rosa/assets/music/surf-rock-summer-325576.mp3"
+  },
+  "track": "surf-rock-summer",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w45-10",
+  "plan": "2026-W45",
+  "motion": "manuelogomigo-f33ca9",
+  "theme": "dark",
+  "duration_s": 15.06
+}

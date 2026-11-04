@@ -1,0 +1,5 @@
+prepare failed: mapping values are not allowed here
+  in "<unicode string>", line 6, column 203:
+     ... punch on around it, one per beat: "Free.", "3,500+ spots.", "16  ... 
+                                         ^
+prepare failed: Object of type datetime is not JSON serializable

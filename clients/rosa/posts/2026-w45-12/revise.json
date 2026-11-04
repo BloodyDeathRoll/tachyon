@@ -1,0 +1,25 @@
+{
+ "state": "done",
+ "step": "done",
+ "notes": "Stop taking into consideration how Instagram cuts the video, and US THE WHOLE SCREEN instead of showing a 1/9 size mobile",
+ "rounds": [
+  {
+   "notes": "Stop taking into consideration how Instagram cuts the video, and US THE WHOLE SCREEN instead of showing a 1/9 size mobile",
+   "at": "2026-10-31T11:26:29+00:00"
+  }
+ ],
+ "error": null,
+ "skip_edit": false,
+ "revoice": false,
+ "changes": "The phone now fills the whole frame, but nothing is checked yet: the `tsc` check and the `remotion still` render both need approval in this session, so I couldn't run either or look at any frames.\n\nChanges, all in `engines/remotion/src/films/film-2026-w45-12.tsx`:\n- The film is centred on the middle of the frame (`width/2, height/2`) instead of the middle of the safe box.\n- The phone's scale goes from 0.6\u21920.74 to 1.5\u21922.05, so the app is about 860\u00d71800 px across the full screen. The zoom at the end is cut from \u00d78 to \u00d74 to match.\n- The phone starts lower (y offset 300 instead of 60) so it sits under the hook, then rises to the centre.\n- The hook text is now drawn on top of the phone.\n- Shards fly further (distance 500\u20131200 instead of 220\u2013700) and are bigger (size 10\u201334 instead of 6\u201322).\n- The snap ring grows to 2200 px instead of 1040.\n- The background gradient is wider and uses the frame height instead of a fixed 1920.\n\nNot changed:\n- **Text placement:** all text stays inside SAFE. The app strips now reach past it, which the operator asked for but the rules forbid for UI elements.\n- **Voice-over:** the message is the same, so I left the script alone.\n\nTo check it, approve and run:\n```\nnpx tsc --noEmit -p .\nnpx remotion still src/index.ts film-2026-w45-12 /home/shahar/Projects/tachyon/clients/rosa/posts/2026-w45-12/.still.png --frame=90\n```\n\nRisk: the burst layers (moved up to 125 px \u00d7 2.05) may get cut off at the top and bottom edges. Checking stills at frames 60, 90 and 180 would show it.",
+ "kind": null,
+ "no_change": false,
+ "updated_at": "2026-10-31T11:31:11+00:00",
+ "vo_before": "Dude, it's got everything. Spots, swell map, alerts, and I've never paid a cent. Roza dot surf, go check it.",
+ "verdicts": {
+  "reel": "VERDICT: FAIL (worst band 0.61x; text or UI in a band shows as > 0.6x)",
+  "story": "VERDICT: FAIL (worst band 0.62x; text or UI in a band shows as > 0.6x)",
+  "reel spec": "VERDICT: PASS",
+  "story spec": "VERDICT: PASS"
+ }
+}

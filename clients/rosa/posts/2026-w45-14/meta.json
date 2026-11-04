@@ -1,0 +1,40 @@
+{
+  "slot_id": "2026-w45-14",
+  "title": "Search any break",
+  "pillar": "Spot spotlight",
+  "angle": "One message: any well-known break in the world is one search away. Open on the phone filling the bottom two thirds of the full frame, the search screen up with Pipeline, Supertubos and Uluwatu listed and rated. A tap on Supertubos opens its spot page and the phone settles large while the page scrolls slowly through the day; the bottom nav stays fixed, only the content moves. Close on the W44 · 03 end card over a fresh ocean clip (not the barrel): Rosa logo, white text under it, a softly glowing button with white text set a little below, white \"link in bio\". Rosa app particles rise and fade in any empty area of the frame throughout; no sign-in or Google screens anywhere.",
+  "hook_formula": "Any break. One search.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Wildflowers (Nick Gallant), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w45-14/film",
+    "source": "clients/rosa/posts/2026-w45-14/film/index.html",
+    "music": "clients/rosa/assets/music/surf-rock-summer-325576.mp3"
+  },
+  "track": "ig:351866282607327",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w45-14",
+  "plan": "manual",
+  "motion": null,
+  "theme": "dark",
+  "duration_s": 18.0,
+  "audio_configuration": {
+    "audio_id": "351866282607327",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Wildflowers",
+    "artist": "Nick Gallant",
+    "cover": "https://scontent-lga3-2.xx.fbcdn.net/v/t39.30808-1/292636946_509329640940127_3409036784385541902_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=4xPpUwRi3j8Q7kNvwH9ITIy&_nc_oc=AdpU8p62NaLqvtW_iffBarfHySv5WZ2imOF4TFG8cloc9hbISs_0u5XeKexBxnnwKug&_nc_zt=24&_nc_ht=scontent-lga3-2.xx&edm=AOP_XFkEAAAA&_nc_gid=mf7dcqj5kJSB5IDX4qdFPg&oh=00_AQRcH2WrUUL4xyZ-BbSd1HsgYd7cgWagXR6geIkPmhjAUQ&oe=6AEC2301",
+    "duration": 134.5,
+    "link": null,
+    "preview_of": "ig:351866282607327"
+  }
+}

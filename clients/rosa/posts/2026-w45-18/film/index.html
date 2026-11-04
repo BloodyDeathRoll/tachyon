@@ -1,0 +1,236 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url(inter-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #000; }
+body { font-family: Inter, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+.abs { position: absolute; }
+video { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; }
+#bgA, #bgB { position: absolute; inset: 0; overflow: hidden; }
+canvas { position: absolute; left: 0; pointer-events: none; }
+#stage { position: absolute; inset: 0; perspective: 2600px; perspective-origin: 540px 1100px; }
+#cam { position: absolute; inset: 0; transform-origin: 0 0; }
+#phone { position: absolute; left: 236px; top: 620px; width: 608px; height: 1279px; border-radius: 88px;
+  background: linear-gradient(145deg, #2a2f3a, #0b0d12 40%, #1c2029); padding: 16px;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.14), 0 60px 120px rgba(0,0,0,.55), 0 20px 40px rgba(0,0,0,.35); }
+#screen { position: relative; width: 576px; height: 1247px; border-radius: 72px; overflow: hidden;
+  background: url(map.png) 0 0 / 576px auto no-repeat; }
+.card { position: absolute; top: 0; background-repeat: no-repeat; }
+#nav { position: absolute; left: 0; background: url(map.png) no-repeat; }
+.ring { position: absolute; border-radius: 50%; border: 4px solid #11b7f2; }
+.h { font-weight: 800; letter-spacing: -0.045em; line-height: .98; }
+.line { overflow: hidden; padding-bottom: .08em; }
+.line > span { display: inline-block; }
+#end { position: absolute; left: 65px; width: 950px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+#btn { margin-top: 64px; padding: 30px 62px; border-radius: 999px; background: #11b7f2; color: #fff; font-weight: 800; font-size: 46px; letter-spacing: -0.01em; }
+</style></head>
+<body>
+<div id="bgA"><video id="vA" src="283533_large.mp4" muted playsinline preload="auto"></video><div id="shadeA" class="abs" style="inset:0"></div></div>
+<canvas id="pBack" width="1080" height="1274" style="top:646px"></canvas>
+
+<div id="stage"><div id="cam">
+  <div id="phone"><div id="screen">
+    <div id="rings"></div>
+    <!-- the card rail: a flat patch over the baked-in cards, then real card crops from three live captures -->
+    <div id="band" class="abs" style="left:0; width:576px; background:#efefed"></div>
+    <div id="rail" class="abs" style="left:0"></div>
+    <div id="nav"></div>
+  </div></div>
+</div></div>
+
+<div id="hook" class="abs h" style="left:65px; width:950px; font-size:128px; transform-origin:0 0">
+  <div class="line"><span id="h1">North Shore,</span></div>
+  <div class="line"><span id="h2">every break</span></div>
+  <div class="line"><span id="h3" style="color:#11b7f2">rated.</span></div>
+</div>
+
+<div id="bgB"><video id="vB" src="218670_large.mp4" muted playsinline preload="auto" style="filter:contrast(1.1) saturate(1.25)"></video><div class="abs" style="inset:0; background:radial-gradient(120% 60% at 50% 40%, rgba(3,14,48,.35), rgba(2,8,28,.78)); mix-blend-mode:multiply"></div></div>
+<canvas id="pEnd" width="1080" height="1274" style="top:646px"></canvas>
+<div id="end">
+  <img id="logo" src="rosa-icon.svg" style="width:190px; height:190px">
+  <div id="e1" class="h" style="font-size:76px; margin-top:52px; color:#fff">North Shore,<br>every break rated.</div>
+  <div id="e2" class="h" style="font-size:56px; margin-top:22px; font-weight:600; letter-spacing:-0.02em; color:#fff">it's free.</div>
+  <div id="btn">Install it</div>
+  <div id="e3" style="font-size:42px; font-weight:600; margin-top:40px; color:#fff">link in bio</div>
+</div>
+
+<script>
+const variant = new URLSearchParams(location.search).get("variant") === "story" ? "story" : "reel";
+const SAFE_TOP = variant === "story" ? 269 : 285;
+const $ = (id) => document.getElementById(id);
+
+// ── easing ──
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const inOut = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const outExpo = (x) => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const outBack = (x, s = 1.4) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
+// a finger flick: quick pick-up, long glide out (Bezier .3,0 / .12,1 solved for x)
+const flick = (x) => { let lo = 0, hi = 1, u = x; for (let i = 0; i < 30; i++) { u = (lo + hi) / 2; const bx = 3 * (1 - u) ** 2 * u * .3 + 3 * (1 - u) * u * u * .12 + u ** 3; bx < x ? lo = u : hi = u; } return 3 * (1 - u) * u * u + u ** 3; };
+
+// ── timeline (s) ──
+const T = { phone: 2.3, pins: 3.7, swipe: 5.4, swipeEnd: 8.6, out: 10.6, end: 11.3, dur: 17 };
+
+// ── screen geometry, capture px (1170 x 2532) -> screen px ──
+const K = 576 / 1170;
+const CARD = { top: 1836, h: 353, w: 643, pitch: 673 };
+$("band").style.top = (CARD.top - 4) * K + "px";
+$("band").style.height = (CARD.h + 8) * K + "px";
+// [source, source x, width, rail x]: Rocky Point (Epic) -> Velzyland (Good) -> Leftovers (Good), with the
+// part-cards either side exactly as the app shows them at the start and at the end of the swipe
+const PIECES = [["map.png", 0, 234, 0], ["map.png", 263, 643, 263], ["map-northshore-2.png", 263, 643, 936],
+  ["map-northshore.png", 263, 643, 1609], ["map-northshore.png", 936, 234, 2282]];
+const SWIPE = 2 * CARD.pitch;
+const rail = $("rail");
+rail.style.top = CARD.top * K + "px";
+for (const [src, sx, w, rx] of PIECES) {
+  const d = document.createElement("div");
+  d.className = "card";
+  const full = w === CARD.w, left = sx === 0;
+  Object.assign(d.style, { left: rx * K + "px", width: w * K + "px", height: CARD.h * K + "px",
+    backgroundImage: `url(${src})`, backgroundSize: `${1170 * K}px auto`, backgroundPosition: `${-sx * K}px ${-CARD.top * K}px`,
+    borderRadius: full ? `${36 * K}px` : left ? `0 ${36 * K}px ${36 * K}px 0` : `${36 * K}px 0 0 ${36 * K}px` });
+  rail.appendChild(d);
+}
+// the floating nav pill, from the base shot: it never moves while the cards swipe
+Object.assign($("nav").style, { top: 2220 * K + "px", width: 576 + "px", height: (2532 - 2220) * K + "px",
+  backgroundSize: "576px auto", backgroundPosition: `0 ${-2220 * K}px`,
+  clipPath: `inset(${72 * K}px ${48 * K}px ${44 * K}px ${48 * K}px round ${98 * K}px)` });
+// numbered pins 2..5 on the base shot (capture px)
+const PINS = [[356, 1584], [467, 1465], [566, 1308], [627, 1229]];
+const RINGS = PINS.map(() => { const r = document.createElement("div"); r.className = "ring"; $("rings").appendChild(r); return r; });
+
+// ── Rosa particles: the app's sign-in screen field (rosa/web particles.ts + SignInScreen.tsx:
+// palette, density 1.4, speed 1, alpha .3, 460 css px band, screen blend) made a pure function of t ──
+const CSS = 1080 / 390;
+const BW = 390, BH = 460;
+const N = Math.round(BW * BH / 11000 * 1.4);
+const PAL = ["125, 185, 240", "94, 205, 205"];
+const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1e6) / 1e6; };
+const SLOTS = Array.from({ length: N }, (_, i) => ({ life: 4 * (0.8 + hash("l" + i) * 0.4), off: hash("o" + i) * 4 }));
+function particles(cv, t, o) {
+  const c = cv.getContext("2d");
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
+  if (o <= 0) return;
+  cv.style.opacity = o;
+  c.setTransform(CSS, 0, 0, CSS, 0, 0);
+  let g = c.createRadialGradient(BW * .18, BH * 1.3, 0, BW * .18, BH * 1.3, BH * 1.0);
+  g.addColorStop(0, "rgba(22,51,122,.55)"); g.addColorStop(.72, "rgba(22,51,122,0)");
+  c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  g = c.createRadialGradient(BW * .82, BH * 1.2, 0, BW * .82, BH * 1.2, BH * .9);
+  g.addColorStop(0, "rgba(13,148,136,.4)"); g.addColorStop(.7, "rgba(13,148,136,0)");
+  c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  const ps = [];
+  SLOTS.forEach(({ life, off }, i) => {
+    const k = Math.floor((t + off) / life), age = t + off - k * life, f = age * 60;
+    const r = (s) => hash(s + i + "-" + k);
+    const depth = Math.pow(r("d"), 0.85), rad = 0.5 + depth * (3.2 - 0.5), blur = (1 - depth) * 4.5;
+    const vy = -(0.24 + depth * 1.4), vx = (r("v") - 0.5) * (0.05 + depth * 0.28);
+    const ph = r("p") * 6.283, ws = 0.004 + r("w") * 0.012, wa = 0.05 + depth * 0.4;
+    const x = r("x") * BW + vx * f + (wa / ws) * (Math.cos(ph) - Math.cos(ph + ws * f));
+    const y = BH + r("y") * 30 + vy * f;
+    const tw = r("t") * 6.283 + (0.008 + r("s") * 0.025) * f;
+    const lf = age / life, env = lf < .15 ? lf / .15 : lf > .7 ? (1 - lf) / .3 : 1;
+    const a = clamp((0.22 + depth * 0.7) * 0.3 * Math.min(1, (BH - y) / 80) * Math.min(1, y / (BH * .55)) * (0.75 + Math.sin(tw) * .25) * env);
+    if (a > 0.002 && y > -10) ps.push({ x, y, rad, depth, bucket: Math.round(blur), a, col: PAL[Math.floor(r("c") * PAL.length)] });
+  });
+  ps.sort((p, q) => p.depth - q.depth);
+  const dot = (p, rad, blur, a) => {
+    c.filter = blur ? `blur(${blur / 2 * CSS}px)` : "none";
+    c.globalAlpha = a; c.fillStyle = `rgb(${p.col})`;
+    c.beginPath(); c.arc(p.x, p.y, rad, 0, 6.283); c.fill();
+  };
+  for (const p of ps) if (p.bucket === 0 && p.rad > 1.4) dot(p, p.rad * 2.6, 8, p.a * .55);
+  for (const p of ps) dot(p, p.rad, p.bucket, p.a);
+  c.filter = "none"; c.globalAlpha = 1;
+}
+for (const cv of [$("pBack"), $("pEnd")]) cv.style.mixBlendMode = "screen";
+
+// ── footage: seek and wait for the frame ──
+function seekVideo(v, s) {
+  s = Math.max(0, Math.min(s, (v.duration || 30) - 0.05));
+  if (v.readyState >= 2 && Math.abs(v.currentTime - s) < 1e-3) return Promise.resolve();
+  return new Promise((res) => {
+    const done = () => { v.removeEventListener("seeked", done); res(); };
+    v.addEventListener("seeked", done);
+    v.currentTime = s;
+  });
+}
+const loaded = (v) => v.readyState >= 1 ? Promise.resolve() : new Promise((r) => v.addEventListener("loadedmetadata", r, { once: true }));
+
+function rise(el, t, a, b, d = .7) {
+  const i = outExpo(seg(t, a, a + d)), o = 1 - inOut(seg(t, b - .35, b));
+  el.style.transform = `translateY(${(1 - i) * 105 + (1 - o) * -40}%)`;
+  el.style.opacity = Math.min(i * 1.4, o);
+  el.style.filter = `blur(${(1 - i) * 10}px)`;
+}
+
+async function seek(t) {
+  const vA = $("vA"), vB = $("vB");
+  // hook footage: slow push, darkens and softens once the phone takes over
+  const ph = inOut(seg(t, T.phone, T.phone + 1.3));
+  vA.style.transform = `scale(${1.08 + t * 0.01})`;
+  vA.style.filter = `blur(${ph * 7}px)`;
+  $("shadeA").style.background = `linear-gradient(180deg, rgba(2,8,24,${.5 + .25 * ph}) 0%, rgba(2,8,24,${.12 + .5 * ph}) 45%, rgba(2,8,24,${.3 + .5 * ph}) 100%)`;
+  const endIn = inOut(seg(t, T.out + .1, T.end + .2));
+  $("bgA").style.opacity = 1 - endIn;
+  particles($("pBack"), t, seg(t, T.phone + .4, T.phone + 1.4) * (1 - endIn));
+
+  // phone: glides up from below the frame, tilted back in 3D, and settles flat; a slow float while held;
+  // leaves by dropping back out of frame
+  const e = outExpo(seg(t, T.phone, T.phone + 1.5));
+  const x = Math.pow(seg(t, T.out - .2, T.end), 2.2);
+  const fl = seg(t, T.phone + 1.2, T.swipe) * (1 - seg(t, T.swipe, T.swipe + .4)) + seg(t, T.swipeEnd, T.swipeEnd + .8);
+  const ry = Math.sin(t * .6 + .4) * 4 * fl, rx = Math.sin(t * .45 + 1.1) * 2 * fl;
+  $("phone").style.transform = `translateY(${(1 - e) * 1400 + x * 1500}px) rotateX(${(1 - e) * 38 + rx - x * 25}deg) rotateY(${(1 - e) * -14 + ry}deg) rotateZ(${(1 - e) * 5 + x * -8}deg) scale(${lerp(.86, 1, e)})`;
+  $("stage").style.visibility = t < T.phone || t > T.end + .1 ? "hidden" : "visible";
+
+  // camera: a gentle push onto the pins and the card rail while the cards swipe
+  const z = inOut(seg(t, T.pins, T.swipe + 1.2)) * (1 - inOut(seg(t, T.swipeEnd + .3, T.out)));
+  // anchored at the phone's bottom edge so the push grows upward and never cuts the phone off the frame
+  const s = lerp(1, 1.05, z), fy = 1880;
+  $("cam").style.transform = `translate(540px, ${fy}px) scale(${s}) translate(-540px, ${-fy}px)`;
+
+  // pins: a ripple runs up the coast, 2 -> 5
+  RINGS.forEach((r, i) => {
+    const k = seg(t, T.pins + i * .16, T.pins + i * .16 + .9), [px, py] = PINS[i], rad = 49 * K;
+    Object.assign(r.style, { left: px * K - rad + "px", top: py * K - rad + "px", width: rad * 2 + "px", height: rad * 2 + "px",
+      opacity: k > 0 && k < 1 ? (1 - k) : 0, transform: `scale(${1 + outExpo(k) * 1.1})` });
+  });
+
+  // cards: one flick across Epic, Good, the next break; the nav pill is outside the rail and never moves
+  rail.style.transform = `translateX(${-SWIPE * K * flick(seg(t, T.swipe, T.swipeEnd))}px)`;
+
+  // hook: big over the footage, then tucks up above the phone
+  $("hook").style.top = SAFE_TOP + lerp(60, 0, ph) + "px";
+  $("hook").style.transform = `scale(${lerp(1, .6, ph)})`;
+  rise($("h1"), t, .2, T.out + .2, .8);
+  rise($("h2"), t, .45, T.out + .2, .8);
+  rise($("h3"), t, .7, T.out + .2, .8);
+
+  // end card
+  $("bgB").style.opacity = endIn;
+  vB.style.transform = `scale(${lerp(1.22, 1.06, outExpo(seg(t, T.out, T.end + 2)))})`;
+  particles($("pEnd"), t, endIn);
+  const E = T.end;
+  $("end").style.top = SAFE_TOP + 130 + "px";
+  const lg = seg(t, E, E + .8);
+  $("logo").style.transform = `scale(${lerp(.5, 1, outBack(lg))})`;
+  $("logo").style.opacity = clamp(lg * 3);
+  const pop = (el, a) => { const k = outExpo(seg(t, a, a + .8)); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * 50}px)`; };
+  pop($("e1"), E + .2); pop($("e2"), E + .4); pop($("btn"), E + .6); pop($("e3"), E + .8);
+  const glow = 30 + 10 * Math.sin(t * 2.6);
+  $("btn").style.boxShadow = `0 0 ${glow}px rgba(17,183,242,.7), 0 0 ${glow * 2.2}px rgba(255,255,255,.22)`;
+  $("end").style.visibility = t < E ? "hidden" : "visible";
+
+  const jobs = [];
+  if (t < T.end + .3) jobs.push(loaded(vA).then(() => seekVideo(vA, 1 + t)));
+  if (t > T.out) jobs.push(loaded(vB).then(() => seekVideo(vB, 9 + t - T.out)));
+  await Promise.all(jobs);
+}
+window.__film = { seek, duration: T.dur };
+</script>
+</body></html>

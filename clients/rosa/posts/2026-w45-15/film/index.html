@@ -1,0 +1,409 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url(inter-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #02101f; }
+body { font-family: Inter, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+.abs { position: absolute; }
+video { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; }
+#shade { position: absolute; inset: 0; }
+#pEnd { position: absolute; left: 0; top: 646px; mix-blend-mode: screen; pointer-events: none; }
+#rig { position: absolute; left: 0; top: 0; transform-origin: 0 0; perspective: 2600px; }
+#phone { position: relative; padding: 36px; border-radius: 150px; transform-style: preserve-3d;
+  background: linear-gradient(145deg, #eef1f6, #b7bfcb 42%, #e3e7ee); }
+#screen { position: relative; width: 1170px; height: 2080px; overflow: hidden; background: #f4f3f3; }
+.cap { position: absolute; background-repeat: no-repeat; background-size: 1170px 2532px; }
+#strip { position: absolute; left: 0; top: 0; width: 3510px; height: 2080px; }
+.pg { position: absolute; top: 0; width: 1170px; height: 2080px; background-repeat: no-repeat; background-size: 1170px 2532px; }
+#fav { position: absolute; inset: 0; }
+#favbg { position: absolute; inset: 0;
+  background: radial-gradient(120% 45% at 18% 108%, rgba(160,168,236,.75), rgba(160,168,236,0) 70%),
+              radial-gradient(90% 40% at 86% 106%, rgba(150,205,214,.55), rgba(150,205,214,0) 70%),
+              linear-gradient(180deg, #f4f3f3 0%, #f2f1f3 55%, #e6e6f2 100%); }
+#pIn { position: absolute; left: 0; top: 700px; }
+.card { position: absolute; left: 48px; width: 1074px; height: 337px; border-radius: 48px; background: #fcfcfc;
+  box-shadow: 0 18px 50px rgba(13,18,37,.10), 0 2px 6px rgba(13,18,37,.06); transform-origin: 50% 50%; }
+#fly { position: absolute; left: 0; top: 0; width: 1170px; height: 630px; border-radius: 56px; overflow: hidden;
+  background-repeat: no-repeat; background-size: 1170px 2532px; transform-origin: 50% 50%; }
+#fx { position: absolute; left: 0; top: 0; width: 1170px; height: 2080px; overflow: visible; }
+#nav, #navF { position: absolute; left: 48px; top: 1840px; width: 1074px; height: 196px; border-radius: 98px;
+  background-repeat: no-repeat; background-size: 1170px 2532px; background-position: -48px -2292px; }
+#navF { background-image: url(spots.png); }
+#navStar { position: absolute; left: 330px; top: 1888px; width: 115px; height: 115px; border-radius: 50%;
+  background-repeat: no-repeat; background-size: 1170px 2532px; background-position: -330px -2340px; }
+#glare { position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,0) 38%, rgba(255,255,255,.26) 49%, rgba(255,255,255,0) 60%); background-size: 300% 100%; }
+.h { font-weight: 800; letter-spacing: -0.045em; line-height: .98; }
+.glass { position: absolute; left: 65px; width: 950px; border-radius: 64px; background: rgba(255,255,255,.78);
+  backdrop-filter: blur(26px) saturate(1.4); box-shadow: 0 30px 80px rgba(13,18,37,.22); color: #0d1225;
+  display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.line { overflow: hidden; padding-bottom: .1em; }
+.line > span { display: inline-block; }
+#count { position: absolute; left: 252px; top: 1118px; height: 124px; padding: 0 44px 0 36px; border-radius: 999px;
+  background: #0d1225; display: flex; align-items: center; gap: 22px; box-shadow: 0 20px 50px rgba(13,18,37,.35), 0 0 40px rgba(17,183,242,.35); }
+#digits { height: 84px; overflow: hidden; font-size: 76px; font-weight: 800; line-height: 84px; letter-spacing: -0.03em; }
+#head { position: absolute; left: 65px; width: 950px; font-size: 104px; }
+#end { position: absolute; left: 65px; width: 950px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+#btn { margin-top: 78px; padding: 30px 70px; border-radius: 999px; background: #11b7f2; color: #fff; font-weight: 800; font-size: 48px; letter-spacing: -0.01em; }
+</style></head>
+<body>
+<video id="vA" src="218670_large.mp4" muted playsinline preload="auto"></video>
+<div id="shade"></div>
+<canvas id="pEnd" width="1080" height="1274"></canvas>
+
+<div id="head" class="h">
+  <div class="line"><span id="hd1">Every morning,</span></div>
+  <div class="line"><span id="hd2">they're waiting.</span></div>
+</div>
+
+<div id="rig"><div id="phone"><div id="screen">
+  <div id="strip"></div>
+  <div id="fav">
+    <div id="favbg"></div>
+    <canvas id="pIn" width="1170" height="1380"></canvas>
+    <!-- "rosa. Your spots" header only: the rest of that capture is the sign-in screen and never shows -->
+    <div class="cap" style="left:0; top:0; width:1170px; height:150px; background-image:url(spots.png)"></div>
+    <div id="cards"></div>
+  </div>
+  <div id="fly"></div>
+  <div id="nav"></div>
+  <div id="navF"></div>
+  <div id="navStar"></div>
+  <svg id="fx" viewBox="0 0 1170 2080"></svg>
+  <div id="glare"></div>
+</div></div></div>
+
+<div id="done" class="glass h" style="height:330px; font-size:230px"><div class="line"><span id="dn">Done.</span></div></div>
+<div id="count">
+  <svg width="64" height="64" viewBox="0 0 24 24"><path id="cstar" fill="#11b7f2" d=""/></svg>
+  <div id="digits"><div id="dcol">1<br>2<br>3</div></div>
+</div>
+
+<div id="end">
+  <img id="logo" src="rosa-icon.svg" style="width:190px; height:190px">
+  <div id="e1" class="h" style="font-size:96px; margin-top:52px">Your favorite spots</div>
+  <div id="e2" class="h" style="font-size:72px; margin-top:26px; font-weight:600; letter-spacing:-0.02em">One click away</div>
+  <div id="btn">Install it</div>
+  <div id="e3" style="font-size:46px; font-weight:600; margin-top:44px">link in bio</div>
+</div>
+
+<script>
+const variant = new URLSearchParams(location.search).get("variant") === "story" ? "story" : "reel";
+const SAFE_TOP = variant === "story" ? 269 : 285;
+const $ = (id) => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+
+// ── easing ──
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const inOut = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const sine = (x) => -(Math.cos(Math.PI * x) - 1) / 2;
+const outExpo = (x) => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const outCubic = (x) => 1 - Math.pow(1 - x, 3);
+const outBack = (x, s = 1.6) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
+
+// lucide star, the icon the app uses (24 box)
+const STAR = "M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z";
+$("cstar").setAttribute("d", STAR);
+
+// ── the three spots: capture file + where its header star sits (capture px, 1170 x 2532) ──
+const SPOTS = [
+  { img: "spot-pipeline.png", star: [648, 76] },
+  { img: "spot-uluwatu.png", star: [461, 76] },
+  { img: "spot-supertubos.png", star: [552, 76] },
+];
+const NAV_STAR = [387, 1945];          // star tab centre, screen px (nav pill sits at y 1840)
+
+// ── timeline (s) ──
+const T = {
+  zoom: [0.9, 2.0],                    // full-screen swell shrinks into the spot page's webcam
+  tap: [2.45, 4.95, 6.65],            // finger hits the header star
+  fly: [[2.95, 3.8], [5.25, 5.85], [6.85, 7.27]],   // each flight faster than the last
+  swipe: [[4.1, 4.65], [6.0, 6.45]],
+  done: [7.35, 8.0],
+  tab: 8.05,                           // finger taps the star tab
+  pull: [9.15, 10.7],                  // full screen -> phone in 3D
+  head: 10.3, exit: [13.35, 14.05], end: 14.0, dur: 18.5,
+};
+
+// ── build: pages, header star overlays, list cards ──
+const svgStar = (cls) => `<svg viewBox="0 0 24 24" style="position:absolute; overflow:visible"><path class="${cls}" d="${STAR}"/></svg>`;
+SPOTS.forEach((s, i) => {
+  const p = document.createElement("div");
+  p.className = "pg"; p.style.left = i * 1170 + "px"; p.style.backgroundImage = `url(${s.img})`;
+  // filled star drawn exactly over the app's outline star (icon is 48 capture px)
+  p.insertAdjacentHTML("beforeend", `<div class="fs" style="position:absolute; left:${s.star[0] - 26}px; top:${s.star[1] - 26}px; width:52px; height:52px">${svgStar("")}</div>`);
+  const fs = p.querySelector(".fs"); fs.firstChild.setAttribute("width", 52); fs.firstChild.setAttribute("height", 52);
+  fs.querySelector("path").setAttribute("fill", "#11b7f2"); fs.querySelector("path").setAttribute("stroke", "#11b7f2"); fs.querySelector("path").setAttribute("stroke-width", "2");
+  s.fs = fs;
+  // the swell footage plays in Pipeline's webcam slot
+  if (i === 0) p.insertAdjacentHTML("afterbegin", `<video id="cam" src="218670_large.mp4" muted playsinline preload="auto" style="left:0; width:1170px; object-fit:cover"></video>`);
+  $("strip").appendChild(p);
+
+  // list card: the spot's own name row + its 6-day bars, cut from the same capture
+  const c = document.createElement("div");
+  c.className = "card"; c.style.top = 200 + i * 365 + "px";
+  const K = .95;
+  c.innerHTML =
+    `<div class="cap" style="left:34px; top:24px; width:${600 * K}px; height:${115 * K}px; background-image:url(${s.img});
+       background-size:${1170 * K}px ${2532 * K}px; background-position:${-120 * K}px ${-20 * K}px"></div>
+     <div style="position:absolute; left:${34 + (s.star[0] - 120 - 26) * K}px; top:${24 + (s.star[1] - 20 - 26) * K}px; width:${52 * K}px; height:${52 * K}px">
+       <svg viewBox="0 0 24 24" width="${52 * K}" height="${52 * K}" style="overflow:visible"><path d="${STAR}" fill="#11b7f2" stroke="#11b7f2" stroke-width="2"/></svg></div>
+     <div class="cap" style="left:52px; top:${24 + 115 * K + 4}px; width:${1020 * K}px; height:${185 * K}px; background-image:url(${s.img});
+       background-size:${1170 * K}px ${2532 * K}px; background-position:${-30 * K}px ${-415 * K}px"></div>`;
+  s.card = c;
+  $("cards").appendChild(c);
+});
+$("nav").style.backgroundImage = "url(spot-pipeline.png)";
+$("navStar").style.backgroundImage = "url(spot-pipeline.png)";
+
+// ── Rosa particles: the app's splash/bottom field (rosa/web particles.ts + splash: palette, density 1.4,
+// speed 1, alpha .3, 460 css px band) made a pure function of t ──
+const BW = 390, BH = 460;
+const N = Math.round(BW * BH / 11000 * 1.4);
+const PAL = ["125, 185, 240", "94, 205, 205"];
+const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1e6) / 1e6; };
+const SLOTS = Array.from({ length: N }, (_, i) => ({ life: 4 * (0.8 + hash("l" + i) * 0.4), off: hash("o" + i) * 4 }));
+function particles(cv, t, o, { glow = true, gain = 1 } = {}) {
+  const c = cv.getContext("2d");
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
+  cv.style.opacity = o;
+  if (o <= 0) return;
+  const CSS = cv.width / BW;
+  c.setTransform(CSS, 0, 0, CSS, 0, 0);
+  if (glow) {
+    let g = c.createRadialGradient(BW * .18, BH * 1.3, 0, BW * .18, BH * 1.3, BH * 1.0);
+    g.addColorStop(0, "rgba(22,51,122,.55)"); g.addColorStop(.72, "rgba(22,51,122,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+    g = c.createRadialGradient(BW * .82, BH * 1.2, 0, BW * .82, BH * 1.2, BH * .9);
+    g.addColorStop(0, "rgba(13,148,136,.4)"); g.addColorStop(.7, "rgba(13,148,136,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  }
+  const ps = [];
+  SLOTS.forEach(({ life, off }, i) => {
+    const k = Math.floor((t + off) / life), age = t + off - k * life, f = age * 60;
+    const r = (s) => hash(s + i + "-" + k);
+    const depth = Math.pow(r("d"), 0.85), rad = 0.5 + depth * (3.2 - 0.5), blur = (1 - depth) * 4.5;
+    const vy = -(0.24 + depth * 1.4), vx = (r("v") - 0.5) * (0.05 + depth * 0.28);
+    const ph = r("p") * 6.283, ws = 0.004 + r("w") * 0.012, wa = 0.05 + depth * 0.4;
+    const x = r("x") * BW + vx * f + (wa / ws) * (Math.cos(ph) - Math.cos(ph + ws * f));
+    const y = BH + r("y") * 30 + vy * f;
+    const tw = r("t") * 6.283 + (0.008 + r("s") * 0.025) * f;
+    const lf = age / life, env = lf < .15 ? lf / .15 : lf > .7 ? (1 - lf) / .3 : 1;
+    const a = clamp((0.22 + depth * 0.7) * 0.3 * gain * Math.min(1, (BH - y) / 80) * Math.min(1, y / (BH * .55)) * (0.75 + Math.sin(tw) * .25) * env);
+    if (a > 0.002 && y > -10) ps.push({ x, y, rad, depth, bucket: Math.round(blur), a, col: PAL[Math.floor(r("c") * PAL.length)] });
+  });
+  ps.sort((p, q) => p.depth - q.depth);
+  const dot = (p, rad, blur, a) => {
+    c.filter = blur ? `blur(${blur / 2 * CSS}px)` : "none";
+    c.globalAlpha = a; c.fillStyle = `rgb(${p.col})`;
+    c.beginPath(); c.arc(p.x, p.y, rad, 0, 6.283); c.fill();
+  };
+  for (const p of ps) if (p.bucket === 0 && p.rad > 1.4) dot(p, p.rad * 2.6, 8, p.a * .55);
+  for (const p of ps) dot(p, p.rad, p.bucket, p.a);
+  c.filter = "none"; c.globalAlpha = 1;
+}
+
+// ── footage: seek and wait for the frame ──
+function seekVideo(v, s) {
+  s = Math.max(0, Math.min(s, (v.duration || 30) - 0.05));
+  if (v.readyState >= 2 && Math.abs(v.currentTime - s) < 1e-3) return Promise.resolve();
+  return new Promise((res) => {
+    const done = () => { v.removeEventListener("seeked", done); res(); };
+    v.addEventListener("seeked", done);
+    v.currentTime = s;
+  });
+}
+const loaded = (v) => v.readyState >= 1 ? Promise.resolve() : new Promise((r) => v.addEventListener("loadedmetadata", r, { once: true }));
+
+// a line slides up out of its mask, blur to sharp; leaves upward
+function rise(el, t, a, b, d = .7) {
+  const i = outExpo(seg(t, a, a + d)), o = 1 - inOut(seg(t, b - .4, b));
+  el.style.transform = `translateY(${(1 - i) * 105 + (1 - o) * -110}%)`;
+  el.style.opacity = Math.min(i * 1.4, 1 - seg(t, b - .2, b));
+  el.style.filter = `blur(${(1 - i) * 10 + (1 - o) * 6}px)`;
+}
+// frosted panel: grows in, collapses out
+function glass(el, top, t, a, b) {
+  const i = outBack(seg(t, a, a + .45), 1.3), o = inOut(seg(t, b - .3, b));
+  el.style.top = top + "px";
+  el.style.opacity = clamp(seg(t, a, a + .2)) * (1 - o);
+  el.style.transform = `translateY(${o * -60}px) scale(${lerp(.82, 1, i) - o * .08})`;
+  el.style.visibility = t < a || t > b ? "hidden" : "visible";
+}
+
+// ── fx layer helpers (screen px) ──
+let fx = "";
+const circle = (x, y, r, attrs) => fx += `<circle cx="${x}" cy="${y}" r="${Math.max(0, r)}" ${attrs}/>`;
+function burst(x, y, k, big = 1) {                 // star glow burst: glow, ring, rays, sparks
+  if (k <= 0 || k >= 1) return;
+  const e = outExpo(k);
+  circle(x, y, (40 + 90 * e) * big, `fill="url(#glow)" opacity="${(1 - k) * .8}"`);
+  circle(x, y, (30 + 140 * e) * big, `fill="none" stroke="#11b7f2" stroke-width="${12 * (1 - k)}" opacity="${1 - k}"`);
+  for (let i = 0; i < 12; i++) {
+    const a = i / 12 * 6.283 + .26, r1 = (44 + 120 * e) * big, r2 = r1 + 54 * (1 - k) * big;
+    fx += `<line x1="${x + Math.cos(a) * r1}" y1="${y + Math.sin(a) * r1}" x2="${x + Math.cos(a) * r2}" y2="${y + Math.sin(a) * r2}" stroke="${i % 2 ? "#7fd8ff" : "#11b7f2"}" stroke-width="${10 * (1 - k)}" stroke-linecap="round"/>`;
+  }
+  for (let i = 0; i < 14; i++) {
+    const a = hash("sa" + i) * 6.283, d = (90 + hash("sd" + i) * 150) * outCubic(k) * big;
+    circle(x + Math.cos(a) * d, y + Math.sin(a) * d + 60 * k * k, 7 * (1 - k) * (0.6 + hash("sr" + i)), `fill="#11b7f2" opacity="${1 - k}"`);
+  }
+}
+function touch(x, y, t, a, press, b) {             // the finger: soft disc, presses in, ripples on contact
+  if (t < a || t > b) return;
+  const vis = seg(t, a, a + .15) * (1 - seg(t, b - .18, b));
+  const pr = Math.sin(Math.PI * seg(t, press - .08, press + .14));
+  circle(x, y, 62 * (1 - .18 * pr) * lerp(1.3, 1, outCubic(seg(t, a, a + .2))), `fill="rgba(13,18,37,.22)" stroke="rgba(255,255,255,.9)" stroke-width="5" opacity="${vis}"`);
+  const rk = seg(t, press, press + .45);
+  if (rk > 0 && rk < 1) circle(x, y, 62 + 90 * outCubic(rk), `fill="none" stroke="rgba(13,18,37,.35)" stroke-width="${6 * (1 - rk)}"`);
+}
+
+// ── phone poses: rig = translate(X, Y) scale(S); bezel is 36 screen px ──
+const S0 = 1080 / 1170, S1 = .58;
+const CAM = [669, 657];                // webcam slot top, height (screen px)
+const P0 = { S: S0, X: -36 * S0, Y: -36 * S0 };
+const P1 = { S: S1, X: (1080 - 1242 * S1) / 2, Y: 650 };
+
+async function seek(t) {
+  fx = `<defs><radialGradient id="glow"><stop offset="0" stop-color="#bdeaff" stop-opacity="1"/><stop offset=".35" stop-color="#11b7f2" stop-opacity=".55"/><stop offset="1" stop-color="#11b7f2" stop-opacity="0"/></radialGradient></defs>`;
+
+  // ── intro: the swell fills the screen, then the camera pulls back and it becomes Pipeline's webcam ──
+  const z = inOut(seg(t, T.zoom[0], T.zoom[1]));
+  const cam = $("cam");
+  cam.style.top = lerp(0, CAM[0], z) + "px";
+  cam.style.height = lerp(2080, CAM[1], z) + "px";
+  $("nav").style.opacity = $("navStar").style.opacity = z;
+
+  // ── swipes: one finger drag, page eases out under it; nav is outside the strip so it never moves ──
+  let page = 0;
+  T.swipe.forEach(([a, b], i) => { page += sine(seg(t, a, b)) * .5 + outCubic(seg(t, a, b)) * .5; });
+  $("strip").style.transform = `translateX(${-page * 1170}px)`;
+  T.swipe.forEach(([a, b]) => {
+    if (t < a - .2 || t > b + .15) return;
+    const k = outCubic(seg(t, a, b)), vis = seg(t, a - .2, a - .05) * (1 - seg(t, b, b + .15));
+    circle(lerp(960, 230, k), 1180 - 30 * Math.sin(Math.PI * k), 62, `fill="rgba(13,18,37,.22)" stroke="rgba(255,255,255,.9)" stroke-width="5" opacity="${vis}"`);
+  });
+
+  // ── taps: star pops and fills with a glow burst, then the card flies into the star tab ──
+  let landed = 0;
+  SPOTS.forEach((s, i) => {
+    const tp = T.tap[i], [f0, f1] = T.fly[i];
+    const sx = s.star[0] - page * 1170 + i * 1170, sy = s.star[1];
+    touch(sx, sy, t, tp - .35, tp, tp + .4);
+    const pk = seg(t, tp, tp + .5);
+    s.fs.style.opacity = t >= tp ? 1 : 0;
+    s.fs.style.transform = `scale(${t < tp ? 1 : 1 + .9 * Math.sin(Math.PI * Math.min(1, pk * 1.4)) * (1 - pk) + .0})`;
+    s.fs.style.filter = `drop-shadow(0 0 ${14 * (1 - pk)}px #11b7f2)`;
+    burst(sx, sy, seg(t, tp + .03, tp + .75), .62);
+    if (t >= f1) landed = i + 1;
+  });
+  const cur = SPOTS.findIndex((s, i) => t >= T.fly[i][0] && t < T.fly[i][1]);
+  if (cur >= 0) {
+    const [f0, f1] = T.fly[cur], u = seg(t, f0, f1);
+    const lift = outCubic(clamp(u / .2)), go = inOut(clamp((u - .12) / .88));
+    const sc = u < .2 ? lerp(1, .84, lift) : lerp(.84, .05, Math.pow(clamp((u - .2) / .8), .8));
+    // quadratic arc: swings out right, then dives into the tab
+    const P = [585, 315], C = [1080, 1150], Q = NAV_STAR;
+    const bx = (1 - go) * (1 - go) * P[0] + 2 * (1 - go) * go * C[0] + go * go * Q[0];
+    const by = (1 - go) * (1 - go) * P[1] + 2 * (1 - go) * go * C[1] + go * go * Q[1];
+    $("fly").style.visibility = "visible";
+    $("fly").style.backgroundImage = `url(${SPOTS[cur].img})`;
+    $("fly").style.transform = `translate(${bx - 585}px, ${by - 315}px) rotate(${Math.sin(Math.PI * go) * -14}deg) scale(${sc})`;
+    $("fly").style.opacity = 1 - seg(u, .86, 1);
+    $("fly").style.boxShadow = `0 ${40 * lift}px ${100 * lift}px rgba(13,18,37,${.35 * lift}), 0 0 0 ${3 / sc}px rgba(17,183,242,${.6 * lift})`;
+  } else $("fly").style.visibility = "hidden";
+
+  // ── star tab pulses on every landing ──
+  let bump = 0;
+  T.fly.forEach(([, f1], i) => {
+    const k = seg(t, f1 - .04, f1 + .55);
+    if (k > 0 && k < 1) bump = Math.max(bump, Math.sin(Math.PI * k) * (1 - k * .4));
+    burst(NAV_STAR[0], NAV_STAR[1], seg(t, f1 - .04, f1 + .6), .8);
+  });
+  $("navStar").style.transform = `scale(${1 + .45 * bump})`;
+  $("navStar").style.boxShadow = `0 0 ${50 * bump}px rgba(17,183,242,${.7 * bump})`;
+  $("navStar").style.visibility = t < T.tab + .05 ? "visible" : "hidden";
+
+  // ── counter ticks 1, 2, 3 ──
+  const cIn = outBack(seg(t, T.fly[0][1], T.fly[0][1] + .4), 2), cOut = inOut(seg(t, T.tab - .2, T.tab + .15));
+  $("count").style.opacity = clamp(cIn * 2) * (1 - cOut);
+  $("count").style.transform = `translateY(${(1 - clamp(cIn)) * 60 + cOut * 40}px) scale(${lerp(.6, 1, cIn) * (1 + .12 * bump)})`;
+  $("count").style.visibility = t < T.fly[0][1] ? "hidden" : "visible";
+  let roll = 0;
+  T.fly.slice(1).forEach(([, f1]) => roll += outBack(seg(t, f1 - .02, f1 + .35), 1.8));
+  $("dcol").style.transform = `translateY(${-roll * 84}px)`;
+
+  // ── "Done." ──
+  glass($("done"), 700, t, T.done[0], T.done[1]);
+  rise($("dn"), t, T.done[0] + .05, T.done[1], .5);
+
+  // ── star tab opens: your three spots come back out of it and stack into one list ──
+  touch(NAV_STAR[0], NAV_STAR[1], t, T.tab - .3, T.tab, T.tab + .45);
+  const open = seg(t, T.tab + .05, T.tab + .3);
+  $("fav").style.opacity = open;
+  $("fav").style.visibility = open > 0 ? "visible" : "hidden";
+  $("navF").style.opacity = open;
+  SPOTS.forEach((s, i) => {
+    const a = T.tab + .2 + i * .14, k = seg(t, a, a + .62), e = outExpo(k);
+    const ty = 200 + i * 365 + 168;
+    s.card.style.opacity = clamp(k * 6);
+    s.card.style.transform = `translate(${lerp(NAV_STAR[0] - 585, 0, e)}px, ${lerp(NAV_STAR[1] - ty, 0, e)}px) scale(${lerp(.06, 1, outBack(k, 1.2))})`;
+  });
+  particles($("pIn"), t, open, { glow: false, gain: 3.2 });
+
+  // ── camera pulls back: the screen becomes a phone, settles in 3D in the lower two thirds ──
+  const pb = inOut(seg(t, T.pull[0], T.pull[1]));
+  const ex = Math.pow(seg(t, T.exit[0], T.exit[1]), 2);
+  const fl = seg(t, T.pull[1] - .3, T.pull[1] + .8);
+  // intro push-in, scaled around the webcam centre so the shrinking video stays put on screen
+  const zi = 1 + .35 * (1 - z), wy = (36 + CAM[0] + CAM[1] / 2) * S0 + P0.Y;
+  const S = lerp(P0.S * zi, P1.S, pb), X = lerp(540 + (P0.X - 540) * zi, P1.X, pb);
+  const Y = lerp(wy + (P0.Y - wy) * zi, P1.Y, pb) + Math.sin(t * .8) * 8 * fl + ex * 1700;
+  $("rig").style.transform = `translate(${X}px, ${Y}px) scale(${S})`;
+  const over = Math.sin(Math.PI * seg(t, T.pull[0] + .3, T.pull[1] + .3));
+  const rx = pb * 9 + over * 7 + Math.sin(t * .6 + 1.1) * 1.6 * fl + ex * 22;
+  const ry = -pb * 7 - over * 9 + Math.sin(t * .5 + .4) * 3 * fl;
+  $("phone").style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${pb * -1.5 + ex * 5}deg)`;
+  $("screen").style.borderRadius = 114 * pb + "px";
+  $("phone").style.borderRadius = 150 * pb + "px";
+  $("phone").style.boxShadow = `inset 0 0 0 3px rgba(255,255,255,.6), inset 0 0 0 8px rgba(0,0,0,.08), 0 ${90 * pb}px ${180 * pb}px rgba(0,10,30,${.6 * pb}), 0 0 ${140 * pb}px rgba(17,183,242,${.18 * pb})`;
+  $("rig").style.visibility = ex >= 1 ? "hidden" : "visible";
+  $("glare").style.backgroundPosition = `${lerp(110, -10, seg(t, T.pull[0] + .4, T.pull[1] + 1.4))}% 0`;
+  $("glare").style.opacity = pb;
+
+  // ── footage behind, revealed by the pull-back; darker for the end card ──
+  const endIn = inOut(seg(t, T.exit[0] + .2, T.end + .2));
+  $("vA").style.transform = `scale(${lerp(1.22, 1.0, sine(seg(t, T.pull[0], T.dur)))})`;
+  $("vA").style.filter = `blur(${endIn * 10}px)`;
+  const dim = .22 + endIn * .38;
+  $("shade").style.background = `linear-gradient(180deg, rgba(2,12,32,${dim + .2}) 0%, rgba(2,12,32,${dim}) 40%, rgba(2,12,32,${dim + .1}) 100%)`;
+
+  // headline in the top third
+  $("head").style.top = SAFE_TOP + 20 + "px";
+  rise($("hd1"), t, T.head, T.exit[0] + .2, .8);
+  rise($("hd2"), t, T.head + .25, T.exit[0] + .3, .8);
+
+  // ── end card, the W44 · 03 way: logo, white lines, glowing button, white link in bio, Rosa particles ──
+  particles($("pEnd"), t, endIn, { gain: 2.2 });
+  const E = T.end;
+  $("end").style.top = SAFE_TOP + 110 + "px";
+  const lg = seg(t, E, E + .8);
+  $("logo").style.transform = `scale(${lerp(.5, 1, outBack(lg))})`;
+  $("logo").style.opacity = clamp(lg * 3);
+  const pop = (el, a) => { const k = outExpo(seg(t, a, a + .8)); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * 50}px)`; };
+  pop($("e1"), E + .2); pop($("e2"), E + .4); pop($("btn"), E + .6); pop($("e3"), E + .8);
+  const glow = 30 + 10 * Math.sin(t * 2.6);
+  $("btn").style.boxShadow = `0 0 ${glow}px rgba(17,183,242,.65), 0 0 ${glow * 2.4}px rgba(17,183,242,.28)`;
+  $("end").style.visibility = t < E ? "hidden" : "visible";
+
+  $("fx").innerHTML = fx;
+  await document.fonts.ready;
+  const v = $("vA"); await loaded(v); await seekVideo(v, t * .8);
+  await loaded(cam); await seekVideo(cam, t * .8);
+}
+window.__film = { seek, duration: T.dur };
+</script>
+</body></html>

@@ -1,0 +1,40 @@
+{
+  "slot_id": "2026-w45-15",
+  "title": "Star your breaks",
+  "pillar": "Spot spotlight",
+  "angle": "One message: star your breaks once and every morning they are waiting for you. Open on the Pipeline spot page filling the screen, a finger taps the star, it pops and fills with a glow burst, and the spot card shrinks and flies down into the star tab of the bottom nav, which pulses (the nav stays fixed, never scrolls). Swipe straight to Uluwatu, then Supertubos, same star tap, each one landing in the tab faster than the last with a counter ticking 1, 2, 3. The star tab opens and the phone, filling the lower two thirds of the frame, settles in 3D with your three spots stacked in one clean list, Rosa particles rising and fading in the empty space below. Closing card as on W44 · 03: Rosa logo, white text, white-text glowing button, white \"link in bio\", over fresh ocean footage. Never show the sign-in screen (spots.png).",
+  "hook_formula": "Star it once. Done.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Wildflowers (Nick Gallant), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w45-15/film",
+    "source": "clients/rosa/posts/2026-w45-15/film/index.html",
+    "music": "clients/rosa/assets/music/surf-rock-summer-325576.mp3"
+  },
+  "track": "ig:351866282607327",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w45-15",
+  "plan": "manual",
+  "motion": null,
+  "theme": "light",
+  "duration_s": 18.5,
+  "audio_configuration": {
+    "audio_id": "351866282607327",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Wildflowers",
+    "artist": "Nick Gallant",
+    "cover": "https://scontent.fhfa1-1.fna.fbcdn.net/v/t39.30808-1/292636946_509329640940127_3409036784385541902_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=3Jlc90mIZW8Q7kNvwGf6-iO&_nc_oc=Adpyx4Sj8phPGgpD99UG9_ePUfVI8p1vZC2NtE0HBkV8FLsUEXCrbZuQIuot3xVWdK99OtG9dZd1K-SDTkxF2IRF&_nc_zt=24&_nc_ht=scontent.fhfa1-1.fna&edm=AOP_XFkEAAAA&_nc_gid=TjVPgnIrRKuWbod3ynuqWA&oh=00_AQTZueogzmaU_THNKaEbMYoeTbBVf7ud90sg-A7jxZebtw&oe=6AED0401",
+    "duration": 134.5,
+    "link": null,
+    "preview_of": "ig:351866282607327"
+  }
+}

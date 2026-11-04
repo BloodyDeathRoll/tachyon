@@ -1,0 +1,38 @@
+{
+  "slot_id": "2026-w45-12",
+  "title": "App blows apart",
+  "pillar": "Free, and why",
+  "angle": "The phone with home.png floats centre, then its layers fly apart in 3D: the cards, the bars, the map, each hanging in space over Pixabay surf footage. Big white words land between the layers: \"Fast.\", \"Free.\", \"Worldwide.\". The layers snap back together and the phone zooms past camera. End card: logo, white \"All of it, free.\", space, glowing blue button \"rosa.surf\".",
+  "hook_formula": "Here's what's inside Rosa",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Retro Surf Rock (Tunetank), baked in",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "remotion",
+    "reel": "film-2026-w45-12",
+    "story": "film-2026-w45-12-story",
+    "source": "engines/remotion/src/films/film-2026-w45-12.tsx",
+    "music": "clients/rosa/assets/music/retro-surf-rock-348237.mp3"
+  },
+  "track": "retro-surf-rock",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w45-12",
+  "plan": "2026-W45",
+  "motion": "ho-ba-f3f0e9",
+  "theme": "dark",
+  "voiceover_script": "Dude, it's got everything. Spots, swell map, alerts, and I've never paid a cent. Roza dot surf, go check it.",
+  "voiceover_voice": "dia:seed9",
+  "voiceover": {
+    "script": "Dude, it's got everything. Spots, swell map, alerts, and I've never paid a cent. Roza dot surf, go check it.",
+    "voice": "dia:seed9",
+    "speed": 1.08,
+    "start": 0.5,
+    "file": "vo.wav",
+    "engine": "dia-1.6b (Nari Labs, Apache-2.0), local GPU"
+  },
+  "duration_s": 15.06
+}

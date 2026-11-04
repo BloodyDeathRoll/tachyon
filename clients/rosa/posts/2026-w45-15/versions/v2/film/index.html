@@ -1,0 +1,249 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url(inter-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #000; }
+body { font-family: Inter, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+.abs { position: absolute; }
+video { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; }
+#bg { position: absolute; inset: 0; overflow: hidden; }
+canvas { position: absolute; left: 0; pointer-events: none; mix-blend-mode: screen; }
+#stage { position: absolute; inset: 0; perspective: 2600px; perspective-origin: 540px 1100px; }
+#phone { position: absolute; left: 220px; top: 612px; width: 640px; height: 1338px; border-radius: 92px;
+  background: linear-gradient(145deg, #2a2f3a, #0b0d12 40%, #1c2029); padding: 20px; transform-origin: 50% 0;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.14), 0 60px 120px rgba(0,0,0,.6), 0 20px 40px rgba(0,0,0,.4);
+  transform-style: preserve-3d; }
+#screen { position: relative; width: 600px; height: 1298px; border-radius: 74px; overflow: hidden; background: #000; }
+#page { position: absolute; left: 0; top: 0; width: 600px; }
+.piece { width: 600px; background-repeat: no-repeat; background-size: 600px auto; }
+#nav { position: absolute; left: 0; bottom: 0; width: 600px; background: url(spot-uluwatu.png) no-repeat; background-size: 600px auto; }
+.h { font-weight: 800; letter-spacing: -0.045em; line-height: .98; text-shadow: 0 4px 40px rgba(0,10,30,.45); }
+.line { overflow: hidden; padding-bottom: .1em; }
+.line > span { display: inline-block; }
+.word { position: absolute; left: 65px; width: 950px; }
+#end { position: absolute; left: 65px; width: 950px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+#btn { margin-top: 64px; padding: 30px 66px; border-radius: 999px; background: #11b7f2; color: #fff; font-weight: 800; font-size: 48px; letter-spacing: -0.01em; }
+</style></head>
+<body>
+<div id="bg"><video id="v" src="218670_large.mp4" muted playsinline preload="auto"></video><div id="shade" class="abs" style="inset:0"></div></div>
+<canvas id="pBack" width="1080" height="1300" style="top:620px"></canvas>
+
+<div id="hook" class="abs h" style="left:65px; width:950px; font-size:158px; transform-origin:0 0">
+  <div class="line"><span id="h1">Wind can</span></div>
+  <div class="line"><span id="h2">only polish.</span></div>
+</div>
+
+<div id="stage">
+  <div id="phone"><div id="screen">
+    <div id="page">
+      <div class="piece" id="pA" style="background-image:url(spot-uluwatu.png)"></div>
+      <div class="piece" id="pB" style="background-image:url(spot-uluwatu-full.png)"></div>
+    </div>
+    <div id="nav"></div>
+    <div id="dim" class="abs" style="inset:0; background:#000"></div>
+  </div></div>
+  <!-- the Size / Period / Wind block of the real capture, lifted out of the screen toward the camera -->
+  <div id="lift" class="abs" style="transform-origin:50% 50%; border-radius:30px; overflow:hidden; background:url(spot-uluwatu.png) no-repeat">
+    <div id="hl" class="abs" style="border-radius:20px"></div>
+  </div>
+</div>
+
+<div class="word h" style="font-size:230px"><div class="line"><span id="w1">Size</span></div></div>
+<div class="word h" style="font-size:230px"><div class="line"><span id="w2">Period</span></div></div>
+<div class="word h" style="font-size:230px"><div class="line"><span id="w3">Wind</span></div></div>
+<div class="word h" id="fin" style="font-size:132px">
+  <div class="line"><span id="f1">Wind can</span></div>
+  <div class="line"><span id="f2">only <span style="color:#11b7f2">polish.</span></span></div>
+</div>
+
+<canvas id="pEnd" width="1080" height="1920" style="top:0"></canvas>
+<div id="end">
+  <img id="logo" src="rosa-icon.svg" style="width:190px; height:190px">
+  <div id="e1" class="h" style="font-size:150px; margin-top:40px; letter-spacing:-0.05em">rosa<span style="color:#11b7f2">.</span></div>
+  <div id="e2" class="h" style="font-size:60px; margin-top:22px; font-weight:600; letter-spacing:-0.02em">it's free.</div>
+  <div id="btn">Install it</div>
+  <div id="e3" style="font-size:46px; font-weight:600; margin-top:44px">link in bio</div>
+</div>
+
+<script>
+const variant = new URLSearchParams(location.search).get("variant") === "story" ? "story" : "reel";
+const SAFE_TOP = variant === "story" ? 269 : 285;
+const $ = (id) => document.getElementById(id);
+
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const inOut = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const outExpo = (x) => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const outBack = (x, s = 1.4) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
+const quint = (x) => x < .5 ? 16 * x ** 5 : 1 - Math.pow(-2 * x + 2, 5) / 2;
+
+// ── timeline (s) ──
+const T = { glide: 2.5, scroll: 3.9, size: 6.0, period: 7.3, wind: 8.6, fin: 9.9, out: 12.7, end: 13.3, dur: 17 };
+
+// ── page: the viewport shot down to the nav, then the full-page shot below its baked-in nav
+// (capture px, 1170 wide); the nav itself is a separate layer that never scrolls ──
+const K = 600 / 1170;
+const PIECES = [["pA", 0, 2286], ["pB", 2540, 4659]];
+for (const [id, a, b] of PIECES) {
+  $(id).style.height = (b - a) * K + "px";
+  $(id).style.backgroundPosition = `0 ${-a * K}px`;
+}
+$("nav").style.height = (2532 - 2268) * K + "px";
+$("nav").style.backgroundPosition = `0 ${-2268 * K}px`;
+$("nav").style.clipPath = `inset(${(2290 - 2268) * K}px ${44 * K}px ${(2532 - 2484) * K}px ${44 * K}px round ${98 * K}px)`;
+const SCROLL = 470;
+// Size / Period / Wind rows of the rating card, capture px: x 510-975, row centres
+const ROWS = [741, 813, 885];
+const LIFT = { x: 500, y: 700, w: 480, h: 225 };
+
+// ── Rosa particles: the app's sign-in screen field (rosa/web particles.ts + SignInScreen.tsx:
+// palette, density 1.4, speed 1, alpha .3, screen blend) made a pure function of t ──
+const CSS = 1080 / 390;
+const BW = 390;
+const PAL = ["125, 185, 240", "94, 205, 205"];
+const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1e6) / 1e6; };
+function particles(cv, t, o) {
+  const BH = cv.height / CSS, N = Math.round(BW * BH / 11000 * 1.4);
+  const c = cv.getContext("2d");
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
+  if (o <= 0) return;
+  cv.style.opacity = o;
+  c.setTransform(CSS, 0, 0, CSS, 0, 0);
+  // the mesh the specks rise out of (.signin-glow)
+  let g = c.createRadialGradient(BW * .18, BH * 1.3, 0, BW * .18, BH * 1.3, BH * 1.0);
+  g.addColorStop(0, "rgba(22,51,122,.55)"); g.addColorStop(.72, "rgba(22,51,122,0)");
+  c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  g = c.createRadialGradient(BW * .82, BH * 1.2, 0, BW * .82, BH * 1.2, BH * .9);
+  g.addColorStop(0, "rgba(13,148,136,.4)"); g.addColorStop(.7, "rgba(13,148,136,0)");
+  c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  const ps = [];
+  for (let i = 0; i < N; i++) {
+    const life = 4 * (0.8 + hash("l" + i) * 0.4) * BH / 460, off = hash("o" + i) * life;
+    const k = Math.floor((t + off) / life), age = t + off - k * life, f = age * 60;
+    const r = (s) => hash(s + i + "-" + k);
+    const depth = Math.pow(r("d"), 0.85), rad = 0.5 + depth * (3.2 - 0.5), blur = (1 - depth) * 4.5;
+    const vy = -(0.24 + depth * 1.4), vx = (r("v") - 0.5) * (0.05 + depth * 0.28);
+    const ph = r("p") * 6.283, ws = 0.004 + r("w") * 0.012, wa = 0.05 + depth * 0.4;
+    const x = r("x") * BW + vx * f + (wa / ws) * (Math.cos(ph) - Math.cos(ph + ws * f));
+    const y = BH + r("y") * 30 + vy * f;
+    const tw = r("t") * 6.283 + (0.008 + r("s") * 0.025) * f;
+    const lf = age / life, env = lf < .15 ? lf / .15 : lf > .7 ? (1 - lf) / .3 : 1;
+    const a = clamp((0.22 + depth * 0.7) * 0.3 * Math.min(1, (BH - y) / 80) * Math.min(1, y / (BH * .55)) * (0.75 + Math.sin(tw) * .25) * env);
+    if (a > 0.002 && y > -10) ps.push({ x, y, rad, depth, bucket: Math.round(blur), a, col: PAL[Math.floor(r("c") * PAL.length)] });
+  }
+  ps.sort((p, q) => p.depth - q.depth);
+  const dot = (p, rad, blur, a) => {
+    c.filter = blur ? `blur(${blur / 2 * CSS}px)` : "none";
+    c.globalAlpha = a; c.fillStyle = `rgb(${p.col})`;
+    c.beginPath(); c.arc(p.x, p.y, rad, 0, 6.283); c.fill();
+  };
+  for (const p of ps) if (p.bucket === 0 && p.rad > 1.4) dot(p, p.rad * 2.6, 8, p.a * .55);
+  for (const p of ps) dot(p, p.rad, p.bucket, p.a);
+  c.filter = "none"; c.globalAlpha = 1;
+}
+
+// ── footage: seek and wait for the frame ──
+function seekVideo(v, s) {
+  s = Math.max(0, Math.min(s, (v.duration || 30) - 0.05));
+  if (v.readyState >= 2 && Math.abs(v.currentTime - s) < 1e-3) return Promise.resolve();
+  return new Promise((res) => {
+    const done = () => { v.removeEventListener("seeked", done); res(); };
+    v.addEventListener("seeked", done);
+    v.currentTime = s;
+  });
+}
+const loaded = (v) => v.readyState >= 1 ? Promise.resolve() : new Promise((r) => v.addEventListener("loadedmetadata", r, { once: true }));
+
+// ── reveal: the line slides up out of its mask, blur to sharp; leaves upward ──
+function rise(el, t, a, b, d = .7) {
+  const i = outExpo(seg(t, a, a + d)), o = 1 - inOut(seg(t, b - .3, b));
+  el.style.transform = `translateY(${(1 - i) * 105 + (1 - o) * -60}%)`;
+  el.style.opacity = Math.min(i * 1.4, o);
+  el.style.filter = `blur(${(1 - i) * 12 + (1 - o) * 8}px)`;
+}
+
+async function seek(t) {
+  const v = $("v");
+  // footage: full screen under the hook, slow push; darkens and softens once the phone is the subject
+  const ph = inOut(seg(t, T.glide, T.glide + 1.4));
+  const endIn = inOut(seg(t, T.out, T.end + .3));
+  v.style.transform = `scale(${1.04 + t * 0.012})`;
+  v.style.filter = `blur(${ph * 8}px)`;
+  $("shade").style.background = `linear-gradient(180deg, rgba(2,8,24,${.35 + .4 * ph}) 0%, rgba(2,8,24,${.1 + .55 * ph}) 45%, rgba(2,8,24,${.3 + .55 * ph}) 100%)`;
+  $("bg").style.opacity = 1 - endIn;
+  particles($("pBack"), t, seg(t, T.glide + .4, T.glide + 1.4) * (1 - endIn));
+
+  // hook: centred big over the ocean, then lifts away as the phone arrives
+  // clears the top third before the phone's top edge reaches it
+  const hk = inOut(seg(t, T.glide, T.glide + .7));
+  $("hook").style.top = lerp(640, SAFE_TOP + 20, hk) + "px";
+  $("hook").style.transform = `scale(${lerp(1, .8, hk)})`;
+  rise($("h1"), t, .2, T.size - .15, .8);
+  rise($("h2"), t, .45, T.size - .1, .8);
+
+  // phone: glides up from below with a 3D settle, then floats
+  const g = seg(t, T.glide, T.glide + 1.5), e = outExpo(g);
+  const fl = seg(t, T.glide + 1.2, T.out);
+  const ry = Math.sin(t * .6 + .4) * 4 * fl, rx = Math.sin(t * .45 + 1.1) * 2 * fl;
+  const ex = Math.pow(seg(t, T.out - .2, T.end), 2);
+  $("phone").style.transform = `translateY(${(1 - e) * 1400 + ex * 1500}px) rotateX(${(1 - e) * 28 + rx - ex * 20}deg) rotateY(${(1 - e) * -12 + ry}deg) rotateZ(${(1 - e) * -5}deg) scale(${lerp(.86, .96, e)})`;
+  $("stage").style.opacity = 1 - seg(t, T.end - .35, T.end);
+  $("phone").style.visibility =t < T.glide || t > T.end + .1 ? "hidden" : "visible";
+
+  // page: one smooth scroll down to the Size / Period / Wind bars; the nav never moves
+  const sc = SCROLL * quint(seg(t, T.scroll, T.size - .1));
+  $("page").style.transform = `translateY(${-sc * K}px)`;
+
+  // the bars block lifts out of the screen, the phone dims behind it
+  const on = seg(t, T.size - .5, T.size) * (1 - seg(t, T.out - .3, T.out + .2));
+  $("dim").style.opacity = .6 * on;
+  const lf = outBack(seg(t, T.size - .5, T.size + .3), 1.1), lo = seg(t, T.size - .5, T.size - .3) * (1 - seg(t, T.out - .1, T.out + .3));
+  const Q = 740 / LIFT.w;                                    // film px per capture px, lifted
+  const sx = 540 + (240 + (LIFT.x + LIFT.w / 2) * K - 540) * .96, sy = 612 + (20 + (LIFT.y + LIFT.h / 2 - SCROLL) * K) * .96;
+  const lx = lerp(sx, 540, lf), ly = lerp(sy, 930, lf) + ex * 1500 + Math.sin(t * .8) * 6 * lf;
+  Object.assign($("lift").style, {
+    left: lx - LIFT.w * Q / 2 + "px", top: ly - LIFT.h * Q / 2 + "px", width: LIFT.w * Q + "px", height: LIFT.h * Q + "px",
+    backgroundSize: `${1170 * Q}px auto`, backgroundPosition: `${-LIFT.x * Q}px ${-LIFT.y * Q}px`,
+    transform: `perspective(1800px) rotateX(${(1 - lf) * 25 + Math.sin(t * .7) * 3 * lf}deg) rotateY(${Math.sin(t * .5 + 1) * 4 * lf}deg) scale(${lerp(K * .96 / Q, 1, lf)})`,
+    opacity: lo, visibility: lo > 0 ? "visible" : "hidden",
+    boxShadow: `0 40px 100px rgba(0,0,0,${.7 * lf}), 0 0 0 2px rgba(255,255,255,${.12 * lf})`,
+  });
+  // a ring walks Size -> Period -> Wind as each word lands, then holds Wind, glowing blue
+  const p1 = outExpo(seg(t, T.period - .1, T.period + .5)), p2 = outExpo(seg(t, T.wind - .1, T.wind + .5));
+  const cy = lerp(lerp(ROWS[0], ROWS[1], p1), ROWS[2], p2) - LIFT.y, rgb = p2 > .5 ? "17,183,242" : "36,177,97";
+  const hon = seg(t, T.size, T.size + .3);
+  Object.assign($("hl").style, {
+    left: 12 * Q + "px", width: (LIFT.w - 24) * Q + "px", top: (cy - 34) * Q + "px", height: 68 * Q + "px",
+    boxShadow: `inset 0 0 0 4px rgba(${rgb},${hon}), 0 0 ${30 + 12 * Math.sin(t * 3)}px rgba(${rgb},${.6 * hon}), 0 0 0 2000px rgba(0,0,0,${.5 * hon})`,
+  });
+
+  // the words, top third, one per bar
+  for (const el of ["w1", "w2", "w3"]) el && ($(el).parentNode.parentNode.style.top = SAFE_TOP + 40 + "px");
+  $("fin").style.top = SAFE_TOP + 10 + "px";
+  rise($("w1"), t, T.size, T.period - .05, .6);
+  rise($("w2"), t, T.period, T.wind - .05, .6);
+  rise($("w3"), t, T.wind, T.fin - .05, .6);
+  rise($("f1"), t, T.fin, T.out, .7);
+  rise($("f2"), t, T.fin + .25, T.out + .05, .7);
+
+  // end card: black, the particles rising through the whole frame
+  particles($("pEnd"), t, endIn);
+  const E = T.end;
+  $("end").style.top = SAFE_TOP + 170 + "px";
+  const lg = seg(t, E, E + .8);
+  $("logo").style.transform = `scale(${lerp(.5, 1, outBack(lg))})`;
+  $("logo").style.opacity = clamp(lg * 3);
+  const pop = (el, a) => { const k = outExpo(seg(t, a, a + .8)); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * 50}px)`; };
+  pop($("e1"), E + .15); pop($("e2"), E + .3); pop($("btn"), E + .5); pop($("e3"), E + .7);
+  const glow = 34 + 12 * Math.sin(t * 2.6);
+  $("btn").style.boxShadow = `0 0 ${glow}px rgba(17,183,242,.7), 0 0 ${glow * 2.4}px rgba(17,183,242,.3)`;
+  $("end").style.visibility = t < E ? "hidden" : "visible";
+
+  if (t < T.end + .4) await loaded(v).then(() => seekVideo(v, 2 + t));
+}
+window.__film = { seek, duration: T.dur };
+</script>
+</body></html>

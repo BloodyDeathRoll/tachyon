@@ -406,11 +406,7 @@ h2{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
 textarea{width:100%;min-height:110px;border:1px solid var(--rule);border-radius:12px;padding:14px 16px;resize:vertical;color:var(--ink);background:#fff;font-size:15px}
 textarea:focus,select:focus,.tfield input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px rgba(0,0,0,.06)}
 .btns{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
-.pickup{margin-left:auto;white-space:nowrap;font-size:14px}.pickup.res{display:inline-grid;text-decoration:none}.pickup.hold{pointer-events:none;cursor:default}.pickup.res>span{grid-area:1/1;display:inline-flex;align-items:center;justify-content:flex-end;gap:6px}
-.pickup.res .pk0{text-decoration:underline;text-underline-offset:3px;animation:pkout 4.6s both}.pickup.res .pk1{animation:pkin 4.6s both}
-.pk1 path{stroke-dasharray:24;stroke-dashoffset:24;animation:pkdraw .5s .7s ease-out forwards}@keyframes pkdraw{to{stroke-dashoffset:0}}
-@keyframes pkout{0%,6%,94%,100%{opacity:1;filter:none;transform:none}14%,86%{opacity:0;filter:blur(4px);transform:translateY(-6px)}}
-@keyframes pkin{0%,6%,94%,100%{opacity:0;filter:blur(4px);transform:translateY(6px)}14%,86%{opacity:1;filter:none;transform:none}}.linkbtn{background:none;border:0;padding:0;cursor:pointer;color:inherit;font:inherit;font-weight:600}
+.linkbtn{background:none;border:0;padding:0;cursor:pointer;color:inherit;font:inherit;font-weight:600}
 .btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:10px;padding:11px 18px;font-weight:600;cursor:pointer;font-size:14.5px}
 .btn.pri{background:var(--lime);color:var(--ink)}.btn.pri:hover{background:var(--lime-h)}
 .btn.danger{background:#d92d20;color:#fff}.btn.danger:hover{background:#b42318}
@@ -1226,19 +1222,7 @@ def video_card(client: str, row, tag: tuple[str, str], db: DB) -> str:
             f"<h3>{ESC(title_of(client, row))}</h3>{'' if cls == 'need' else f'<p>{ESC(line)}</p>'}</a>")
 
 
-def pick_text(picked: str) -> str:
-    """'<found>-<failed>' from the last "Look for manual posts" → words for the card."""
-    m = re.fullmatch(r"(\d+)-(\d+)", picked)
-    if not m:
-        return "Could not reach Instagram"
-    found, failed = int(m[1]), int(m[2])
-    parts = [("No posts found" if not failed else "") if not found else ("1 post found" if found == 1 else f"{found} posts found")]
-    if failed:
-        parts.append(f"{failed} could not be added")
-    return " · ".join(p for p in parts if p)
-
-
-def schedule_card(client: str, picked: str | None = None) -> str:
+def schedule_card(client: str) -> str:
     times = sorted(_shift(t.strftime("%H:%M"), True) for t in SCH._slots(C.load_grants(client)))
     base = f"/{ESC(quote(client))}/schedule"
     n = len(times)
@@ -1248,23 +1232,11 @@ def schedule_card(client: str, picked: str | None = None) -> str:
         for i, t in enumerate(times))
     per = {1: "Once a day", 2: "Twice a day", 3: "Three times a day"}.get(n, f"{n} times a day")
     add = (f"<button class='btn sec small' name=add value=1 {'disabled' if n >= MAX_SLOTS else ''}>{icon('plus', 15)}Add a post</button>")
-    label, res = "Look for manual posts", ""
-    if picked is not None:   # the result of the last "Look for manual posts": the link morphs into it and back
-        ok = bool(re.fullmatch(r"[1-9]\d*-\d+", picked))
-        tick = ("<svg width=16 height=16 viewBox='0 0 24 24' fill=none stroke='#5cb800' stroke-width=3 stroke-linecap=round "
-                "stroke-linejoin=round aria-hidden=true><path d='M5 12.5l4.5 4.5L19 7.5'/></svg>") if ok else ""
-        label = f"<span class=pk0>{label}</span><span class=pk1 role=status>{tick}{ESC(pick_text(picked))}</span>"
-        res = " res"
     return (f"<section class=card><div class=row><h2>Publishing schedule</h2><span class=muted>{ESC(datetime.now(LOCAL).tzname() or "")}</span></div>"
             f"<p class=muted style='margin:4px 0 0;font-size:14px'>{per}, every day.</p>"
             f"<form method=post action='{base}'><div class=times>{rows}</div>"
-            f"<div class=btns style='margin-top:0;align-items:center;flex-wrap:nowrap'><button class='btn dark small' name=save value=1>Save</button>{add}"
-            f"<button class='lnk linkbtn pickup{res}' formaction='/{ESC(quote(client))}/pickup' formnovalidate>"
-            f"{label}</button></div></form>"
-            # a reload never replays it; while the result shows, the link is not a link
-            + ("<script>history.replaceState(null,'',location.pathname+location.hash);(()=>{const b=document.querySelector('.pickup.res');"
-               "b.disabled=true;b.classList.add('hold');setTimeout(()=>{b.disabled=false;b.classList.remove('hold')},4300)})()</script>" if res else "")
-            + "</section>")
+            f"<div class=btns style='margin-top:0;align-items:center;flex-wrap:nowrap;justify-content:flex-end'><button class='btn dark small' name=save value=1>Save</button>{add}"
+            f"</div></form></section>")
 
 
 def week_card(client: str) -> str:
@@ -1375,7 +1347,7 @@ def render_overview(client: str, q: dict | None = None) -> bytes:
                 "let f='all';try{f=localStorage.getItem(K)||'all'}catch(_){}if(!document.querySelector(`.filt [data-f='${f}']`))f='all';set(f);})();</script>")
         body = (header(client, "Overview") +
                 f"<div class=ovgrid><div class=maincol>{perf}{vids}</div>"
-                f"<div class=side>{schedule_card(client, (q or {}).get('picked'))}{week_card(client)}{dropped_card(client)}{sync_card(client, (q or {}).get('synced'))}</div></div>")
+                f"<div class=side>{schedule_card(client)}{week_card(client)}{dropped_card(client)}{sync_card(client, (q or {}).get('synced'))}</div></div>")
         return shell(client, "overview", body, "Overview", refresh=30 if count["busy"] or (W.status(client, W.next_week()) or {}).get("state") == "running" else None)
     finally:
         db.close()
@@ -1422,14 +1394,16 @@ def dropped_card(client: str, note: str = "") -> str:
 
 
 def sync_card(client: str, synced: str | None = None) -> str:
-    """Overview → Sync videos (spine/publisher/publish.py sync_removed); `synced` is '<removed>-<errors>' or 'err'."""
+    """Overview → Sync videos: manual uploads picked up (spine/pickup.py), deleted reels marked Removed (publish.sync_removed).
+    `synced` is '<removed>-<errors>-<added>-<failed>' or 'err'."""
     res = ""
     if synced == "err":
         res = "<p class=hint style='color:#b42318'>Could not reach Instagram. Try again later.</p>"
-    elif synced and (m := re.fullmatch(r"(\d+)-(\d+)", synced)):
-        n, e = int(m[1]), int(m[2])
-        txt = f"{n} {'video' if n == 1 else 'videos'} marked Removed." if n else "Nothing removed. Every live video is still on Instagram."
-        res = f"<p class=upok>{icon('check', 15)}{ESC(txt)}</p>" + (f"<p class=hint>{e} could not be checked. Try again later.</p>" if e else "")
+    elif synced and (m := re.fullmatch(r"(\d+)-(\d+)-(\d+)-(\d+)", synced)):
+        n, e, a, f = map(int, m.groups())
+        say = [f"{a} {'video' if a == 1 else 'videos'} added." if a else "", f"{n} {'video' if n == 1 else 'videos'} marked Removed." if n else ""]
+        txt = " ".join(x for x in say if x) or "Nothing new. Every live video is still on Instagram."
+        res = f"<p class=upok>{icon('check', 15)}{ESC(txt)}</p>" + (f"<p class=hint>{e + f} could not be checked. Try again later.</p>" if e + f else "")
     return (f"<section class=card id=sync><h2>Sync</h2>"
             f"<form method=post action='/{ESC(quote(client))}/sync' class=crow>"
             f"<p>Find manual uploads and removals</p>"
@@ -2567,19 +2541,16 @@ class Handler(BaseHTTPRequestHandler):
             if parts[1] == "flag":
                 C.set_flag(name, form["flag"], form["value"] == "1")
                 return self._redirect(f"/{quote(name)}/settings")
-            if parts[1] == "pickup":   # "Look for manual posts": the hourly pickup, now
+            if parts[1] == "sync":   # Overview → Sync videos: pick up manual uploads, mark deleted reels Removed
                 from spine import pickup as PK
-                try:
-                    res = PK.pickup(name)
-                    n = f"{sum(1 for r in res if 'slot_id' in r)}-{sum(1 for r in res if 'error' in r)}"
-                except Exception:  # noqa: BLE001 — no token or network: say so on the card
-                    n = "err"
-                return self._redirect(f"/{quote(name)}?picked={n}")
-            if parts[1] == "sync":   # Overview → Sync videos: reels deleted by hand on Instagram
                 from spine.publisher.publish import sync_removed
                 try:
+                    res = PK.pickup(name)
+                except Exception:  # noqa: BLE001 — pickup down: still sync removals, count it as one failure
+                    res = [{"error": "pickup"}]
+                try:
                     r = sync_removed(name)
-                    n = f"{len(r['removed'])}-{r['errors']}"
+                    n = (f"{len(r['removed'])}-{r['errors']}-{sum(1 for x in res if 'slot_id' in x)}-{sum(1 for x in res if 'error' in x)}")
                 except Exception:  # noqa: BLE001 — no token or network: say so on the card
                     n = "err"
                 return self._redirect(f"/{quote(name)}?synced={n}#sync")

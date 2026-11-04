@@ -1,0 +1,40 @@
+{
+  "slot_id": "2026-w45-13",
+  "title": "Pipeline two weeks out",
+  "pillar": "Spot spotlight",
+  "angle": "One message: plan your next session at a famous break 16 days ahead. Open on ocean footage full frame with the hook in large type, then the phone rises in and fills the bottom two thirds of the screen, showing the real Pipeline spot page (light theme). The page scrolls smoothly through the days ahead while the bottom nav stays fixed, and the camera eases closer onto the day that rates Good. Rosa particles rise and fade in any empty area. Close on the logo end card with white text, a softly glowing button with white text and a white \"link in bio\".",
+  "hook_formula": "Pipeline, 16 days out",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Funky (Bryan Todd), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w45-13/film",
+    "source": "clients/rosa/posts/2026-w45-13/film/index.html",
+    "music": "clients/rosa/assets/music/surf-rock-summer-325576.mp3"
+  },
+  "track": "ig:1533533194710691",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w45-13",
+  "plan": "manual",
+  "motion": null,
+  "theme": "light",
+  "duration_s": 19.0,
+  "audio_configuration": {
+    "audio_id": "1533533194710691",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Funky",
+    "artist": "Bryan Todd",
+    "cover": "https://scontent-lga3-2.xx.fbcdn.net/v/t39.30808-1/622812893_1441139397569714_4639578848622023498_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=Ws04XdyO_YMQ7kNvwFlJgY4&_nc_oc=AdovrL1lihpf1JVX4Wg5whM8bFcd1bhTOwLLWNnZNIbL0zbBFY74zLJUeT05aUgOF-4&_nc_zt=24&_nc_ht=scontent-lga3-2.xx&edm=AOP_XFkEAAAA&_nc_gid=e7IYjRwrxJSTYu_4a3azKg&oh=00_AQT6uHfKyvbcCsJtaZ77TEDQcJbJzP3uYFmIr-kpOFogZA&oe=6AEBED42",
+    "duration": 66.8,
+    "link": null,
+    "preview_of": "ig:1533533194710691"
+  }
+}

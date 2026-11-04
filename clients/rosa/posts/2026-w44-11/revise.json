@@ -1,7 +1,7 @@
 {
  "state": "done",
  "step": "done",
- "notes": "Swap the final closing titles to be the same as on W44 \u00b7 03. Keep the wave backgound",
+ "notes": "You are showing repeated swipe movement, but you do not actually swipe de days. Show a single swipe movement, and ease out swipe the days",
  "rounds": [
   {
    "notes": "Add the particles animation we use in the Rosa app loading screen. Keep the exact animation we use in the app itself, particles rising up and fading away as they rise",
@@ -22,18 +22,36 @@
   {
    "notes": "Swap the final closing titles to be the same as on W44 \u00b7 03. Keep the wave backgound",
    "at": "2026-10-29T07:24:08+00:00"
+  },
+  {
+   "notes": "V>O script:\r\n\"Dude, look at this swell filling in in Supertubos!\"\r\n\"You can watch it build day by day in the Rosa app\"\r\n\"Tuesday morning was cleannn. I was first out!\"\r\nWhen the voice says you can watch it build... show a swipe left in the app, revealing a swell that builds up",
+   "at": "2026-10-30T08:02:03+00:00"
+  },
+  {
+   "notes": "Redo the voiceover,cuts in the wrong places and swallows words. Red from scratch.\r\nAlso, zoom in the app way too exaggerated.  You should animate swipe left and a swell developing with each day that we swipe through, not zooming in",
+   "at": "2026-10-30T20:24:55+00:00"
+  },
+  {
+   "notes": "swipe looks super weird, it gets stuck instead of swipe. capture actual app swiping, make it move through the days smoothly",
+   "at": "2026-10-30T21:01:05+00:00"
+  },
+  {
+   "notes": "You are showing repeated swipe movement, but you do not actually swipe de days. Show a single swipe movement, and ease out swipe the days",
+   "at": "2026-10-30T21:09:30+00:00"
   }
  ],
  "error": null,
- "updated_at": "2026-10-29T07:26:53+00:00",
- "changes": "I swapped in the W44 \u00b7 03 closing titles, but nothing is checked yet. The type check (`npx tsc --noEmit -p .`) and the still render both stopped at a permission prompt, so neither ran. I haven't looked at a frame.\n\n- **End card text:** \"Free surf forecast, worldwide.\" is now \"it's free.\" in white, as on W44 \u00b7 03.\n- **Button:** \"rosa.surf \u2192\" now has white text, the pulsing blue glow and the extra top spacing from W44 \u00b7 03.\n- **Timing:** the logo, title, button, \"link in bio\" and Pixabay credit come in at the W44 \u00b7 03 timings, and \"link in bio\" is now white.\n- **Background:** the wave footage and the rising particles behind the end card are unchanged.\n- **Header comment:** updated in `src/films/film-2026-w44-11.tsx` to describe the new end card.\n\nI didn't change the voice-over script in `meta.json`, because it never mentions the closing line.\n\nTo finish, allow and run these. Frame 360 is about 2 s into the end card.\n```\nnpx tsc --noEmit -p .\nnpx remotion still src/index.ts film-2026-w44-11 /home/shahar/Projects/tachyon/clients/rosa/posts/2026-w44-11/.still.png --frame=360\n```\n\nRisk: the end-card layout is copied from W44 \u00b7 03 and should stay inside the safe box, but the story variant has had no frame check.",
+ "updated_at": "2026-10-30T21:13:00+00:00",
+ "changes": "I made the edit, but it's unverified: running `npx tsc --noEmit -p .` and `npx remotion still` both returned \"This command requires approval\", so I haven't type-checked it or looked at any frames.\n\nChanges in `engines/remotion/src/films/film-2026-w44-11.tsx`:\n- The three finger flicks are now one flick at 3.9 s.\n- The day strip itself now scrolls left two days, easing out over 2.2 s, so Tue ends where Today was.\n- Mon, Tue and Wed light up and their bars grow in as the strip scrolls past them.\n- I removed the sliding selection ring, since the days now move instead of the ring.\n- The Tue ring follows the scrolled position of the Tue column.\n- \"Watch it build.\" now comes in at 4.8 s instead of being tied to the second flick.\n- I updated the header comment to describe the new motion.\n\nRisk: the capture ends at Sat, so after the scroll the right ~115 px of the day strip shows empty background. Check that in a still once the commands are approved.",
  "verdicts": {
-  "reel": "VERDICT: PASS (worst band 0.03x; text or UI in a band shows as > 0.6x)",
-  "story": "VERDICT: PASS (worst band 0.03x; text or UI in a band shows as > 0.6x)"
+  "reel": "VERDICT: PASS (worst band 0.05x; text or UI in a band shows as > 0.6x)",
+  "story": "VERDICT: PASS (worst band 0.05x; text or UI in a band shows as > 0.6x)",
+  "reel spec": "VERDICT: PASS",
+  "story spec": "VERDICT: PASS"
  },
  "skip_edit": false,
  "revoice": false,
  "kind": null,
  "no_change": false,
- "vo_before": "Dude, look at this swell filling in at Supertubos! ... You can watch it build day by day. ... Tuesday morning was clean! I was first out!"
+ "vo_before": "Dude, look at this swell filling in at Supertubos! ... You can watch it build, day by day, in the Rosa app. ... Tuesday morning was clean. I was first out!"
 }

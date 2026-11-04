@@ -1083,38 +1083,31 @@ def test_overview_views_header_and_scheduled_stopwatch(server, client_dir):
     assert "class=stw title='Scheduled'" in cal and "<span class='tag sched'>" not in cal   # calendar cells too
 
 
-def test_sync_videos_card_marks_removed_reels(server, monkeypatch):
+def test_sync_videos_card_picks_up_uploads_and_marks_removed_reels(server, monkeypatch):
+    from spine import pickup as PK
     from spine.publisher import publish as P
     _, body, _ = req(server, "GET", "/demo")
-    assert "Find manual uploads and removals" in body
+    assert "Find manual uploads and removals" in body and "Look for manual posts" not in body
     assert "action='/demo/sync'" in body and "Sync videos" in body
+    monkeypatch.setattr(PK, "pickup", lambda c: [{"media": "M1", "slot_id": "s"}, {"media": "M2", "error": "x"}])
     monkeypatch.setattr(P, "sync_removed", lambda c: {"checked": 3, "removed": ["a", "b"], "errors": 1})
     status, _, loc = req(server, "POST", "/demo/sync", {})
-    assert status == 303 and loc == "/demo?synced=2-1#sync"
-    _, body, _ = req(server, "GET", "/demo?synced=2-1")
-    assert "2 videos marked Removed." in body and "1 could not be checked" in body
-    _, body, _ = req(server, "GET", "/demo?synced=0-0")
-    assert "Nothing removed." in body
+    assert status == 303 and loc == "/demo?synced=2-1-1-1#sync"
+    _, body, _ = req(server, "GET", "/demo?synced=2-1-1-1")
+    assert "1 video added. 2 videos marked Removed." in body and "2 could not be checked" in body
+    _, body, _ = req(server, "GET", "/demo?synced=0-0-0-0")
+    assert "Nothing new." in body
     monkeypatch.setattr(P, "sync_removed", lambda c: (_ for _ in ()).throw(RuntimeError("no token")))
     assert req(server, "POST", "/demo/sync", {})[2] == "/demo?synced=err#sync"
     assert "Could not reach Instagram. Try again later." in req(server, "GET", "/demo?synced=err")[1]
 
 
-def test_look_for_manual_posts_runs_pickup_now(server, monkeypatch):
+def test_sync_still_marks_removed_when_pickup_fails(server, monkeypatch):
     from spine import pickup as PK
-    _, body, _ = req(server, "GET", "/demo")
-    assert "Look for manual posts" in body and "formaction='/demo/pickup'" in body
-    monkeypatch.setattr(PK, "pickup", lambda c: [{"media": "M1", "slot_id": "s", "linked": False}, {"media": "M2", "error": "x"}])
-    status, _, loc = req(server, "POST", "/demo/pickup", {})
-    assert status == 303 and loc == "/demo?picked=1-1"
-    _, body, _ = req(server, "GET", "/demo?picked=1-1")
-    assert "1 post found · 1 could not be added" in body
-    _, body, _ = req(server, "GET", "/demo?picked=0-0")
-    assert "No posts found" in body
-    monkeypatch.setattr(PK, "pickup", lambda c: (_ for _ in ()).throw(RuntimeError("no token")))
-    assert req(server, "POST", "/demo/pickup", {})[2] == "/demo?picked=err"
-    _, body, _ = req(server, "GET", "/demo?picked=err")
-    assert "Could not reach Instagram" in body
+    from spine.publisher import publish as P
+    monkeypatch.setattr(PK, "pickup", lambda c: (_ for _ in ()).throw(RuntimeError("media fetch failed")))
+    monkeypatch.setattr(P, "sync_removed", lambda c: {"checked": 3, "removed": ["a", "b"], "errors": 0})
+    assert req(server, "POST", "/demo/sync", {})[2] == "/demo?synced=2-0-0-1#sync"
 
 
 def test_pause_and_play(server, client_dir, monkeypatch):

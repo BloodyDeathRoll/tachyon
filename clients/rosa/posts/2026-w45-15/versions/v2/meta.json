@@ -1,0 +1,27 @@
+{
+  "slot_id": "2026-w45-15",
+  "title": "Uluwatu wind polish",
+  "pillar": "Why this rating",
+  "angle": "Open on Pixabay ocean footage full screen, the hook in large white type over it. The phone\nglides in and fills the bottom two thirds of the screen with the Uluwatu spot page (dark\ntheme), the bottom nav fixed while the page scrolls smoothly down to the Size, Period and\nWind bars. Each bar gets one big word as it lands on screen: size, period, wind, then\n\"wind can only polish\". Close on the W44 · 03 end card (white text, glowing button with\nwhite text, white \"link in bio\") with the Rosa particles rising and fading in every empty\ndark area, as in the app loading screen.",
+  "hook_formula": "Wind can only polish",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Surf Rock Summer (BFCMUSIC), baked in",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w45-15/film",
+    "source": "clients/rosa/posts/2026-w45-15/film/index.html",
+    "music": "clients/rosa/assets/music/surf-rock-summer-325576.mp3"
+  },
+  "track": "surf-rock-summer",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w45-15",
+  "plan": "manual",
+  "motion": null,
+  "theme": "dark",
+  "duration_s": 17.0
+}

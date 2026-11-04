@@ -1,0 +1,40 @@
+[
+ {
+  "file": "spot-pipeline-full.png",
+  "url": "https://rosa.surf/spot/pipeline?theme=light",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-10-31T15:17:48+00:00",
+  "viewport": "390x844@3x",
+  "theme": "light"
+ },
+ {
+  "file": "map-northshore.png",
+  "url": "https://rosa.surf/map?theme=light",
+  "title": "Surf map - every spot, rated right now | Rosa",
+  "at": [
+   21.62,
+   -158.06
+  ],
+  "viewport": "390x844@3x",
+  "theme": "light"
+ },
+ {
+  "file": "map-northshore-2.png",
+  "url": "https://rosa.surf/map?theme=light",
+  "title": "Surf map - every spot, rated right now | Rosa",
+  "at": [
+   21.665,
+   -158.053
+  ],
+  "viewport": "390x844@3x",
+  "theme": "light"
+ },
+ {
+  "file": "spot-supertubos-full.png",
+  "url": "https://rosa.surf/spot/supertubos?theme=light",
+  "title": "Supertubos (Peniche) surf forecast - Casal da Vala, Portugal | Rosa",
+  "at": "2026-10-31T21:55:43+00:00",
+  "viewport": "390x844@3x",
+  "theme": "light"
+ }
+]

@@ -1,0 +1,29 @@
+# QA · 2026-w45-15 · 2026-11-01T13:12:01+00:00
+
+## Operator notes
+
+Start from a full screen video of a swell. Zoom out into what you have now - a full screen app, the video becoming the webcam section.
+Drop "Start it once" altogether. Just add the spots and continue as is.
+Ending: instead of 
+"Start it once. Done." + "It's free.", 
+change to
+"Your favorite spots" + "One click away"
+
+## Changes
+
+I made all three changes. I checked stills at 0.5s, 1.4s, 2.3s and 16s, and nothing in the end card leaves the safe box.
+
+- **Intro:** the swell clip now fills the screen until 0.9s. From 0.9s to 2.0s the camera pulls back and the clip shrinks into Banzai Pipeline's webcam slot. It keeps playing there until the page is swiped away. It's the same footage file already in the film folder.
+- **"Star it once." removed:** the film now goes straight from the intro to starring the spots. Everything after that runs as before, just 1s later, so the film is 18.5s instead of 17.5s (`film.json` updated).
+- **End card:** "Star it once. Done." + "it's free." is now "Your favorite spots" + "One click away". I made the second line larger, from 58px to 72px.
+
+I kept the "Done." panel that appears after the third spot is added, because the note only named "Star it once". Say if that should go too.
+
+## Safe zones
+
+- reel: VERDICT: FAIL (worst band 0.74x; text or UI in a band shows as > 0.6x)
+- story: VERDICT: FAIL (worst band 0.74x; text or UI in a band shows as > 0.6x)
+- reel spec: VERDICT: PASS
+- story spec: VERDICT: PASS
+
+VERDICT: NEEDS_REVISION

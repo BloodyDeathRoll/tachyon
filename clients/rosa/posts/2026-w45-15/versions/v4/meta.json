@@ -1,0 +1,27 @@
+{
+  "slot_id": "2026-w45-15",
+  "title": "Supertubos three bars",
+  "pillar": "Why this rating",
+  "angle": "Open full screen on Pixabay ocean footage with the hook in large white type over it.\nThe phone rises in and fills the bottom two thirds of the screen with the Supertubos spot page\n(light theme), then scrolls smoothly down to the Size, Period and Wind bars while the bottom\nnav stays fixed in place. As each bar fills, one big word lands beside it: size, then period,\nthen wind, then the line \"That's the whole rating.\" Close on the W44 · 03 end card (white text\nunder the logo, glowing button with white text a little below it, white \"link in bio\") with the\nRosa particles rising and fading in every empty area, exactly as in the app loading screen.",
+  "hook_formula": "Three bars. One rating.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Surf Rock Summer (BFCMUSIC), baked in",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w45-15/film",
+    "source": "clients/rosa/posts/2026-w45-15/film/index.html",
+    "music": "clients/rosa/assets/music/surf-rock-summer-325576.mp3"
+  },
+  "track": "surf-rock-summer",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w45-15",
+  "plan": "manual",
+  "motion": null,
+  "theme": "light",
+  "duration_s": 19.0
+}

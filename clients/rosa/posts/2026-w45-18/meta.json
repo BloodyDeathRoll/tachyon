@@ -1,0 +1,40 @@
+{
+  "slot_id": "2026-w45-18",
+  "title": "North Shore map",
+  "pillar": "Spot spotlight",
+  "angle": "One message: every break on the North Shore, rated at a glance. Open on Pixabay ocean footage with the hook, then the phone glides in large, filling the bottom two thirds of the full frame, showing the light-theme map of the North Shore with its numbered, rated pins. The spot cards along the bottom slide sideways one by one (Epic, Good, the next break) in a single smooth eased swipe while the bottom nav stays fixed in place. Rosa app particles rise and fade in any empty area. Close on the W44 · 03 end card (white text under the logo, white glowing button with space above it, white \"link in bio\") over a fresh ocean clip not used on recent closers.",
+  "hook_formula": "North Shore, every break rated",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Mi Tumbao (El Septeto Santiaguero), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w45-18/film",
+    "source": "clients/rosa/posts/2026-w45-18/film/index.html",
+    "music": "clients/rosa/assets/music/surf-rock-summer-325576.mp3"
+  },
+  "track": "ig:2878320389059718",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w45-18",
+  "plan": "manual",
+  "motion": null,
+  "theme": "light",
+  "duration_s": 17.0,
+  "audio_configuration": {
+    "audio_id": "2878320389059718",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Mi Tumbao",
+    "artist": "El Septeto Santiaguero",
+    "cover": "https://scontent-lga3-2.xx.fbcdn.net/v/t39.30808-1/312714368_641017407464042_4921270909930798668_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=bzJy9tAhglsQ7kNvwEU3YYM&_nc_oc=Ado2KKcTmtT1Z_TS1DyDy9cpwFSuKMThHWIjkZgD06QEtYKielmuqpXa7O9UGYFifmo&_nc_zt=24&_nc_ht=scontent-lga3-2.xx&edm=AOP_XFkEAAAA&_nc_gid=EIlUSyjGBitH8vWygfe_XA&oh=00_AQQIECXyRXMRrsIAUSnh2T97OW1gfqn59ycBuA_v0DvNmg&oe=6AEC2741",
+    "duration": 223.7,
+    "link": null,
+    "preview_of": "ig:2878320389059718"
+  }
+}

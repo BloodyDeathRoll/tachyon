@@ -1,0 +1,31 @@
+revise failed: I didn't change anything. The film can't show America with the images we have.
+
+Every capture of the charts screen (`captures/charts.png`, plus the light version and the 2026-10-25 originals) frames Europe and Africa. America only appears as a strip of Greenland and the edge of Brazil ("ZIL"). However the flyover moves, it lands on Europe and Africa, which is why the last three revisions failed.
+
+Decision needed: a new capture of the Charts screen with the Americas in view, saved as `engines/remotion/public/captures/charts-americas.png` (1170×2532, dark theme). Once it's there I'll point the floor and the phone screen at it and re-aim the flight. I haven't tried taking the capture myself from rosa.surf/charts because that's outside the film-only edit scope. Say if you want me to.
+
+No edits made, so I didn't run `tsc` or check any stills.
+revise failed: I couldn't show America, and I didn't edit the film. Running the live capture of rosa.surf/charts needed your approval, and it wasn't granted.
+
+Every Charts capture in `public/captures` and `captures-light` is framed on Europe and Africa. The only bits of America in them are a strip of Greenland and the edge of Brazil. That's why the last three revisions still showed Europe and Africa.
+
+To unblock, approve this command. It's a probe script I wrote that loads the live Charts page and drags the map west to the Americas:
+```
+PYTHONPATH=/home/shahar/Projects/tachyon /home/shahar/Projects/tachyon/.venv/bin/python /tmp/cap_am.py shoot /tmp/am1.png 170 0 3
+```
+Or save a 1170×2532 dark-theme screenshot of the Charts screen with the Americas in view as `engines/remotion/public/captures/charts-americas.png`.
+
+Once I have it, I'll point the map and the phone screen at it and re-aim the flyover.
+
+Changes made:
+- Added `/tmp/cap_am.py`, the capture script, outside the repo. Nothing in the repo changed, so I didn't run `tsc` or check any stills.
+revise failed: claude edit failed: error: unknown option '-m'
+revise failed: claude edit failed: error: unknown option '-m'
+revise failed: claude edit failed: error: unknown option '-m'
+revise failed: claude edit failed: error: unknown option '-m'
+revise failed: claude edit failed: error: unknown option '-m'
+revise failed: claude edit failed: error: unknown option '-m'
+revise failed: claude edit failed: error: unknown option '-m'
+revise failed: claude edit failed: error: unknown option '-m'
+revise failed: claude edit failed: error: unknown option '-m'
+revise failed: claude edit failed: error: unknown option '-m'

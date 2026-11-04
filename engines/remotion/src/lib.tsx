@@ -77,7 +77,7 @@ export const Footage: React.FC<{ src: string; from: number; to: number; startFro
 // ── the phone: a 3D-floating device with a screen stack ─────────────────────
 export type Pose = { x: number; y: number; s: number; rx: number; ry: number; rz: number; o: number };
 /** `cx`/`cy`: the phone's centre in the frame (defaults: the 9:16 reel's 540, 760) */
-export const Phone: React.FC<{ pose: Pose; children: React.ReactNode; glow?: number; cx?: number; cy?: number }> = ({ pose, children, glow = 0.14, cx = 540, cy = 760 }) => {
+export const Phone: React.FC<{ pose: Pose; children: React.ReactNode; glow?: number; cx?: number; cy?: number; island?: boolean }> = ({ pose, children, glow = 0.14, cx = 540, cy = 760, island = true }) => {
   const W = 420, H = 880;
   const { width, height } = useVideoConfig();
   return (
@@ -92,7 +92,7 @@ export const Phone: React.FC<{ pose: Pose; children: React.ReactNode; glow?: num
         <div style={{ position: "absolute", left: 10, top: 10, right: 10, bottom: 10, borderRadius: 54, overflow: "hidden", background: "#000" }}>
           {children}
         </div>
-        <div style={{ position: "absolute", left: "50%", top: 18, width: 120, height: 34, marginLeft: -60, borderRadius: 20, background: "#000", zIndex: 3 }} />
+        {island && <div style={{ position: "absolute", left: "50%", top: 18, width: 120, height: 34, marginLeft: -60, borderRadius: 20, background: "#000", zIndex: 3 }} />}
         {/* edge highlight */}
         <div style={{ position: "absolute", inset: 0, borderRadius: 64, boxShadow: "0 0 0 1px rgba(255,255,255,.08) inset", pointerEvents: "none" }} />
       </div>

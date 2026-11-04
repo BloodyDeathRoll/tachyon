@@ -1,0 +1,21 @@
+[
+ {
+  "file": "charts-americas.png",
+  "url": "https://rosa.surf/charts?theme=dark",
+  "title": "Swell charts - animated wave height and period | Rosa",
+  "at": [
+   15.0,
+   -75.0
+  ],
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "spot-supertubos-full.png",
+  "url": "https://rosa.surf/spot/supertubos?theme=dark",
+  "title": "Supertubos (Peniche) surf forecast - Casal da Vala, Portugal | Rosa",
+  "at": "2026-10-31T18:25:35+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ }
+]
