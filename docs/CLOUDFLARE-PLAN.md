@@ -60,11 +60,11 @@ Stays as is: bio link redirect on Vercel (`spine/publisher/links.py`), code in g
 
 ## New tables
 
-- `users(id PK = Google sub, email UNIQUE, name, admin, created_at)`. An invited user has a row with `id` null until their first sign-in.
+- `users(id PK, google_sub UNIQUE, email UNIQUE, name, admin, created_at)`. `id` is internal, so an invited user can be given memberships at once; `google_sub` is null until their first sign-in.
 - `memberships(user, client)` — a member manages the client. Every page and route checks it.
 - `clients(id, name, ig_user_id, page_id, token_enc, token_expires, ig_username, schedule, autonomy JSON, emergency_stop, created_by)`.
 - `client_files(client, name, text, version, updated_by, updated_at)` — the brand markdown.
-- `hosts(id, user, name, clients JSON, caps JSON, last_seen)` — a PC: which clients it holds assets for, what it can do (`render`, `voice`, `claude`). Registered by `spine/worker.py` on start.
+- `hosts(id, user, name, clients JSON, caps JSON, last_seen)` — a PC: which clients it holds assets for, what it can do (`render`, `voice`, `claude`). Registered by `spine/worker.py` on start. `last_seen` is written at most every 5 min, so the dashboard shows a host as online if it was seen in the last 10 min.
 - `jobs(id, kind, client, slot_id, state, holder, until, payload, result, by, created_at)` — local work: `plan`, `produce`, `revise`, `formats`, `voice`, `upload`. A host may claim a job only if its `clients` list has the job's client.
 - `leases(name PK, holder, until)` — one publisher per client inside the Worker. D1 has no locks: a lease is taken by one conditional `UPDATE leases SET holder=?, until=? WHERE name=? AND until < now` (row inserted once per client), and is held only if the result's `meta.changes` is 1. Job claims use the same pattern on `jobs`.
 - `media(slot_id, host, path, sha, size)` — which PC holds which file. For "the file is on <host>" in the dashboard, and for the upload job.
@@ -83,7 +83,7 @@ Stays as is: bio link redirect on Vercel (`spine/publisher/links.py`), code in g
 2. On approval the host runs an `upload` job: `video.mp4` and `cover.jpg` go to R2 under `<client>/<slot>/<random 32 hex>.mp4`. The bucket is public-read; the key is unguessable (operator 2026-11-04). Upload path: the PC sends the file to the Worker (`PUT /api/media/<slot>`), and the Worker streams the request body into `R2.put` without buffering or reading it.
 3. The Worker's cron (every minute): due slot in QUEUED → create the REELS container with `video_url` = the R2 URL and the same parameters as today (`share_to_feed`, `thumb_offset`, `trial_params`, `collaborators`, `location_id`, `is_ai_generated`). Container id saved on the post.
 4. Later minutes: poll `status_code`; FINISHED → `media_publish`; PUBLISHED with `ig_media_id`, permalink, `published_at`; first comment posted; then MEASURING. Up to 5 polls, as today.
-5. The R2 video object is deleted the minute the post is PUBLISHED (`media_publish` returned an `ig_media_id`), not at FINISHED: a publish that fails after FINISHED (quota, Graph error, container EXPIRED) is retried with a new container, and that container fetches the file again. Also deleted when a slot is deleted or its video replaced, and by a daily sweep of any object whose post is no longer QUEUED, PUBLISHING or FAILED, or has no post row. Age alone never deletes a video: a QUEUED slot far in the future keeps its file. The cover stays for the calendar.
+5. The R2 video object is deleted the minute the post is PUBLISHED (`media_publish` returned an `ig_media_id`), not at FINISHED: a publish that fails after FINISHED (quota, Graph error, container EXPIRED) is retried with a new container, and that container fetches the file again. Also deleted when a slot is deleted or its video replaced, and by a daily sweep of any object whose post is published or deleted, or that has had no post row for more than a day (the grace covers an upload that lands before its row). Any unpublished post keeps its file, in any state (QUEUED, HELD, PAUSED, FAILED), so a re-approval needs no new upload. Age alone never deletes a video: a slot far in the future keeps its file. The cover stays for the calendar.
 6. After publish the dashboard's player is the Instagram permalink. The local file stays on the creator's PC (`media` says where).
 7. Other formats (16:9, 1:1) are never uploaded: the creator posts them by hand from their PC.
 
@@ -91,7 +91,8 @@ In flight at any time: at most the approved-but-unpublished videos, ~22 MB each.
 
 ## Publish safety (must land before the Worker publishes)
 
-- The cron writes a journal intent row (slot, time) before the container create call, and the container id right after it. On the next minute, an intent with no container id means the invocation died inside that window. The Worker then checks `/me/media` for any post published after the intent time. Found: record it as this slot's post. Not found or unclear: mark the slot FAILED "check Instagram before retrying" and never retry it on its own. A cron invocation that died after container create must not post twice.
+- The cron writes a journal intent row (slot, time) before the container create call, and the container id right after it. On the next minute, an intent with no container id means the invocation died inside that window. The Worker then checks `/me/media` for a post published after the intent time whose caption matches this slot's caption. Exactly one: record it as this slot's post. None, several, or unclear: mark the slot FAILED "check Instagram before retrying" and never retry it on its own. A cron invocation that died after container create must not post twice.
+- Before `media_publish` the cron sets the post to PUBLISHING. A PUBLISHING post with a container id and no `ig_media_id` is never sent to `media_publish` again blindly: the Worker first reads the container's `status_code`. `PUBLISHED` ("The container's media object has been published", IG Container reference, read 2026-11-04): find the media in `/me/media` as above and record it. `FINISHED`: the publish did not happen, call `media_publish`. `EXPIRED` or `ERROR`: a new container.
 - `publish_lock` becomes the `leases` row; a second cron invocation for the same client exits.
 - `spec_check` stays local, before upload; the Worker never publishes an object that no host checked.
 
@@ -120,10 +121,10 @@ In flight at any time: at most the approved-but-unpublished videos, ~22 MB each.
 
 ## Phases
 
-0. **Spike** (1 session): operator creates the account; Worker skeleton in TS with D1, R2, the cron and Google sign-in copied from Rosa; measure D1 latency from home.
+0. **Spike** (1 session): operator creates the account; Worker skeleton in TS with D1, R2, the cron and Google sign-in copied from Rosa; measure D1 latency from home; one test REELS container with `video_url` on `r2.dev` and one on a Worker route, to settle the `video_url` host (open decisions).
 1. **D1 behind `spine/db.py`**: schema with `client` columns, `users`, `memberships`, `clients`, `jobs`, `leases`, `hosts`, `media`; migrate `tachyon.db`; tests pass unchanged; this desktop still the only runner.
 2. **`spine/worker.py`**: jobs and leases replace the crontab; the dashboard's Generate New, Revise and formats write jobs. Still one PC. Run a week.
-3. **Connect Instagram**: Facebook Login in the dashboard, tokens per client in D1, weekly refresh in the cron; `.env.local` keys and `auth.py` retired. Comes before phase 4 because the Worker needs the tokens in D1 to publish.
+3. **Connect Instagram**: Facebook Login in the dashboard, tokens per client in D1, weekly refresh in the cron; `.env.local` keys and `auth.py` retired. Comes before phase 4 because the Worker needs the tokens in D1 to publish. The full Worker dashboard is phase 6, so this phase adds only the Worker routes it needs: a Connect page behind sign-in, the Facebook Login callback and the Page pick.
 4. **Worker publishes from R2**: upload job, `video_url` container, one-minute cron, delete on PUBLISHED plus the daily sweep, idempotency check. Dry-run first; then a test with the cron killed between container create and poll.
 5. **API-only crons into the Worker**: insights, audience, pickup.
 6. **Dashboard on the Worker**: all pages, phone layout, manifest; the local dashboard kept read-only until parity.
@@ -142,7 +143,7 @@ From developers.cloudflare.com/r2/buckets/public-buckets (read 2026-11-04): "Pub
 What that means here:
 - Requests/day (100k): the cron is 1,440. Each PC polls every 60 s: 1,440 per PC. Phone and desktop dashboard use: assume under 2,000 per user. Two PCs and two users come to about 8,000.
 - D1 writes/day (100k): `hosts.last_seen` at most every 5 min is 288 per PC; job heartbeats are 60 per running hour. Posts, journal and insights rows add a few thousand.
-- CPU (10 ms): the Worker never processes video bytes. Instagram fetches from R2, and the upload is a streamed `R2.put`. So the CPU budget is API calls and HTML only. A 22 MB upload from a PC to the Worker fits the 100 MB body limit.
+- CPU (10 ms): the Worker never processes video bytes. Instagram fetches from R2, and the upload is a streamed `R2.put`. So the CPU budget is API calls and HTML only. If the Worker serves `video_url` itself (open decisions), each Instagram fetch is a Worker request, and the response must stream the R2 object body (`new Response(obj.body)`) without buffering it. A 22 MB upload from a PC to the Worker fits the 100 MB body limit.
 - Subrequests (50 per invocation): Graph calls, D1 queries and R2 calls share one budget. Each cron minute works through a queue (publish steps first, then insights, audience, pickup) across all clients and stops at 40 subrequests. Work left over runs the next minute.
 
 ## Open decisions
