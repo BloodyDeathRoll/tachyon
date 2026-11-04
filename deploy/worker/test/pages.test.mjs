@@ -379,5 +379,9 @@ test("/m/<client>/<slot>/video streams for a member with the cookie, 401 without
   assert.equal(part.status, 206);
   assert.equal(part.text, "really");
   assert.equal(part.headers.get("Content-Range"), "bytes 4-9/14");
+  const tail = await call("GET", "/m/rosa/v1/video", { headers: { Range: "bytes=-100" } }); // a suffix longer than the file: the whole file, never a negative start
+  assert.equal(tail.status, 206);
+  assert.equal(tail.headers.get("Content-Range"), "bytes 0-13/14");
+  assert.equal(tail.headers.get("Content-Length"), "14");
   assert.equal(part.headers.get("Content-Length"), "6");
 });

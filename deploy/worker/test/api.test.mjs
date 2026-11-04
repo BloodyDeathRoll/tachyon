@@ -155,6 +155,7 @@ test("an admin invites, adds members and clients; a member cannot", async () => 
   assert.equal((await call("POST", "/api/admin/users", { as: 3, body: { email: "nope" } })).status, 400);
   assert.equal((await call("POST", "/api/admin/clients", { as: 3, body: { id: "zed", name: "Zed Surf" } })).status, 200);
   assert.equal((await call("POST", "/api/admin/clients", { as: 3, body: { id: "zed" } })).status, 409);
+  assert.equal((await call("POST", "/api/admin/clients", { as: 3, body: { id: "api" } })).status, 400); // a path of the Worker's own
   assert.equal((await call("POST", "/api/admin/memberships", { as: 3, body: { user: carol, client: "nope" } })).status, 404);
   assert.equal((await call("POST", "/api/admin/memberships", { as: 3, body: { user: carol, client: "zed" } })).status, 200);
   const users = (await call("GET", "/api/admin/users", { as: 3 })).data.users;

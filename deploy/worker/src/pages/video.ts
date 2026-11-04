@@ -141,10 +141,14 @@ function errorCard(s: Slot, st: JobRow): string {
 
 function reviewCard(s: Slot): string {
   const act = `${path(s.p.client.id, s.slot)}/decide`;
-  return `<section class=card><h2>Review</h2><div class=btns><form method=post action='${act}'><button class='btn pri' name=action value=approve>${icon("check")}Approve</button></form>
-<details class=pop><summary class='btn sec'>${icon("edit", 16)}Edit</summary><div class=box><form method=post action='${act}'><label for=notes class=muted style='font-size:14px'>What should change?</label>
+  const engine = ((s.meta.film ?? {}) as Json).engine;
+  const edit = engine === "remotion" || engine === "html" // only a film a note can edit gets the Edit box (decide's reject refuses the rest)
+    ? `<details class=pop><summary class='btn sec'>${icon("edit", 16)}Edit</summary><div class=box><form method=post action='${act}'><label for=notes class=muted style='font-size:14px'>What should change?</label>
 <textarea id=notes name=notes required placeholder='e.g. Lead with the advantage, not the number. Make it faster.' style='margin-top:8px'></textarea>
-<div class=btns><button class='btn pri' name=action value=reject>${icon("redo")}Update</button></div></form></div></details>${generateBox(s)}</div></section>`;
+<div class=btns><button class='btn pri' name=action value=reject>${icon("redo")}Update</button></div></form></div></details>`
+    : `<span class='muted' style='font-size:14px'>No film to edit with a note: use Generate New.</span>`;
+  return `<section class=card><h2>Review</h2><div class=btns><form method=post action='${act}'><button class='btn pri' name=action value=approve>${icon("check")}Approve</button></form>
+${edit}${generateBox(s)}</div></section>`;
 }
 
 function holdButton(s: Slot): string {
@@ -475,8 +479,8 @@ async function decide(s: Slot, form: FormData, back: string): Promise<Response> 
       const engine = field(form, "engine") in ENGINES ? field(form, "engine") : "html";
       const prompt = field(form, "prompt").trim();
       if (!prompt) throw new HttpError(400, "prompt", "say what the new video should be"); // the host refuses an empty one too
-      await enqueue(s, "produce", { argv: ["spine.manual", "produce", p.client.id, slot], prompt, engine }); // first: SCRIPTED with no job would wait forever
       await setMeta(s, { engine_choice: engine, source: "prompt", plan: "manual" });
+      await enqueue(s, "produce", { argv: ["spine.manual", "produce", p.client.id, slot], prompt, engine }); // before the states: SCRIPTED with no job would wait forever
       await setState(p.c, slot, "REJECTED", "generate new", {});
       await setState(p.c, slot, "SCRIPTED", `generate new (${engine}): ${prompt.slice(0, 150)}`, {});
       break;

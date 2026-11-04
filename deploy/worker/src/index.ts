@@ -414,8 +414,8 @@ async function media(req: Request, env: Env, user: UserRow, client: string, slot
     let status = 200;
     let length = obj.size;
     if (asked && r) {
-      const start = r.suffix != null ? obj.size - r.suffix : r.offset ?? 0;
-      length = r.suffix ?? r.length ?? obj.size - start;
+      const start = Math.max(0, r.suffix != null ? obj.size - r.suffix : r.offset ?? 0); // a suffix longer than the file is the whole file
+      length = Math.min(r.suffix ?? r.length ?? obj.size - start, obj.size - start);
       headers["Content-Range"] = `bytes ${start}-${start + length - 1}/${obj.size}`;
       status = 206;
     }

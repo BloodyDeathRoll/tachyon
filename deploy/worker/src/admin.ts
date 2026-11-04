@@ -49,10 +49,13 @@ async function membership(env: { DB: D1Database }, body: Body, add: boolean): Pr
   return json(200, { ok: true });
 }
 
+const RESERVED = new Set(["app", "me", "m", "api", "auth", "login", "connect", "admin"]); // first path segments index.ts routes before a client's pages
+
 async function createClient(env: { DB: D1Database }, body: Body, by: number, now: number): Promise<Response> {
   const id = typeof body.id === "string" && ID.test(body.id) ? body.id : "";
   const name = typeof body.name === "string" && body.name.trim() ? body.name.trim().slice(0, 100) : id;
   if (!id) throw new HttpError(400, "id");
+  if (RESERVED.has(id)) throw new HttpError(400, "reserved", `${id} is a path of the Worker's own`);
   try {
     await env.DB.prepare("INSERT INTO clients (id, name, publisher, created_by, created_at) VALUES (?, ?, 'worker', ?, ?)").bind(id, name, by, now).run();
   } catch (e) {
