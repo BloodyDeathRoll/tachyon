@@ -304,13 +304,15 @@ async function start(s: Slot): Promise<void> {
     s.log.push(`${slot}: publishing quota used ${used}/${QUOTA}`);
     return;
   }
+  // the old container (a retry after FAILED) is cleared before the state changes: a crash
+  // between the two leaves a QUEUED row with a stamp, never a PUBLISHING row with a stale container
+  await s.env.DB.prepare("UPDATE posts SET publishing_at = ?, container_id = NULL WHERE client = ? AND slot_id = ? AND state = 'QUEUED'").bind(iso(s.c.now), s.c.client, slot).run();
   try {
     await setState(s.c, slot, "PUBLISHING", null, {}); // refused if an ig_media_id exists: never twice
   } catch (e) {
     s.log.push(`${slot}: ${e instanceof HttpError ? e.detail ?? e.message : String(e)}`);
     return;
   }
-  await s.env.DB.prepare("UPDATE posts SET publishing_at = ?, container_id = NULL WHERE client = ? AND slot_id = ?").bind(iso(s.c.now), s.c.client, slot).run();
   s.row = await post(s.c, slot);
   await createContainer(s);
 }

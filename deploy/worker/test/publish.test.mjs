@@ -3,6 +3,7 @@
 // ones that hand off, the recovery after a crash, the lease, the sweep.
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { Budget } from "../src/budget.ts";
 import { enqueueAuto, sweep, takeLease, tick } from "../src/cron.ts";
 import { open, seal } from "../src/crypto.ts";
 import { iso, OPS, setState } from "../src/db.ts";
@@ -119,9 +120,11 @@ test("a container error fails the slot; the second failure hands it off", async 
   script.push({ body: { status_code: "ERROR", status: "bad codec" } });
   assert.match((await run(T0 + 61_000))[0], /failed: container c2 ERROR: bad codec/);
   assert.equal((await post("w2")).state, "FAILED");
+  assert.equal((await post("w2")).container_id, "c2"); // kept on the failed row for the journal's sake
   await setState(ctx(), "w2", "QUEUED", null, {}); // the operator's retry
   script.push({ body: { data: [{ quota_usage: 3 }] } }, { body: { id: "c3" } });
   await run(T0 + 121_000);
+  assert.equal((await post("w2")).container_id, "c3"); // the old one cleared before PUBLISHING, never read again
   script.push({ body: { status_code: "EXPIRED", status: "" } });
   await run(T0 + 181_000);
   assert.equal((await post("w2")).state, "MANUAL_HANDOFF");
@@ -206,8 +209,11 @@ test("the cron: a lease per client, the sweep, the daily auto job", async () => 
   const out = await tick(env, T0 + 1000, fetcher);
   assert.deepEqual(out.rosa, []); // nothing due
   assert.equal(out.acme, undefined); // publisher 'local'
+  assert.ok(out.subrequests > 0 && out.subrequests <= 40, String(out.subrequests));
   assert.ok(await takeLease(env, "publish:rosa", "other", T0 + 2000, 55_000));
   assert.equal((await tick(env, T0 + 3000, fetcher)).rosa, "busy");
+  // a minute with no budget left leaves the client for the next one
+  assert.equal((await tick(env, T0 + 4000, fetcher, new Budget(5))).rosa, "budget");
   // the sweep: a day-old object nobody names goes, a referenced or young one stays
   await env.MEDIA.put("rosa/old/zzz.mp4", "x");
   await env.MEDIA.put("rosa/w2/abc.mp4", "x"); // referenced by w2 (FAILED keeps its file)

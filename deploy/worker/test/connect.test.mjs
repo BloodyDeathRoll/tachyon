@@ -38,6 +38,7 @@ test("a member is sent to Facebook's dialog; the cookie carries the session for 
   r = await mf.dispatchFetch("http://t/connect/rosa", { headers: { Cookie: `s=${await tokenFor(2)}` }, redirect: "manual" });
   assert.equal(r.status, 403);
   assert.equal((await mf.dispatchFetch("http://t/me", { headers: { Cookie: `s=${alice}` } })).status, 200);
+  assert.equal((await mf.dispatchFetch("http://t/api/jobs?client=rosa", { headers: { Cookie: `s=${alice}` } })).status, 401); // the API: header only
   assert.equal((await mf.dispatchFetch("http://t/connect/callback?code=x&state=bad")).status, 400);
 });
 

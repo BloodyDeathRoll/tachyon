@@ -58,7 +58,7 @@ const LAST_SEEN_THROTTLE_MS = 5 * 60 * 1000;
 const JOB_LEASE_MS = 5 * 60 * 1000; // a running job silent this long goes back to the queue
 const ID = /^[\w-]{1,64}$/; // client, slot and host ids
 const JOB_KINDS = new Set(["plan", "auto", "produce", "revise", "formats", "caption", "voice", "upload", "spec"]);
-const ONCE_KINDS = new Set(["plan", "auto"]); // the same command again within a week is the same job
+const ONCE_KINDS = new Set(["plan", "auto"]); // the same command already waiting or running is the same job
 const ONCE_MS = 7 * 24 * 60 * 60 * 1000;
 const JOBS_LIST = 50;
 const MEDIA = {
@@ -208,10 +208,13 @@ function cookie(req: Request, name: string): string {
   return "";
 }
 
-/** The signed-in user for this request, or a 401. Touches last_seen_at at most every 5 min. */
-async function auth(req: Request, env: Env, ctx: ExecutionContext, now: number): Promise<UserRow> {
+/** The signed-in user for this request, or a 401. The cookie counts only for the browser
+    pages: the API (the PCs' routes, a GET of which claims a job) takes the header alone, so
+    no cross-site navigation can act through a signed-in browser. Touches last_seen_at at
+    most every 5 min. */
+async function auth(req: Request, env: Env, ctx: ExecutionContext, now: number, path: string): Promise<UserRow> {
   const h = req.headers.get("Authorization") ?? "";
-  const token = h.startsWith("Bearer ") ? h.slice(7).trim() : cookie(req, COOKIE);
+  const token = h.startsWith("Bearer ") ? h.slice(7).trim() : path.startsWith("/api/") ? "" : cookie(req, COOKIE);
   if (!token) throw new HttpError(401, "auth");
   const session = await verify(token, env.SESSION_SECRET, now);
   if (!session) throw new HttpError(401, "auth");
@@ -320,8 +323,9 @@ async function enqueue(req: Request, env: Env, user: UserRow, now: number): Prom
   const slot = body.slot_id == null ? null : id(body.slot_id, "slot_id");
   const payload = body.payload == null ? null : JSON.stringify(body.payload);
   if (ONCE_KINDS.has(kind)) {
-    // two hosts, or the cron and a button, asking for the same week: one job
-    const same = await env.DB.prepare("SELECT id FROM jobs WHERE kind = ? AND client = ? AND payload IS ? AND state != 'failed' AND created_at > ? ORDER BY id DESC LIMIT 1")
+    // two hosts, or the cron and a button, asking for the same week while it is still open: one
+    // job. A done one does not count: the operator may plan the same week again on purpose.
+    const same = await env.DB.prepare("SELECT id FROM jobs WHERE kind = ? AND client = ? AND payload IS ? AND state IN ('queued', 'running') AND created_at > ? ORDER BY id DESC LIMIT 1")
       .bind(kind, client, payload, now - ONCE_MS)
       .first<{ id: number }>();
     if (same) return json(200, { id: same.id, same: true });
@@ -474,7 +478,7 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   if (path === "/connect/callback" && req.method === "GET") return callback(env, url, now);
   if (path === "/connect/pick" && req.method === "POST") return pick(env, await req.formData(), now);
 
-  const user = await auth(req, env, ctx, now);
+  const user = await auth(req, env, ctx, now, path);
   const p = path.split("/").slice(1);
 
   if (path === "/me" && req.method === "GET") return me(env, user);

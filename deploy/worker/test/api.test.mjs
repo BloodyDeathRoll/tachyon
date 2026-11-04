@@ -80,6 +80,13 @@ test("jobs: members enqueue, a host claims the oldest, a lease that ran out is c
   assert.equal((await call("POST", "/api/jobs", { as: 1, body: { kind: "dance", client: "rosa" } })).status, 400);
   const j1 = (await call("POST", "/api/jobs", { as: 1, body: { kind: "produce", client: "rosa", slot_id: "w45-1", payload: { n: 1 } } })).data.id;
   const j2 = (await call("POST", "/api/jobs", { as: 1, body: { kind: "upload", client: "rosa", slot_id: "w45-1" } })).data.id;
+  // the same week asked twice while the first is open: one job; once it is done, a new one
+  const plan = { kind: "plan", client: "rosa", payload: { argv: ["spine.week", "prepare", "rosa", "2026-W10"] } };
+  const p1 = (await call("POST", "/api/jobs", { as: 1, body: plan })).data;
+  assert.deepEqual(await call("POST", "/api/jobs", { as: 1, body: plan }).then((r) => r.data), { id: p1.id, same: true });
+  await env.DB.prepare("UPDATE jobs SET state = 'done' WHERE id = ?").bind(p1.id).run();
+  assert.notEqual((await call("POST", "/api/jobs", { as: 1, body: plan })).data.id, p1.id);
+  await env.DB.prepare("DELETE FROM jobs WHERE kind = 'plan'").run();
   assert.equal((await call("GET", "/api/jobs/next?host=pc-b", { as: 2 })).status, 204); // no clients
   assert.equal((await call("GET", "/api/jobs/next?host=pc-a", { as: 2 })).status, 404); // not bob's host
   const got = await call("GET", "/api/jobs/next?host=pc-a", { as: 1 });

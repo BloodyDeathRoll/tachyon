@@ -1,14 +1,18 @@
 // The one Cron Trigger, every minute (docs/CLOUDFLARE-PLAN.md, "Split"): a publish step for
 // each client the Worker publishes for, each under a lease (D1 has no locks; a lease is one
 // conditional UPDATE), then the daily R2 sweep and the daily `week auto` job per client.
-// The subrequest budget: a client's step is a handful of calls, the sweep three.
+// Every D1, R2 and fetch call is a subrequest (50 per invocation on the Free plan): the
+// minute counts them (src/budget.ts) and stops at the budget; the clients take turns
+// going first, so none starves. A publish step is up to ~20 calls, the sweep 3.
 
+import { Budget, countedDB, countedFetch, countedR2 } from "./budget.ts";
 import { type Fetcher } from "./graph.ts";
 import { publishClient, type ClientRow, type PublishEnv } from "./publish.ts";
 
 export interface CronEnv extends PublishEnv {}
 
 export const PUBLISH_LEASE_MS = 55_000; // a minute's work; a crashed minute frees it before the next
+export const PUBLISH_COST = 20; // subrequests a client's step may need: the leases, the reads, the Graph calls
 export const DAY_MS = 24 * 60 * 60 * 1000;
 export const GRACE_MS = DAY_MS; // an object this young may belong to an upload whose row is not written yet
 export const AUTO_HOUR_UTC = 7; // the crontab ran `week auto` at 07:00 local; here 07:00 UTC
@@ -63,18 +67,26 @@ function nextAutoAt(now: number): number {
   return d.getTime();
 }
 
-export async function tick(env: CronEnv, now: number, fetcher: Fetcher = fetch): Promise<Json> {
+export async function tick(raw: CronEnv, now: number, fetcher: Fetcher = fetch, budget = new Budget()): Promise<Json> {
+  const env: CronEnv = { ...raw, DB: countedDB(raw.DB, budget), MEDIA: countedR2(raw.MEDIA, budget) };
+  const counted = countedFetch(fetcher, budget);
   const out: Json = {};
   const holder = `cron-${now}-${Math.random().toString(36).slice(2, 8)}`;
-  const clients = (await env.DB.prepare("SELECT * FROM clients WHERE publisher = 'worker' ORDER BY id").all<ClientRow>()).results;
+  const all = (await env.DB.prepare("SELECT * FROM clients WHERE publisher = 'worker' ORDER BY id").all<ClientRow>()).results;
+  const first = all.length ? Math.floor(now / 60_000) % all.length : 0; // whose turn to go first
+  const clients = [...all.slice(first), ...all.slice(0, first)];
   for (const client of clients) {
+    if (!budget.has(PUBLISH_COST)) {
+      out[client.id] = "budget"; // next minute, and it goes earlier then
+      continue;
+    }
     const name = `publish:${client.id}`;
     if (!(await takeLease(env, name, holder, now, PUBLISH_LEASE_MS))) {
       out[client.id] = "busy";
       continue;
     }
     try {
-      out[client.id] = await publishClient(env, client, now, fetcher);
+      out[client.id] = await publishClient(env, client, now, counted);
     } catch (e) {
       out[client.id] = `error: ${e}`;
       console.error("publish", client.id, e);
@@ -82,7 +94,7 @@ export async function tick(env: CronEnv, now: number, fetcher: Fetcher = fetch):
       await releaseLease(env, name, holder);
     }
   }
-  if (await takeLease(env, "sweep", holder, now, DAY_MS)) {
+  if (budget.has(6) && (await takeLease(env, "sweep", holder, now, DAY_MS))) {
     // held for a day: the next sweep is tomorrow's, whatever happens here
     try {
       out.sweep = await sweep(env, now);
@@ -90,8 +102,14 @@ export async function tick(env: CronEnv, now: number, fetcher: Fetcher = fetch):
       out.sweep = `error: ${e}`;
     }
   }
-  if (new Date(now).getUTCHours() >= AUTO_HOUR_UTC && (await takeLease(env, "week-auto", holder, now, nextAutoAt(now) - now))) {
-    out.auto = await enqueueAuto(env, clients, now);
+  if (budget.has(2 + all.length * 2) && new Date(now).getUTCHours() >= AUTO_HOUR_UTC && (await takeLease(env, "week-auto", holder, now, nextAutoAt(now) - now))) {
+    try {
+      out.auto = await enqueueAuto(env, all, now);
+    } catch (e) {
+      await releaseLease(env, "week-auto", holder); // not done: the next minute tries again
+      out.auto = `error: ${e}`;
+    }
   }
+  out.subrequests = budget.used;
   return out;
 }
