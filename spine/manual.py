@@ -221,6 +221,21 @@ def regenerate(client: str, slot: str, prompt: str, engine: str = "html") -> Non
         db.close()
     if state not in ("NEEDS_APPROVAL", "NEEDS_INPUT"):   # only a video waiting for review: never an approved or live one
         raise ValueError(f"only a video waiting for review can be generated again (this one is {state})")
+    engine = stash(client, slot, prompt, engine)
+    db = DB.for_client(d)
+    try:
+        if db.post(slot)["state"] in ("NEEDS_APPROVAL", "NEEDS_INPUT"):
+            db.set_state(slot, "REJECTED", note="generate new")
+        db.set_state(slot, "SCRIPTED", note=f"generate new ({engine}): {prompt[:150]}")
+    finally:
+        db.close()
+    start(client, slot)
+
+
+def stash(client: str, slot: str, prompt: str, engine: str = "html") -> str:
+    """Generate New's disk half (the dashboard, or a host from a produce job's payload): the old
+    cut moves to versions/vN, the new prompt and engine choice are written. The engine used."""
+    sd = C.client_dir(client) / "posts" / slot
     engine = engine if engine in W.ENGINES else "html"
     meta = json.loads((sd / "meta.json").read_text())
     vdir = sd / "versions"
@@ -242,19 +257,17 @@ def regenerate(client: str, slot: str, prompt: str, engine: str = "html") -> Non
     meta.update(engine_choice=engine, source="prompt", plan="manual")
     meta.pop("film", None)
     (sd / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n")
-    db = DB.for_client(d)
-    try:
-        if db.post(slot)["state"] in ("NEEDS_APPROVAL", "NEEDS_INPUT"):
-            db.set_state(slot, "REJECTED", note="generate new")
-        db.set_state(slot, "SCRIPTED", note=f"generate new ({engine}): {prompt[:150]}")
-    finally:
-        db.close()
-    start(client, slot)
+    return engine
+
+
+def begin(client: str, slot: str) -> None:
+    """The status file before produce runs: the dashboard before it spawns, a host before the job."""
+    R._write_status(client, slot, state="running", step="planning", kind="new", error=None,
+                    notes=(C.client_dir(client) / "posts" / slot / "prompt.txt").read_text().strip())
 
 
 def start(client: str, slot: str) -> None:
-    R._write_status(client, slot, state="running", step="planning", kind="new", error=None,
-                    notes=(C.client_dir(client) / "posts" / slot / "prompt.txt").read_text().strip())
+    begin(client, slot)
     try:
         J.spawn("produce", client, slot, ["spine.manual", "produce", client, slot], C.client_dir(client) / "posts" / slot / "revise.log")
     except (OSError, RemoteError) as e:   # nothing is running: the page must not say so

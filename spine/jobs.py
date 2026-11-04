@@ -35,12 +35,12 @@ def spawn(kind: str, client: str, slot: str | None, argv: list[str], log: Path) 
     return None
 
 
-def push_files(client: str, slot: str) -> dict[str, str]:
+def push_files(client: str, slot: str, names: tuple[str, ...] = POST_FILES) -> dict[str, str]:
     """posts/<slot>/'s text files as the Worker's publisher will read them (post_files). What was sent."""
     from . import clients as C
     from .db import RemoteDB
     sd = C.client_dir(client) / "posts" / slot
-    files = {name: (sd / name).read_text() for name in POST_FILES if (sd / name).exists()}
+    files = {name: (sd / name).read_text() for name in names if (sd / name).exists()}
     if files:
         RemoteDB(client).set_files(slot, files)
     return files

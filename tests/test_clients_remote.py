@@ -71,6 +71,8 @@ def test_a_job_pulls_first_and_tries_again_over_the_network(remote, monkeypatch)
     monkeypatch.setenv("TACHYON_HOST", "pc-a")
     pulled = []
     monkeypatch.setattr(C, "pull", lambda name: pulled.append(name) or [])
+    for name, stub in (("pull_slot", lambda c, s: []), ("push_changed", lambda c, t: {}), ("before", lambda *a: None)):
+        monkeypatch.setattr(W, name, stub)   # the slot's own sync: tests/test_worker.py
     ran = []
     ok = lambda cmd, **kw: ran.append(cmd) or subprocess.CompletedProcess(cmd, 0)  # noqa: E731
     job = {"id": 1, "kind": "revise", "client": "rosa", "slot_id": "s", "payload": {"argv": ["spine.revise", "run", "rosa", "s"]}}
