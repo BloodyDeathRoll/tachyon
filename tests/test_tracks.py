@@ -107,6 +107,25 @@ def test_ig_song_refetches_a_missing_copy_or_refuses(client, monkeypatch):
         T.ig_song("demo", "s1")
 
 
+def test_ig_song_searches_again_when_the_cached_link_expired(client, monkeypatch):
+    T.ig_tracks("demo", graph=FakeGraph([ROW]))
+    (client / "posts" / "s1" / "meta.json").write_text(json.dumps({"track": "ig:987", "track_info": {"title": "Sunny Days"}}))
+    got = []
+
+    def fetch(c, s, url):   # first call: the cached link, expired
+        got.append(url)
+        if len(got) == 1:
+            return None
+        f = client / "posts" / s / T.IG_PREVIEW
+        f.write_bytes(b"abc")
+        return f
+    monkeypatch.setattr(T, "fetch_ig_preview", fetch)
+    searched = []
+    monkeypatch.setattr(T, "ig_tracks", lambda c, q=None, **k: searched.append(q) or [dict(T._ig_known(c)["ig:987"], preview="https://cdn/fresh.mp3")])
+    assert T.ig_song("demo", "s1").read_bytes() == b"abc"
+    assert got == ["https://cdn/x.mp3", "https://cdn/fresh.mp3"] and searched == ["Sunny Days"]
+
+
 def test_default_list_is_the_clients_sound_not_local_top_searches(client):
     (client / "assets" / "music" / "tracks.yaml").write_text(yaml.safe_dump(
         {"tracks": [{"id": "a", "title": "A", "mood": "surf rock"}, {"id": "b", "title": "B", "mood": "blues rock"},

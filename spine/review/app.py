@@ -2622,7 +2622,10 @@ class Handler(BaseHTTPRequestHandler):
                 T = _tracks()
                 if not T:
                     return self._send(400, b"no track library", "text/plain")
-                T.set_track(name, parts[2], form["track"])
+                try:
+                    T.set_track(name, parts[2], form["track"])
+                except (KeyError, RuntimeError) as e:
+                    return self._send(502, f"Could not use that track: {e}".encode(), "text/plain")
                 ig = "?music=ig" if form.get("src") == "instagram" else ""
                 return self._redirect(f"/{quote(name)}/v/{quote(parts[2])}{ig}")
             if parts[1] == "week":

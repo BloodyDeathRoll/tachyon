@@ -315,11 +315,12 @@ def ig_song(client: str, slot: str) -> Path:
     p, m = _meta(client, slot)
     tid = m.get("track") or ""
     t = _ig_known(client).get(tid)
-    if not (t and t.get("preview")):
-        title = (m.get("track_info") or {}).get("title")
+    if not (t and t.get("preview") and fetch_ig_preview(client, slot, t["preview"])):
+        # cached links expire (fbcdn signs them): search again for a fresh one
+        title = (m.get("track_info") or {}).get("title") or (t or {}).get("title")
         t = next((x for x in (ig_tracks(client, title) if title else []) if x["id"] == tid), None)
-    if not (t and t.get("preview")) or not fetch_ig_preview(client, slot, t["preview"]):
-        raise RuntimeError(f"could not download the Instagram song {tid} for {slot}")
+        if not (t and t.get("preview")) or not fetch_ig_preview(client, slot, t["preview"]):
+            raise RuntimeError(f"could not download the Instagram song {tid} for {slot}")
     m.setdefault("track_info", {})["preview_of"] = tid
     p.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
     return C.client_dir(client) / "posts" / slot / IG_PREVIEW
@@ -343,8 +344,13 @@ def set_track(client: str, slot: str, track_id: str) -> None:
         m.pop("audio_configuration", None)
         m.setdefault("film", {})["music"] = _rel(C.client_dir(client) / "assets" / "music" / track["file"])
     m["audio_type"] = f"{track['title']} ({track.get('artist')}), {track.get('source', 'file')}"
+    before = p.read_text()
     p.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
-    apply(client, slot)
+    try:
+        apply(client, slot)
+    except Exception:
+        p.write_text(before)   # the pick did not take: keep the old track "in use"
+        raise
 
 
 # ── catalog: loudness + where the track gets going ────────────────────────────
