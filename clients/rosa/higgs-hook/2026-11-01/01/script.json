@@ -1,54 +1,13 @@
 {
   "title": "The chef at Muizenberg",
   "slug": "chef",
-  "character": "a head chef in crisp white chef's whites, a tall pleated white toque, checked trousers, white clogs, a 7-foot white longboard held flat on one raised palm like a serving tray with a silver dome cloche on the deck",
-  "spots": {
-    "a": {
-      "slug": "muizenberg",
-      "name": "Muizenberg"
-    },
-    "b": {
-      "slug": "skeleton-bay",
-      "name": "Skeleton Bay"
-    }
-  },
   "joke": "Table for one, ocean view.",
-  "hook": "Tide and first light on every spot",
-  "screens": {
-    "theme": "dark",
-    "steps": [
-      {
-        "go": "/spot/muizenberg"
-      },
-      {
-        "scroll": 700
-      },
-      {
-        "wait": 1.5
-      },
-      {
-        "tap": ".day-col >> nth=2"
-      },
-      {
-        "scroll": 300
-      },
-      {
-        "go": "/spot/skeleton-bay"
-      },
-      {
-        "scroll": 900
-      },
-      {
-        "wait": 1
-      }
-    ]
-  },
-  "end": {
-    "line": "Served at the right tide",
-    "button": "Check the tide"
-  },
-  "vo": "Okay so, Muizenberg's best on the push. I check the tide on Rosa, then first light, then I'm out.",
-  "voice": "dia:seed5",
-  "track": "surf-rock-summer",
-  "caption": "Table for one, Muizenberg. Hold the reservation.\n\nTide curve and first light on every spot page, so you paddle out at the right time, not just the right day.\n\n3,000+ spots, four updates a day, free.\nrosa.surf, link in bio.\n.\n.\n.\n#surfforecast #surfing #surfapp"
+  "joke_lines": [
+    "Table for one,",
+    "ocean view."
+  ],
+  "lock": {
+    "9x16": 2.5,
+    "16x9": 2.5
+  }
 }

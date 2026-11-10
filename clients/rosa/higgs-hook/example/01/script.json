@@ -1,0 +1,13 @@
+{
+  "title": "Samurai paddle-out",
+  "slug": "samurai",
+  "joke": "Preparing for a fight?",
+  "joke_lines": [
+    "Preparing for",
+    "a fight?"
+  ],
+  "lock": {
+    "9x16": 2.4,
+    "16x9": 1.8
+  }
+}

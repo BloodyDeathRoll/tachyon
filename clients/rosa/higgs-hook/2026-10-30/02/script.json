@@ -1,51 +1,13 @@
 {
   "title": "The diver at Coxos",
   "slug": "diver",
-  "character": "a vintage deep-sea diver in a full canvas diving suit, round brass helmet with three small portholes, lead boots, weight belt, a white shortboard with a leash under one arm",
-  "spots": {
-    "a": {
-      "slug": "coxos",
-      "name": "Coxos"
-    },
-    "b": {
-      "slug": "mundaka",
-      "name": "Mundaka"
-    }
-  },
-  "joke": "Checked the swell. Personally.",
-  "hook": "See the swell coming, 16 days out",
-  "screens": {
-    "theme": "dark",
-    "steps": [
-      {
-        "go": "/spot/coxos"
-      },
-      {
-        "tap": ".day-scrub button >> nth=4"
-      },
-      {
-        "tap": ".day-scrub button >> nth=9"
-      },
-      {
-        "tap": ".day-scrub button >> nth=15"
-      },
-      {
-        "go": "/spot/mundaka"
-      },
-      {
-        "tap": ".day-scrub button >> nth=6"
-      },
-      {
-        "tap": ".day-scrub button >> nth=12"
-      }
-    ]
-  },
-  "end": {
-    "line": "Read the ocean from the shore",
-    "button": "Open the map"
-  },
-  "vo": "Honestly, I plan my trips off the sixteen-day forecast now. Coxos today, Mundaka next week. It's all on rosa.surf.",
-  "voice": "dia:seed5",
-  "track": "surf-rock-summer",
-  "caption": "Some people check the cam. He checks in person.\n\nCoxos today, Mundaka next week. Plan the trip off the 16-day forecast, not a hunch.\n\n3,000+ spots, four updates a day, free.\nrosa.surf, link in bio.\n.\n.\n.\n#surfforecast #surfing #surfapp"
+  "joke": "Check the swell in depth.",
+  "joke_lines": [
+    "Check the swell",
+    "in depth."
+  ],
+  "lock": {
+    "9x16": 2.5,
+    "16x9": 2.5
+  }
 }

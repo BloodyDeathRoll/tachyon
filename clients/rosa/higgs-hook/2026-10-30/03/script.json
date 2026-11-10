@@ -1,48 +1,13 @@
 {
   "title": "The astronaut at Punta de Lobos",
   "slug": "astronaut",
-  "character": "an astronaut in a full white spacesuit with a gold mirrored visor, life-support backpack, thick white gloves and boots, a long yellow gun board",
-  "spots": {
-    "a": {
-      "slug": "punta-de-lobos",
-      "name": "Punta de Lobos"
-    },
-    "b": {
-      "slug": "el-gringo",
-      "name": "El Gringo"
-    }
-  },
   "joke": "Houston, it's pumping.",
-  "hook": "Every spot rated 0 to 100, and it tells you why",
-  "screens": {
-    "theme": "dark",
-    "steps": [
-      {
-        "go": "/spot/punta-de-lobos"
-      },
-      {
-        "wait": 1.5
-      },
-      {
-        "tap": ".day-scrub button >> nth=1"
-      },
-      {
-        "wait": 1
-      },
-      {
-        "go": "/spot/el-gringo"
-      },
-      {
-        "wait": 1.5
-      }
-    ]
-  },
-  "end": {
-    "line": "Your launch window is on the map",
-    "button": "Find my window"
-  },
-  "vo": "Every spot gets a score out of a hundred, and it tells you why. Size, period, wind. Mine says go.",
-  "voice": "dia:seed5",
-  "track": "surf-rock-summer",
-  "caption": "Houston, we have a swell.\n\nEvery spot gets a score out of 100, and Rosa tells you why: size, period and wind.\n\n3,000+ spots, 16 days out, four updates a day, free.\nrosa.surf, link in bio.\n.\n.\n.\n#surfforecast #surfing #surfapp"
+  "joke_lines": [
+    "Houston,",
+    "it's pumping."
+  ],
+  "lock": {
+    "9x16": 3.0,
+    "16x9": 3.0
+  }
 }

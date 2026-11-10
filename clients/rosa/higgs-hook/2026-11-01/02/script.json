@@ -1,57 +1,13 @@
 {
   "title": "The town crier at Bells",
   "slug": "crier",
-  "character": "a town crier in a red and gold frock coat, white breeches, black boots, a black tricorn hat, a big brass hand bell in one hand, a rolled parchment scroll in the other, a yellow single-fin surfboard strapped to his back",
-  "spots": {
-    "a": {
-      "slug": "bells-beach",
-      "name": "Bells Beach"
-    },
-    "b": {
-      "slug": "snapper-rocks",
-      "name": "Snapper Rocks"
-    }
-  },
   "joke": "Hear ye. It's on.",
-  "hook": "A fresh forecast four times a day",
-  "screens": {
-    "theme": "dark",
-    "steps": [
-      {
-        "go": "/spot/bells-beach"
-      },
-      {
-        "scroll": 500
-      },
-      {
-        "tap": "button.accent-link"
-      },
-      {
-        "zoom": 4
-      },
-      {
-        "go": "/spot/snapper-rocks"
-      },
-      {
-        "tap": "button.accent-link"
-      },
-      {
-        "go": "/spot/snapper-rocks"
-      },
-      {
-        "swipe": "left"
-      },
-      {
-        "scroll": 500
-      }
-    ]
-  },
-  "end": {
-    "line": "The news from the ocean, four times a day",
-    "button": "Read today's forecast"
-  },
-  "vo": "Honestly, I check Bells before work and again at lunch. Rosa updates four times a day. Snapper's looking good too.",
-  "voice": "dia:seed5",
-  "track": "surf-rock-summer",
-  "caption": "He reads the news to the ocean. The ocean replies.\n\nBells and Snapper, refreshed four times a day, 16 days out.\n\n3,000+ spots, free.\nrosa.surf, link in bio.\n.\n.\n.\n#surfforecast #surfing #surfapp"
+  "joke_lines": [
+    "Hear ye.",
+    "It's on."
+  ],
+  "lock": {
+    "9x16": 3.5,
+    "16x9": 3.5
+  }
 }

@@ -1,58 +1,13 @@
 {
   "title": "The bride at Chicama",
   "slug": "bride",
-  "character": "a bride in a full white lace wedding gown with a long train and a cathedral-length veil, a small white bouquet in one hand, a 9-foot white longboard under the other arm",
-  "spots": {
-    "a": {
-      "slug": "chicama",
-      "name": "Chicama"
-    },
-    "b": {
-      "slug": "pavones",
-      "name": "Pavones"
-    }
-  },
   "joke": "Said yes to the swell.",
-  "hook": "Watch the swell cross the whole planet",
-  "screens": {
-    "theme": "dark",
-    "at": [
-      -7.7,
-      -79.4
-    ],
-    "steps": [
-      {
-        "go": "/charts"
-      },
-      {
-        "wait": 1
-      },
-      {
-        "tap": "button.deck-play"
-      },
-      {
-        "wait": 3.5
-      },
-      {
-        "go": "/spot/chicama"
-      },
-      {
-        "scroll": 400
-      },
-      {
-        "go": "/spot/pavones"
-      },
-      {
-        "wait": 1
-      }
-    ]
-  },
-  "end": {
-    "line": "Long rides start on the swell map",
-    "button": "Open the swell map"
-  },
-  "vo": "Okay so, I watch the swell map before every trip. You can see it rolling across the ocean. Chicama's next.",
-  "voice": "dia:seed5",
-  "track": "surf-rock-summer",
-  "caption": "She said yes to the long left.\n\nWatch the swell cross the planet on the map, then pick the spot it lands on.\n\n3,000+ spots, 16 days out, free.\nrosa.surf, link in bio.\n.\n.\n.\n#surfforecast #surfing #surfapp"
+  "joke_lines": [
+    "Said yes to",
+    "the swell."
+  ],
+  "lock": {
+    "9x16": 2.0,
+    "16x9": 2.0
+  }
 }

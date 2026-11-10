@@ -6,18 +6,20 @@ Higgsfield clips per script; Claude builds the rest and renders; the operator up
 finished video into the automatic system (dashboard upload), where it goes through QA,
 approval and publish like any other slot.
 
-## 1. The video (15–20 s)
+## 1. The video (about 25 s)
 
-| # | Time | What | Source | Audio |
-|---|------|------|--------|-------|
-| 1 | 0–5 s | Weird, funny scene. A character who has no business at a surf break does a surf thing, deadpan. | Higgsfield, Seedance, image-to-video | Native SFX only (board on sand, waves). No music, no VO. |
-| 2 | 2.5–5 s | One-line joke on top of scene 1 ("Preparing for a fight?"). | Claude (text overlay) | Scene 1 SFX continues |
-| 3 | 5–7 s | Rosa hook: one feature or advantage, said plainly ("Find every spot that's pumping around you right now"). | Claude (kinetic text) | Music in, VO starts |
-| 4 | 7–15 s | Rosa screens: the feature the hook names, in the real app (example: spot A, map out, map in on spot B, forecast, swipe, scroll; or a Surf/Swim mode switch). | Claude (Remotion, real app captures) | Music + VO |
-| 5 | 15–20 s | Callback: same character, a funny payoff to scene 1, any place (examples: airport queue, board in a travel bag, still dragging; a flat sea, the surfer swims across on half his snapped board). End card on top: logo, `rosa.surf`, `@rosa_surf_forecast`, a line, a button. | Higgsfield + Claude (end card) | Clip SFX low, music, VO tag |
+One Remotion template for every script (`engines/remotion/src/higgs/HiggsFilm.tsx`, built on
+"Samurai paddle-out", 2026-11-09). Per script only the two clips, the joke and the lockup moment
+change.
 
-Scene 1 has to stop the scroll on frame 1: the character is already in shot, the oddness reads
-without sound, nothing is explained.
+| # | Time | What | Source |
+|---|------|------|--------|
+| 1 | 0–5 s | Weird, funny scene: a character with no business at a surf break does a surf thing, deadpan. The joke on top from 2 s: two lines, left-aligned, line 2 blue, each word pops in. | Higgsfield (Seedance) + template |
+| 2 | +0–10 s | App section, the same in every film: "Location is everything." with the home screen (swipe Topanga to Sunset Point) · the phone flips into the spot page, "16 days forecast." · "No ads, no paywall." · the globe, "+4,000 spots and growing." 16:9: phone left, text right. | Template (shared frames in `public/higgs/app`) |
+| 3 | last 5 s | Callback: same character, a funny payoff. The app icon zooms in as the globe shrinks; at the clip's key moment it rises to the top third with `rosa.surf` and "Find my wave", clear of the action. | Higgsfield + template |
+
+Sound: the clips' own only. No music, no voice-over, no hook card, no end line (operator,
+2026-11-10). Scene 1 has to stop the scroll on frame 1.
 
 ## 2. Formats
 
@@ -28,63 +30,40 @@ without sound, nothing is explained.
 
 ## 3. Higgsfield (operator)
 
-Per script:
-1. Character reference still (Higgsfield image model, prompt in the script doc). Reused for
-   scenes 1 and 5 so the character stays the same.
-2. Seedance image-to-video from that still: `s1-9x16`, `s1-16x9`, `s5-9x16`, `s5-16x9`.
-   Native audio on.
+Per script, from its Notion row (the source of truth; prompts paste as they are):
+1. Stills (Seedream 5.0 Pro, 2K): scene 1 still (3:4, used for both scene 1 clips), scene 5 still
+   16:9 and scene 5 still 9:16, both made with the scene 1 still as reference. A video's still
+   must match its shape (a 16:9 still in a 9:16 video renders rotated).
+2. Seedance 2.5 image-to-video, 720p: `s1-9x16`, `s1-16x9`, `s5-9x16`, `s5-16x9`.
 3. Drop the files in `~/Projects/tachyon/clients/rosa/higgs-hook/<batch>/<nn>/` with those
    names (`.mp4`). Then tell Claude "render <batch>".
 
-Model: Seedance (operator choice). Fallback if the SFX comes out weak: Veo 3.
+## 4. Script (one per script)
 
-## 4. Script doc (one per script)
-
-`clients/rosa/higgs-hook/<batch>/<nn>-<slug>.md` (main checkout), plus `index.md` for the
-batch. Each doc:
-
-- **Idea** in one line, character, spot A, spot B.
-- **Character still prompt.**
-- **Scene 1** — action, camera, lighting, sound; Seedance prompt 9:16 and 16:9.
-- **Scene 2** — overlay text, timing.
-- **Scene 3** — hook line (screen text) and VO line.
-- **Scene 4** — screen shot list (which spot, which gesture, how long), VO lines.
-- **Scene 5** — callback action; Seedance prompt 9:16 and 16:9; end card line and button text.
-- **Caption** (via `/ig-caption`).
-- **Checks** — hook score, `/ig-human` score, spots/characters not used before.
-
-Prompt shape for Seedance: subject and wardrobe, action beat by beat, setting, camera
-(lens, move, framing for the format), light, mood, sound cues, "no text, no logos".
+The Notion row in "higgs-hook scripts", sections in the shape of "Samurai paddle-out": stills,
+scene 1 (beats, two Seedance prompts), joke (two lines), app section (standard), scene 5 (beats,
+two Seedance prompts), closing (the key moment per format), caption, files to drop. Prompt rules
+in `.claude/skills/higgs-hook/SKILL.md`. The repo keeps only `script.json` (title, joke,
+joke_lines, lock) for the render.
 
 ## 5. Writing rules
 
-- Every batch: 3 different characters, 3 different settings for the joke, 3 different
-  hooks (feature or advantage from `clients/rosa/product.md`, numbers measured there).
+- Every batch: 3 different characters, 3 different settings for the joke.
 - Spots: from the live Rosa spot index; spot B more local than spot A. No spot repeats
   until the log runs dry (no Uluwatu loops).
-- End-card line and button: new each time; never "try for free"; never "comment for the
-  link" (decision 13). Ideas in the register of "Check your spot", "See it pumping", "Find
-  your next wave".
+- Never "comment for the link" (decision 13).
 - Voice: `clients/rosa/brand.md` (words we never say, no competitors, no accuracy claims).
-- VO: one Dia take for the whole VO (`spine/voice.py`), music ducked under it, as the
-  automatic system does.
-- Log every used character, spot, hook and end-card line in
+- Log every used character, spot and joke in
   `clients/rosa/higgs-hook/used.yaml`; read it before writing.
 
 ## 6. Build (Claude)
 
-1. `skills/higgs-hook/SKILL.md`: "/higgs-hook" writes a batch of 3 script docs + `index.md`,
-   reading `used.yaml`, `product.md`, `brand.md` and the spot index.
-2. Remotion composition `HiggsHook` in `engines/remotion/src/`: takes the script JSON
-   (clip paths, overlay text, hook line, screen sequence, end card), lays out 9:16 and 16:9
-   (`formats.ts`, safe boxes per decision 14).
-3. Screens: real app captures of spots A and B (`spine/capture.py`), animated map
-   pan/zoom, forecast, swipe and scroll in Remotion.
-4. End card: animated logo, `rosa.surf`, `@rosa_surf_forecast`, line, button.
-5. Audio: scene 1/5 native SFX + music bed + Dia VO, mixed as in `spine/tracks.py`.
-6. Render command per script: `vertical | horizontal | both`; output into the usual post
-   files (`video.mp4`, `video-story.mp4`, `video-16x9.mp4`).
-7. Upload into the system through the dashboard; `spec_check` QA runs as for every slot.
+1. `.claude/skills/higgs-hook/SKILL.md`: writes a batch (Notion rows + `script.json`) and renders.
+2. `spine/higgs.py render <client> <batch> <nn> vertical|horizontal|both`: copies the clips to
+   `engines/remotion/public/higgs/<batch>-<nn>/`, renders `HiggsFilm`, `HiggsFilm-story`,
+   `HiggsFilm-16x9` into `out/video.mp4`, `out/video-story.mp4`, `out/video-16x9.mp4`, keeps the
+   clip sound only, runs `spec_check` on the vertical files.
+3. Upload into the system through the dashboard; `spec_check` QA runs as for every slot.
    `is_ai_generated` in `meta.json` is the operator's call per post.
 
 ## 7. Open

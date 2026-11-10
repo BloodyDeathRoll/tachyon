@@ -63,50 +63,30 @@ def test_clips_needed_follow_the_format(hh):
 
 
 def test_check_catches_bad_scripts(hh):
-    edit(hh, joke="", end={"line": "Try Rosa for free", "button": "Comment WAVE"},
-         screens={"steps": [{"scroll": 3}, {"fly": 1}]})
+    edit(hh, joke_lines=["Preparing for a big fight", "a fight?"])
+    assert "joke line 'Preparing for a big fight' is over 16 characters" in H.check("t", "b1", "01", "vertical")
+    edit(hh, joke_lines=["just one"], lock={"9x16": 7})
     issues = H.check("t", "b1", "01", "vertical")
-    assert "script.json has no joke" in issues
-    assert any("try ... free" in i for i in issues)
-    assert any("'comment'" in i for i in issues)
-    assert "screens.steps must start with a 'go'" in issues
-    assert any(i.startswith("screens.steps[1]") for i in issues)
+    assert "joke_lines must be two lines" in issues and "lock.9x16 must be seconds into scene 5 (0-5)" in issues
+    edit(hh, joke_lines=None, lock=None)
+    issues = H.check("t", "b1", "01", "vertical")
+    assert "script.json has no joke_lines" in issues and "script.json has no lock" in issues
     assert H.check("t", "b1", "02") == [f"no script.json in {hh.parent / '02'}"]
 
 
-def test_free_alone_is_fine(hh):
-    edit(hh, end={"line": "Free forecast, every spot", "button": "Open the map"})
-    assert not any("free" in i for i in H.check("t", "b1", "01", "vertical"))
-
-
-def test_timeline_is_continuous_and_clamped():
-    for screens_s, want in ((7.0, 7.0), (1.0, H.SCREENS_MIN), (40.0, H.SCREENS_MAX)):
-        tl = H.timeline({}, screens_s)
-        assert tl["s1"][1] == tl["hook"][0] and tl["hook"][1] == tl["screens"][0] and tl["screens"][1] == tl["s5"][0]
-        assert tl["screens"][1] - tl["screens"][0] == want
-        assert tl["seconds"] == tl["s5"][1]
-        assert tl["s5"][0] < tl["end"][0] < tl["end"][1] <= tl["seconds"]
-        assert tl["joke"][0] < tl["joke"][1] == tl["s1"][1]
-    assert 15 <= H.timeline({}, 7.0)["seconds"] <= 20
-
-
-def test_props_pick_the_clips_for_the_ratio(hh):
+def test_props_pick_the_clips_and_moment_for_the_ratio(hh):
     s = H.load("t", "b1", "01")
-    tl = H.timeline(s, 7)
-    p = H.props(s, "b1-01", "16x9", "reel", tl)
-    assert p["wide"] is True and p["s1"] == "higgs/b1-01/s1-16x9.mp4" and p["s5"] == "higgs/b1-01/s5-16x9.mp4"
-    v = H.props(s, "b1-01", "9x16", "story", tl)
-    assert v["wide"] is False and v["variant"] == "story" and v["s1"].endswith("s1-9x16.mp4")
-    assert v["url"] == "rosa.surf" and v["handle"] == "@rosa_surf_forecast"
-    assert v["endLine"] == s["end"]["line"] and v["button"] == s["end"]["button"]
+    p = H.props(s, "b1-01", "16x9", "reel", 5.06, 5.0)
+    assert p == {"variant": "reel", "clips": "higgs/b1-01", "s1": 5.06, "s5": 5.0,
+                 "joke": [["Preparing", "for"], ["a", "fight?"]], "lock": 1.8}
+    assert H.props(s, "b1-01", "9x16", "story", 5, 5)["lock"] == 2.4
 
 
 def test_remotion_registers_every_composition_render_uses():
     root = (ROOT / "engines" / "remotion" / "src" / "Root.tsx").read_text()
-    for comp in ("HiggsHook", "HiggsHook-story", "HiggsHook-16x9"):
-        assert f'id="{comp}"' in root
-    src = (ROOT / "spine" / "higgs.py").read_text()
-    assert '("HiggsHook", "9x16"' in src and '("HiggsHook-story", "9x16"' in src and '("HiggsHook-16x9", "16x9"' in src
+    for comps in H.COMPS.values():
+        for comp, _, _ in comps:
+            assert f'id="{comp}"' in root
 
 
 def test_mix_keeps_clip_sound_and_delays_music(tmp_path):
@@ -204,11 +184,6 @@ def test_drive_refuses_unknown_steps():
         H.drive(FakePage(), [{"go": "/spot/a"}, {"wheel": 900}], "https://rosa.surf", "dark")
 
 
-def test_check_refuses_the_old_wheel_step(hh):
-    edit(hh, screens={"steps": [{"go": "/spot/a"}, {"wheel": 900}]})
-    assert any(i.startswith("screens.steps[1]") for i in H.check("t", "b1", "01", "vertical"))
-
-
 def test_nudge_is_marked_seen_for_recordings():
     assert "rosa.nudge.report" in H.NUDGE and "shown:99" in H.NUDGE
 
@@ -266,13 +241,3 @@ def test_share_shows_the_spots_own_share_card():
         assert page.evaluate("document.querySelector('img').getAttribute('src')") == "/og/spot/muizenberg.jpg"
         assert "rosa.surf/spot/muizenberg" in page.inner_text("body")
         b.close()
-
-
-def test_check_refuses_a_bad_location(hh):
-    edit(hh, screens={"steps": [{"go": "/charts"}], "at": [200, 0]})
-    assert "screens.at must be [lat, lon]" in H.check("t", "b1", "01", "vertical")
-    for bad in (["a", "b"], [True, False], [1]):
-        edit(hh, screens={"steps": [{"go": "/charts"}], "at": bad})
-        assert "screens.at must be [lat, lon]" in H.check("t", "b1", "01", "vertical")
-    edit(hh, screens={"steps": [{"go": "/charts"}], "at": [-7.7, -79.4]})
-    assert not any(i.startswith("screens.at") for i in H.check("t", "b1", "01", "vertical"))
