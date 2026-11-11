@@ -136,6 +136,25 @@ def spec(client: str, slot: str, cfg: dict) -> dict:
         return {"issues": spec_check.check_file(p)}
 
 
+def _refused(job: dict, argv: list[str], why: str):
+    """A job that never runs writes no status of its own: mark the one the dashboard set to
+    "running" as failed, as a failed start does, then raise for the queue."""
+    from . import formats, revise, week
+    client, slot, kind = job["client"], job.get("slot_id"), job["kind"]
+    try:
+        if kind == "plan" and len(argv) > 3 and re.fullmatch(r"\d{4}-W\d{2}", argv[3]):
+            week._status(client, argv[3], state="failed", error=why)
+        elif kind in ("produce", "revise") and slot:
+            revise._write_status(client, slot, state="failed", error=why, failed_at=revise.now())
+        elif kind == "formats" and slot:
+            formats._status(client, slot, state="failed", error=why)
+        elif kind == "caption" and slot:   # the page shows "Writing…" while this marker exists
+            (C.client_dir(client) / "posts" / slot / "caption.writing").unlink(missing_ok=True)
+    except Exception as e:  # noqa: BLE001 — the queue still hears the refusal
+        say(f"job {job['id']}: could not mark the refusal: {e}")
+    raise ValueError(why)
+
+
 def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) -> dict:
     """Run one claimed job; the result for `done`. Raises with the reason for `fail`."""
     payload = json.loads(job.get("payload") or "{}") if isinstance(job.get("payload"), str) else (job.get("payload") or {})
@@ -152,9 +171,9 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) ->
     want = ARGV.get(job["kind"])
     need = 3 if job["kind"] == "auto" else 4
     if not want or tuple(argv[:2]) != want or len(argv) < need or argv[2] != client:
-        raise ValueError(f"refused: a {job['kind']} job for {client} cannot run {' '.join(argv)}")
+        _refused(job, argv, f"refused: a {job['kind']} job for {client} cannot run {' '.join(argv)}")
     if job["kind"] not in NO_SLOT and argv[3] != slot:
-        raise ValueError(f"refused: the job is for slot {slot}, the command for {argv[3]}")
+        _refused(job, argv, f"refused: the job is for slot {slot}, the command for {argv[3]}")
     for i in range(REPORT_TRIES):   # the brand text and grants as they are online, before the prompts read them
         try:
             C.pull(client)
@@ -177,6 +196,11 @@ def _beat(job_id: int, cfg: dict, stop: threading.Event) -> None:
     while not stop.wait(HEARTBEAT):
         try:
             R.call("POST", f"/api/jobs/{job_id}/heartbeat", {"host": host_id(cfg)}, cfg=cfg)
+        except R.RemoteError as e:
+            if e.status == 401:   # revoked: beating again cannot help; the report says so when the job ends
+                say(f"job {job_id}: session revoked, heartbeats stopped")
+                return
+            say(f"job {job_id}: heartbeat failed: {e}")
         except Exception as e:  # noqa: BLE001 — a missed beat is not a reason to stop the job
             say(f"job {job_id}: heartbeat failed: {e}")
 
@@ -203,6 +227,10 @@ def once(cfg: dict, *, runner=subprocess.run, sleep=time.sleep) -> bool:
             R.call("POST", f"/api/jobs/{job['id']}/{action}", {"host": host_id(cfg), "result": body}, cfg=cfg)
             break
         except R.RemoteError as e:
+            if e.status >= 500 and i < REPORT_TRIES - 1:   # the Worker's own trouble: worth another try
+                say(f"job {job['id']}: report failed ({e}), trying again")
+                sleep(POLL)
+                continue
             if e.status != 409:
                 raise
             say(f"job {job['id']}: lease lost, result dropped")   # another host has it now
