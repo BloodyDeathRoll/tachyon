@@ -162,7 +162,7 @@ What that means here:
 
 ## Open decisions
 
-- `video_url` host: `r2.dev` is rate-limited and for development only (quote above), and a custom domain needs a zone, which the "no domain bought" decision rules out. Option: the Worker serves the object itself at `tachyon.<account>.workers.dev/v/<key>`, streaming it from a private bucket and answering `Range` requests. Test Instagram's fetch on `r2.dev` in the phase 0 spike, and decide then.
+- `video_url` host, decided 2026-11-11 (operator): the bucket stays private and the Worker serves a waiting video itself at `https://tachyon.os2.workers.dev/ig/<key>`, with `Range`, only while its post is unpublished (`src/index.ts`, `publicVideo`). Each PC's worker loop sends up any approved or queued video whose cut differs from the one in R2 (`r2_sha`), and the upload deletes the file it replaces; publishing deletes the last one. R2 holds one file per waiting video.
 
 - Phone notifications for "needs approval" and "failed": web push from the Worker. Nice to have, a later run (operator 2026-11-04).
 - The two users' Claude accounts: a client's generation is billed to whichever member's PC holds its assets. Fine for Rosa (one creator); revisit if a client gets two creators.

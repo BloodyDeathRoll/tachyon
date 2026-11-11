@@ -22,7 +22,7 @@
 //   POST /api/jobs     {kind, client, slot_id, payload} -> {id}
 //   POST /api/jobs/<id>/heartbeat | done | fail  {host, result}   done with result.media
 //                                                     {path, sha, size} records the file on the host
-//   PUT  /api/media/<client>/<slot>/video | cover  body = the file -> {key}
+//   PUT  /api/media/<client>/<slot>/video | cover  body = the file, X-Sha256 -> {key}
 //   GET  /api/media/<client>/<slot>/video | cover  -> the file
 //   POST /api/db/<client>/<op>  {...args}          -> the op's result (src/db.ts: spine/db.py's
 //                                                     methods, for a member of the client)
@@ -40,6 +40,7 @@ import { TokenError, verifyIdToken, type GoogleClaims } from "./google.ts";
 import { HttpError, json } from "./http.ts";
 import { insertJob, JOB_KINDS } from "./jobs.ts";
 import { clientsOf, member, type UserRow } from "./members.ts";
+import { homePage } from "./pages/home.ts";
 import { pages } from "./pages/index.ts";
 import { roomFor } from "./quota.ts";
 import { mint, SESSION_TTL_MS, verify } from "./session.ts";
@@ -359,6 +360,21 @@ async function listJobs(url: URL, env: Env, user: UserRow): Promise<Response> {
   return json(200, { jobs: (await q.all<JobRow>()).results });
 }
 
+/** Where sign-in goes next: a path on this site only (`/\\evil.com` and `//evil.com` are other
+    sites to a browser), else /app. Runs in the page too: loginPage inlines its source, so keep
+    it one plain function (no nested named functions, no imports). */
+export function safeNext(next: string | null, origin: string): string {
+  if (!next) return "/app";
+  try {
+    const u = new URL(next, origin);
+    // the origin written out, not just the path: a path like //evil.com (from /.//evil.com) is
+    // another host on its own; built from parts so no user@ part comes along
+    return u.origin === origin ? origin + u.pathname + u.search + u.hash : "/app";
+  } catch {
+    return "/app";
+  }
+}
+
 /** The sign-in page: Google's button, then the session token for `python -m spine.worker login`. */
 function loginPage(env: Env): Response {
   const setup = env.GOOGLE_CLIENT_ID
@@ -370,6 +386,11 @@ window.onload = () => {
     const x = await fetch("/auth/google", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ credential: r.credential }) });
     const j = await x.json();
     if (!x.ok) { m.textContent = "Refused: " + j.error + (j.error === "invite" ? " (ask an admin to invite this email)" : ""); return; }
+    const q = new URLSearchParams(location.search);
+    if (q.get("pc") !== "1") {
+      location.replace((${safeNext.toString()})(q.get("next"), location.origin)); // same site only
+      return;
+    }
     m.textContent = "Signed in as " + j.profile.email + ". Copy the token into: python -m spine.worker login " + location.origin;
     t.hidden = false; t.value = j.token;
   } });
@@ -382,6 +403,8 @@ window.onload = () => {
 <style>body{font:16px system-ui,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem;color:#111}textarea{width:100%;height:8rem;font:13px monospace}</style>
 <h1>Tachyon</h1>
 <p>Sign in with the Google account an admin invited.</p>
+<p id="pc" hidden>Linking a PC: sign in, then copy the token below into the PC.</p>
+<script>if (new URLSearchParams(location.search).get("pc") === "1") document.getElementById("pc").hidden = false;</script>
 ${setup}
 <p id="m"></p>
 <textarea id="t" readonly hidden></textarea>
@@ -404,6 +427,42 @@ ${setup}
     the caller gets a 409), and the previous object is deleted. GET: the object, for a
     host's spec check and the dashboard player; a Range request gets its part (a phone's
     video player refuses a file it cannot seek). */
+// A stored file, whole or one `bytes=` range. The range is read here rather than handed to R2:
+// what R2 answers to a range past the end is not documented (the local one serves the whole
+// file), and the headers come from these numbers. Anything else in Range is ignored and the whole
+// file goes, as RFC 9110 allows.
+async function serve(req: Request, bucket: R2Bucket, key: string, type: string): Promise<Response> {
+  const headers: Record<string, string> = { "Content-Type": type, "Accept-Ranges": "bytes", "Cache-Control": "private, no-store" };
+  const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.get("Range")?.trim() ?? "");
+  // an end before the start is not a range either (RFC 9110: ignored); a key is never overwritten
+  // (a replaced video gets a new key), so the head's size holds for the get that follows
+  if (m && (m[1] || m[2]) && !(m[1] && m[2] && Number(m[2]) < Number(m[1]))) {
+    const head = await bucket.head(key);
+    if (!head) throw new HttpError(404, "file");
+    const start = m[1] ? Number(m[1]) : Math.max(0, head.size - Number(m[2]));
+    const end = m[1] && m[2] ? Math.min(Number(m[2]), head.size - 1) : head.size - 1;
+    if (start >= head.size) return new Response(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${head.size}` } });
+    const part = await bucket.get(key, { range: { offset: start, length: end - start + 1 } });
+    if (!part) throw new HttpError(404, "file");
+    return new Response(part.body, { status: 206, headers: { ...headers, "Content-Range": `bytes ${start}-${end}/${head.size}`, "Content-Length": String(end - start + 1) } });
+  }
+  const obj = await bucket.get(key);
+  if (!obj) throw new HttpError(404, "file");
+  return new Response(obj.body, { status: 200, headers: { ...headers, "Content-Length": String(obj.size) } });
+}
+
+// GET /ig/<client>/<slot>/<random>.mp4, no sign-in: the address Instagram fetches the video from
+// (publish.ts, MEDIA_PUBLIC_URL). The key's 128 random bits are the only secret, and only a video
+// still waiting to publish is served: once published the file is deleted, and a replaced one has
+// no row pointing at it.
+async function publicVideo(req: Request, env: Env, key: string): Promise<Response> {
+  if (!/^[a-z0-9-]+\/[A-Za-z0-9_-]+\/[0-9a-f]{32}\.mp4$/.test(key)) throw new HttpError(404, "not found");
+  const row = await env.DB.prepare("SELECT 1 AS ok FROM posts WHERE r2_key = ? AND ig_media_id IS NULL").bind(key).first();
+  if (!row) throw new HttpError(404, "not found");
+  const res = await serve(req, env.MEDIA, key, MEDIA.video.type);
+  return req.method === "HEAD" ? new Response(null, { status: res.status, headers: res.headers }) : res;
+}
+
 export async function media(req: Request, env: { DB: D1Database; MEDIA: R2Bucket }, user: UserRow, client: string, slot: string, name: string): Promise<Response> {
   const kind = MEDIA[name as keyof typeof MEDIA];
   if (!kind) throw new HttpError(404, "not found");
@@ -414,26 +473,7 @@ export async function media(req: Request, env: { DB: D1Database; MEDIA: R2Bucket
   if (!post) throw new HttpError(404, "slot");
   if (req.method === "GET") {
     if (!post.key) throw new HttpError(404, "file");
-    const headers: Record<string, string> = { "Content-Type": kind.type, "Accept-Ranges": "bytes", "Cache-Control": "private, no-store" };
-    // one `bytes=` range, read here rather than handed to R2: what R2 answers to a range past the
-    // end is not documented (the local one serves the whole file), and the headers come from these
-    // numbers. Anything else in Range is ignored and the whole file goes, as RFC 9110 allows.
-    const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.get("Range")?.trim() ?? "");
-    // an end before the start is not a range either (RFC 9110: ignored); a key is never overwritten
-    // (a replaced video gets a new key), so the head's size holds for the get that follows
-    if (m && (m[1] || m[2]) && !(m[1] && m[2] && Number(m[2]) < Number(m[1]))) {
-      const head = await env.MEDIA.head(post.key);
-      if (!head) throw new HttpError(404, "file");
-      const start = m[1] ? Number(m[1]) : Math.max(0, head.size - Number(m[2]));
-      const end = m[1] && m[2] ? Math.min(Number(m[2]), head.size - 1) : head.size - 1;
-      if (start >= head.size) return new Response(null, { status: 416, headers: { ...headers, "Content-Range": `bytes */${head.size}` } });
-      const part = await env.MEDIA.get(post.key, { range: { offset: start, length: end - start + 1 } });
-      if (!part) throw new HttpError(404, "file");
-      return new Response(part.body, { status: 206, headers: { ...headers, "Content-Range": `bytes ${start}-${end}/${head.size}`, "Content-Length": String(end - start + 1) } });
-    }
-    const obj = await env.MEDIA.get(post.key);
-    if (!obj) throw new HttpError(404, "file");
-    return new Response(obj.body, { status: 200, headers: { ...headers, "Content-Length": String(obj.size) } });
+    return serve(req, env.MEDIA, post.key, kind.type);
   }
   if (req.method !== "PUT") throw new HttpError(405, "method");
   if (name === "video" && post.ig_media_id) throw new HttpError(409, "published");
@@ -443,13 +483,17 @@ export async function media(req: Request, env: { DB: D1Database; MEDIA: R2Bucket
   if (!(await roomFor(env.MEDIA, len))) throw new HttpError(507, "storage"); // stay inside R2's free tier; check-then-put is not atomic, the cap's 2 GB margin absorbs a race
   const key = `${client}/${slot}/${hex32()}.${kind.ext}`;
   await env.MEDIA.put(key, req.body, { httpMetadata: { contentType: kind.type } });
-  const guard = name === "video" ? " AND ig_media_id IS NULL" : "";
+  // a video is not replaced while Instagram may be fetching it (a container in flight)
+  const guard = name === "video" ? " AND ig_media_id IS NULL AND state != 'PUBLISHING'" : "";
+  // the file's sha256, as the host computed it: what it compares its cut against next time
+  const sha = /^[0-9a-f]{64}$/.exec(req.headers.get("X-Sha256") ?? "")?.[0] ?? null;
+  const shaSet = name === "video" ? ", r2_sha = ?" : "";
   let changes = 0;
   try {
     const r = await env.DB.prepare(
-      `UPDATE posts SET ${kind.column} = ? WHERE client = ? AND slot_id = ? AND ${kind.column} IS ?${guard}`,
+      `UPDATE posts SET ${kind.column} = ?${shaSet} WHERE client = ? AND slot_id = ? AND ${kind.column} IS ?${guard}`,
     )
-      .bind(key, client, slot, post.key)
+      .bind(key, ...(name === "video" ? [sha] : []), client, slot, post.key)
       .run();
     changes = r.meta.changes;
   } finally {
@@ -467,7 +511,7 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   const path = url.pathname.replace(/\/+$/, "") || "/";
   const now = Date.now();
 
-  if (path === "/") return json(200, { ok: true, service: "tachyon" });
+  if (path === "/") return Response.redirect(`${url.origin}/app`, 302);
   if (path === "/login" && req.method === "GET") return loginPage(env);
   // slice c
   if (path === "/manifest.webmanifest" && req.method === "GET") return new Response(MANIFEST, { headers: { "Content-Type": "application/manifest+json" } });
@@ -476,15 +520,23 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   // back from Facebook: the signed state, not a session, says who this is
   if (path === "/connect/callback" && req.method === "GET") return callback(env, url, now);
   if (path === "/connect/pick" && req.method === "POST") return pick(env, await req.formData(), now);
+  if (path.startsWith("/ig/") && (req.method === "GET" || req.method === "HEAD")) return publicVideo(req, env, path.slice(4));
 
-  const user = await auth(req, env, ctx, now, path);
   const p = path.split("/").slice(1);
+  let user: UserRow;
+  try {
+    user = await auth(req, env, ctx, now, path);
+  } catch (e) {
+    // a browser page without a session: sign in, then back here. The API, /me and the
+    // player's /m/ files keep their 401: a PC or a <video> cannot follow a sign-in page.
+    if (e instanceof HttpError && e.status === 401 && req.method === "GET" && p[0] !== "api" && p[0] !== "m" && path !== "/me") {
+      return Response.redirect(`${url.origin}/login?next=${encodeURIComponent(path + url.search)}`, 302);
+    }
+    throw e;
+  }
 
   if (path === "/me" && req.method === "GET") return me(env, user);
-  if (path === "/app" && req.method === "GET") {
-    const first = (await clientsOf(env, user))[0];
-    return first ? Response.redirect(`${url.origin}/${first}`, 302) : new Response("No clients yet: ask an admin to add you to one.", { headers: { "Content-Type": "text/plain" } });
-  }
+  if (path === "/app" && req.method === "GET") return homePage(env, user);
   // the pages' player: the API's GET with the cookie allowed (the path is not under /api/)
   if (p[0] === "m" && p.length === 4 && req.method === "GET") return media(req, env, user, id(p[1], "client"), id(p[2], "slot"), p[3] ?? "");
   if (p[0] === "connect" && p.length === 2 && req.method === "GET") {
@@ -494,7 +546,14 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   }
   if (path === "/auth/logout" && req.method === "POST") {
     await env.DB.prepare("UPDATE users SET session_epoch = session_epoch + 1 WHERE id = ?").bind(user.id).run();
-    return json(200, { ok: true });
+    const gone = `${COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+    if ((req.headers.get("Content-Type") ?? "").startsWith("application/x-www-form-urlencoded")) {
+      // the home page's Sign out button: back to the sign-in page, the cookie dropped
+      return new Response(null, { status: 303, headers: { Location: "/login", "Set-Cookie": gone } });
+    }
+    const res = json(200, { ok: true });
+    res.headers.append("Set-Cookie", gone);
+    return res;
   }
   if (path === "/api/hosts" && req.method === "POST") return registerHost(req, env, user, now);
   if (path === "/api/jobs/next" && req.method === "GET") return nextJob(url, env, ctx, user, now);

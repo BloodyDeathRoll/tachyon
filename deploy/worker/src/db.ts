@@ -41,6 +41,7 @@ export interface PostRow {
   qa_rounds: number;
   version: number;
   r2_key: string | null;
+  r2_sha: string | null;
   cover_key: string | null;
   container_id: string | null;
   publishing_at: string | null;

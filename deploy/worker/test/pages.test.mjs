@@ -76,14 +76,34 @@ test("next_free skips taken slots and has no lead", () => {
   assert.equal(nextFree(new Set(), { slots: ["23:00", "01:00"] }, at), "2026-10-25T23:00:00+00:00");
 });
 
-test("a non-member gets 403; /app sends a member to the first client", async () => {
+test("a non-member gets 403; signed out, a page sends you to sign in and back", async () => {
   assert.equal((await call("GET", "/rosa", { as: 2 })).status, 403);
-  assert.equal((await call("GET", "/rosa", { as: null })).status, 401);
-  const r = await call("GET", "/app");
-  assert.equal(r.status, 302);
-  assert.equal(new URL(r.headers.get("Location")).pathname, "/rosa");
-  assert.equal((await call("GET", "/app", { as: 2 })).status, 200); // no clients: a note
+  const out = await call("GET", "/rosa/calendar?view=month", { as: null });
+  assert.equal(out.status, 302);
+  const to = new URL(out.headers.get("Location"));
+  assert.equal(to.pathname, "/login");
+  assert.equal(to.searchParams.get("next"), "/rosa/calendar?view=month");
+  assert.equal(new URL((await call("GET", "/", { as: null })).headers.get("Location")).pathname, "/app");
+  assert.equal(new URL((await call("GET", "/app", { as: null })).headers.get("Location")).pathname, "/login");
+  assert.equal((await call("GET", "/me", { as: null })).status, 401); // the PCs' JSON keeps its 401
   assert.equal((await call("GET", "/rosa/nothing")).status, 404);
+});
+
+test("/app: your clients with a link each, your role and what it allows, sign out", async () => {
+  const home = await call("GET", "/app");
+  assert.equal(home.status, 200);
+  assert.match(home.text, /href='\/rosa'/);
+  assert.match(home.text, /Instagram connected/);
+  assert.match(home.text, /<b>Member<\/b>/);
+  assert.doesNotMatch(home.text, /\/admin\/members/);
+  const none = await call("GET", "/app", { as: 2 });
+  assert.match(none.text, /No clients yet/);
+  const bye = await call("POST", "/auth/logout", { as: 2, form: {} });
+  assert.equal(bye.status, 303);
+  assert.equal(bye.headers.get("Location"), "/login");
+  assert.match(bye.headers.get("Set-Cookie"), /^s=;.*Max-Age=0/);
+  assert.equal((await call("GET", "/me", { as: 2 })).status, 401); // the old session is dead too
+  await env.DB.prepare("UPDATE users SET session_epoch = 0 WHERE id = 2").run(); // the later tests' tokens use epoch 0
 });
 
 test("the overview lists a video under its state; the filter is a link", async () => {
