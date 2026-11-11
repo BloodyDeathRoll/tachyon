@@ -47,8 +47,10 @@ The cron (`src/cron.ts`, every minute) publishes for every `clients` row whose
    local dashboard enqueues an `upload` job: the host sends `video.mp4`, `cover.jpg` and
    the text files up. Every later change to the video's caption, comment or meta is sent
    again by the dashboard.
-4. Right after a publish: remove the crontab's `spine.publisher.publish --queue` line,
-   then `npx wrangler d1 execute tachyon --remote --command "UPDATE clients SET publisher = 'worker' WHERE id = '<client>'"`.
+4. Right after a publish: remove the crontab's `spine.publisher.publish --queue`,
+   `spine.measure.insights` and `spine.week auto` lines (the cron does all three for a
+   `worker` client), then
+   `npx wrangler d1 execute tachyon --remote --command "UPDATE clients SET publisher = 'worker' WHERE id = '<client>'"`.
    Rollback is the reverse order. The two never both publish.
 5. First, a dry week with the kill tests in docs/CLOUDFLARE-PLAN.md phase 4.
 

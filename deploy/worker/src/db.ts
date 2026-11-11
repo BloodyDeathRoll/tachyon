@@ -102,7 +102,7 @@ function dumps(v: unknown): string | null {
 }
 
 /** The journal INSERT, applied only if the statement before it in the batch changed one row. */
-function journalIfChanged(c: Ctx, action: string, slot: string, intent: unknown): D1PreparedStatement {
+export function journalIfChanged(c: Ctx, action: string, slot: string, intent: unknown): D1PreparedStatement {
   return c.env.DB.prepare("INSERT INTO journal (client, ts, action, target, intent, by) SELECT ?, ?, ?, ?, ?, ? WHERE changes() = 1").bind(
     c.client, iso(c.now), action, slot, dumps(intent), c.by,
   );

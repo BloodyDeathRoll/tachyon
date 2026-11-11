@@ -8,8 +8,10 @@ the dashboard's spawns as jobs; `GET /login`; `deploy/tachyon-worker.service`), 
 (`src/connect.ts`: Facebook Login, the Page pick, the token sealed with `src/crypto.ts`) and
 phase 4's code (`src/publish.ts`, `src/cron.ts`: the publisher from R2 under a lease, the
 daily sweep and `auto` job; the `upload` job sends the text files up; `PUT`/`POST` on a video
-in the local dashboard sends them again). Phase 4's dry run and kill tests need the account.
-Everything else is executed later, phase by phase.
+in the local dashboard sends them again) and phase 5 (`src/insights.ts`, `src/pickup.ts` in the
+cron: a few snapshots a minute, pickup at :17; the audience import waits for the dashboard's
+upload route in phase 6). Phase 4's dry run and kill tests need the account. Everything else
+is executed later, phase by phase.
 
 ## Goal
 
@@ -125,7 +127,7 @@ In flight at any time: at most the approved-but-unpublished videos, ~22 MB each.
 - `spine/clients.py`: `load_grants` reads the `clients` row; `client_dir` unchanged; a `pull(client)` writes `client_files` to disk before a generation.
 - `spine/publisher/publish.py`: `publish_slot` ported to the Worker (`video_url`, no `Graph.upload`); the Python keeps `spec_check` and the R2 upload. `auth.py` retired.
 - `spine/worker.py` (new): host registration, job loop, lease heartbeat, R2 upload.
-- `spine/measure/insights.py`, `spine/audience.py`, `spine/pickup.py`: logic ported into the Worker's cron (Graph API only); Python versions retired.
+- `spine/measure/insights.py`, `spine/audience.py`, `spine/pickup.py`: logic ported into the Worker's cron (Graph API only); Python versions retired. Built (phase 5): `src/insights.ts` runs every minute for a `worker` client under its publish lease, at most six media snapshots a minute (four Graph calls each) plus the account's daily and rolling rows, so an hour's snapshots spread over the first minutes of the hour and the 50-subrequest budget holds; `src/pickup.ts` runs at :17 instead, links by caption or imports a reel with its caption, meta and cover (no video: the permalink is the player). `spine/audience.py`'s import is the dashboard upload (phase 6); its `dropped` is already a DB op.
 - crontab: the four jobs replaced by the one worker service.
 - Setup script per PC: ffmpeg, Node + Remotion, venv + faster_whisper + Dia, `claude` CLI, `spine.worker login`, and a client's `assets/` folder copied from a creator (by hand, a zip).
 
