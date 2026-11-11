@@ -40,6 +40,7 @@ import { TokenError, verifyIdToken, type GoogleClaims } from "./google.ts";
 import { HttpError, json } from "./http.ts";
 import { insertJob, JOB_KINDS } from "./jobs.ts";
 import { clientsOf, member, type UserRow } from "./members.ts";
+import { homePage } from "./pages/home.ts";
 import { pages } from "./pages/index.ts";
 import { roomFor } from "./quota.ts";
 import { mint, SESSION_TTL_MS, verify } from "./session.ts";
@@ -359,6 +360,21 @@ async function listJobs(url: URL, env: Env, user: UserRow): Promise<Response> {
   return json(200, { jobs: (await q.all<JobRow>()).results });
 }
 
+/** Where sign-in goes next: a path on this site only (`/\\evil.com` and `//evil.com` are other
+    sites to a browser), else /app. Runs in the page too: loginPage inlines its source, so keep
+    it one plain function (no nested named functions, no imports). */
+export function safeNext(next: string | null, origin: string): string {
+  if (!next) return "/app";
+  try {
+    const u = new URL(next, origin);
+    // the origin written out, not just the path: a path like //evil.com (from /.//evil.com) is
+    // another host on its own; built from parts so no user@ part comes along
+    return u.origin === origin ? origin + u.pathname + u.search + u.hash : "/app";
+  } catch {
+    return "/app";
+  }
+}
+
 /** The sign-in page: Google's button, then the session token for `python -m spine.worker login`. */
 function loginPage(env: Env): Response {
   const setup = env.GOOGLE_CLIENT_ID
@@ -370,6 +386,11 @@ window.onload = () => {
     const x = await fetch("/auth/google", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ credential: r.credential }) });
     const j = await x.json();
     if (!x.ok) { m.textContent = "Refused: " + j.error + (j.error === "invite" ? " (ask an admin to invite this email)" : ""); return; }
+    const q = new URLSearchParams(location.search);
+    if (q.get("pc") !== "1") {
+      location.replace((${safeNext.toString()})(q.get("next"), location.origin)); // same site only
+      return;
+    }
     m.textContent = "Signed in as " + j.profile.email + ". Copy the token into: python -m spine.worker login " + location.origin;
     t.hidden = false; t.value = j.token;
   } });
@@ -382,6 +403,8 @@ window.onload = () => {
 <style>body{font:16px system-ui,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem;color:#111}textarea{width:100%;height:8rem;font:13px monospace}</style>
 <h1>Tachyon</h1>
 <p>Sign in with the Google account an admin invited.</p>
+<p id="pc" hidden>Linking a PC: sign in, then copy the token below into the PC.</p>
+<script>if (new URLSearchParams(location.search).get("pc") === "1") document.getElementById("pc").hidden = false;</script>
 ${setup}
 <p id="m"></p>
 <textarea id="t" readonly hidden></textarea>
@@ -467,7 +490,7 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   const path = url.pathname.replace(/\/+$/, "") || "/";
   const now = Date.now();
 
-  if (path === "/") return json(200, { ok: true, service: "tachyon" });
+  if (path === "/") return Response.redirect(`${url.origin}/app`, 302);
   if (path === "/login" && req.method === "GET") return loginPage(env);
   // slice c
   if (path === "/manifest.webmanifest" && req.method === "GET") return new Response(MANIFEST, { headers: { "Content-Type": "application/manifest+json" } });
@@ -477,14 +500,21 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   if (path === "/connect/callback" && req.method === "GET") return callback(env, url, now);
   if (path === "/connect/pick" && req.method === "POST") return pick(env, await req.formData(), now);
 
-  const user = await auth(req, env, ctx, now, path);
   const p = path.split("/").slice(1);
+  let user: UserRow;
+  try {
+    user = await auth(req, env, ctx, now, path);
+  } catch (e) {
+    // a browser page without a session: sign in, then back here. The API, /me and the
+    // player's /m/ files keep their 401: a PC or a <video> cannot follow a sign-in page.
+    if (e instanceof HttpError && e.status === 401 && req.method === "GET" && p[0] !== "api" && p[0] !== "m" && path !== "/me") {
+      return Response.redirect(`${url.origin}/login?next=${encodeURIComponent(path + url.search)}`, 302);
+    }
+    throw e;
+  }
 
   if (path === "/me" && req.method === "GET") return me(env, user);
-  if (path === "/app" && req.method === "GET") {
-    const first = (await clientsOf(env, user))[0];
-    return first ? Response.redirect(`${url.origin}/${first}`, 302) : new Response("No clients yet: ask an admin to add you to one.", { headers: { "Content-Type": "text/plain" } });
-  }
+  if (path === "/app" && req.method === "GET") return homePage(env, user);
   // the pages' player: the API's GET with the cookie allowed (the path is not under /api/)
   if (p[0] === "m" && p.length === 4 && req.method === "GET") return media(req, env, user, id(p[1], "client"), id(p[2], "slot"), p[3] ?? "");
   if (p[0] === "connect" && p.length === 2 && req.method === "GET") {
@@ -494,7 +524,14 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   }
   if (path === "/auth/logout" && req.method === "POST") {
     await env.DB.prepare("UPDATE users SET session_epoch = session_epoch + 1 WHERE id = ?").bind(user.id).run();
-    return json(200, { ok: true });
+    const gone = `${COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`;
+    if ((req.headers.get("Content-Type") ?? "").startsWith("application/x-www-form-urlencoded")) {
+      // the home page's Sign out button: back to the sign-in page, the cookie dropped
+      return new Response(null, { status: 303, headers: { Location: "/login", "Set-Cookie": gone } });
+    }
+    const res = json(200, { ok: true });
+    res.headers.append("Set-Cookie", gone);
+    return res;
   }
   if (path === "/api/hosts" && req.method === "POST") return registerHost(req, env, user, now);
   if (path === "/api/jobs/next" && req.method === "GET") return nextJob(url, env, ctx, user, now);

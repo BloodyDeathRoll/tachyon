@@ -181,7 +181,7 @@ export function icon(name: string, size = 18): string {
 }
 
 // ── page shell ────────────────────────────────────────────────────────────────
-const CSS = `
+export const CSS = `
 :root{--ground:#F8F8F8;--card:#fff;--ink:#111;--ink2:#4A4A4A;--ink3:#6B6B6B;--rule:#E8E8E8;--side:#111;--sideink:#888;
 --lime:#8DF000;--lime-h:#7ED800;--lime-bg:#F2FCE0;--lime-ink:#3D6B00;--green:#22C55E;--amber:#E0A100;--blue:#3B82F6;--grey-bg:#EFEFEF;--r:16px}
 *{box-sizing:border-box;min-width:0}
