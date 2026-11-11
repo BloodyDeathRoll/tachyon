@@ -229,8 +229,6 @@ def _mux(video: Path, track: dict | None, vo: Path | None, vo_start: float, musi
         mixin.append("[m]")
         idx += 1
     if vo:
-        if vo_start + _duration(vo) > dur - FADE:   # the fade-out would swallow the last words
-            raise RuntimeError(f"voice-over ends at {vo_start + _duration(vo):.2f}s, video fades out at {dur - FADE:.2f}s")
         cmd += ["-i", str(vo)]
         ms = int(vo_start * 1000)
         chains.append(f"[{idx}:a]aresample=48000,aformat=channel_layouts=stereo,adelay={ms}|{ms}[v]")
@@ -296,6 +294,9 @@ def fetch_ig_preview(client: str, slot: str, url: str | None, opener=None) -> Pa
     import urllib.request
     try:
         with (opener or urllib.request.urlopen)(url, timeout=30) as r:
+            final = r.geturl() if hasattr(r, "geturl") else url
+            if final != url and not ig_url(final):   # redirected off Instagram's CDN: not taken
+                return None
             data = r.read(IG_PREVIEW_MAX + 1)
     except Exception:  # noqa: BLE001 — expired link or no network: no preview, nothing breaks
         return None
@@ -317,19 +318,50 @@ def ig_song(client: str, slot: str) -> Path:
     p, m = _meta(client, slot)
     tid = m.get("track") or ""
     t = _ig_known(client).get(tid)
-    if not (t and t.get("preview") and fetch_ig_preview(client, slot, t["preview"])):
-        # cached links expire (fbcdn signs them): search again for a fresh one
-        title = (m.get("track_info") or {}).get("title") or (t or {}).get("title")
+    if not (t and t.get("preview")):
+        title = (m.get("track_info") or {}).get("title")
         t = next((x for x in (ig_tracks(client, title) if title else []) if x["id"] == tid), None)
-        if not (t and t.get("preview")) or not fetch_ig_preview(client, slot, t["preview"]):
-            raise RuntimeError(f"could not download the Instagram song {tid} for {slot}")
+    if not (t and t.get("preview")) or not fetch_ig_preview(client, slot, t["preview"]):
+        raise RuntimeError(f"could not download the Instagram song {tid} for {slot}")
     m.setdefault("track_info", {})["preview_of"] = tid
     p.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
     return C.client_dir(client) / "posts" / slot / IG_PREVIEW
 
 
-def set_track(client: str, slot: str, track_id: str) -> None:
-    track = next((t for t in _library(client) if t["id"] == track_id), None) or _ig_known(client).get(track_id)
+IG_HOST = ".fbcdn.net"   # where Instagram's song files and covers are served from
+
+
+def ig_url(v, host: str = IG_HOST) -> str | None:
+    """`v` if it is an https link on Instagram's CDN (or exactly on `host` when it has no leading
+    dot), else None. Kept in step with igUrl in deploy/worker/src/pages/video.ts."""
+    from urllib.parse import urlparse
+    u = urlparse(str(v or ""))
+    h = u.hostname or ""
+    ok = h.endswith(host) if host.startswith(".") else h == host
+    return str(v) if u.scheme == "https" and ok else None
+
+
+def ig_track(given: dict) -> dict:
+    """An Instagram song as the Worker's music page sent it (a job's payload), checked: only an
+    https link on Instagram's own CDN is ever downloaded."""
+    aid = str(given.get("audio_id") or "")
+    if not aid.isdigit():
+        raise ValueError(f"not an Instagram audio id: {aid!r}")
+    pv = str(given.get("preview") or "")
+    if not ig_url(pv):
+        raise ValueError(f"not an Instagram song link: {pv[:80]}")
+    dur = given.get("duration")
+    return {"id": IG_PREFIX + aid, "audio_id": aid, "title": str(given.get("title") or "Untitled")[:200],
+            "artist": str(given.get("artist") or "")[:200] or None, "source": "instagram",
+            "cover": ig_url(given.get("cover")), "duration": dur if isinstance(dur, (int, float)) else None,
+            "link": ig_url(given.get("link"), "www.instagram.com"), "preview": pv}
+
+
+def set_track(client: str, slot: str, track_id: str, given: dict | None = None) -> None:
+    """Pick a track for the slot and re-mix its videos. `given`: an Instagram song found online
+    (the Worker's music page), not in this PC's search cache."""
+    track = (next((t for t in _library(client) if t["id"] == track_id), None) or _ig_known(client).get(track_id)
+             or (given if given and given.get("id") == track_id else None))
     if not track:
         raise KeyError(f"no track {track_id}")
     p, m = _meta(client, slot)
@@ -346,13 +378,8 @@ def set_track(client: str, slot: str, track_id: str) -> None:
         m.pop("audio_configuration", None)
         m.setdefault("film", {})["music"] = _rel(C.client_dir(client) / "assets" / "music" / track["file"])
     m["audio_type"] = f"{track['title']} ({track.get('artist')}), {track.get('source', 'file')}"
-    before = p.read_text()
     p.write_text(json.dumps(m, indent=2, ensure_ascii=False) + "\n")
-    try:
-        apply(client, slot)
-    except Exception:
-        p.write_text(before)   # the pick did not take: keep the old track "in use"
-        raise
+    apply(client, slot)
 
 
 # ── catalog: loudness + where the track gets going ────────────────────────────
