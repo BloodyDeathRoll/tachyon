@@ -80,7 +80,10 @@ mkdir -p "$HOME/.config/systemd/user"
 # a user unit gets a minimal PATH: jobs run claude, node and npx (often under nvm or ~/.local/bin).
 # nvm's folder names the node version: after a node upgrade, run this script again.
 UNIT_PATH="$(dirname "$(command -v claude)"):$(dirname "$(command -v node)"):/usr/local/bin:/usr/bin:/bin"
-sed -e "s#%h/Projects/tachyon#$ROOT#" -e "s#/usr/bin/python3#$PY#" -e "/^\[Service\]/a Environment=\"PATH=$UNIT_PATH\"" \
+# safe in a sed replacement (& # \) and in a unit file (% is a specifier there)
+unit_text() { printf '%s' "$1" | sed -e 's/%/%%/g' -e 's/[&#\\]/\\&/g'; }
+sed -e "s#%h/Projects/tachyon#$(unit_text "$ROOT")#" -e "s#/usr/bin/python3#$(unit_text "$PY")#" \
+  -e "/^\[Service\]/a Environment=\"PATH=$(unit_text "$UNIT_PATH")\"" \
   deploy/tachyon-worker.service > "$HOME/.config/systemd/user/tachyon-worker.service"
 if err=$(systemctl --user daemon-reload 2>&1); then
   echo "start it with: systemctl --user enable --now tachyon-worker  (and loginctl enable-linger $USER to keep it up without a session)"
