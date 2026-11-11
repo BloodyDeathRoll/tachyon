@@ -216,31 +216,51 @@ def _sha(p: Path) -> str:
     return _shas[str(p)][2]
 
 
+_warned: set[tuple[str, str, str, int]] = set()   # a refusal is logged once, then retried quietly
+
+
+def _put(client: str, slot: str, name: str, p: Path, cfg: dict, headers: dict) -> bool:
+    try:
+        R.call("PUT", f"/api/media/{client}/{slot}/{name}", raw=p.read_bytes(), cfg=cfg, headers=headers, timeout=600)
+        _warned.difference_update({w for w in _warned if w[:3] == (client, slot, name)})
+        return True
+    except R.RemoteError as e:   # 409: publishing now, or changed under us; 507: R2 full; next round
+        if e.status == 401 or (e.status >= 500 and e.status != 507):
+            raise
+        if (client, slot, name, e.status) not in _warned:
+            _warned.add((client, slot, name, e.status))
+            say(f"{client}/{slot}: {name} not sent ({e})")
+        return False
+
+
 def sync_videos(clients: list[str], cfg: dict) -> list[str]:
-    """Each approved or queued video whose cut on this PC is not the one in R2 (none there yet, or
-    re-rendered since), sent up. The Worker deletes the file it replaces, and the published one
-    after it publishes: R2 holds one file per waiting video. "client/slot" sent."""
+    """Every post, one read per client. An approved or queued video whose cut on this PC is not
+    the one in R2 (none there yet, or re-rendered since) is sent up with its cover. The Worker deletes the file it replaces, and the
+    published one after it publishes: R2 holds one file per waiting video. A cover is kept for
+    every post (the calendar's thumbnail): one this PC has and R2 does not goes up too.
+    "client/slot" sent."""
     from .db import RemoteDB
     sent = []
     for client in clients:
-        for state in ("APPROVED", "QUEUED"):
-            for row in RemoteDB(client).posts(state):
-                p = C.client_dir(client) / "posts" / row["slot_id"] / "video.mp4"
-                if row.get("ig_media_id") or not p.is_file():
-                    continue
-                if row.get("r2_key") and not row.get("r2_sha"):
-                    continue   # sent from a browser (no sha): that file is the cut, not this PC's
+        for row in RemoteDB(client).posts():
+            slot = row["slot_id"]
+            sd = C.client_dir(client) / "posts" / slot
+            p, cover = sd / "video.mp4", sd / "cover.jpg"
+            video = row["state"] in ("APPROVED", "QUEUED") and not row.get("ig_media_id") and p.is_file()
+            if video and row.get("r2_key") and not row.get("r2_sha"):
+                video = False   # sent from a browser (no sha): that file is the cut, not this PC's
+            if video:
                 sha = _sha(p)
-                if row.get("r2_key") and row.get("r2_sha") == sha:
+                video = not (row.get("r2_key") and row.get("r2_sha") == sha)
+            if video:
+                if not _put(client, slot, "video", p, cfg, {"Content-Type": "video/mp4", "X-Sha256": sha}):
                     continue
-                try:
-                    R.call("PUT", f"/api/media/{client}/{row['slot_id']}/video", raw=p.read_bytes(), cfg=cfg,
-                           headers={"Content-Type": "video/mp4", "X-Sha256": sha}, timeout=600)
-                    sent.append(f"{client}/{row['slot_id']}")
-                except R.RemoteError as e:   # 409: publishing now, or changed under us; 507: R2 full; next round
-                    if e.status == 401 or (e.status >= 500 and e.status != 507):
-                        raise
-                    say(f"{client}/{row['slot_id']}: video not sent ({e})")
+                sent.append(f"{client}/{slot}")
+            # a new cut goes with its cover; otherwise only a missing one is sent: a cover changed on
+            # its own (no new cut) stays as it is online
+            if cover.is_file() and (video or not row.get("cover_key")):
+                if _put(client, slot, "cover", cover, cfg, {"Content-Type": "image/jpeg"}) and not video:
+                    sent.append(f"{client}/{slot} cover")
     return sent
 
 
@@ -369,7 +389,7 @@ def run(cfg: dict, *, sleep=time.sleep) -> int:
         try:
             if not once(cfg, sleep=sleep):
                 for done in sync_videos(reg["clients"], cfg):
-                    say(f"{done}: video sent up")
+                    say(f"{done}: sent up")
                 sleep(POLL)
         except R.RemoteError as e:
             if e.status == 401:
