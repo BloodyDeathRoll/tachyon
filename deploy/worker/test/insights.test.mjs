@@ -188,10 +188,49 @@ test("pickup links a slot waiting with the same caption and imports a new reel w
       },
     }),
   };
-  script.push({ body: { data: [{ id: "m-race", caption: "Raced", timestamp: "2030-03-10T10:00:00+0000", media_product_type: "REELS" }] } });
-  const raced = await pickup(racy, await rosa(), "tok", T0 + 1000, fetcher);
+  const raceList = { body: { data: [{ id: "m-race", caption: "Raced", timestamp: "2030-03-10T10:00:00+0000", media_product_type: "REELS" }] } };
+  // what pickup costs around the import: the same list, the import skipped for budget
+  const counted = (e, b) => ({ ...e, DB: countedDB(e.DB, b), MEDIA: countedR2(env.MEDIA, b) });
+  const around = new Budget(IMPORT_COST - 1);
+  script.push(raceList);
+  assert.deepEqual(await pickup(counted(env, around), await rosa(), "tok", T0 + 1000, countedFetch(fetcher, around), around), [{ media: "m-race", skipped: "budget" }]);
+  script.push(raceList);
+  // counted as the cron counts it: a failed import, cleanup included, fits IMPORT_COST alone
+  const spent = new Budget();
+  const raced = await pickup(counted(racy, spent), await rosa(), "tok", T0 + 1000, countedFetch(fetcher, spent), spent);
   assert.equal(raced.length, 1);
   assert.match(raced[0].error, /moved on under the import/);
+  assert.ok(spent.used - around.used <= IMPORT_COST, `a failed import (theirs kept) cost ${spent.used - around.used}`);
+  // the other writer moved the row on: it and its history stay, only the import's own files go
+  assert.equal((await post("2030-w10-02")).state, "BRIEFED");
+  assert.ok((await env.DB.prepare("SELECT count(*) AS n FROM journal WHERE target = '2030-w10-02'").first()).n > 0);
+  assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM post_files WHERE slot_id = '2030-w10-02'").first()).n, 0);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM posts WHERE slot_id = '2030-w10-02'"),
+    env.DB.prepare("DELETE FROM journal WHERE target = '2030-w10-02'"),
+  ]);
+  // an import that fails before its row moves (the batch itself refused): everything it made goes
+  let refused = false;
+  const broken = {
+    ...env,
+    DB: new Proxy(env.DB, {
+      get(t, k) {
+        if (k !== "batch") return typeof t[k] === "function" ? t[k].bind(t) : t[k];
+        return async (stmts) => {
+          if (stmts.length > 2 && !refused) {
+            refused = true; // the import's batch only; the cleanup after it goes through
+            throw new Error("D1 down");
+          }
+          return t.batch(stmts);
+        };
+      },
+    }),
+  };
+  script.push(raceList);
+  const spent2 = new Budget();
+  const failed = await pickup(counted(broken, spent2), await rosa(), "tok", T0 + 1000, countedFetch(fetcher, spent2), spent2);
+  assert.match(failed[0].error, /D1 down/);
+  assert.ok(spent2.used - around.used <= IMPORT_COST, `a failed import (all removed) cost ${spent2.used - around.used}`);
   assert.equal(await post("2030-w10-02"), null);
   assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM journal WHERE target = '2030-w10-02'").first()).n, 0);
   // a new reel with no budget left for an import waits for the next hour

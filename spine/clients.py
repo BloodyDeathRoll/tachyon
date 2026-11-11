@@ -12,6 +12,7 @@ generation, so the prompts keep reading files. The folder itself stays: the asse
 from __future__ import annotations
 
 import os
+import re
 from datetime import date
 from pathlib import Path
 
@@ -88,6 +89,8 @@ def pull(name: str) -> list[str]:
     The online copy is the store: a file edited on the PC is overwritten, and a file deleted
     online stays here (nothing deletes a client_files row yet; when something does, pull
     should remove what is gone)."""
+    if not re.fullmatch(r"[\w-]{1,64}", name):   # a folder name, never a path
+        raise ValueError(f"not a client id: {name!r}")
     db = _remote(name)
     if not db:
         return []
@@ -96,8 +99,11 @@ def pull(name: str) -> list[str]:
 
     def put(fname: str, text: str) -> None:
         tmp = d / (fname + ".tmp")   # whole or not at all: a prompt may read the file mid-write
-        tmp.write_text(text)
-        tmp.replace(d / fname)
+        try:
+            tmp.write_text(text)
+            tmp.replace(d / fname)
+        finally:
+            tmp.unlink(missing_ok=True)   # gone after the replace; a failed write leaves nothing behind
 
     written = []
     for f in db.client_files():
