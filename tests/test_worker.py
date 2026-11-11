@@ -167,6 +167,10 @@ def test_a_refused_job_marks_its_status_failed(env, monkeypatch):
     with pytest.raises(ValueError, match="refused"):
         W.run_job({"id": 2, "kind": "revise", "client": "rosa", "slot_id": "w01-s1", "payload": {"argv": ["spine.revise", "run", "rosa", "w09-s9"]}}, CFG)
     assert revise.status("rosa", "w01-s1")["state"] == "failed"
+    (env / "clients" / "rosa" / "posts" / "w01-s1" / "caption.writing").touch()
+    with pytest.raises(ValueError, match="refused"):
+        W.run_job({"id": 3, "kind": "caption", "client": "rosa", "slot_id": "w01-s1", "payload": {"argv": ["spine.caption", "write", "rosa", "w09-s9"]}}, CFG)
+    assert not (env / "clients" / "rosa" / "posts" / "w01-s1" / "caption.writing").exists()
 
 
 def test_upload_puts_the_video_and_the_cover(env, monkeypatch):

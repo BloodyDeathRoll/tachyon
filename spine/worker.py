@@ -143,6 +143,8 @@ def _refused(job: dict, argv: list[str], why: str):
             revise._write_status(client, slot, state="failed", error=why, failed_at=revise.now())
         elif kind == "formats" and slot:
             formats._status(client, slot, state="failed", error=why)
+        elif kind == "caption" and slot:   # the page shows "Writing…" while this marker exists
+            (C.client_dir(client) / "posts" / slot / "caption.writing").unlink(missing_ok=True)
     except Exception as e:  # noqa: BLE001 — the queue still hears the refusal
         say(f"job {job['id']}: could not mark the refusal: {e}")
     raise ValueError(why)
