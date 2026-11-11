@@ -4,6 +4,7 @@ against the real one in Miniflare (the `worker` fixture, conftest.py)."""
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import subprocess
 import sys
@@ -462,3 +463,52 @@ def test_sync_videos_a_refused_cover_is_retried_and_logged_once(env, monkeypatch
     assert W.sync_videos(["rosa"], CFG) == [] and W.sync_videos(["rosa"], CFG) == []
     assert len(said) == 1 and "cover not sent" in said[0]
     assert W.sync_videos(["rosa"], CFG) == ["rosa/s5 cover"] and not W._warned
+
+
+def test_a_track_job_mixes_the_song_picked_online_and_sends_the_meta(env, monkeypatch):
+    from spine import tracks as T
+    sd = env / "clients" / "rosa" / "posts" / "w01-s1"
+    sd.mkdir()
+    (sd / "video.mp4").write_bytes(b"vid")
+    picked = []
+
+    def set_track(client, slot, tid, given):
+        picked.append((client, slot, tid, given["preview"]))
+        (sd / "meta.json").write_text('{"track": "%s"}\n' % tid)
+    monkeypatch.setattr(T, "set_track", set_track)
+    song = {"audio_id": "123", "title": "A Big Mess", "artist": "TrackTribe", "preview": "https://video-lga3-1.xx.fbcdn.net/a.m4a"}
+    f = fake(monkeypatch, (200, {"result": True}))
+    job = {"id": 3, "kind": "track", "client": "rosa", "slot_id": "w01-s1", "payload": json.dumps({"track": song})}
+    out = W.run_job(job, CFG)
+    assert picked == [("rosa", "w01-s1", "ig:123", song["preview"])]
+    assert out["track"] == "ig:123" and out["files"] == ["meta.json"] and out["media"]["size"] == 3
+    assert f.calls[-1][2] == {"slot_id": "w01-s1", "files": {"meta.json": '{"track": "ig:123"}\n'}}
+    for bad in ({**song, "preview": "https://evil.example/a.m4a"}, {**song, "preview": "http://video.xx.fbcdn.net/a"}, {**song, "audio_id": "1;rm"}):
+        with pytest.raises(ValueError):
+            W.run_job({**job, "payload": json.dumps({"track": bad})}, CFG)
+    (sd / "video.mp4").unlink()
+    with pytest.raises(FileNotFoundError):
+        W.run_job(job, CFG)
+
+
+def test_an_instagram_song_is_taken_only_from_instagram(env):
+    from spine import tracks as T
+    ok = {"audio_id": "5", "preview": "https://video.xx.fbcdn.net/a.m4a", "cover": "https://evil.example/c.jpg",
+          "link": "https://www.instagram.com/reels/audio/5"}
+    t = T.ig_track(ok)
+    assert t["cover"] is None and t["link"] == ok["link"] and t["preview"] == ok["preview"]
+    assert T.ig_track({**ok, "link": "https://evil.example/x"})["link"] is None
+    for bad in ({**ok, "preview": ""}, {**ok, "preview": "https://fbcdn.net.evil.example/a"}):
+        with pytest.raises(ValueError):
+            T.ig_track(bad)
+    (env / "clients" / "rosa" / "posts" / "s").mkdir()
+
+    class Resp(io.BytesIO):
+        def __init__(self, data, final): super().__init__(data); self.final = final
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def geturl(self): return self.final
+    away = lambda u, timeout: Resp(b"x", "https://evil.example/a.m4a")  # noqa: E731
+    assert T.fetch_ig_preview("rosa", "s", ok["preview"], opener=away) is None
+    stay = lambda u, timeout: Resp(b"song", "https://video-2.xx.fbcdn.net/a.m4a")  # noqa: E731
+    assert T.fetch_ig_preview("rosa", "s", ok["preview"], opener=stay).read_bytes() == b"song"

@@ -27,7 +27,7 @@ import { upload as audienceUpload } from "./audience.ts";
 import { renderInsights } from "./insights.ts";
 import { prepareWeek, renderOverview } from "./overview.ts";
 import { errorPage, path, type ClientInfo, type Page } from "./shell.ts";
-import { act, renderByhand, renderQa, renderVideo } from "./video.ts";
+import { act, renderByhand, renderMusic, renderQa, renderVideo } from "./video.ts";
 // slice b
 import { move, renderCalendar } from "./calendar.ts";
 import { newPrompt, upload as newUpload } from "./newvideo.ts";
@@ -110,6 +110,7 @@ export async function pages(req: Request, env: Page["env"], _ctx: ExecutionConte
       if (action === undefined) return await renderVideo(page, slot!);
       if (action === "byhand") return await renderByhand(page, slot!, fetcher);
       if (action === "qa") return await renderQa(page, slot!);
+      if (action === "music") return await renderMusic(page, slot!, fetcher, (url.searchParams.get("q") ?? "").trim().slice(0, 100));
       return null;
     }
     if (req.method === "POST" && action) return await act(page, slot!, action, await formOf(req), fetcher);

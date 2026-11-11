@@ -294,6 +294,9 @@ def fetch_ig_preview(client: str, slot: str, url: str | None, opener=None) -> Pa
     import urllib.request
     try:
         with (opener or urllib.request.urlopen)(url, timeout=30) as r:
+            final = r.geturl() if hasattr(r, "geturl") else url
+            if final != url and not ig_url(final):   # redirected off Instagram's CDN: not taken
+                return None
             data = r.read(IG_PREVIEW_MAX + 1)
     except Exception:  # noqa: BLE001 — expired link or no network: no preview, nothing breaks
         return None
@@ -325,8 +328,40 @@ def ig_song(client: str, slot: str) -> Path:
     return C.client_dir(client) / "posts" / slot / IG_PREVIEW
 
 
-def set_track(client: str, slot: str, track_id: str) -> None:
-    track = next((t for t in _library(client) if t["id"] == track_id), None) or _ig_known(client).get(track_id)
+IG_HOST = ".fbcdn.net"   # where Instagram's song files and covers are served from
+
+
+def ig_url(v, host: str = IG_HOST) -> str | None:
+    """`v` if it is an https link on Instagram's CDN (or exactly on `host` when it has no leading
+    dot), else None. Kept in step with igUrl in deploy/worker/src/pages/video.ts."""
+    from urllib.parse import urlparse
+    u = urlparse(str(v or ""))
+    h = u.hostname or ""
+    ok = h.endswith(host) if host.startswith(".") else h == host
+    return str(v) if u.scheme == "https" and ok else None
+
+
+def ig_track(given: dict) -> dict:
+    """An Instagram song as the Worker's music page sent it (a job's payload), checked: only an
+    https link on Instagram's own CDN is ever downloaded."""
+    aid = str(given.get("audio_id") or "")
+    if not aid.isdigit():
+        raise ValueError(f"not an Instagram audio id: {aid!r}")
+    pv = str(given.get("preview") or "")
+    if not ig_url(pv):
+        raise ValueError(f"not an Instagram song link: {pv[:80]}")
+    dur = given.get("duration")
+    return {"id": IG_PREFIX + aid, "audio_id": aid, "title": str(given.get("title") or "Untitled")[:200],
+            "artist": str(given.get("artist") or "")[:200] or None, "source": "instagram",
+            "cover": ig_url(given.get("cover")), "duration": dur if isinstance(dur, (int, float)) else None,
+            "link": ig_url(given.get("link"), "www.instagram.com"), "preview": pv}
+
+
+def set_track(client: str, slot: str, track_id: str, given: dict | None = None) -> None:
+    """Pick a track for the slot and re-mix its videos. `given`: an Instagram song found online
+    (the Worker's music page), not in this PC's search cache."""
+    track = (next((t for t in _library(client) if t["id"] == track_id), None) or _ig_known(client).get(track_id)
+             or (given if given and given.get("id") == track_id else None))
     if not track:
         raise KeyError(f"no track {track_id}")
     p, m = _meta(client, slot)
