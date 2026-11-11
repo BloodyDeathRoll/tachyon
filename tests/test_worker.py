@@ -428,6 +428,7 @@ def test_sync_videos_sends_a_new_or_changed_cut_and_nothing_else(env, monkeypatc
     (posts / "s1" / "cover.jpg").write_bytes(b"c1")   # goes with s1's new cut
     (posts / "s5" / "cover.jpg").write_bytes(b"c5")   # published, no cover online: the thumbnail
     (posts / "s2" / "cover.jpg").write_bytes(b"c2")   # its cover is online already
+    (posts / "s7" / "cover.jpg").write_bytes(b"c7")   # its video was refused (R2 full): the cover waits too
     same = W.sha256(posts / "s2" / "video.mp4")
     row = lambda slot, state="APPROVED", **kw: {"slot_id": slot, "state": state, "r2_key": None, "r2_sha": None, "ig_media_id": None, "cover_key": None, **kw}
     rows = [

@@ -234,8 +234,8 @@ def _put(client: str, slot: str, name: str, p: Path, cfg: dict, headers: dict) -
 
 
 def sync_videos(clients: list[str], cfg: dict) -> list[str]:
-    """Each approved or queued video whose cut on this PC is not the one in R2 (none there yet, or
-    re-rendered since), sent up with its cover. The Worker deletes the file it replaces, and the
+    """Every post, one read per client. An approved or queued video whose cut on this PC is not
+    the one in R2 (none there yet, or re-rendered since) is sent up with its cover. The Worker deletes the file it replaces, and the
     published one after it publishes: R2 holds one file per waiting video. A cover is kept for
     every post (the calendar's thumbnail): one this PC has and R2 does not goes up too.
     "client/slot" sent."""
