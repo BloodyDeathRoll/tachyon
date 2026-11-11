@@ -115,14 +115,14 @@ const Globe: React.FC<{ t: number; T: Times }> = ({ t, T }) => {
   return <canvas ref={ref} width={width} height={height} style={{ position: "absolute", left: 0, top: 0 }} />;
 };
 
-export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5, joke, lock, app = "Location is everything." }) => {
+export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5, joke, lock, app }) => {
   useInter();
   const t = useT();
   const { fps, width, height } = useVideoConfig();
   const W = width > height, ar = W ? "16x9" : "9x16";
   const B = SAFE[variant];
   const T = times(S1), LK = T.s5 + lock;
-  const appWs = app.split(" "), appBlue = [appWs.length - 1];   // the app section's first line, last word blue
+  const appWs = (app ?? "Location is everything.").split(" "), appBlue = [appWs.length - 1];   // the app section's first line, last word blue
   // joke: line 2 is the punch (blue); the size shrinks so the longest line fits the safe width
   const jokeW = W ? 1000 : B.w, jokeChars = Math.max(...joke.map((l) => l.join(" ").length));
   const jokeSize = Math.min(W ? 130 : 128, Math.floor(jokeW / (0.56 * jokeChars)));
@@ -218,7 +218,11 @@ export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5,
         </div>
       )}
 
-      {W
+      {app
+        // a script's own line is set like "16 days forecast."
+        ? <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[appWs.slice(0, -1), appWs.slice(-1)]} blue={appBlue} size={130} align={W ? "left" : "right"} gap={0.22}
+            style={W ? { left: 1060, top: 540 - 1.08 * 130, width: 780 } : { left: B.x, top: B.y + 20, width: B.w }} />
+        : W
         ? <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[appWs.slice(0, -1), appWs.slice(-1)]} blue={appBlue} size={120} align="left"
             style={{ left: 1060, top: 540 - 1.08 * 120, width: 780 }} />
         : <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[appWs]} blue={appBlue} size={84}

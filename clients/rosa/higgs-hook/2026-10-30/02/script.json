@@ -1,10 +1,10 @@
 {
   "title": "The diver at Coxos",
   "slug": "diver",
-  "joke": "No excuses. Check the swell!",
+  "joke": "Check the swell before you commit",
   "joke_lines": [
-    "No excuses.",
-    "Check the swell!"
+    "Check the swell",
+    "before you commit"
   ],
   "app_line": "Check in depth.",
   "lock": {
