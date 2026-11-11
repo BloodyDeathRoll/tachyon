@@ -363,9 +363,11 @@ async function listJobs(url: URL, env: Env, user: UserRow): Promise<Response> {
 /** Where sign-in goes next: a path on this site only (`/\\evil.com` and `//evil.com` are other
     sites to a browser), else /app. Runs in the page too: loginPage inlines its source. */
 export function safeNext(next: string | null, origin: string): string {
+  if (!next) return "/app";
   try {
-    const u = new URL(next || "/app", origin);
-    return u.origin === origin ? u.pathname + u.search + u.hash : "/app";
+    const u = new URL(next, origin);
+    // the whole URL, not its path: a path like //evil.com (from /.//evil.com) is another host
+    return u.origin === origin ? u.href : "/app";
   } catch {
     return "/app";
   }
