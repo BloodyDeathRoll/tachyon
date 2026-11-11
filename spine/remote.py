@@ -63,7 +63,8 @@ def call(method: str, path: str, body=None, *, cfg: dict | None = None, raw: byt
     cfg = cfg or config()
     if not cfg:
         raise RemoteError(0, "config", "no Worker configured: run `python -m spine.worker login`")
-    h = {"Authorization": f"Bearer {cfg['token']}", **(headers or {})}
+    # a named agent: Cloudflare refuses urllib's default one on workers.dev (error 1010)
+    h = {"Authorization": f"Bearer {cfg['token']}", "User-Agent": "tachyon-pc/1", **(headers or {})}
     data = raw
     if body is not None:
         data = json.dumps(body).encode()
