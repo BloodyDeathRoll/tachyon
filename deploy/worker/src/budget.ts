@@ -8,6 +8,7 @@ export const BUDGET = 40; // the plan's margin under 50
 
 export class Budget {
   used = 0;
+  private warned = false;
   readonly limit: number;
   constructor(limit = BUDGET) {
     this.limit = limit;
@@ -15,7 +16,10 @@ export class Budget {
   spend(n = 1): void {
     this.used += n;
     // never thrown: stopping mid-step could leave a half-made post; the log says it ran over
-    if (this.used === this.limit + 1) console.warn(`subrequest budget passed: ${this.used} > ${this.limit}`);
+    if (!this.warned && this.used > this.limit) {
+      this.warned = true;
+      console.warn(`subrequest budget passed: ${this.used} > ${this.limit}`);
+    }
   }
   get left(): number {
     return this.limit - this.used;

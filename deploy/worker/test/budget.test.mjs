@@ -25,6 +25,9 @@ test("spend warns once when the budget is passed", () => {
     const b = new Budget(2);
     b.spend(); b.spend(); b.spend(); b.spend();
     assert.equal(warned.length, 1);
+    const big = new Budget(2);
+    big.spend(5); // a jump past the limit warns too
+    assert.equal(warned.length, 2);
   } finally {
     console.warn = orig;
   }
