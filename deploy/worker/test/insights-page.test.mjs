@@ -143,3 +143,8 @@ test("a video without a first-day snapshot or a publish date is left out", async
   assert.equal(typicalOf((await get("/rosa/insights")).text), "50");
   assert.deepEqual(tablesOf([], 0).Topic, []);
 });
+
+test("numbers round as app.py's Python format: an exact tie to even", async () => {
+  const { fixed } = await import("../src/pages/insights.ts");
+  assert.deepEqual([fixed(36.5, 0), fixed(37.5, 0), fixed(58.5, 0), fixed(1.25, 1), fixed(1.35, 1), fixed(-36.5, 0), fixed(2.4, 0)], ["36", "38", "58", "1.2", "1.4", "-36", "2"]);
+});

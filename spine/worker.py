@@ -204,6 +204,9 @@ def upload(client: str, slot: str, cfg: dict) -> dict:
     return out
 
 
+OUT = ("PUBLISHING", "PUBLISHED", "MEASURING", "ANALYZED", "REMOVED", "MANUAL_HANDOFF")   # on Instagram, or going
+MUSIC_MAX = 25 * 1024 * 1024   # the Worker's limit for one track (deploy/worker/src/index.ts)
+SETTLE = 120   # seconds a video file must sit unchanged before it is sent (a render writes it in steps)
 _shas: dict[str, tuple[float, int, str]] = {}   # path -> (mtime, size, sha): a cut is hashed once
 
 
@@ -234,8 +237,8 @@ def _put(client: str, slot: str, name: str, p: Path, cfg: dict, headers: dict) -
 
 
 def sync_videos(clients: list[str], cfg: dict) -> list[str]:
-    """Every post, one read per client. An approved or queued video whose cut on this PC is not
-    the one in R2 (none there yet, or re-rendered since) is sent up with its cover. The Worker deletes the file it replaces, and the
+    """Every post, one read per client. An unpublished video whose cut on this PC is not the one
+    in R2 (none there yet, or re-rendered since) is sent up with its cover. The Worker deletes the file it replaces, and the
     published one after it publishes: R2 holds one file per waiting video. A cover is kept for
     every post (the calendar's thumbnail): one this PC has and R2 does not goes up too.
     "client/slot" sent."""
@@ -246,7 +249,10 @@ def sync_videos(clients: list[str], cfg: dict) -> list[str]:
             slot = row["slot_id"]
             sd = C.client_dir(client) / "posts" / slot
             p, cover = sd / "video.mp4", sd / "cover.jpg"
-            video = row["state"] in ("APPROVED", "QUEUED") and not row.get("ig_media_id") and p.is_file()
+            # every unpublished cut, so the online page plays it; a file touched in the last
+            # SETTLE seconds may still be rendering: next round
+            video = (row["state"] not in OUT and not row.get("ig_media_id") and p.is_file()
+                     and time.time() - p.stat().st_mtime > SETTLE)
             if video and row.get("r2_key") and not row.get("r2_sha"):
                 video = False   # sent from a browser (no sha): that file is the cut, not this PC's
             if video:
@@ -256,12 +262,75 @@ def sync_videos(clients: list[str], cfg: dict) -> list[str]:
                 if not _put(client, slot, "video", p, cfg, {"Content-Type": "video/mp4", "X-Sha256": sha}):
                     continue
                 sent.append(f"{client}/{slot}")
+            st = sd / "video-story.mp4"   # the story cut: the page's Reel/Story switch, deleted at publish too
+            if (row["state"] not in OUT and not row.get("ig_media_id") and st.is_file()
+                    and time.time() - st.stat().st_mtime > SETTLE):
+                ssha = _sha(st)
+                if row.get("story_sha") != ssha and _put(client, slot, "story", st, cfg, {"Content-Type": "video/mp4", "X-Sha256": ssha}):
+                    sent.append(f"{client}/{slot} story")
             # a new cut goes with its cover; otherwise only a missing one is sent: a cover changed on
             # its own (no new cut) stays as it is online
             if cover.is_file() and (video or not row.get("cover_key")):
                 if _put(client, slot, "cover", cover, cfg, {"Content-Type": "image/jpeg"}) and not video:
                     sent.append(f"{client}/{slot} cover")
     return sent
+
+
+def _music_sent() -> Path:
+    return R.home() / "music-sent.json"
+
+
+def sync_music(clients: list[str], cfg: dict) -> list[str]:
+    """The music library as the Worker's music card lists it: tracks.json (the rows and the
+    client's Instagram searches) and each track's mp3 for the preview, and the client's icon
+    (the sidebar), sent when new or changed (~/.tachyon/music-sent.json remembers what went
+    up). Names sent."""
+    from urllib.parse import quote
+
+    from . import tracks as T
+    try:
+        state = json.loads(_music_sent().read_text())
+    except (OSError, ValueError):
+        state = {}
+    sent = state.setdefault(cfg["api"], {})   # per Worker: another Worker (or a wiped bucket) gets it all again
+    out = []
+    for client in clients:
+        d = C.client_dir(client) / "assets" / "music"
+
+        def sendable(t: dict) -> str | None:   # what the Worker takes (MUSIC_NAME, MUSIC_MAX): else no preview
+            f = Path(t["path"]).name if t.get("path") and str(t["path"]).endswith(".mp3") else ""
+            ok = re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.mp3", f) and (d / f).is_file() and (d / f).stat().st_size <= MUSIC_MAX
+            return f if ok else None
+        rows = [{k: t.get(k) for k in ("id", "title", "artist", "mood", "duration")} | {"file": sendable(t)}
+                for t in T.list_tracks(client, source="file")]
+        body = json.dumps({"tracks": rows, "ig_queries": T.ig_queries(client)}, ensure_ascii=False, sort_keys=True).encode()
+        items = [(f"/api/music/{client}/tracks.json", "tracks.json", body, "application/json")]
+        items += [(f"/api/music/{quote(client)}/{quote(r['file'])}", r["file"], d / r["file"], "audio/mpeg") for r in rows if r["file"]]
+        icon = C.client_dir(client) / "assets" / "icon.png"   # the sidebar's avatar
+        if icon.is_file():
+            items.append((f"/api/avatar/{quote(client)}", "icon.png", icon, "image/png"))
+        for url, name, src, ctype in items:
+            data = src if isinstance(src, bytes) else None
+            key = f"{client}/{name}"
+            sha = hashlib.sha256(data).hexdigest() if data is not None else _sha(src)
+            if sent.get(key) in (sha, f"refused:{sha}"):
+                continue
+            try:
+                R.call("PUT", url, raw=data if data is not None else src.read_bytes(), cfg=cfg, headers={"Content-Type": ctype}, timeout=600)
+            except R.RemoteError as e:
+                if e.status == 401 or (e.status >= 500 and e.status != 507):
+                    raise
+                say(f"{key}: not sent ({e})")
+                if e.status in (400, 413, 415):   # refused for what it is: not again until it changes; the rest next round
+                    sent[key] = f"refused:{sha}"
+                    out.append(f"{key} refused")
+                continue
+            sent[key] = sha
+            out.append(key)
+    if out:
+        _music_sent().parent.mkdir(parents=True, exist_ok=True)
+        _music_sent().write_text(json.dumps(state, indent=1))
+    return out
 
 
 def spec(client: str, slot: str, cfg: dict) -> dict:
@@ -305,13 +374,19 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) ->
     if job["kind"] == "upload":
         pull(client, slot, sleep)   # the operator's online edits, so the files sent up are the newest
         return {"keys": upload(client, slot, cfg)}
-    if job["kind"] == "track":   # an Instagram song picked online: download it, mix it in
+    if job["kind"] == "track":   # a song picked online (Instagram's, or this PC's library): mix it in
         from . import tracks as T
-        song = T.ig_track(payload.get("track") or {})
+        given = payload.get("track") or {}
+        # a job queued before the library tab carries only audio_id: an Instagram song
+        tid = str(given.get("id") or (T.IG_PREFIX + str(given["audio_id"]) if given.get("audio_id") else ""))
+        song = T.ig_track(given) if tid.startswith(T.IG_PREFIX) else None
+        if not song and not any(t["id"] == tid for t in T.list_tracks(client, source="file")):
+            raise ValueError(f"no track {tid!r} in the library")
         pull(client, slot, sleep)
         if not (C.client_dir(client) / "posts" / slot / "video.mp4").is_file():
             raise FileNotFoundError(f"{slot}'s video is not on this PC")
-        T.set_track(client, slot, song["id"], song)
+        T.set_track(client, slot, tid, song)
+        song = song or {"id": tid}
         # the new cut goes up with the next sync (sync_videos) once the video is approved
         return {"track": song["id"], "media": media_of(client, slot, cfg), "files": sorted(J.push_files(client, slot, ("meta.json",)))}
     argv = payload.get("argv")
@@ -397,7 +472,7 @@ def run(cfg: dict, *, sleep=time.sleep) -> int:
     while True:
         try:
             if not once(cfg, sleep=sleep):
-                for done in sync_videos(reg["clients"], cfg):
+                for done in sync_videos(reg["clients"], cfg) + sync_music(reg["clients"], cfg):
                     say(f"{done}: sent up")
                 sleep(POLL)
         except R.RemoteError as e:

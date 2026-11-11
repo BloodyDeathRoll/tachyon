@@ -72,7 +72,8 @@ test("the same export again changes nothing; the next one says who dropped", asy
   assert.equal((await up(followers(["ann"]))).location, "/rosa?up=ok#dropped");
   const page = await get("/rosa?up=ok");
   assert.match(page.text, /Export read: 1 followers, 1 dropped\./);
-  assert.match(page.text, /<b class=dnum>1<\/b> dropped since <time/);
+  assert.match(page.text, /<b class=dnum>1<\/b> dropped\./);
+  assert.match(page.text, /1 followers dropped since <time/);
   assert.match(page.text, /@bob/);
   assert.doesNotMatch(page.text, /@ann/);
   assert.doesNotMatch((await get("/rosa")).text, /Export read/); // the note shows once, on the way back

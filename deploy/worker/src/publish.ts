@@ -125,10 +125,14 @@ async function createContainer(s: Slot): Promise<void> {
   s.log.push(`${slot}: container ${container.id}`);
 }
 
-/** The slot's R2 video object, deleted, and r2_key cleared. Also for a deleted or replaced slot. */
+/** The slot's R2 video object (and its story cut), deleted, and the keys cleared. Also for a deleted or replaced slot. */
 export async function dropVideo(env: { DB: D1Database; MEDIA: R2Bucket }, client: string, slot: string): Promise<boolean> {
-  const row = await env.DB.prepare("SELECT r2_key FROM posts WHERE client = ? AND slot_id = ?").bind(client, slot).first<{ r2_key: string | null }>();
-  if (!row?.r2_key) return false;
+  const row = await env.DB.prepare("SELECT r2_key, story_key FROM posts WHERE client = ? AND slot_id = ?").bind(client, slot).first<{ r2_key: string | null; story_key: string | null }>();
+  if (row?.story_key) {
+    await env.MEDIA.delete(row.story_key);
+    await env.DB.prepare("UPDATE posts SET story_key = NULL, story_sha = NULL WHERE client = ? AND slot_id = ? AND story_key = ?").bind(client, slot, row.story_key).run();
+  }
+  if (!row?.r2_key) return !!row?.story_key;
   await env.MEDIA.delete(row.r2_key);
   await env.DB.prepare("UPDATE posts SET r2_key = NULL, r2_sha = NULL WHERE client = ? AND slot_id = ? AND r2_key = ?").bind(client, slot, row.r2_key).run();
   return true;

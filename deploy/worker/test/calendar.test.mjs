@@ -50,11 +50,11 @@ test("the week view: the video on its slot, open slots with Add new, the nav, th
   assert.match(r.text, /Open slot/);
   assert.match(r.text, /5 Jan – 11 Jan 2099/);
   assert.match(r.text, /title='Back to today'>Mon 5 Jan<\/a>/);
-  assert.match(r.text, new RegExp(`add=${encodeURIComponent(FREE).replace(/\+/g, "\\+")}#addnew'>\\+ Add new`));
-  assert.match(r.text, /move=c1'>Move/);
+  assert.match(r.text, new RegExp(`data-add='${FREE.replace(/\+/g, "\\+")}'>\\+ Add new`));
+  assert.match(r.text, /draggable=true data-slot='c1'/);
   assert.match(r.text, /href='\/rosa\/calendar\?w=2099-W01'/);
   assert.match(r.text, /href='\/rosa\/calendar\?w=2099-W03'/);
-  assert.equal(r.text.match(/class=day>/g).length, 7);
+  assert.equal(r.text.match(/class='dh/g).length, 7);
   assert.match(r.headers.get("Set-Cookie"), /^cal_rosa=%3Fw%3D2099-W02; Path=\/; Max-Age=31536000; SameSite=Lax$/);
   // no query: the cookie's view
   const back = await call("GET", "/rosa/calendar", { headers: { Cookie: "cal_rosa=%3Fw%3D2099-W02" } });
@@ -65,8 +65,8 @@ test("the week view: the video on its slot, open slots with Add new, the nav, th
   // a time off the daily slots gets its own row, on every day
   await waiting("c2", "2099-01-08T12:00:00+00:00");
   const off = await call("GET", "/rosa/calendar?w=2099-W02");
-  assert.equal(off.text.match(/12:00 UTC/g).length, 7);
-  assert.doesNotMatch(off.text, /add=2099-01-08T12%3A00/); // Add new only on a publishing slot
+  assert.equal(off.text.match(/data-at='2099-01-\d\dT12:00:00\+00:00'/g).length, 6); // the 7th is c2
+  assert.doesNotMatch(off.text, /data-add='2099-01-0\dT12:00/); // Add new only on a publishing slot
 });
 
 test("a video waiting with no slot of its own sits on the slot the video page says", async () => {
@@ -91,7 +91,7 @@ test("the month view: the days, mini cells, open future slots, the nav", async (
   assert.match(r.text, /href='\/rosa\/v\/c1'/);
   assert.match(r.text, /view=month&m=2098-12'/);
   assert.match(r.text, /view=month&m=2099-02'/);
-  assert.match(r.text, /cell open mini/);
+  assert.match(r.text, /cell mini open' data-at='2099-01-07T06:30:00\+00:00' data-add=/);
   assert.equal(r.text.match(/class='mday/g).length, 35); // 29 Dec – 1 Feb
   assert.match(r.headers.get("Set-Cookie"), /^cal_rosa=%3Fview%3Dmonth%26m%3D2099-01;/);
   assert.equal((await call("GET", "/rosa/calendar?view=month&m=nope")).status, 200); // this month
@@ -101,13 +101,13 @@ test("the month view: the days, mini cells, open future slots, the nav", async (
   assert.match((await call("GET", "/rosa/calendar?view=month&m=2098-12")).text, /href='\/rosa\/v\/c6'/);
 });
 
-test("move: Swap on another video, Move here on an open slot; taken, past and live refused", async () => {
+test("move: a swap, an open slot, a day; taken, past and live refused", async () => {
   await waiting("c4", B);
-  const r = await call("GET", "/rosa/calendar?w=2099-W02&move=c1");
-  assert.match(r.text, /class='cell hl'/);
-  assert.match(r.text, /name=slot value='c1'><input type=hidden name=swap value='c4'><button class='btn pri small'>Swap/);
-  assert.match(r.text, new RegExp(`name=slot value='c1'><input type=hidden name=at value='${FREE.replace(/\+/g, "\\+")}'><button class='btn pri small'>Move here`));
-  assert.doesNotMatch(r.text, /Add new/);
+  const r = await call("GET", "/rosa/calendar?w=2099-W02&hl=c1");
+  assert.match(r.text, /class='cell hl' data-cls='need' href='\/rosa\/v\/c1'/);
+  assert.match(r.text, /draggable=true data-slot='c4'/);
+  assert.match(r.text, new RegExp(`class='cell open' data-at='${FREE.replace(/\+/g, "\\+")}'`));
+  assert.match(r.text, /fetch\('\/rosa\/move'/);
   let m = await call("POST", "/rosa/move", { form: { slot: "c1", swap: "c4" } });
   assert.equal(m.status, 303);
   assert.equal(m.headers.get("Location"), "/rosa/calendar");
@@ -116,6 +116,11 @@ test("move: Swap on another video, Move here on an open slot; taken, past and li
   m = await call("POST", "/rosa/move", { form: { slot: "c1", at: FREE } });
   assert.equal(m.status, 303);
   assert.equal((await post("c1")).scheduled_at, FREE);
+  // a drop on a day: its first open future slot; 06:30 is c1's, the 12:00 row (c2's time that week) is next
+  m = await call("POST", "/rosa/move", { form: { slot: "c4", day: "2099-01-07" } });
+  assert.equal(m.status, 303);
+  assert.equal((await post("c4")).scheduled_at, "2099-01-07T12:00:00+00:00");
+  assert.match((await call("POST", "/rosa/move", { form: { slot: "c4", day: "2001-01-01" } })).text, /no open slot left that day/);
   const taken = await call("POST", "/rosa/move", { form: { slot: "c4", at: FREE } });
   assert.equal(taken.status, 400);
   assert.match(taken.text, /that slot is taken/);
@@ -132,6 +137,6 @@ test("move: Swap on another video, Move here on an open slot; taken, past and li
   await setState(ctx(), "c5", "PUBLISHED", null, { ig_media_id: "m5", published_at: "2099-01-09T06:30:00+00:00" });
   assert.equal((await call("POST", "/rosa/move", { form: { slot: "c5", at: "2099-01-10T06:30:00+00:00" } })).status, 400);
   assert.equal((await call("POST", "/rosa/move", { form: { slot: "c1", swap: "c5" } })).status, 400);
-  assert.doesNotMatch((await call("GET", "/rosa/calendar?w=2099-W02")).text, /move=c5'/);
+  assert.doesNotMatch((await call("GET", "/rosa/calendar?w=2099-W02")).text, /data-slot='c5'/);
   assert.equal((await call("POST", "/rosa/move", { form: { slot: "zzz", at: "2099-01-11T06:30:00+00:00" } })).status, 404);
 });

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { seal } from "../src/crypto.ts";
 import { pages } from "../src/pages/index.ts";
-import { freeTime } from "../src/pages/settings.ts";
+import { freeTime, scheduleCard } from "../src/pages/settings.ts";
 import { mint } from "../src/session.ts";
 import { NOW, SECRET, start } from "./harness.mjs";
 
@@ -74,14 +74,16 @@ test("the switches flip the grants; the emergency stop shows on every page; anyt
 });
 
 test("the posting times: shown local, stored UTC; add fills the longest gap; never below one, at most six", async () => {
-  const form = /<form method=post action='\/rosa\/schedule'>[\s\S]*?<\/form>/.exec((await call("GET", "/rosa/settings")).text)[0];
+  // the card sits on the Overview, as app.py's schedule_card
+  const card = async () => scheduleCard({ client: { id: "rosa", grants: (await client()).grants } });
+  const form = /<form method=post action='\/rosa\/schedule'>[\s\S]*?<\/form>/.exec(await card())[0];
   assert.match(form, /name=t value='06:30' data-utc='06:30'/);
   assert.match(/<button[^>]*>/.exec(form)[0], /name=save/); // Enter in a field submits the first button: Save, not a remove
   let r = await call("POST", "/rosa/schedule", { form: { t1: "19:00", t2: "07:15", tz: "-120" } }); // two hours ahead of UTC
   assert.equal(r.status, 303);
-  assert.equal(r.headers.get("Location"), "/rosa/settings");
+  assert.equal(r.headers.get("Location"), "/rosa");
   assert.deepEqual((await client()).grants.slots, ["05:15", "17:00"]);
-  assert.match((await call("GET", "/rosa/settings")).text, /value='05:15'/);
+  assert.match(await card(), /value='05:15'/);
   assert.equal((await call("POST", "/rosa/schedule", { form: { t1: "7pm", t2: "07:15" } })).status, 400);
   assert.equal((await call("POST", "/rosa/schedule", { form: { t1: "07:15", t2: "07:15" } })).status, 400);
   assert.deepEqual((await client()).grants.slots, ["05:15", "17:00"]); // the refusals changed nothing

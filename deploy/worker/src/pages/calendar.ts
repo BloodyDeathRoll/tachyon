@@ -1,23 +1,21 @@
-// The calendar (app.py render_calendar, render_month and their helpers, port): the week as
-// seven days of slots, the month as days of mini cells, a video waiting for approval on the
-// slot approve would give it (the video page shows the same), "+ Add new" on an open slot
-// (newvideo.ts). Moving: no drag here (a phone), so `?move=<slot>` shows a Swap button on every
-// other movable video and a Move-here button on every open slot. The grid is UTC and the times
-// reformat in the browser's zone, as everywhere in shell.ts (the Python laid the grid out in
-// the machine's zone). The `cal_<client>` cookie brings the last view back. Left out from
-// app.py: drag and drop and the day drop (every open slot has its own button), the status
-// filter, the preview popup, `hl`.
+// The calendar (app.py render_calendar, render_month and their helpers, port): the same markup,
+// so the same CSS lays it out. The week as rows of slot times by seven days, the month as days
+// of mini cells, a video waiting for approval on the slot approve would give it (the video page
+// shows the same), "+ Add new" on an open publishing slot (add_new_box). Moving is app.py's drag
+// and drop (CAL_JS): a video onto another swaps them, onto an open slot or a day moves it. The
+// grid is UTC and the times reformat in the browser's zone, as everywhere in shell.ts (the Python
+// laid the grid out in the machine's zone). The `cal_<client>` cookie brings the last view back.
 //
-//   GET  /<client>/calendar[?w=YYYY-Www | ?view=month&m=YYYY-MM][&move=<slot>][&add=<iso>]
-//   POST /<client>/move     slot, swap | at
+//   GET  /<client>/calendar[?w=YYYY-Www | ?view=month&m=YYYY-MM][&hl=<slot>]
+//   POST /<client>/move     slot, swap | at | day
 
 import { iso, OPS, posts, type PostRow } from "../db.ts";
 import { HttpError } from "../http.ts";
 import { latestJobs } from "../jobs.ts";
-import { addBox } from "./newvideo.ts";
+import { ADD_JS, CAL_JS } from "./calendar-js.ts";
 import { nextWeek, prepareForm } from "./overview.ts";
 import { ACTIVE, previewSlots, slots, takenSlots } from "./schedule.ts";
-import { esc, header, icon, MOVABLE, parse, parseJson, path, redirect, shell, slotNo, tagFor, titleOf, type Json, type Page } from "./shell.ts";
+import { ENGINES, esc, header, icon, MOVABLE, parse, parseJson, path, redirect, shell, slotNo, tagFor, titleOf, type Json, type Page } from "./shell.ts";
 import { field } from "./video.ts";
 
 const DAY_MS = 86400_000;
@@ -29,7 +27,18 @@ const weekOf = (ms: number): string => nextWeek(ms - 7 * DAY_MS); // nextWeek is
 const ym = (ms: number): string => new Date(ms).toISOString().slice(0, 7);
 const hm = (ms: number): string => new Date(ms).toISOString().slice(11, 16);
 const minutes = (t: string): number => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+const dayOf = (ms: number): number => Math.floor(ms / DAY_MS) * DAY_MS;
 const time = (ms: number): string => `<time datetime='${new Date(ms).toISOString()}' data-fmt=time>${hm(ms)} UTC</time>`;
+// app.py's icons shell.ts does not have
+const PATHS: Record<string, string> = {
+  next: '<path d="m9 18 6-6-6-6"/>',
+  prev: '<path d="m15 18-6-6 6-6"/>',
+  grip: '<circle cx="9" cy="5" r="1.4"/><circle cx="15" cy="5" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="19" r="1.4"/><circle cx="15" cy="19" r="1.4"/>',
+};
+const ic = (name: string, size: number): string => icon("", size).replace("</svg>", `${PATHS[name]}</svg>`);
+// a mini cell's title starts with its time (app.py: "08:30 · Title", "Open slot 08:30"): the
+// time is only known in the browser, after shell.ts has formatted the <time>s
+const MINI_JS = `addEventListener('DOMContentLoaded',()=>document.querySelectorAll('.cell.mini').forEach(c=>{const t=c.querySelector('time');if(t)c.title=c.classList.contains('open')?'Open slot '+t.textContent:t.textContent+' · '+c.title;}));`;
 
 interface Item {
   row: PostRow;
@@ -55,49 +64,68 @@ async function placed(p: Page): Promise<{ items: Item[]; metas: Map<string, Json
   const preview = previewSlots(taken, unslotted, p.client.grants, p.now);
   const items = tagged.map(([row, tag]) => ({ row, tag, at: parse(row.published_at || row.scheduled_at || preview[row.slot_id]) })).filter((i): i is Item => i.at !== null);
   const plans = Object.values(jobs.get("") ?? {}).filter((j) => j.kind === "plan");
-  return { items, metas, planned: new Set(plans.map((j) => String((parseJson(j.payload).argv as string[] | undefined)?.[3]))) };
+  // app.py W.status: the week was prepared (a plan job here, or on a PC: its videos are in, 2026-w47-03 is 2026-W47)
+  const planned = new Set([...plans.map((j) => String((parseJson(j.payload).argv as string[] | undefined)?.[3])), ...all.map((r) => r.slot_id.slice(0, 8).toUpperCase())]);
+  return { items, metas, planned };
 }
 
-/** A video's cell: the cover, its number and time, the title and tag; Move (or, moving another, Swap). */
-function cell(p: Page, it: Item, title: string, past: boolean, move: string | null, q: string, mini: boolean): string {
+/** app.py pv_button: the play button for the quick preview (shell.ts PV_JS). */
+function pvButton(p: Page, row: PostRow): string {
+  if (!row.r2_key) return "";
+  return `<button type=button class=pvb data-pv='/m/${encodeURIComponent(p.client.id)}/${encodeURIComponent(row.slot_id)}/video' data-href='${path(p.client.id, row.slot_id)}' aria-label='Quick preview'>${icon("play", 14)}</button>`;
+}
+
+/** app.py _cell: a video's cell, draggable while it can still move. */
+function cell(p: Page, it: Item, meta: Json, past: boolean, hl: string | null, mini = false): string {
   const [label, cls] = it.tag;
   const slot = it.row.slot_id;
-  const base = path(p.client.id);
   const img = it.row.cover_key ? `<img src='/m/${encodeURIComponent(p.client.id)}/${encodeURIComponent(slot)}/cover' alt='' loading=lazy>` : "";
   const movable = MOVABLE.has(it.row.state) && !past;
-  let tool = "";
-  if (move && move !== slot && movable) tool = `<form method=post action='${base}/move'><input type=hidden name=slot value='${esc(move)}'><input type=hidden name=swap value='${esc(slot)}'><button class='btn pri small'>Swap</button></form>`;
-  else if (!move && movable) tool = `<a class=mv href='${base}/calendar?${q}&move=${encodeURIComponent(slot)}'>Move</a>`;
+  const dnd = movable ? ` draggable=true data-slot='${esc(slot)}'` : "";
+  const grip = movable ? `<span class=grip title='Drag to move or swap'>${ic("grip", 14)}</span>` : "";
+  const no = esc(slotNo(slot)[1]);
+  const t = esc(titleOf(it.row, meta));
+  const href = path(p.client.id, slot);
   const badge = cls === "sched"
     ? `<span class=stw title='${esc(label)}' aria-label='${esc(label)}'>${icon(label === "Paused" ? "pause" : "timer", 12)}</span>`
     : `<span class='tag ${cls}${label === "Removed" ? " gone" : ""}'>${esc(label)}</span>`;
-  const body = mini ? `<span class='mdot ${cls}'></span><span class=mt>${time(it.at)}</span>` : `<span class=mt>${time(it.at)}</span><span class=cb><span class=ct>${esc(title)}</span>${badge}</span>`;
-  return `<div class='cell${mini ? " mini" : ""}${move === slot ? " hl" : ""}' data-cls='${cls}'>${img}<a class=cov href='${path(p.client.id, slot)}' title='${esc(title)}'></a><span class=no>#${esc(slotNo(slot)[1])}</span>${body}${tool}</div>`;
+  if (mini) {
+    return `<a class='cell mini${slot === hl ? " hl" : ""}' data-cls='${cls}' href='${href}' title='${t}'${dnd}>${img}<span class=chips><span class=no>#${no}</span></span><span class='mdot ${cls}'></span><span class=mt>${time(it.at)}</span>${pvButton(p, it.row)}</a>`;
+  }
+  const vo = meta.voiceover ? "<span class=vo title='Has a voice-over'>VO</span>" : "";
+  return `<a class='cell${slot === hl ? " hl" : ""}' data-cls='${cls}' href='${href}' title='${t}'${dnd}>${img}<span class=chips><span class=no>#${no}</span>${vo}</span><span class=tools>${grip}${pvButton(p, it.row)}</span><span class=cb><span class=ct>${t}</span>${badge}</span></a>`;
 }
 
-/** An open slot: Add new on a publishing slot, Move here while moving; a past one is only a gap. */
-function openCell(p: Page, ms: number, onSlot: boolean, move: string | null, q: string, mini: boolean): string {
-  const base = path(p.client.id);
-  if (ms <= p.now) return `<div class='cell open past${mini ? " mini" : ""}'></div>`;
-  const at = iso(ms);
-  let act = "";
-  if (move) act = `<form method=post action='${base}/move'><input type=hidden name=slot value='${esc(move)}'><input type=hidden name=at value='${at}'><button class='btn pri small'>Move here</button></form>`;
-  else if (onSlot) act = `<a class=addnew href='${base}/calendar?${q}&add=${encodeURIComponent(at)}#addnew'>+ Add new</a>`;
-  return `<div class='cell open${mini ? " mini" : ""}'>${mini ? "" : "<span>Open slot</span>"}<span class=mt>${time(ms)}</span>${act}</div>`;
-}
-
-function head(p: Page, view: string, title: string, prev: string, today: string, next: string, label: string, q: string, move: string | null): string {
+/** app.py _cal_head: the title, Week | Month, the status filter, the nav and the hint. */
+function head(p: Page, view: string, title: string, prev: string, today: string, next: string, label: string): string {
   const base = `${path(p.client.id)}/calendar`;
   const seg = `<div class=seg><a href='${base}?w=${weekOf(p.now)}' class='${view === "week" ? "on" : ""}'>Week</a><a href='${base}?view=month&m=${ym(p.now)}' class='${view === "month" ? "on" : ""}'>Month</a></div>`;
-  const nav = `<div class=calnav><a href='${base}?${prev}' aria-label='Previous'>&lsaquo;</a><a class=txt href='${base}?${today}' title='Back to today'>${esc(label)}</a><a href='${base}?${next}' aria-label='Next'>&rsaquo;</a></div>`;
-  const hint = move
-    ? `Moving <b>#${esc(slotNo(move)[1])}</b>: tap Swap on another video, or Move here on an open slot. <a class=lnk href='${base}?${q}'>Cancel</a>`
-    : "Tap Move on a video to swap it with another or put it on an open slot. Live videos stay put.";
-  return `<div class=row style='margin-bottom:12px'><div class=row style='gap:16px'><h2>${title}</h2>${seg}</div>${nav}</div><p class=hint style='margin:0 0 16px'>${hint}</p>`;
+  const filt = [["all", "All"], ["need", "Needs approval"], ["busy", "In production"], ["sched", "Scheduled"], ["live", "Live"]].map(([k, lab]) => `<button type=button data-f='${k}' class='${k === "all" ? "on" : ""}'>${lab}</button>`).join("");
+  return `<div class=row style='margin-bottom:12px;flex-wrap:wrap'><div class=row style='gap:16px;flex-wrap:wrap'><h2>${title}</h2>${seg}<div class='seg filt calfilt' role=group aria-label='Show'>${filt}</div></div><div class=calnav>`
+    + `<a href='${base}?${prev}' aria-label='Previous'>${ic("prev", 16)}</a><a class=txt href='${base}?${today}' title='Back to today'>${esc(label)}</a><a href='${base}?${next}' aria-label='Next'>${ic("next", 16)}</a></div></div>`
+    + "<p class=hint style='margin:0 0 16px'>Grab a video by its dots and drop it on another to swap them, or on an open slot to move it. Press play for a quick look. Live videos stay put.</p>";
 }
 
-async function week(p: Page, wk: string, move: string | null): Promise<string> {
+/** app.py add_new_box: one popup for every open slot's Add new: upload a video, or describe one. */
+function addNewBox(p: Page): string {
+  const c = esc(encodeURIComponent(p.client.id));
+  const engines = Object.entries(ENGINES).map(([k, v]) => `<label class=chk><input type=radio name=engine value=${k}${k === "html" ? " checked" : ""}>${esc(v)}</label>`).join("");
+  return `<div class=rgm id=addnew hidden><div class='rgbox wide'><h2>Add a video <span class=muted id=addat style='font-weight:500;font-size:15px'></span></h2>`
+    + "<div class='seg sm' id=addtabs><a href='#' data-tab=up class=on>Upload</a><a href='#' data-tab=gen>Generate</a></div>"
+    + `<form id=addup data-c='${c}'><label>Your video<input type=file name=file accept='video/*' required></label>`
+    // app.py: "Fitted to 9:16 and kept on this computer": the Worker keeps the file as it is, in R2 (newvideo.ts)
+    + "<p class=hint style='margin:0'>Goes to Instagram as it is (9:16, H.264). A PC checks the file before it can be approved.</p>"
+    + "<div class=btns><button class='btn pri small'>Upload</button><button type=button class='btn sec small' data-close>Cancel</button><span class=muted id=addprog style='align-self:center'></span></div></form>"
+    + `<form id=addgen method=post action='/${c}/new' hidden><input type=hidden name=at><fieldset class=engines><legend>Animate with</legend>${engines}</fieldset>`
+    + "<label>What should the video be?<textarea name=prompt rows=6 placeholder='e.g. A light, airy reel on the swell chart: the particles rising behind the phone, ending on rosa.surf'></textarea></label>"
+    + "<p class=hint style='margin:0'>Leave it empty and Claude comes up with the idea. Claude plans it, then makes it like a week video. A few minutes; it lands in Needs approval.</p>"
+    + "<div class=btns><button class='btn pri small'>Generate</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>"
+    + `</div></div><script>${ADD_JS}</script>`;
+}
+
+async function week(p: Page, wk: string, hl: string | null): Promise<string> {
   const monday = mondayOf(wk);
+  const today = dayOf(p.now);
   const { items, metas, planned } = await placed(p);
   const times = new Set(slots(p.client.grants));
   const rows = new Set(times);
@@ -108,28 +136,37 @@ async function week(p: Page, wk: string, move: string | null): Promise<string> {
     rows.add(hm(it.at)); // published or scheduled off-slot: its own row
     if (!cells.has(`${d}|${hm(it.at)}`)) cells.set(`${d}|${hm(it.at)}`, it);
   }
-  const q = `w=${wk}`;
-  const g = [...Array(7).keys()].map((d) => {
-    const day = monday + d * DAY_MS;
-    const cs = [...rows].sort().map((t) => {
+  const days = [...Array(7).keys()].map((d) => monday + d * DAY_MS);
+  const g = ["<div class=cal style='grid-template-columns:56px repeat(7,minmax(0,1fr))'><div></div>"];
+  for (const [d, day] of days.entries()) {
+    const drop = day >= today ? ` data-day='${iso(day).slice(0, 10)}'` : "";
+    g.push(`<div class='dh${day === today ? " today" : ""}'${drop}>${DAYS[d]}<b>${new Date(day).getUTCDate()}</b></div>`);
+  }
+  for (const t of [...rows].sort()) {
+    g.push(`<div class=th>${time(monday + minutes(t) * 60_000)}</div>`);
+    for (const [d, day] of days.entries()) {
       const ms = day + minutes(t) * 60_000;
+      const past = ms <= p.now;
       const it = cells.get(`${d}|${t}`);
-      return it ? cell(p, it, titleOf(it.row, metas.get(it.row.slot_id) ?? {}), ms <= p.now, move, q, false) : openCell(p, ms, times.has(t), move, q, false);
-    });
-    return `<div class=day><div class='dh${Math.floor(day / DAY_MS) === Math.floor(p.now / DAY_MS) ? " today" : ""}'>${DAYS[d]}<b>${new Date(day).getUTCDate()}</b></div>${cs.join("")}</div>`;
-  });
+      if (it) g.push(cell(p, it, metas.get(it.row.slot_id) ?? {}, past, hl));
+      else if (past) g.push("<div class='cell open past'></div>");
+      else g.push(`<div class='cell open' data-at='${iso(ms)}'><span>Open slot</span>${times.has(t) ? `<button type=button class=addnew data-add='${iso(ms)}'>+ Add new</button>` : ""}</div>`);
+    }
+  }
+  g.push("</div>");
   const dm = (ms: number) => `${new Date(ms).getUTCDate()} ${MONTHS[new Date(ms).getUTCMonth()]}`;
-  const h = head(p, "week", `${dm(monday)} – ${dm(monday + 6 * DAY_MS)} ${new Date(monday + 6 * DAY_MS).getUTCFullYear()}`, `w=${weekOf(monday - 7 * DAY_MS)}`, `w=${weekOf(p.now)}`, `w=${weekOf(monday + 7 * DAY_MS)}`, `${DAYS[0]} ${dm(monday)}`, q, move);
+  const h = head(p, "week", `${dm(monday)} – ${dm(monday + 6 * DAY_MS)} ${new Date(monday + 6 * DAY_MS).getUTCFullYear()}`, `w=${weekOf(monday - 7 * DAY_MS)}`, `w=${weekOf(p.now)}`, `w=${weekOf(monday + 7 * DAY_MS)}`, `${DAYS[0]} ${dm(monday)}`);
   const note = wk === nextWeek(p.now) && !planned.has(wk) ? `<div style='margin-top:20px'>${prepareForm(path(p.client.id), wk, "Prepare this week")}</div>` : "";
-  return `${h}<div class=cal>${g.join("")}</div>${note}`;
+  return `${h}${g.join("")}${note}`;
 }
 
-async function month(p: Page, m: string, move: string | null): Promise<string> {
+async function month(p: Page, m: string, hl: string | null): Promise<string> {
   const [y, mo] = m.split("-").map(Number) as [number, number];
   const first = Date.UTC(y, mo - 1, 1);
   const nextM = Date.UTC(y, mo, 1);
   const start = first - ((new Date(first).getUTCDay() || 7) - 1) * DAY_MS;
   const end = nextM - DAY_MS + (7 - (new Date(nextM - DAY_MS).getUTCDay() || 7)) * DAY_MS;
+  const today = dayOf(p.now);
   const { items, metas } = await placed(p);
   const byDay = new Map<number, Map<string, Item>>();
   for (const it of items) {
@@ -140,21 +177,22 @@ async function month(p: Page, m: string, move: string | null): Promise<string> {
     byDay.set(day, got);
   }
   const times = slots(p.client.grants);
-  const q = `view=month&m=${m}`;
-  const g = DAYS.map((d) => `<div class=mh>${d}</div>`);
+  const g = ["<div class=month>", ...DAYS.map((d) => `<div class=mh>${d}</div>`)];
   for (let day = start; day <= end; day += DAY_MS) {
     const got = byDay.get(day) ?? new Map<string, Item>();
     const cs = [...new Set([...times, ...got.keys()])].sort().map((t) => {
       const ms = day + minutes(t) * 60_000;
       const it = got.get(t);
-      if (it) return cell(p, it, titleOf(it.row, metas.get(it.row.slot_id) ?? {}), ms <= p.now, move, q, true);
-      return ms <= p.now ? "" : openCell(p, ms, times.includes(t), move, q, true);
+      if (it) return cell(p, it, metas.get(it.row.slot_id) ?? {}, ms <= p.now, hl, true);
+      if (ms <= p.now) return "";
+      return `<div class='cell mini open' data-at='${iso(ms)}'${times.includes(t) ? ` data-add='${iso(ms)}'` : ""} title='Open slot'>${time(ms)}</div>`;
     });
-    const cls = `mday${new Date(day).getUTCMonth() !== mo - 1 ? " out" : ""}${Math.floor(day / DAY_MS) === Math.floor(p.now / DAY_MS) ? " today" : ""}`;
-    g.push(`<div class='${cls}'><b>${new Date(day).getUTCDate()}</b><div class=mcells>${cs.join("")}</div></div>`);
+    const drop = day >= today ? ` data-day='${iso(day).slice(0, 10)}'` : "";
+    g.push(`<div class='mday${new Date(day).getUTCMonth() !== mo - 1 ? " out" : ""}${day === today ? " today" : ""}'${drop}><b>${new Date(day).getUTCDate()}</b><div class=mcells>${cs.join("")}</div></div>`);
   }
-  const h = head(p, "month", `${MONTHS_LONG[mo - 1]} ${y}`, `view=month&m=${ym(Date.UTC(y, mo - 2, 1))}`, `view=month&m=${ym(p.now)}`, `view=month&m=${ym(nextM)}`, `${MONTHS[mo - 1]} ${y}`, q, move);
-  return `${h}<div class=month>${g.join("")}</div>`;
+  g.push("</div>");
+  const h = head(p, "month", `${MONTHS_LONG[mo - 1]} ${y}`, `view=month&m=${ym(Date.UTC(y, mo - 2, 1))}`, `view=month&m=${ym(p.now)}`, `view=month&m=${ym(nextM)}`, `${MONTHS[mo - 1]} ${y}`);
+  return `${h}${g.join("")}`;
 }
 
 export async function renderCalendar(p: Page, req: Request, url: URL): Promise<Response> {
@@ -168,28 +206,44 @@ export async function renderCalendar(p: Page, req: Request, url: URL): Promise<R
     saved = "";
   }
   if (!url.search && saved.startsWith("?") && saved.length > 1) return redirect(base + saved);
-  const move = ID.test(q.get("move") ?? "") ? q.get("move") : null;
+  const hl = ID.test(q.get("hl") ?? "") ? q.get("hl") : null;
   const isMonth = q.get("view") === "month";
   const m = /^\d{4}-(0[1-9]|1[0-2])$/.test(q.get("m") ?? "") ? q.get("m")! : ym(p.now);
   const w = /^\d{4}-W\d{2}$/.test(q.get("w") ?? "") ? q.get("w")! : weekOf(p.now);
-  const body = isMonth ? await month(p, m, move) : await week(p, w, move);
-  const res = shell(p, "calendar", `${header(p, "Calendar")}<section class=card>${body}</section>${addBox(p, q.get("add"))}`, "Calendar");
+  const body = isMonth ? await month(p, m, hl) : await week(p, w, hl);
+  const js = CAL_JS.replaceAll("__C__", encodeURIComponent(p.client.id)) + (isMonth ? MINI_JS : "");
+  const res = shell(p, "calendar", `${header(p, "Calendar")}<section class=card>${body}</section><div class=toast id=toast></div><script>${js}</script>${addNewBox(p)}`, "Calendar");
   res.headers.append("Set-Cookie", `cal_${p.client.id}=${encodeURIComponent(isMonth ? `?view=month&m=${m}` : `?w=${w}`)}; Path=/; Max-Age=31536000; SameSite=Lax`);
   return res;
 }
 
-/** POST /<client>/move: swap two videos' times, or put one on an open future slot (OPS.move). */
+/** app.py _first_free_on: a drop on a day takes its first open future slot: a daily slot, or a
+    time the week view shows a row for (any video's time that week). */
+async function firstFreeOn(p: Page, day: string, exclude: string): Promise<string | null> {
+  const d0 = parse(`${day}T00:00:00Z`);
+  if (d0 === null || !/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new HttpError(400, "day", "not a day");
+  const taken = await takenSlots(p.c, exclude);
+  const monday = d0 - ((new Date(d0).getUTCDay() || 7) - 1) * DAY_MS;
+  const wk = (await posts(p.c, null)).map((r) => parse(r.published_at || r.scheduled_at)).filter((ms): ms is number => ms !== null && ms >= monday && ms < monday + 7 * DAY_MS).map(hm);
+  const cands = [...new Set([...slots(p.client.grants), ...wk])].sort().map((t) => d0 + minutes(t) * 60_000);
+  const ms = cands.find((x) => x > p.now && !taken.has(iso(x)));
+  return ms === undefined ? null : iso(ms);
+}
+
+/** POST /<client>/move: swap two videos' times, or put one on an open future slot (OPS.move);
+    the calendar's script sends it and reloads on a success. */
 export async function move(p: Page, form: FormData): Promise<Response> {
   const slot = field(form, "slot");
   const swap = field(form, "swap");
   if (swap) await OPS.move!(p.c, { slot_id: slot, swap_with: swap });
   else {
-    const ms = parse(field(form, "at"));
+    const at = field(form, "at") || (field(form, "day") ? await firstFreeOn(p, field(form, "day"), slot) : "");
+    if (at === null) throw new HttpError(400, "day", "no open slot left that day");
+    const ms = parse(at);
     if (ms === null) throw new HttpError(400, "at", "no slot given");
     if (ms <= p.now) throw new HttpError(400, "at", "that slot has already passed");
-    const at = iso(ms);
-    if ((await takenSlots(p.c, slot)).has(at)) throw new HttpError(400, "taken", "that slot is taken");
-    await OPS.move!(p.c, { slot_id: slot, at });
+    if ((await takenSlots(p.c, slot)).has(iso(ms))) throw new HttpError(400, "taken", "that slot is taken");
+    await OPS.move!(p.c, { slot_id: slot, at: iso(ms) });
   }
   return redirect(`${path(p.client.id)}/calendar`);
 }

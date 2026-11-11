@@ -1,8 +1,8 @@
-// Settings (app.py render_settings, schedule_card and the flag, schedule and sync POSTs,
-// port): the two reply switches and the emergency stop, the daily posting times (on the
-// overview in app.py; here, where the overview's card points), and Sync. Locally Sync ran
-// pickup and sync_removed as a subprocess; here it runs the cron's pickup once for the client
-// under the publish lease, inside the request's subrequest budget. Left out from app.py:
+// Settings (app.py render_settings and the flag, schedule and sync POSTs, port): the two reply
+// switches and the emergency stop, as app.py draws them. The daily posting times live on the
+// Overview as in app.py (schedule_card): scheduleCard below is that card, for overview.ts. Locally
+// Sync ran pickup and sync_removed as a subprocess; here it runs the cron's pickup once for the
+// client under the publish lease, inside the request's subrequest budget. Left out from app.py:
 // sync_removed (a Graph call per live reel: more than one request may make), the week_prep
 // auto toggle.
 //
@@ -19,7 +19,7 @@ import { GraphError, type Fetcher } from "../graph.ts";
 import { HttpError } from "../http.ts";
 import { pickup } from "../pickup.ts";
 import { slots } from "./schedule.ts";
-import { esc, header, path, redirect, shell, type Json, type Page } from "./shell.ts";
+import { esc, header, icon, path, redirect, shell, type Json, type Page } from "./shell.ts";
 import { field } from "./video.ts";
 
 const FLAGS: Record<string, [string, string]> = {
@@ -34,20 +34,28 @@ const hm = (m: number): string => `${p2(Math.floor(m / 60))}:${p2(m % 60)}`;
 // the UTC slot times shown at today's local offset; shell's script posts the offset back in `tz`
 const LOCAL_JS = `for(const i of document.querySelectorAll('input[type=time][data-utc]')){const [h,m]=i.dataset.utc.split(':'),d=new Date();d.setUTCHours(+h,+m,0,0);i.value=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}`;
 
+// `flag` is the attribute as app.py writes it: quoted for the reply switches, bare for the stop
 function switchRow(act: string, flag: string, on: boolean, label: string, desc: string, button: string, cls: string): string {
-  return `<form class=switch method=post action='${act}'><div><b>${label}</b><div class=muted style='font-size:14px'>${desc}</div></div><input type=hidden name=flag value='${flag}'><input type=hidden name=value value='${on ? 0 : 1}'><button class='btn ${cls}'>${button}</button></form>`;
+  return `<form class=switch method=post action='${act}'><div><b>${label}</b><div class=muted style='font-size:14px'>${desc}</div></div><input type=hidden name=flag value=${flag}><input type=hidden name=value value='${on ? 0 : 1}'><button class='btn ${cls}'>${button}</button></form>`;
 }
 
-/** The daily slots as time fields (app.py schedule_card), saved as UTC. Enter in a field submits
-    the form's first button, so a hidden Save comes before the first remove button. */
-function scheduleCard(p: Page): string {
+/** The daily slots as time fields (app.py schedule_card, for the Overview's side column), saved
+    as UTC. Enter in a field submits the form's first button, so a hidden Save comes before the
+    first remove button; `tz` carries the browser's offset back. */
+// app.py names the zone the times are in (its machine's, e.g. "IST"); here the times are the
+// viewer's own, so the viewer's zone: the abbreviation the PC would print where Intl has none
+const TZNAME_JS = `(()=>{const z=Intl.DateTimeFormat().resolvedOptions().timeZone,d=new Date(),j=new Date(d.getFullYear(),0,1).getTimezoneOffset(),dst=d.getTimezoneOffset()<j;
+const A={'Asia/Jerusalem':['IST','IDT'],'Europe/London':['GMT','BST'],'Europe/Lisbon':['WET','WEST'],'Europe/Paris':['CET','CEST'],'Europe/Berlin':['CET','CEST'],'Europe/Madrid':['CET','CEST'],'Europe/Rome':['CET','CEST'],'Europe/Amsterdam':['CET','CEST'],'Europe/Athens':['EET','EEST']};
+const n=A[z]?A[z][dst?1:0]:(new Intl.DateTimeFormat('en-US',{timeZoneName:'short'}).formatToParts(d).find(p=>p.type==='timeZoneName')||{}).value;
+if(n)for(const e of document.querySelectorAll('[data-tzname]'))e.textContent=n;})();`;
+
+export function scheduleCard(p: Page): string {
   const times = slots(p.client.grants);
   const n = times.length;
-  const rows = times.map((t, i) => `<div class=tfield><span>Post ${i + 1}</span><input type=time name=t value='${esc(t)}' data-utc='${esc(t)}' required aria-label='Post ${i + 1} time'><button class=x name=remove value=${i} formnovalidate${n === 1 ? " disabled" : ""} aria-label='Remove post ${i + 1}' title='Remove'>&times;</button></div>`).join("");
+  const rows = times.map((t, i) => `<div class=tfield><span>Post ${i + 1}</span><input type=time name=t value='${esc(t)}' data-utc='${esc(t)}' required aria-label='Post ${i + 1} time'><button class=x name=remove value=${i} formnovalidate ${n === 1 ? "disabled" : ""} aria-label='Remove post ${i + 1}' title='Remove'>${icon("x", 16)}</button></div>`).join("");
   const per = ({ 1: "Once a day", 2: "Twice a day", 3: "Three times a day" } as Record<number, string>)[n] ?? `${n} times a day`;
-  return `<section class=card style='margin-top:24px'><div class=row><h2>Publishing schedule</h2><span class=muted>your time</span></div><p class=muted style='margin:4px 0 0;font-size:14px'>${per}, every day.</p>
-<form method=post action='${path(p.client.id)}/schedule'><input type=hidden name=tz value=0><button name=save value=1 hidden tabindex=-1 aria-hidden=true></button><div class=times>${rows}</div>
-<div class=btns style='margin-top:0;justify-content:flex-end'><button class='btn dark small' name=save value=1>Save</button><button class='btn sec small' name=add value=1 formnovalidate${n >= MAX_SLOTS ? " disabled" : ""}>+ Add a post</button></div></form><script>${LOCAL_JS}</script></section>`;
+  const add = `<button class='btn sec small' name=add value=1 ${n >= MAX_SLOTS ? "disabled" : ""}>${icon("plus", 15)}Add a post</button>`;
+  return `<section class=card><div class=row><h2>Publishing schedule</h2><span class=muted data-tzname>your time</span></div><p class=muted style='margin:4px 0 0;font-size:14px'>${per}, every day.</p><form method=post action='${path(p.client.id)}/schedule'><input type=hidden name=tz value=0><button name=save value=1 hidden tabindex=-1 aria-hidden=true></button><div class=times>${rows}</div><div class=btns style='margin-top:0;align-items:center;flex-wrap:nowrap;justify-content:flex-end'><button class='btn dark small' name=save value=1>Save</button>${add}</div></form><script>${LOCAL_JS}${TZNAME_JS}</script></section>`;
 }
 
 export function renderSettings(p: Page): Response {
@@ -55,11 +63,11 @@ export function renderSettings(p: Page): Response {
   const ar = (p.client.grants.auto_reply ?? {}) as Json;
   const rows = Object.entries(FLAGS).map(([flag, [lab, desc]]) => {
     const on = Boolean(ar[flag.split(".")[1]!]);
-    return switchRow(act, flag, on, lab, desc, on ? "On" : "Off", on ? "pri" : "sec");
+    return switchRow(act, `'${flag}'`, on, lab, desc, on ? "On" : "Off", on ? "pri" : "sec");
   });
   const stop = Boolean(p.client.emergency_stop);
   rows.push(switchRow(act, "emergency_stop", stop, "Emergency stop", "Stops every publish and reply for this project. Any video can override the two reply switches on its own page (Replies, Custom for this video).", stop ? "Resume" : "Stop everything", stop ? "sec" : "pri"));
-  return shell(p, "settings", `${header(p, "Settings")}<section class=card>${rows.join("")}</section>${scheduleCard(p)}`, "Settings");
+  return shell(p, "settings", `${header(p, "Settings")}<section class=card>${rows.join("")}</section>`, "Settings");
 }
 
 /** POST /<client>/flag: one reply switch or the emergency stop, into the grants (clients.set_flag). */
@@ -107,7 +115,7 @@ export async function schedule(p: Page, form: FormData): Promise<Response> {
   const tz = Number(field(form, "tz") || 0);
   const utc = ts.map((t) => hm((minutes(t) + (Number.isFinite(tz) ? tz : 0) + 2 * 1440) % 1440)).sort();
   await OPS.set_grants!(p.c, { grants: { ...p.client.grants, slots: utc } });
-  return redirect(`${path(p.client.id)}/settings`);
+  return redirect(path(p.client.id)); // app.py: back to the Overview, where the card is
 }
 
 /** POST /<client>/sync: the cron's pickup now, once, under the publish lease (a reel being

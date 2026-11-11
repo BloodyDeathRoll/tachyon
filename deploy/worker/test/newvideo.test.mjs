@@ -35,11 +35,12 @@ const AT2 = "2099-01-05T18:30:00+00:00";
 const upload = (at, name, bytes) => call("POST", `/rosa/new/upload?at=${encodeURIComponent(at)}&name=${encodeURIComponent(name)}`, { raw: bytes, headers: { "Content-Length": String(bytes.length) } });
 
 test("the add box opens for ?add=<slot>; a prompt books the slot and asks a PC to produce it", async () => {
-  const cal = await call("GET", `/rosa/calendar?w=2099-W02&add=${encodeURIComponent(AT)}`);
-  assert.match(cal.text, /id=addnew/);
-  assert.match(cal.text, /action='\/rosa\/new\/upload\?at=2099-01-05T06%3A30%3A00%2B00%3A00'/);
-  assert.match(cal.text, /name=at value='2099-01-05T06:30:00\+00:00'/);
-  assert.doesNotMatch((await call("GET", "/rosa/calendar?w=2099-W02&add=2001-01-01T06:30:00%2B00:00")).text, /id=addnew/); // passed
+  const cal = await call("GET", "/rosa/calendar?w=2099-W02");
+  assert.match(cal.text, /id=addnew hidden/);
+  assert.match(cal.text, /<form id=addup data-c='rosa'>/);
+  assert.match(cal.text, /<form id=addgen method=post action='\/rosa\/new' hidden><input type=hidden name=at>/);
+  assert.match(cal.text, /data-add='2099-01-05T06:30:00\+00:00'>\+ Add new/);
+  assert.doesNotMatch((await call("GET", "/rosa/calendar?w=2001-W02")).text, /data-add=/); // passed
   const r = await call("POST", "/rosa/new", { form: { at: AT, prompt: " particles over the swell chart ", engine: "remotion" } });
   assert.equal(r.status, 303);
   assert.equal(r.headers.get("Location"), "/rosa/v/2099-w02-01");

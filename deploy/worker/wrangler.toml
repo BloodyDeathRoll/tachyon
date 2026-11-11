@@ -5,6 +5,10 @@ name = "tachyon"
 main = "src/index.ts"
 compatibility_date = "2026-08-01"
 
+# app.py's font and logo (python -m spine.review.export_ui): served as files, before the Worker
+[assets]
+directory = "./public"
+
 [observability]
 enabled = true
 
