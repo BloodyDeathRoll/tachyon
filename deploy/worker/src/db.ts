@@ -449,7 +449,8 @@ export const OPS: Record<string, (c: Ctx, a: Args) => Promise<unknown>> = {
     await putSnapshot(c, optStr(a.post_id, "post_id"), str(a.source, "source"), str(a.window, "window"), a.metrics ?? {});
     return true;
   },
-  /** One post's snapshots; with no post, every row except the hourly ones (h:...), which only the
+  /** One post's snapshots; with no post, the account rows and the videos' 24h/72h/7d/live rows (as
+      spine/db.py DB.snapshots: a new source or window goes in both), not the hourly ones (h:...), which only the
       views charts sum in view_gains. Each query walks an index (schema.sql), never the table. */
   async snapshots(c, a) {
     const pid = optStr(a.post_id, "post_id");

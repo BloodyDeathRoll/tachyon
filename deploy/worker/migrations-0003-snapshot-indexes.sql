@@ -1,4 +1,5 @@
--- The snapshot indexes (schema.sql) for a D1 created before them; applied to the live D1 on 2026-11-12.
+-- The snapshot indexes and view_gains (schema.sql) for a D1 created before them. Run once, before
+-- deploying the code that reads view_gains: npx wrangler d1 execute tachyon --remote --file <this>
 -- every read of this table goes through one of these: a scan reads every row, and D1's free
 -- tier allows 5M rows read a day (a minute cron scanning ~8k rows four times ran it out)
 CREATE INDEX IF NOT EXISTS snaps_post ON metric_snapshots(client, post_id, source, collected_at);

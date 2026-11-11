@@ -262,9 +262,11 @@ class DB:
         )
 
     def snapshots(self, post_id: str | None = None) -> list[dict]:
-        """One post's snapshots; with no post, every row but the hourly ones (h:...): those are
+        """One post's snapshots; with no post, the account rows and the videos' 24h/72h/7d/live rows,
+        exactly the Worker's set (a new source or window goes in both). The hourly ones (h:...) are
         charted from view_gains, as the Worker does (deploy/worker/src/db.ts)."""
-        q = "SELECT * FROM metric_snapshots" + (" WHERE post_id=?" if post_id else " WHERE window NOT LIKE 'h:%'") + " ORDER BY collected_at"
+        q = "SELECT * FROM metric_snapshots" + (" WHERE post_id=?" if post_id else
+                                                " WHERE source='ig_account' OR (source='ig_media' AND window IN ('24h','72h','7d','live'))") + " ORDER BY collected_at"
         rows = self.conn.execute(q, (post_id,) if post_id else ()).fetchall()
         return [{**dict(r), "metrics": json.loads(r["metrics"])} for r in rows]
 
