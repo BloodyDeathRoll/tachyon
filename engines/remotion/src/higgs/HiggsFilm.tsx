@@ -23,7 +23,7 @@ import { Particles } from "./Particles";
   Type: the w45-10 slam (each word scales in from 1.6, no masks, so no letter is ever clipped).
 */
 
-export type FilmProps = { variant: Variant; clips: string; s1: number; s5: number; joke: string[][]; lock: number; app?: string };
+export type FilmProps = { variant: Variant; clips: string; s1: number; s5: number; joke: string[][]; lock: number; app?: string; jokeLow?: boolean };
 export const FILM_DEFAULTS: FilmProps = { variant: "reel", clips: "higgs/example-01", s1: 5.056, s5: 5.0,
   joke: [["Preparing", "for"], ["a", "fight?"]], lock: 2.4 };
 const APP = "higgs/app";   // the app section's frames, shared by every film
@@ -115,7 +115,7 @@ const Globe: React.FC<{ t: number; T: Times }> = ({ t, T }) => {
   return <canvas ref={ref} width={width} height={height} style={{ position: "absolute", left: 0, top: 0 }} />;
 };
 
-export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5, joke, lock, app }) => {
+export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5, joke, lock, app, jokeLow }) => {
   useInter();
   const t = useT();
   const { fps, width, height } = useVideoConfig();
@@ -190,9 +190,11 @@ export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5,
         <OffthreadVideo src={staticFile(`${clips}/s1-${ar}.mp4`)} volume={1} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       </Sequence>
       {t < S1 && <AbsoluteFill style={{ opacity: seg(t, T.joke - 0.2, T.joke + 0.3) * (1 - seg(t, S1 - 0.25, S1)),
-        background: W ? "linear-gradient(90deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.1) 35%, rgba(0,0,0,0) 55%)" : "linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.1) 38%, rgba(0,0,0,0) 55%)" }} />}
+        background: W ? "linear-gradient(90deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.1) 35%, rgba(0,0,0,0) 55%)" : `linear-gradient(${jokeLow ? 0 : 180}deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.1) 38%, rgba(0,0,0,0) 55%)` }} />}
       <Slam t={t} a={T.joke} z={S1} lines={joke} blue={jokeBlue} size={jokeSize} gap={0.12} align="left"
-        style={W ? { left: 110, top: 110, width: 900 } : { left: B.x, top: B.y + 10, width: B.w }} />
+        // jokeLow (script.json joke_low): sits on the bottom of the safe area, off a face at the top of the clip
+        style={jokeLow ? (W ? { left: 110, bottom: 110, width: 900 } : { left: B.x, bottom: height - B.y - B.h, width: B.w })
+          : W ? { left: 110, top: 110, width: 900 } : { left: B.x, top: B.y + 10, width: B.w }} />
 
       {/* 2–4 ── black frame, particles, phone ── */}
       {t >= S1 && t < T.globe + 0.6 && <AbsoluteFill style={{ background: "radial-gradient(1300px 2000px at 50% 50%, rgba(3,42,250,.16) 0%, #000 75%)" }} />}
@@ -220,7 +222,7 @@ export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5,
 
       {app
         // a script's own line is set like "16 days forecast."
-        ? <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[appWs.slice(0, -1), appWs.slice(-1)]} blue={appBlue} size={130} align={W ? "left" : "right"} gap={0.22}
+        ? <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[appWs.slice(0, -1), appWs.slice(-1)]} blue={appBlue} size={130} align="left" gap={0.22}
             style={W ? { left: 1060, top: 540 - 1.08 * 130, width: 780 } : { left: B.x, top: B.y + 20, width: B.w }} />
         : W
         ? <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[appWs.slice(0, -1), appWs.slice(-1)]} blue={appBlue} size={120} align="left"

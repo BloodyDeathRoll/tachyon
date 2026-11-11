@@ -88,6 +88,12 @@ def test_props_pass_an_app_line_only_when_set(hh):
     assert H.props({**s, "app_line": "Check in depth."}, "b1-01", "9x16", "reel", 5, 5)["app"] == "Check in depth."
 
 
+def test_props_pass_joke_low_only_when_set(hh):
+    s = H.load("t", "b1", "01")
+    assert "jokeLow" not in H.props(s, "b1-01", "9x16", "reel", 5, 5)
+    assert H.props({**s, "joke_low": True}, "b1-01", "9x16", "reel", 5, 5)["jokeLow"] is True
+
+
 def test_remotion_registers_every_composition_render_uses():
     root = (ROOT / "engines" / "remotion" / "src" / "Root.tsx").read_text()
     for comps in H.COMPS.values():
