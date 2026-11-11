@@ -69,9 +69,10 @@ function walked(c: Ctx, slot: string, from: string, states: string[], note: stri
   return states.map((to, i) => journalIfChanged(c, "post.state", slot, { from: i ? states[i - 1] : from, to, note: to === "MANUAL_HANDOFF" ? note : null, ...(to === "PUBLISHED" ? extra : {}) }));
 }
 
-/** The slot waiting for this reel: MANUAL_HANDOFF (if not there yet), PUBLISHED with the reel's
-    id, MEASURING, in one batch guarded by the row's version. */
-async function linkByHand(c: Ctx, slot: string, r: Json): Promise<void> {
+/** The slot waiting for this reel (or the one the operator posted by hand from the app, the
+    video page's link): MANUAL_HANDOFF if not there yet, PUBLISHED with the reel's id,
+    MEASURING, in one batch guarded by the row's version. `r` is the media row. */
+export async function linkByHand(c: Ctx, slot: string, r: Json): Promise<void> {
   const row = await post(c, slot);
   if (row.ig_media_id === r.id) return;
   if (!HAND_FROM.has(row.state)) throw new Error(`${slot} is ${row.state}; only unpublished slots can be linked`);

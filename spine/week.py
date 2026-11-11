@@ -147,14 +147,19 @@ style or the example films, they win (the safe box, real numbers and rule 13 sti
 ---"""
 
 
-def start(client: str, week: str, instructions: str | None = None, engine: str | None = None) -> None:
-    """Dashboard button: spawn prepare detached. `instructions` is the operator's brief for the
-    batch; None (the daily auto run) reuses the last batch's."""
+def begin(client: str, week: str, instructions: str | None = None, engine: str | None = None) -> None:
+    """The batch's status file before prepare runs: the operator's brief and engine choice
+    (None: the last batch's). The dashboard button and the host (from a plan job's payload)."""
     if instructions is None:
         instructions = last_instructions(client)
     engine = engine if engine in ENGINES else last_engine(client)   # the daily auto run: the last batch's choice
     _status(client, week, state="running", step="planning", done=0, total=len(free_slot_times(client, week)), error=None,
             started_at=now(), instructions=instructions.strip(), engine=engine)
+
+
+def start(client: str, week: str, instructions: str | None = None, engine: str | None = None) -> None:
+    """Dashboard button: spawn prepare detached."""
+    begin(client, week, instructions, engine)
     try:
         J.spawn("plan", client, None, ["spine.week", "prepare", client, week], plans_dir(client) / f"{week}.log")
     except (OSError, RemoteError) as e:   # nothing is running: the page must not say so

@@ -291,6 +291,11 @@ def make(client: str, slot: str, ratios: list[str]) -> int:
         return 1
 
 
+def begin(client: str, slot: str, ratios: list[str]) -> None:
+    """The status file before make runs (the host, from a formats job's argv)."""
+    _status(client, slot, state="running", current=ratios[0], wanted=ratios, error=None, pid=None)
+
+
 def start(client: str, slot: str, ratios: list[str]) -> None:
     ratios = [r for r in ratios if r in RATIOS]
     if not ratios:
@@ -305,7 +310,7 @@ def start(client: str, slot: str, ratios: list[str]) -> None:
     try:
         if status(client, slot).get("state") == "running":
             return
-        _status(client, slot, state="running", current=ratios[0], wanted=ratios, error=None, pid=None)
+        begin(client, slot, ratios)
         try:
             J.spawn("formats", client, slot, ["spine.formats", "make", client, slot, *ratios], C.client_dir(client) / "posts" / slot / "formats.log")
         except (OSError, RemoteError) as e:

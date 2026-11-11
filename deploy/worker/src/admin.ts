@@ -49,10 +49,15 @@ async function membership(env: { DB: D1Database }, body: Body, add: boolean): Pr
   return json(200, { ok: true });
 }
 
+// first path segments index.ts (and pages/index.ts's /admin) route before a client's pages; paths
+// compare case-sensitively there, so `App` is a plain client. api.test.mjs checks the list against index.ts.
+export const RESERVED = new Set(["app", "me", "m", "api", "auth", "login", "connect", "admin"]);
+
 async function createClient(env: { DB: D1Database }, body: Body, by: number, now: number): Promise<Response> {
   const id = typeof body.id === "string" && ID.test(body.id) ? body.id : "";
   const name = typeof body.name === "string" && body.name.trim() ? body.name.trim().slice(0, 100) : id;
   if (!id) throw new HttpError(400, "id");
+  if (RESERVED.has(id)) throw new HttpError(400, "reserved", `${id} is a path of the Worker's own`);
   try {
     await env.DB.prepare("INSERT INTO clients (id, name, publisher, created_by, created_at) VALUES (?, ?, 'worker', ?, ?)").bind(id, name, by, now).run();
   } catch (e) {

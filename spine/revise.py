@@ -90,13 +90,28 @@ def _write_status(client: str, slot: str, **kw) -> dict:
     return cur
 
 
-def start(client: str, slot: str, notes: str) -> None:
-    """Called by the dashboard after REJECTED: record the notes and spawn the job detached."""
+def begin(client: str, slot: str, notes: str) -> None:
+    """The notes recorded before the job runs: the dashboard after REJECTED, or the host from a
+    revise job's payload."""
     prev = status(client, slot) or {}
     rounds = prev.get("rounds", [])
     rounds.append({"notes": notes, "at": now()})
     _write_status(client, slot, state="running", step="queued", notes=notes, rounds=rounds, error=None,
                   skip_edit=False, revoice=False, changes=None, kind=None, no_change=False)
+
+
+def begin_again(client: str, slot: str) -> None:
+    """The status before a failed job re-runs with the same notes (retry, or a host given the same
+    payload again). If it got past the edit, only render again: the film source already has the
+    change; editing twice would apply it twice."""
+    st = status(client, slot) or {}
+    _write_status(client, slot, state="running", step="queued", error=None,
+                  skip_edit=st.get("step") in ("voicing", "rendering", "finishing"), revoice=st.get("step") == "voicing")
+
+
+def start(client: str, slot: str, notes: str) -> None:
+    """Called by the dashboard after REJECTED: record the notes and spawn the job detached."""
+    begin(client, slot, notes)
     _spawn(client, slot)
 
 
@@ -132,8 +147,7 @@ def retry(client: str, slot: str, db: DB) -> bool:
         return False
     if db.post(slot)["state"] == "NEEDS_APPROVAL":
         db.set_state(slot, "REJECTED", note="re-run after a failed render")
-    _write_status(client, slot, state="running", step="queued", error=None,
-                  skip_edit=st.get("step") in ("voicing", "rendering", "finishing"), revoice=st.get("step") == "voicing")
+    begin_again(client, slot)
     try:
         _spawn(client, slot)
     except Exception as e:   # nothing is running: show the failure again, back to approval

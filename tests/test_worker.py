@@ -20,6 +20,8 @@ from tests.fakes import FakeWorker
 
 CFG = {"api": "http://w", "token": "t", "host": "pc-a"}
 REAL_PULL = C.pull   # a job pulls the client's files first (tests/test_clients_remote.py); the scripted tests skip it
+# the sync and the status file around a job have their own tests below; the loop's tests skip them
+PULL_SLOT, PUSH_CHANGED, BEFORE = W.pull_slot, W.push_changed, W.before
 
 
 @pytest.fixture
@@ -30,6 +32,9 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setenv("TACHYON_HOST", "pc-a")
     monkeypatch.setattr(C, "CLIENTS", tmp_path / "clients")
     monkeypatch.setattr(C, "pull", lambda name: [])
+    monkeypatch.setattr(W, "pull_slot", lambda client, slot: [])
+    monkeypatch.setattr(W, "push_changed", lambda client, since: {})
+    monkeypatch.setattr(W, "before", lambda *a: None)
     for name, assets in (("rosa", True), ("acme", False)):
         d = tmp_path / "clients" / name
         (d / "posts").mkdir(parents=True)
@@ -175,6 +180,17 @@ def test_a_refused_job_marks_its_status_failed(env, monkeypatch):
     with pytest.raises(ValueError, match="refused"):
         W.run_job({"id": 3, "kind": "caption", "client": "rosa", "slot_id": "w01-s1", "payload": {"argv": ["spine.caption", "write", "rosa", "w09-s9"]}}, CFG)
     assert not (env / "clients" / "rosa" / "posts" / "w01-s1" / "caption.writing").exists()
+    evil = env / "clients" / "rosa" / "evil" / "caption.writing"   # where posts/../evil would land
+    evil.parent.mkdir()
+    evil.touch()   # a slot that is a path marks nothing
+    with pytest.raises(ValueError, match="refused"):
+        W.run_job({"id": 4, "kind": "caption", "client": "rosa", "slot_id": "../evil", "payload": {"argv": ["spine.caption", "write", "rosa", "w09-s9"]}}, CFG)
+    assert evil.exists()
+    # a client that is a path: refused, and no status is written anywhere
+    before = sorted(str(x) for x in env.rglob("*"))
+    with pytest.raises(ValueError, match="refused"):
+        W.run_job({"id": 5, "kind": "plan", "client": "../x", "slot_id": None, "payload": {"argv": ["spine.week", "prepare", "rosa", "2026-W10"]}}, CFG)
+    assert sorted(str(x) for x in env.rglob("*")) == before
 
 
 def test_upload_puts_the_video_the_cover_and_the_text_files(env, monkeypatch):
@@ -207,6 +223,90 @@ def test_enqueue_and_push_files(env, monkeypatch):
     (sd / "first_comment.txt").write_text("Which spot?\n")
     assert J.push_files("rosa", "w01-s1") == {"first_comment.txt": "Which spot?\n"}
     assert f.calls[1][2] == {"slot_id": "w01-s1", "files": {"first_comment.txt": "Which spot?\n"}}
+
+
+def test_pull_slot_writes_the_online_files(env, monkeypatch):
+    f = fake(monkeypatch, (200, {"result": {"caption.txt": "Online\n", "meta.json": "{}\n", "../../evil.txt": "x"}}))
+    assert PULL_SLOT("rosa", "new-1") == ["caption.txt", "meta.json"]   # only the post's files, never a path
+    sd = env / "clients" / "rosa" / "posts" / "new-1"   # made on the way: a slot planned elsewhere
+    assert (sd / "caption.txt").read_text() == "Online\n" and (sd / "meta.json").read_text() == "{}\n"
+    assert not (env / "clients" / "evil.txt").exists()
+    assert f.calls[0][:3] == ("POST", "http://w/api/db/rosa/files", {"slot_id": "new-1"})
+    # a job's pull: the client's files, then the slot's; the network is tried again, a refusal is not
+    import urllib.error
+    pulled = []
+    monkeypatch.setattr(C, "pull", lambda name: pulled.append(name) or [])
+
+    def flaky(client, slot):
+        pulled.append(slot)
+        if len(pulled) < 3:
+            raise urllib.error.URLError("down")
+        return []
+
+    monkeypatch.setattr(W, "pull_slot", flaky)
+    slept = []
+    W.pull("rosa", "s", sleep=slept.append)
+    assert pulled == ["rosa", "s", "rosa", "s"] and slept == [W.PULL_WAIT]
+    monkeypatch.setattr(W, "pull_slot", lambda c, s: (_ for _ in ()).throw(R.RemoteError(403, "x")))
+    with pytest.raises(RuntimeError, match="could not pull"):
+        W.pull("rosa", "s", sleep=slept.append)
+    assert slept == [W.PULL_WAIT]
+
+
+def test_push_changed_sends_only_what_the_job_wrote(env, monkeypatch):
+    import os
+    import time
+    posts = env / "clients" / "rosa" / "posts"
+    for s in ("a", "b"):
+        (posts / s).mkdir()
+        (posts / s / "caption.txt").write_text(f"{s}\n")
+        (posts / s / "meta.json").write_text("{}\n")
+        for p in (posts / s).iterdir():
+            os.utime(p, (time.time() - 60, time.time() - 60))
+    since = time.time() - 30
+    (posts / "b" / "caption.txt").write_text("new b\n")
+    f = fake(monkeypatch, (200, {"result": True}))
+    assert PUSH_CHANGED("rosa", since) == {"b": ["caption.txt"]}
+    assert f.calls[0][:3] == ("POST", "http://w/api/db/rosa/set_files", {"slot_id": "b", "files": {"caption.txt": "new b\n"}})
+
+
+def test_before_writes_the_status_the_dashboard_would_have(env, monkeypatch):
+    from spine import formats, manual, revise
+    sd = env / "clients" / "rosa" / "posts" / "s"
+    sd.mkdir()
+    (sd / "meta.json").write_text('{"film": {"engine": "html", "dir": "nowhere"}, "title": "T"}\n')
+    (sd / "brief.md").write_text("old\n")
+    produce = ["spine.manual", "produce", "rosa", "s"]
+    with pytest.raises(ValueError, match="no prompt"):   # nothing moves for an empty prompt
+        BEFORE("produce", "rosa", "s", produce, {"prompt": " "})
+    assert (sd / "brief.md").exists() and not (sd / "versions").exists()
+    BEFORE("produce", "rosa", "s", produce, {"prompt": " A wave ", "engine": "html"})
+    st = revise.status("rosa", "s")
+    assert st["state"] == "running" and st["kind"] == "new" and st["notes"] == "A wave"
+    assert (sd / "prompt.txt").read_text() == "A wave\n" and not (sd / "brief.md").exists()
+    assert (sd / "versions" / "v1" / "brief.md").read_text() == "old\n"
+    meta = json.loads((sd / "meta.json").read_text())
+    assert "film" not in meta and meta["engine_choice"] == "html" and meta["title"] == "T"
+    # the same prompt again after a failure is the Worker's retry: the half-made plan stays, nothing moves
+    revise._write_status("rosa", "s", state="failed")
+    (sd / "brief.md").write_text("planned\n")
+    BEFORE("produce", "rosa", "s", produce, {"prompt": "A wave"})
+    assert (sd / "brief.md").exists() and not (sd / "versions" / "v2").exists() and revise.status("rosa", "s")["state"] == "running"
+    # revise: notes open a round; the same notes again after a failure past the edit only render again
+    rev = ["spine.revise", "run", "rosa", "s"]
+    BEFORE("revise", "rosa", "s", rev, {"notes": "louder"})
+    st = revise.status("rosa", "s")
+    assert st["notes"] == "louder" and [r["notes"] for r in st["rounds"]] == ["louder"] and not st["skip_edit"]
+    revise._write_status("rosa", "s", state="failed", step="rendering")
+    BEFORE("revise", "rosa", "s", rev, {"notes": "louder"})
+    st = revise.status("rosa", "s")
+    assert st["state"] == "running" and st["skip_edit"] is True and len(st["rounds"]) == 1
+    BEFORE("formats", "rosa", "s", ["spine.formats", "make", "rosa", "s", "16x9", "1x1"], {})
+    assert formats.status("rosa", "s")["wanted"] == ["16x9", "1x1"] and formats.status("rosa", "s")["current"] == "16x9"
+    monkeypatch.setattr(week, "free_slot_times", lambda c, w, own=False: ["t1", "t2"])
+    BEFORE("plan", "rosa", None, ["spine.week", "prepare", "rosa", "2026-W10"], {"instructions": "surf ", "engine": "remotion"})
+    st = week.status("rosa", "2026-W10")
+    assert st["state"] == "running" and st["total"] == 2 and st["instructions"] == "surf" and st["engine"] == "remotion"
 
 
 def test_spec_downloads_the_file_and_checks_it(env, monkeypatch):
@@ -280,20 +380,40 @@ def test_end_to_end_a_job_round_trip(worker, env, monkeypatch):
     monkeypatch.setenv("TACHYON_TOKEN", worker["token"])
     monkeypatch.setenv("TACHYON_HOST", "pc-e2e")
     monkeypatch.setattr(C, "pull", REAL_PULL)   # the real pull against the real Worker: grants.yaml from the row
+    for name, real in (("pull_slot", PULL_SLOT), ("push_changed", PUSH_CHANGED), ("before", BEFORE)):
+        monkeypatch.setattr(W, name, real)
+    from spine.db import RemoteDB
     cfg = R.config()
     sd = env / "clients" / "rosa" / "posts" / "e2e-1"
     sd.mkdir()
-    (sd / "video.mp4").write_bytes(b"vid")
+    (sd / "video.mp4").write_bytes(b"old")
+    (sd / "meta.json").write_text("{}\n")
+    RemoteDB("rosa").create_post("e2e-1", "rosa")
+    RemoteDB("rosa").set_files("e2e-1", {"caption.txt": "Edited online\n"})
     assert W.register(cfg)["clients"] == ["rosa"]
-    job_id = J.spawn("produce", "rosa", "e2e-1", ["spine.manual", "produce", "rosa", "e2e-1"], sd / "x.log")
+    job_id = J.enqueue("produce", "rosa", "e2e-1", {"argv": ["spine.manual", "produce", "rosa", "e2e-1"], "prompt": "A wave"})
     assert isinstance(job_id, int)
     jobs = R.call("GET", "/api/jobs?client=rosa&slot=e2e-1", cfg=cfg)["jobs"]
     assert [j["state"] for j in jobs] == ["queued"]
     ran = []
-    assert W.once(cfg, runner=lambda cmd, **kw: ran.append(cmd) or subprocess.CompletedProcess(cmd, 0)) is True
+
+    def runner(cmd, **kw):
+        ran.append(cmd)
+        assert (sd / "caption.txt").read_text() == "Edited online\n"   # the online edit is on disk before the job
+        assert not (sd / "video.mp4").exists() and (sd / "versions" / "v1" / "video.mp4").read_bytes() == b"old"   # Generate New stashed the old cut
+        (sd / "video.mp4").write_bytes(b"vid")
+        (sd / "first_comment.txt").write_text("From the job\n")
+        return subprocess.CompletedProcess(cmd, 0)
+
+    assert W.once(cfg, runner=runner) is True
     assert ran == [[sys.executable, "-m", "spine.manual", "produce", "rosa", "e2e-1"]]
     job = R.call("GET", "/api/jobs?client=rosa&slot=e2e-1", cfg=cfg)["jobs"][0]
     assert job["state"] == "done" and job["holder"] == "pc-e2e"
-    assert json.loads(job["result"])["media"]["sha"] == hashlib.sha256(b"vid").hexdigest()
+    result = json.loads(job["result"])
+    assert result["media"]["sha"] == hashlib.sha256(b"vid").hexdigest()
+    assert {"first_comment.txt", "meta.json"} <= set(result["files"]["e2e-1"])   # what the job and the stash wrote went up
+    online = RemoteDB("rosa").files("e2e-1")
+    assert online["caption.txt"] == "Edited online\n" and online["first_comment.txt"] == "From the job\n"
+    assert json.loads(online["meta.json"])["engine_choice"] == "html"
     assert "ig_user_id" in (env / "clients" / "rosa" / "grants.yaml").read_text()   # pulled from the row before the job
     assert W.once(cfg) is False

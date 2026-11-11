@@ -10,6 +10,11 @@ payload, checked against ARGV below, or the upload and spec jobs) with a heartbe
 60 s, then done or fail is reported. A lapsed or revoked session stops the loop (exit 3):
 run `login` again. The crontab's `week auto` entry stays until the Worker's cron enqueues
 it (phase 4).
+
+Around a job: the client's brand text and the slot's text files come down from D1 first (the
+Worker's pages edit them there), the status file the local dashboard would have written before
+spawning is written from the payload (prompt, notes, instructions, engine), and the text files
+the job wrote go back up, so the Worker's pages and publisher read the new cut's caption and meta.
 """
 
 from __future__ import annotations
@@ -28,7 +33,12 @@ from datetime import datetime
 from pathlib import Path
 
 from . import clients as C
+from . import formats as F
+from . import jobs as J
+from . import manual as M
 from . import remote as R
+from . import revise as RV
+from . import week as WK
 
 ROOT = Path(__file__).resolve().parent.parent
 POLL = 60
@@ -110,10 +120,75 @@ def media_of(client: str, slot: str | None, cfg: dict) -> dict | None:
     return {"host": host_id(cfg), "path": str(p), "sha": sha256(p), "size": p.stat().st_size}
 
 
+def pull_slot(client: str, slot: str) -> list[str]:
+    """posts/<slot>/'s text files as they are online (edited in the Worker's pages) before a job
+    reads them. What came down."""
+    from .db import RemoteDB
+    sd = C.client_dir(client) / "posts" / slot
+    sd.mkdir(parents=True, exist_ok=True)
+    files = {name: text for name, text in RemoteDB(client).files(slot).items() if name in J.POST_FILES}   # never a path
+    for name, text in files.items():
+        (sd / name).write_text(text)
+    return sorted(files)
+
+
+def pull(client: str, slot: str | None, sleep=time.sleep) -> None:
+    """The brand text and grants, then the slot's online edits, before the job reads or sends
+    them. The network or the Worker down: tried again; refused (not a member, no such client):
+    the job fails before it starts, stale text makes wrong films."""
+    for i in range(REPORT_TRIES):
+        try:
+            C.pull(client)
+            if slot:
+                pull_slot(client, slot)
+            return
+        except (OSError, R.RemoteError) as e:
+            passing = isinstance(e, OSError) or e.status >= 500
+            if i == REPORT_TRIES - 1 or not passing:
+                raise RuntimeError(f"could not pull {client}'s files: {e}") from e
+            sleep(PULL_WAIT)
+
+
+def push_changed(client: str, since: float) -> dict[str, list[str]]:
+    """The text files newer than the job's start (`since`), slot by slot, sent up: a plan job
+    makes many slots, a produce or revise rewrites its own. A host runs one job at a time, so a
+    newer file is this job's, or one pulled in the same tick of the file clock and sent back
+    unchanged. {slot: names}."""
+    out = {}
+    for sd in sorted((C.client_dir(client) / "posts").glob("*/")):
+        names = tuple(n for n in J.POST_FILES if (sd / n).exists() and (sd / n).stat().st_mtime >= since)
+        if names:
+            out[sd.name] = sorted(J.push_files(client, sd.name, names))
+    return out
+
+
+def before(kind: str, client: str, slot: str | None, argv: list[str], payload: dict) -> None:
+    """The status file the local dashboard writes before it spawns, from the job's payload (the
+    Worker's pages enqueue instead). The same payload again after a failure is the Worker's retry."""
+    if kind == "plan":
+        WK.begin(client, argv[3], payload.get("instructions"), payload.get("engine"))
+    elif kind == "produce":
+        prompt = str(payload.get("prompt") or "").strip()
+        if not prompt:   # before stash moves the cut away for nothing
+            raise ValueError("no prompt")
+        st = RV.status(client, slot) or {}
+        if not (st.get("state") == "failed" and st.get("kind") == "new" and st.get("notes") == prompt):
+            M.stash(client, slot, prompt, str(payload.get("engine") or "html"))
+        M.begin(client, slot)
+    elif kind == "revise":
+        notes = str(payload.get("notes") or "")
+        st = RV.status(client, slot) or {}
+        if st.get("state") == "failed" and st.get("notes") == notes:
+            RV.begin_again(client, slot)
+        else:
+            RV.begin(client, slot, notes)
+    elif kind == "formats" and argv[4:]:
+        F.begin(client, slot, argv[4:])
+
+
 def upload(client: str, slot: str, cfg: dict) -> dict:
     """PUT the slot's video.mp4 and cover.jpg to the Worker (R2), then its text files (the
     publisher reads caption, first comment and meta from D1). The keys and the file names."""
-    from . import jobs as J
     sd = C.client_dir(client) / "posts" / slot
     out = {}
     for name, fname, ctype in (("video", "video.mp4", "video/mp4"), ("cover", "cover.jpg", "image/jpeg")):
@@ -142,6 +217,10 @@ def _refused(job: dict, argv: list[str], why: str):
     "running" as failed, as a failed start does, then raise for the queue."""
     from . import formats, revise, week
     client, slot, kind = job["client"], job.get("slot_id"), job["kind"]
+    if slot is not None and not re.fullmatch(r"[\w-]{1,64}", slot):   # it names a folder: never a path
+        slot = None
+    if not re.fullmatch(r"[\w-]{1,64}", str(client)):   # the Worker checks it too; nothing to mark then
+        raise ValueError(why)
     try:
         if kind == "plan" and len(argv) > 3 and re.fullmatch(r"\d{4}-W\d{2}", argv[3]):
             week._status(client, argv[3], state="failed", error=why)
@@ -160,10 +239,11 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) ->
     """Run one claimed job; the result for `done`. Raises with the reason for `fail`."""
     payload = json.loads(job.get("payload") or "{}") if isinstance(job.get("payload"), str) else (job.get("payload") or {})
     client, slot = job["client"], job.get("slot_id")
-    if job["kind"] == "upload":
-        return {"keys": upload(client, slot, cfg)}
     if job["kind"] == "spec":
-        return spec(client, slot, cfg)
+        return spec(client, slot, cfg)   # reads only the file in R2: no text files needed
+    if job["kind"] == "upload":
+        pull(client, slot, sleep)   # the operator's online edits, so the files sent up are the newest
+        return {"keys": upload(client, slot, cfg)}
     argv = payload.get("argv")
     if not isinstance(argv, list) or not all(isinstance(a, str) for a in argv):
         raise ValueError("the job has no argv")
@@ -175,22 +255,18 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) ->
         _refused(job, argv, f"refused: a {job['kind']} job for {client} cannot run {' '.join(argv)}")
     if job["kind"] not in NO_SLOT and argv[3] != slot:
         _refused(job, argv, f"refused: the job is for slot {slot}, the command for {argv[3]}")
-    for i in range(REPORT_TRIES):   # the brand text and grants as they are online, before the prompts read them
-        try:
-            C.pull(client)
-            break
-        except (OSError, R.RemoteError) as e:
-            passing = isinstance(e, OSError) or e.status >= 500   # the network or the Worker down: worth another try
-            if i == REPORT_TRIES - 1 or not passing:
-                raise RuntimeError(f"could not pull {client}'s files: {e}") from e   # the job fails before it starts: stale text makes wrong films
-            sleep(PULL_WAIT)
+    pull(client, slot, sleep)
     log = log_dir() / f"job-{job['id']}.log"
+    log.touch()   # the job's start on the file clock (coarser than time.time()): what push_changed compares against
+    since = log.stat().st_mtime   # before `before`: what it writes (the stashed meta) goes up too
+    before(job["kind"], client, slot, argv, payload)
     with log.open("a") as out:
         r = runner([sys.executable, "-m", *argv], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT)
     if r.returncode != 0:
         tail = log.read_text()[-TAIL:] if log.exists() else ""
         raise RuntimeError(f"exit {r.returncode}: {tail}")
-    return {"returncode": 0, "media": media_of(client, slot, cfg) if job["kind"] in MAKES_VIDEO else None}
+    return {"returncode": 0, "media": media_of(client, slot, cfg) if job["kind"] in MAKES_VIDEO else None,
+            "files": push_changed(client, since)}
 
 
 def _beat(job_id: int, cfg: dict, stop: threading.Event) -> None:
