@@ -1,0 +1,418 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url(inter-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #f4f3f3; }
+body { font-family: Inter, sans-serif; color: #0d1225; -webkit-font-smoothing: antialiased; }
+#bg { position: absolute; inset: 0; background: #f4f3f3; }
+#blobs { position: absolute; inset: 0; }
+#tint { position: absolute; inset: 0; }
+#photo { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; }
+video { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; object-position: 40% 50%; filter: saturate(1.3) brightness(1.12) contrast(1.05); }
+#shade { position: absolute; inset: 0; }
+#pt { position: absolute; left: 0; top: 646px; pointer-events: none; }
+#world { position: absolute; inset: 0; }
+#gauge { position: absolute; left: 85px; width: 910px; height: 30px; display: flex; gap: 15px; }
+#gauge > i { flex: 1; border-radius: 99px; background: rgba(13,18,37,.08); position: relative; overflow: hidden; }
+#gauge > i > b { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; }
+.bp { position: absolute; left: 540px; top: 900px; height: 330px; padding: 0 110px; border-radius: 165px;
+  display: flex; align-items: center; justify-content: center; font-size: 188px; font-weight: 800; letter-spacing: -0.035em;
+  white-space: nowrap; transform-origin: 50% 50%; will-change: transform; }
+.bp > span { display: block; transform: translateY(-.04em); }
+#rig { position: absolute; left: 0; top: 0; transform-origin: 0 0; perspective: 2600px; }
+#phone { position: relative; padding: 36px; border-radius: 150px; transform-style: preserve-3d; transform-origin: 50% 40%;
+  background: linear-gradient(145deg, #f3f5f9, #b9c1cd 42%, #e6e9ef); }
+#screen { position: relative; width: 1170px; height: 2532px; overflow: hidden; border-radius: 114px;
+  background: url(st-d01.png) 0 0 / 1170px 2532px no-repeat; }
+.patch { position: absolute; background-image: url(st-d01.png); background-repeat: no-repeat; }
+.trk { position: absolute; border-radius: 99px; background: #ebebee; }
+#fx, #sfx { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+#fx { width: 1170px; height: 2532px; }
+#sfx { width: 1080px; height: 1920px; }
+#glare { position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,0) 38%, rgba(255,255,255,.35) 49%, rgba(255,255,255,0) 60%); background-size: 300% 100%; }
+.h { font-weight: 800; letter-spacing: -0.045em; line-height: 1; color: #fff; text-shadow: 0 10px 40px rgba(0,10,40,.45); }
+#chips { position: absolute; left: 65px; width: 950px; display: flex; justify-content: center; gap: 44px; padding: 44px 40px 52px;
+  border-radius: 64px; background: rgba(13,18,37,.8); backdrop-filter: blur(24px); box-shadow: 0 40px 100px rgba(2,12,42,.45); }
+.chip { display: flex; flex-direction: column; align-items: stretch; }
+.chip .w { font-size: 100px; text-shadow: none; }
+.chip .bar { margin-top: 18px; height: 22px; border-radius: 99px; background: rgba(255,255,255,.22); position: relative; overflow: hidden; }
+.chip .bar > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; }
+#rated { position: absolute; left: 65px; width: 950px; text-align: center; font-size: 132px; }
+.line { overflow: hidden; padding: 0 .05em .14em; }
+.line > span { display: inline-block; }
+#end { position: absolute; left: 65px; width: 950px; display: flex; flex-direction: column; align-items: center; text-align: center; color: #fff; }
+#btn { margin-top: 110px; padding: 32px 80px; border-radius: 999px; background: #11b7f2; color: #fff; font-weight: 800; font-size: 54px; letter-spacing: -0.01em; }
+</style></head>
+<body>
+<div id="bg"><div id="blobs"></div><div id="tint"></div></div>
+<div id="photo">
+  <video id="v" src="13772-251867974_large.mp4" muted playsinline preload="auto"></video>
+  <div id="shade"></div>
+</div>
+<canvas id="pt" width="1080" height="1274"></canvas>
+
+<div id="world">
+  <div id="gauge"><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i></div>
+  <div id="pills"></div>
+</div>
+
+<div id="rated" class="h">
+  <div class="line"><span id="r1">Rated.</span></div>
+  <div class="line"><span id="r2">And explained.</span></div>
+</div>
+
+<div id="rig"><div id="phone"><div id="screen">
+  <div id="cover"></div>
+  <svg id="fx" viewBox="0 0 1170 2532"></svg>
+  <div id="glare"></div>
+</div></div></div>
+
+<div id="chips"></div>
+<svg id="sfx" viewBox="0 0 1080 1920"></svg>
+
+<div id="end">
+  <img id="logo" src="rosa-icon.svg" style="width:190px; height:190px">
+  <div id="e1" class="h" style="font-size:84px; margin-top:56px; letter-spacing:0; white-space:nowrap">Know why it's Epic</div>
+  <div id="btn">Install it</div>
+  <div id="e3" style="font-size:48px; font-weight:600; margin-top:48px; color:#fff">link in bio</div>
+</div>
+
+<script>
+const variant = new URLSearchParams(location.search).get("variant") === "story" ? "story" : "reel";
+const SAFE_TOP = variant === "story" ? 269 : 285;
+const $ = (id) => document.getElementById(id);
+
+// ── easing ──
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const inOut = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const sine = (x) => -(Math.cos(Math.PI * x) - 1) / 2;
+const outExpo = (x) => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const inExpo = (x) => x <= 0 ? 0 : Math.pow(2, 10 * x - 10);
+const outCubic = (x) => 1 - Math.pow(1 - x, 3);
+const outBack = (x, s = 1.6) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
+const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1e6) / 1e6; };
+
+// ── timeline (s): VO from 0.5 s, "Flat, poor, fair, good, epic." one pill per word ──
+const T = {
+  beats: [0.55, 1.05, 1.55, 2.05, 2.6],
+  swap: 3.05,                  // big Epic pill becomes the app's own pill
+  pull: [3.12, 4.15],          // camera pulls back out of the pill into the phone
+  push: [4.0, 4.7],            // into the rating card
+  bars: [4.35, 4.9, 5.45],     // "Rosa tells you which one, and why"
+  back: [6.05, 7.0],           // "Epic's my favourite, obviously"
+  rated: 6.2,
+  exit: [8.5, 9.3],
+  end: 9.15, dur: 15,
+};
+
+// ── the rating scale, as the app draws it (rosa web/src/styles.css --rating-*, light) ──
+const PILLS = [
+  { w: "Flat", bg: "rgba(48,56,78,.243)", fg: "#0d1225", glow: "#30384e", from: [-1, 0] },
+  { w: "Poor", bg: "rgba(146,185,232,.576)", fg: "#0d1225", glow: "#92b9e8", from: [1, 0] },
+  { w: "Fair", bg: "#11b7f2", fg: "#fff", glow: "#11b7f2", from: [0, -1] },
+  { w: "Good", bg: "#24b161", fg: "#fff", glow: "#24b161", from: [0, 1] },
+  { w: "Epic", bg: "#0c6733", fg: "#fff", glow: "#0c6733", from: null },
+];
+PILLS.forEach((p) => {
+  const d = document.createElement("div");
+  d.className = "bp";
+  d.innerHTML = `<span>${p.w}</span>`;
+  Object.assign(d.style, { background: p.bg, color: p.fg });
+  $("pills").appendChild(d);
+  p.el = d;
+});
+const epic = PILLS[4].el;
+epic.style.width = "740px"; epic.style.padding = "0";   // the capture pill's own 148 x 66 shape, x5
+const GAUGE = [...$("gauge").children].map((g) => g.firstElementChild);
+
+// ── the live capture (st-d01.png, 1170 x 2532, rosa.surf/spot/supertubos?ev=2026-11-11&theme=light, 2026-11-10) ──
+const BAR_X = 732, BAR_W = 215, BAR_H = 18;
+const BARS = [
+  { name: "Size", y: 741, end: 947, col: "#24b161" },
+  { name: "Period", y: 813, end: 890, col: "#24b161" },
+  { name: "Wind", y: 885, end: 757, col: "#92b9e8" },
+];
+const PILL = { x: 96, y: 718, w: 148, h: 66, cx: 170, cy: 751 };
+const BLANK = [600, 1058];
+
+function blank(x, y, w, h) {
+  const f = Math.max(w, h) / 16, d = document.createElement("div");
+  d.className = "patch";
+  Object.assign(d.style, { left: x + "px", top: y + "px", width: w + "px", height: h + "px",
+    backgroundSize: `${1170 * f}px ${2532 * f}px`, backgroundPosition: `${-BLANK[0] * f}px ${-BLANK[1] * f}px` });
+  $("cover").appendChild(d); return d;
+}
+function piece(x, y, w, h) {
+  const d = document.createElement("div");
+  d.className = "patch";
+  Object.assign(d.style, { left: x + "px", top: y + "px", width: w + "px", height: h + "px",
+    backgroundSize: "1170px 2532px", backgroundPosition: `${-x}px ${-y}px` });
+  $("cover").appendChild(d); return d;
+}
+BARS.forEach((b) => {
+  blank(BAR_X - 12, b.y - 16, BAR_W + 24, 32);
+  const tr = document.createElement("div");
+  tr.className = "trk";
+  Object.assign(tr.style, { left: BAR_X + "px", top: b.y - BAR_H / 2 + "px", width: BAR_W + "px", height: BAR_H + "px" });
+  $("cover").appendChild(tr);
+  b.fill = piece(BAR_X - 8, b.y - 14, BAR_W + 16, 28);
+
+  const c = document.createElement("div");
+  c.className = "chip";
+  c.innerHTML = `<div class="w h">${b.name}</div><div class="bar"><i style="background:${b.col}"></i></div>`;
+  $("chips").appendChild(c);
+  b.chip = c;
+});
+const capPill = piece(PILL.x - 4, PILL.y - 4, PILL.w + 8, PILL.h + 8);   // lifted out on "favourite"
+capPill.style.transformOrigin = "50% 50%";
+capPill.style.borderRadius = "38px";
+
+// ── Rosa particles: the app's splash field (rosa/web particles.ts + splash: palette, density 1.4,
+// speed 1, alpha .3, 460 css px band) made a pure function of t ──
+const BW = 390, BH = 460;
+const N = Math.round(BW * BH / 11000 * 1.4);
+const PAL = ["125, 185, 240", "94, 205, 205"];
+const SLOTS = Array.from({ length: N }, (_, i) => ({ life: 4 * (0.8 + hash("l" + i) * 0.4), off: hash("o" + i) * 4 }));
+function particles(cv, t, o, { glow = true, gain = 1 } = {}) {
+  const c = cv.getContext("2d");
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
+  cv.style.opacity = o;
+  if (o <= 0) return;
+  const CSS = cv.width / BW;
+  c.setTransform(CSS, 0, 0, CSS, 0, 0);
+  if (glow) {
+    let g = c.createRadialGradient(BW * .18, BH * 1.3, 0, BW * .18, BH * 1.3, BH * 1.0);
+    g.addColorStop(0, "rgba(22,51,122,.55)"); g.addColorStop(.72, "rgba(22,51,122,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+    g = c.createRadialGradient(BW * .82, BH * 1.2, 0, BW * .82, BH * 1.2, BH * .9);
+    g.addColorStop(0, "rgba(13,148,136,.4)"); g.addColorStop(.7, "rgba(13,148,136,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  }
+  const ps = [];
+  SLOTS.forEach(({ life, off }, i) => {
+    const k = Math.floor((t + off) / life), age = t + off - k * life, f = age * 60;
+    const r = (s) => hash(s + i + "-" + k);
+    const depth = Math.pow(r("d"), 0.85), rad = 0.5 + depth * (3.2 - 0.5), blur = (1 - depth) * 4.5;
+    const vy = -(0.24 + depth * 1.4), vx = (r("v") - 0.5) * (0.05 + depth * 0.28);
+    const ph = r("p") * 6.283, ws = 0.004 + r("w") * 0.012, wa = 0.05 + depth * 0.4;
+    const x = r("x") * BW + vx * f + (wa / ws) * (Math.cos(ph) - Math.cos(ph + ws * f));
+    const y = BH + r("y") * 30 + vy * f;
+    const tw = r("t") * 6.283 + (0.008 + r("s") * 0.025) * f;
+    const lf = age / life, env = lf < .15 ? lf / .15 : lf > .7 ? (1 - lf) / .3 : 1;
+    const a = clamp((0.22 + depth * 0.7) * 0.3 * gain * Math.min(1, (BH - y) / 80) * Math.min(1, y / (BH * .55)) * (0.75 + Math.sin(tw) * .25) * env);
+    if (a > 0.002 && y > -10) ps.push({ x, y, rad, depth, bucket: Math.round(blur), a, col: PAL[Math.floor(r("c") * PAL.length)] });
+  });
+  ps.sort((p, q) => p.depth - q.depth);
+  const dot = (p, rad, blur, a) => {
+    c.filter = blur ? `blur(${blur / 2 * CSS}px)` : "none";
+    c.globalAlpha = a; c.fillStyle = `rgb(${p.col})`;
+    c.beginPath(); c.arc(p.x, p.y, rad, 0, 6.283); c.fill();
+  };
+  for (const p of ps) if (p.bucket === 0 && p.rad > 1.4) dot(p, p.rad * 2.6, 8, p.a * .55);
+  for (const p of ps) dot(p, p.rad, p.bucket, p.a);
+  c.filter = "none"; c.globalAlpha = 1;
+}
+
+// ── footage: seek and wait for the frame ──
+function seekVideo(v, s) {
+  s = Math.max(0, Math.min(s, (v.duration || 30) - 0.05));
+  if (v.readyState >= 2 && Math.abs(v.currentTime - s) < 1e-3) return Promise.resolve();
+  return new Promise((res) => {
+    const done = () => { v.removeEventListener("seeked", done); res(); };
+    v.addEventListener("seeked", done);
+    v.currentTime = s;
+  });
+}
+const loaded = (v) => v.readyState >= 1 ? Promise.resolve() : new Promise((r) => v.addEventListener("loadedmetadata", r, { once: true }));
+
+// ── fx: rings + sparks where something lands ──
+let fx = "", sfx = "";
+function burst(x, y, k, col, big = 1, screen = false) {
+  if (k <= 0 || k >= 1) return;
+  const e = outExpo(k);
+  let s = `<circle cx="${x}" cy="${y}" r="${(30 + 150 * e) * big}" fill="none" stroke="${col}" stroke-width="${14 * (1 - k)}" opacity="${1 - k}"/>`;
+  for (let i = 0; i < 14; i++) {
+    const a = hash("sa" + i + col) * 6.283, d = (60 + hash("sd" + i) * 170) * outCubic(k) * big;
+    s += `<circle cx="${x + Math.cos(a) * d}" cy="${y + Math.sin(a) * d}" r="${8 * (1 - k) * (0.6 + hash("sr" + i)) * Math.sqrt(big)}" fill="${col}" opacity="${1 - k}"/>`;
+  }
+  if (screen) sfx += s; else fx += s;
+}
+// a wide flat ring that trails a pill across the screen
+function streak(x, y, dx, dy, k, col) {
+  if (k <= 0 || k >= 1) return;
+  for (let i = 0; i < 5; i++) {
+    const o = (hash("st" + i + col) - .5) * 200, len = 260 + 420 * (1 - k) * hash("sl" + i + col);
+    const ax = x + (dy ? o : 0), ay = y + (dx ? o : 0);
+    sfx += `<line x1="${ax}" y1="${ay}" x2="${ax + dx * len}" y2="${ay + dy * len}" stroke="${col}" stroke-width="${10 * (1 - k)}" stroke-linecap="round" opacity="${(1 - k) * .8}"/>`;
+  }
+}
+
+// ── phone poses: rig = translate(X, Y) scale(S); a capture point (cx, cy) lands at X + (36 + cx) S ──
+const at = (cx, cy, sx, sy, S) => ({ S, X: sx - (36 + cx) * S, Y: sy - (36 + cy) * S });
+const S0 = 330 / PILL.h;                    // the big pill, 1:1 with the app's pill
+const PA = { S: .8, X: (1080 - 1242 * .8) / 2, Y: 270 };
+const PC = at(585, 884, 540, 1030, .95);   // rating card edge to edge under the chips
+const PE = { S: .74, X: (1080 - 1242 * .74) / 2, Y: 690 };
+const PX = { ...PE, Y: 2150 };
+const mix = (P, Q, k) => ({ S: lerp(P.S, Q.S, k), X: lerp(P.X, Q.X, k), Y: lerp(P.Y, Q.Y, k) });
+
+async function seek(t) {
+  fx = ""; sfx = "";
+  const ex = inOut(seg(t, T.exit[0], T.exit[1]));
+
+  // ── 0. light stage: brand blobs drift, every beat tints the room ──
+  const b1 = 30 + 12 * Math.sin(t * .9), b2 = 70 + 10 * Math.cos(t * .7);
+  $("blobs").style.background = `radial-gradient(60% 40% at ${b1}% 18%, rgba(17,183,242,.22), rgba(17,183,242,0) 70%),
+    radial-gradient(55% 35% at ${b2}% 88%, rgba(3,42,250,.14), rgba(3,42,250,0) 70%)`;
+  let tint = "#000", tk = 0;
+  PILLS.forEach((p, i) => { const k = seg(t, T.beats[i], T.beats[i] + .5); if (k > 0 && k < 1) { tint = p.glow; tk = 1 - k; } });
+  $("tint").style.background = tint; $("tint").style.opacity = .12 * tk;
+
+  // ── 1. pills fire one per word, each shoves the last one off the screen ──
+  let shake = 0;
+  PILLS.forEach((p, i) => {
+    const a = T.beats[i], el = p.el;
+    const nx = PILLS[i + 1], na = T.beats[i + 1];
+    let x = 0, y = 0, s = 1, r = 0, sk = 0, bl = 0, o = 1;
+    if (p.from) {
+      const k = outExpo(seg(t, a - .06, a + .3)), v = 1 - k;
+      x = p.from[0] * 1300 * v; y = p.from[1] * 1500 * v;
+      sk = -p.from[0] * 22 * v; bl = 16 * v * (k > 0 ? 1 : 0);
+      s = 1 + .08 * Math.sin(Math.PI * seg(t, a + .05, a + .35));
+    } else {
+      const k = seg(t, a - .08, a + .45);
+      s = t < a - .08 ? 0 : outBack(k, 2.2); r = (1 - outExpo(k)) * -14;
+    }
+    if (nx) {                                  // the next pill knocks it out the far side
+      const dir = nx.from ? [-nx.from[0], -nx.from[1]] : [0, 0];
+      const k = inExpo(seg(t, na - .1, na + .12));
+      if (nx.from) { x += dir[0] * 1400 * k; y += dir[1] * 1600 * k; bl += 14 * k; sk += dir[0] * 18 * k; }
+      else { s *= 1 - k; o = 1 - k; }
+      if (t > na + .14) o = 0;
+      streak(540 - dir[0] * 120, 900 - dir[1] * 120, -dir[0], -dir[1], seg(t, na - .02, na + .3), p.glow);
+    }
+    if (i === 4) {                              // hands over to the capture pill at the swap
+      o = 1 - seg(t, T.swap, T.swap + .08);
+    }
+    el.style.visibility = t < a - .08 || o <= 0 ? "hidden" : "visible";
+    el.style.opacity = o;
+    el.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) scale(${s}) rotate(${r}deg) skewX(${sk}deg)`;
+    el.style.filter = bl > .3 ? `blur(${bl}px)` : "none";
+    el.style.boxShadow = `0 30px 80px ${p.glow}55`;
+    burst(540, 900, seg(t, a + .02, a + .7), p.glow, i === 4 ? 3.2 : 1.9, true);
+    const sh = seg(t, a, a + .35); if (sh > 0 && sh < 1) shake += Math.sin(sh * 40) * (1 - sh) * (i === 4 ? 26 : 12);
+    // gauge: one segment per rating, in its colour
+    const gk = outExpo(seg(t, a, a + .35));
+    GAUGE[i].style.width = gk * 100 + "%"; GAUGE[i].style.background = p.bg === PILLS[0].bg ? "rgba(48,56,78,.45)" : p.bg;
+  });
+  $("world").style.transform = `translate(${shake * .6}px, ${shake}px)`;
+  const gout = inOut(seg(t, T.swap - .3, T.swap + .1));
+  $("gauge").style.top = SAFE_TOP + 70 + "px";
+  $("gauge").style.opacity = 1 - gout;
+  $("gauge").style.transform = `translateY(${-gout * 60}px)`;
+
+  // ── 2. Epic: the footage bursts open from the pill, the camera pulls back out of it into the phone ──
+  const rv = outCubic(seg(t, T.swap - .2, T.swap + .9));
+  $("photo").style.clipPath = `circle(${rv * 2300}px at 540px 900px)`;
+  $("photo").style.visibility = rv > 0 ? "visible" : "hidden";
+  if (rv > 0 && rv < 1) sfx += `<circle cx="540" cy="900" r="${rv * 2300}" fill="none" stroke="#fff" stroke-width="${40 * (1 - rv)}" opacity="${.8 * (1 - rv)}"/>`;
+  const drift = sine(seg(t, 0, T.dur));
+  $("photo").style.transform = `scale(${lerp(1.18 - .1 * drift, 1.25, ex)})`;
+  $("photo").style.filter = `blur(${ex * 9}px)`;
+  const dim = .05 + .1 * seg(t, T.back[0], T.back[1]) + ex * .05;
+  $("shade").style.background = `linear-gradient(180deg, rgba(3,42,250,${dim + .22}) 0%, rgba(2,12,42,${dim}) 45%, rgba(2,12,42,${dim + .2}) 100%)`;
+
+  const pk = inOut(seg(t, T.pull[0], T.pull[1]));
+  const S = S0 * Math.pow(PA.S / S0, pk);   // scale eases geometrically so the pull feels constant
+  const pp = { x: lerp(540, PA.X + (36 + PILL.cx) * PA.S, inOut(pk)), y: 900 };
+  let P = { S, X: pp.x - (36 + PILL.cx) * S, Y: pp.y - (36 + PILL.cy) * S };
+  P = mix(P, PC, inOut(seg(t, T.push[0], T.push[1])));
+  const bk = inOut(seg(t, T.back[0], T.back[1]));
+  P = mix(P, PE, bk);
+  P = mix(P, PX, ex);
+  let kick = 0;
+  [...T.bars.map((b) => b + .3), T.rated].forEach((b) => { const k = seg(t, b, b + .4); if (k > 0 && k < 1) kick += Math.sin(Math.PI * k) * (1 - k); });
+  const kS = 1 + .02 * kick;
+  $("rig").style.transform = `translate(${P.X - 621 * P.S * (kS - 1)}px, ${P.Y - 1302 * P.S * (kS - 1)}px) scale(${P.S * kS})`;
+  const swing = Math.sin(Math.PI * seg(t, T.back[0], T.back[1] + .3));
+  const live = seg(t, T.pull[1] - .4, T.pull[1] + .3);
+  const rx = live * (4 + Math.sin(t * .8) * 1.5) * (1 - seg(t, T.push[0], T.push[1]) + bk) + ex * 30 - swing * 4;
+  const ry = live * Math.sin(t * .6) * 3 + swing * 24 - bk * 8;
+  $("phone").style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${kick * .8 - bk * 3 + ex * 6}deg)`;
+  const chrome = seg(t, T.swap + .15, T.pull[1]);   // bezel and shadow come in as the phone shrinks into view
+  $("phone").style.boxShadow = `inset 0 0 0 3px rgba(255,255,255,.6), inset 0 0 0 8px rgba(0,0,0,.08), 0 90px 180px rgba(0,8,40,${.6 * chrome}), 0 0 160px rgba(17,183,242,${.3 * chrome})`;
+  $("rig").style.visibility = t < T.swap || ex >= 1 ? "hidden" : "visible";
+  $("glare").style.backgroundPosition = `${lerp(110, -10, seg(t, T.pull[0] + .3, T.pull[1] + .8)) + lerp(0, 120, seg(t, T.back[0], T.back[1] + .4))}% 0`;
+
+  // ── 3. bars fill, each name lands above the card with its own bar ──
+  $("chips").style.top = SAFE_TOP + 40 + "px";
+  const cOut = inOut(seg(t, T.back[0] - .1, T.back[0] + .3));
+  const cIn = outBack(seg(t, T.bars[0] - .3, T.bars[0] + .15), 1.3);
+  $("chips").style.visibility = t < T.bars[0] - .3 || cOut >= 1 ? "hidden" : "visible";
+  $("chips").style.opacity = clamp(cIn * 2) * (1 - cOut);
+  $("chips").style.transform = `translateY(${(1 - cIn) * -80 - cOut * 80}px) scale(${lerp(.85, 1, clamp(cIn))})`;
+  BARS.forEach((b, i) => {
+    const a = T.bars[i], k = outExpo(seg(t, a, a + .55));
+    const frac = (b.end - BAR_X) / BAR_W;
+    b.fill.style.clipPath = `inset(0 ${(1 - (k < 1 ? k * (frac * BAR_W + 8) / (BAR_W + 16) : 1)) * 100}% 0 0)`;
+    const land = seg(t, a + .25, a + .9);
+    b.fill.style.filter = land > 0 && land < 1 ? `drop-shadow(0 0 ${14 * (1 - land)}px ${b.col}) brightness(${1 + .25 * (1 - land)})` : "none";
+    burst(b.end, b.y, seg(t, a + .28, a + .95), b.col, .55);
+
+    const q = outBack(seg(t, a - .15, a + .3), 1.5);
+    const c = b.chip;
+    c.style.visibility = t < a - .15 ? "hidden" : "visible";
+    c.style.opacity = clamp(q * 2) * (1 - cOut);
+    c.style.transform = `translateY(${(1 - q) * 120 - cOut * 120}px) scale(${lerp(.6, 1, clamp(q))})`;
+    c.style.filter = `blur(${cOut * 10}px)`;
+    const bar = c.querySelector(".bar > i");
+    bar.style.width = k * frac * 100 + "%";
+    bar.style.boxShadow = `0 0 ${30 * (1 - land) + 8}px ${b.col}`;
+  });
+
+  // ── 4. "favourite": the Epic pill lifts off the screen, line by line text ──
+  const lk = seg(t, T.rated, T.rated + .6), fall = inOut(seg(t, T.exit[0] - .4, T.exit[0]));
+  capPill.style.transform = `translateZ(0) scale(${1 + .45 * outBack(lk, 2.4) * (1 - fall)})`;
+  capPill.style.boxShadow = lk > 0 ? `0 ${24 * (1 - fall)}px ${60 * (1 - fall)}px rgba(12,103,51,${.55 * (1 - fall)})` : "none";
+  burst(PILL.cx, PILL.cy, seg(t, T.rated + .1, T.rated + .9), "#24b161", 1.1);
+  $("rated").style.top = SAFE_TOP + 60 + "px";
+  [["r1", T.rated], ["r2", T.rated + .22]].forEach(([id, a]) => {
+    const i = outExpo(seg(t, a, a + .7)), o = inOut(seg(t, T.exit[0] - .1, T.exit[0] + .3));
+    $(id).style.transform = `translateY(${(1 - i) * 110 - o * 110}%)`;
+    $(id).style.opacity = Math.min(clamp(i * 1.5), 1 - o);
+    $(id).style.filter = `blur(${(1 - i) * 10 + o * 8}px)`;
+  });
+  $("rated").style.visibility = t < T.rated ? "hidden" : "visible";
+
+  // ── 5. particles rise in the empty space: under the pills, then under the end card ──
+  const onLight = t < T.swap + .3;
+  $("pt").style.mixBlendMode = onLight ? "normal" : "screen";
+  const po = onLight ? .9 * seg(t, 0, .4) * (1 - seg(t, T.swap, T.swap + .3)) : Math.max(.55 * bk, seg(t, T.exit[0], T.exit[1]));
+  particles($("pt"), t, po, { glow: !onLight, gain: onLight ? 3.2 : 2.4 });
+
+  const E = T.end;
+  $("end").style.top = SAFE_TOP + 130 + "px";
+  const lg = seg(t, E, E + .8);
+  $("logo").style.transform = `scale(${lerp(.4, 1, outBack(lg))}) rotate(${(1 - outExpo(lg)) * -20}deg)`;
+  $("logo").style.opacity = clamp(lg * 3);
+  const pop = (el, a) => { const k = outExpo(seg(t, a, a + .8)); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * 60}px)`; el.style.filter = `blur(${(1 - k) * 8}px)`; };
+  pop($("e1"), E + .2); pop($("btn"), E + .5); pop($("e3"), E + .85);
+  const glow = 30 + 10 * Math.sin(t * 2.6);
+  $("btn").style.boxShadow = `0 0 ${glow}px rgba(17,183,242,.65), 0 0 ${glow * 2.4}px rgba(17,183,242,.28)`;
+  $("end").style.visibility = t < E ? "hidden" : "visible";
+
+  $("fx").innerHTML = fx;
+  $("sfx").innerHTML = sfx;
+  await document.fonts.ready;
+  const v = $("v"); await loaded(v);
+  const D = v.duration - .1, rate = Math.min(1, D / T.dur);
+  await seekVideo(v, Math.max(0, Math.min(4, D - T.dur * rate)) + t * rate);
+}
+window.__film = { seek, duration: T.dur };
+</script>
+</body></html>

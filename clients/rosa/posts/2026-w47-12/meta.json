@@ -1,0 +1,27 @@
+{
+  "slot_id": "2026-w47-12",
+  "title": "The week, in motion",
+  "pillar": "Swell map",
+  "angle": "The dark swell chart plays the week's frames full screen, colour flowing across the ocean, with day names flicking past in big white type. Halfway through, the chart folds back into a large phone that keeps playing while the camera orbits it. The swell reaches one coast and the screen swaps to that spot's Good day. Rosa particles rise in the empty space, then the closing card.",
+  "hook_formula": "A whole week in seconds",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Upbeat Summer (Caldena), baked in",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w47-12/film",
+    "source": "clients/rosa/posts/2026-w47-12/film/index.html",
+    "music": "clients/rosa/assets/music/upbeat-summer-617557.mp3"
+  },
+  "track": "upbeat-summer",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w47-12",
+  "plan": "2026-W47",
+  "motion": null,
+  "theme": "dark",
+  "duration_s": 18.0
+}

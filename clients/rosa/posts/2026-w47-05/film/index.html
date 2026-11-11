@@ -1,0 +1,372 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url(inter-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #020c2a; }
+body { font-family: Inter, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+#clip { position: absolute; inset: 0; overflow: hidden; }
+video { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; transform-origin: 55% 60%; }
+#tint, #shade { position: absolute; inset: 0; }
+#tint { background: linear-gradient(180deg, #032afa 0%, #0a1f8f 55%, #020c2a 100%); mix-blend-mode: multiply; }
+#waves, #ring { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+#pt { position: absolute; left: 0; top: 646px; mix-blend-mode: screen; pointer-events: none; }
+#flash { position: absolute; inset: 0; background: #fff; pointer-events: none; opacity: 0; }
+
+#rig { position: absolute; left: 0; top: 0; transform-origin: 0 0; perspective: 2800px; }
+#phone { position: relative; padding: 30px; border-radius: 140px; transform-style: preserve-3d; transform-origin: 50% 45%;
+  background: linear-gradient(150deg, #ffffff, #c9d0db 40%, #eef1f5 70%, #b7bfcb); }
+#screen { position: relative; width: 1170px; height: 2532px; overflow: hidden; border-radius: 110px; background: #f4f3f3; }
+.cap { position: absolute; background-repeat: no-repeat; background-size: 1170px 5469px; }
+#head { left: 0; top: 0; width: 1170px; height: 160px; background-image: url(pl-f18.png); background-position: 0 0; }
+.strip { left: 0; top: 160px; width: 1170px; height: 508px; }
+.pane { position: absolute; left: 0; top: 668px; width: 1170px; height: 1864px; overflow: hidden; background: #f4f3f3; }
+#nav { position: absolute; left: 48px; top: 2292px; width: 1074px; height: 192px; border-radius: 96px; background: url(pl-d18.png) no-repeat;
+  background-size: 1170px 2532px; background-position: -48px -2292px; box-shadow: 0 10px 40px rgba(13,18,37,.14); }
+#glare { position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,0) 40%, rgba(255,255,255,.32) 50%, rgba(255,255,255,0) 60%); background-size: 300% 100%; }
+#pop { position: absolute; left: 126px; top: 778px; width: 147px; height: 68px; border-radius: 34px;
+  background: url(pl-f19.png) no-repeat; background-size: 1170px 5469px; background-position: -96px -1525px; }
+
+.h { font-weight: 850; letter-spacing: -0.055em; line-height: .92; }
+.mask { overflow: hidden; padding-bottom: .08em; }
+.mask > span, .ch { display: inline-block; }
+#hook { position: absolute; left: 65px; width: 950px; }
+#w1 { font-size: 190px; }
+#w2 { font-size: 190px; white-space: nowrap; }
+#w3 { font-size: 250px; color: #fff; margin-top: 40px; }
+
+#tick { position: absolute; left: 65px; width: 950px; height: 160px; display: flex; align-items: center; justify-content: space-between; }
+#dateM { position: relative; height: 160px; overflow: hidden; flex: 1; }
+#dateM > div, #rateM > div { position: absolute; left: 0; top: 0; }
+.dt { font-size: 140px; font-weight: 850; letter-spacing: -0.05em; line-height: 160px; white-space: nowrap; }
+#rateM { position: relative; width: 340px; height: 160px; overflow: hidden; }
+.rp { width: 340px; height: 160px; display: flex; align-items: center; justify-content: flex-end; transform-origin: 100% 50%; }
+.rp i { font-style: normal; display: inline-block; padding: 12px 46px 18px; border-radius: 999px; color: #fff; font-size: 88px; font-weight: 800; letter-spacing: -0.03em; }
+
+#end { position: absolute; left: 65px; width: 950px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+#btn { margin-top: 130px; padding: 34px 90px; border-radius: 999px; background: #11b7f2; color: #fff; font-weight: 800; font-size: 60px; letter-spacing: -0.01em; }
+</style></head>
+<body>
+<div id="clip">
+  <video id="v" src="283533_large.mp4" muted playsinline preload="auto"></video>
+  <div id="tint"></div>
+  <div id="shade"></div>
+</div>
+<svg id="waves" viewBox="0 0 1080 1920"></svg>
+<canvas id="pt" width="1080" height="1274"></canvas>
+
+<div id="hook">
+  <div class="mask h" id="w1"><span>It's</span></div>
+  <div class="mask h" id="w2"></div>
+  <div class="mask h" id="w3"><span id="w3s">Watch.</span></div>
+</div>
+
+<div id="tick">
+  <div id="dateM"></div>
+  <div id="rateM"></div>
+</div>
+
+<div id="rig"><div id="phone">
+  <div id="screen">
+    <div id="panes"></div>
+    <div id="head" class="cap"></div>
+    <div id="strips"></div>
+    <div id="nav"></div>
+    <div id="glare"></div>
+  </div>
+  <div id="pop"></div>
+</div></div>
+<svg id="ring" viewBox="0 0 1080 1920"></svg>
+<div id="flash"></div>
+
+<div id="end">
+  <img id="logo" src="rosa-icon.svg" style="width:190px; height:190px">
+  <div id="e1" class="h" style="font-size:112px; margin-top:60px">Watch it build.</div>
+  <div id="btn">Install it</div>
+  <div id="e3" style="font-size:52px; font-weight:600; margin-top:50px">link in bio</div>
+</div>
+
+<script>
+const variant = new URLSearchParams(location.search).get("variant") === "story" ? "story" : "reel";
+const SAFE_TOP = variant === "story" ? 269 : 285;
+const $ = (id) => document.getElementById(id);
+
+// ── easing ──
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const inOut = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const sine = (x) => -(Math.cos(Math.PI * x) - 1) / 2;
+const smooth = (x) => x * x * (3 - 2 * x);
+const outExpo = (x) => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const inExpo = (x) => x <= 0 ? 0 : Math.pow(2, 10 * x - 10);
+const outBack = (x, s = 1.6) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
+const bump = (t, a, b) => { const k = seg(t, a, b); return k > 0 && k < 1 ? Math.sin(Math.PI * k) * (1 - k) : 0; };
+const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1e6) / 1e6; };
+
+// ── timeline (s) ──
+const T = { swing: [2.45, 3.45], swipe: [4.0, 9.6], push: [9.85, 10.85], exit: [12.0, 12.75], end: 12.7, dur: 17 };
+
+// ── live captures: rosa.surf/spot/pipeline?ev=<date>&theme=light, full page, 2026-11-10, 1170 x 5469.
+// The night-black live cam (rows 668-1445) is cut: header + day strip, then the rating card on. ──
+const DAYS = [["Wed 18", "Good"], ["Thu 19", "Epic"], ["Fri 20", "Epic"], ["Sat 21", "Epic"]];
+const N = DAYS.length;
+const COL = { Fair: "#11b7f2", Good: "#24b161", Epic: "#0c6733" };
+const img = (i) => `url(pl-f${18 + i}.png)`;
+const SCROLL0 = [0, 78, 78, 78];                          // the day strip's own scroll in each capture
+const CUT = { card: 1445, cardH: 817, rows: 2500 };       // source rows: card + table head, then hour rows below the nav
+
+const panes = DAYS.map((_, i) => {
+  const p = document.createElement("div");
+  p.className = "pane";
+  const b = document.createElement("div"), c = document.createElement("div");
+  b.className = c.className = "cap";
+  Object.assign(b.style, { left: 0, top: 0, width: "1170px", height: CUT.cardH + "px", backgroundImage: img(i), backgroundPosition: `0 ${-CUT.card}px` });
+  Object.assign(c.style, { left: 0, top: CUT.cardH + "px", width: "1170px", height: 1864 - CUT.cardH + "px", backgroundImage: img(i), backgroundPosition: `0 ${-CUT.rows}px` });
+  p.append(b, c);
+  $("panes").appendChild(p);
+  return p;
+});
+const patch = document.createElement("div");               // card white under the pill while it is out
+Object.assign(patch.style, { position: "absolute", left: "90px", top: "74px", width: "160px", height: "80px", borderRadius: "40px", background: "#fdfdfe" });
+panes[1].appendChild(patch);
+const strips = DAYS.map((_, i) => {
+  const s = document.createElement("div");
+  s.className = "cap strip";
+  s.style.backgroundImage = img(i);
+  s.style.backgroundPosition = "0 -160px";
+  $("strips").appendChild(s);
+  return s;
+});
+
+DAYS.forEach(([day, r]) => {
+  const a = document.createElement("div"); a.className = "dt"; a.textContent = day; $("dateM").appendChild(a);
+  const b = document.createElement("div"); b.className = "rp"; b.innerHTML = `<i style="background:${COL[r]}">${r}</i>`; $("rateM").appendChild(b);
+});
+$("w2").innerHTML = [..."building."].map((c) => `<span class="ch">${c}</span>`).join("");
+
+// ── Rosa particles: the app's splash field (rosa/web particles.ts + splash: palette, density 1.4,
+// speed 1, alpha .3, 460 css px band) made a pure function of t ──
+const BW = 390, BH = 460;
+const NP = Math.round(BW * BH / 11000 * 1.4);
+const PAL = ["125, 185, 240", "94, 205, 205"];
+const SLOTS = Array.from({ length: NP }, (_, i) => ({ life: 4 * (0.8 + hash("l" + i) * 0.4), off: hash("o" + i) * 4 }));
+function particles(cv, t, o, { glow = true, gain = 1 } = {}) {
+  const c = cv.getContext("2d");
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
+  cv.style.opacity = o;
+  if (o <= 0) return;
+  const CSS = cv.width / BW;
+  c.setTransform(CSS, 0, 0, CSS, 0, 0);
+  if (glow) {
+    let g = c.createRadialGradient(BW * .18, BH * 1.3, 0, BW * .18, BH * 1.3, BH * 1.0);
+    g.addColorStop(0, "rgba(22,51,122,.55)"); g.addColorStop(.72, "rgba(22,51,122,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+    g = c.createRadialGradient(BW * .82, BH * 1.2, 0, BW * .82, BH * 1.2, BH * .9);
+    g.addColorStop(0, "rgba(13,148,136,.4)"); g.addColorStop(.7, "rgba(13,148,136,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  }
+  const ps = [];
+  SLOTS.forEach(({ life, off }, i) => {
+    const k = Math.floor((t + off) / life), age = t + off - k * life, f = age * 60;
+    const r = (s) => hash(s + i + "-" + k);
+    const depth = Math.pow(r("d"), 0.85), rad = 0.5 + depth * (3.2 - 0.5), blur = (1 - depth) * 4.5;
+    const vy = -(0.24 + depth * 1.4), vx = (r("v") - 0.5) * (0.05 + depth * 0.28);
+    const ph = r("p") * 6.283, ws = 0.004 + r("w") * 0.012, wa = 0.05 + depth * 0.4;
+    const x = r("x") * BW + vx * f + (wa / ws) * (Math.cos(ph) - Math.cos(ph + ws * f));
+    const y = BH + r("y") * 30 + vy * f;
+    const tw = r("t") * 6.283 + (0.008 + r("s") * 0.025) * f;
+    const lf = age / life, env = lf < .15 ? lf / .15 : lf > .7 ? (1 - lf) / .3 : 1;
+    const a = clamp((0.22 + depth * 0.7) * 0.3 * gain * Math.min(1, (BH - y) / 80) * Math.min(1, y / (BH * .55)) * (0.75 + Math.sin(tw) * .25) * env);
+    if (a > 0.002 && y > -10) ps.push({ x, y, rad, depth, bucket: Math.round(blur), a, col: PAL[Math.floor(r("c") * PAL.length)] });
+  });
+  ps.sort((p, q) => p.depth - q.depth);
+  const dot = (p, rad, blur, a) => {
+    c.filter = blur ? `blur(${blur / 2 * CSS}px)` : "none";
+    c.globalAlpha = a; c.fillStyle = `rgb(${p.col})`;
+    c.beginPath(); c.arc(p.x, p.y, rad, 0, 6.283); c.fill();
+  };
+  for (const p of ps) if (p.bucket === 0 && p.rad > 1.4) dot(p, p.rad * 2.6, 8, p.a * .55);
+  for (const p of ps) dot(p, p.rad, p.bucket, p.a);
+  c.filter = "none"; c.globalAlpha = 1;
+}
+
+// ── footage: seek and wait for the frame ──
+function seekVideo(v, s) {
+  const d = v.duration || 30;
+  s = s % (d - 0.1);
+  if (v.readyState >= 2 && Math.abs(v.currentTime - s) < 1e-3) return Promise.resolve();
+  return new Promise((res) => {
+    const done = () => { v.removeEventListener("seeked", done); res(); };
+    v.addEventListener("seeked", done);
+    v.currentTime = s;
+  });
+}
+const loaded = (v) => v.readyState >= 1 ? Promise.resolve() : new Promise((r) => v.addEventListener("loadedmetadata", r, { once: true }));
+
+// ── phone poses: rig = translate(X, Y) scale(S); the phone is 1230 x 2592 ──
+const S = .55;
+const POSE = { S, X: (1080 - 1230 * S) / 2, Y: SAFE_TOP + 200 };
+const S2 = .8, FOC = [615, 1080];                          // the push: rating card to frame centre
+const PUSH = { S: S2, X: 540 - FOC[0] * S2, Y: 1010 - FOC[1] * S2 };
+
+// one swipe over the four days: eased in and out, breathing on each day
+function swipe(t) {
+  const x = seg(t, T.swipe[0], T.swipe[1]);
+  const u = (N - 1) * (x - Math.sin(2 * Math.PI * x) / (2 * Math.PI));
+  return { u, p: u - .75 * Math.sin(2 * Math.PI * u) / (2 * Math.PI) };
+}
+
+// the swell line: grows with the swipe
+function wavePath(y0, amp, len, ph) {
+  let d = `M -20 ${y0}`;
+  for (let x = -20; x <= 1100; x += 15) d += ` L ${x} ${(y0 + amp * Math.sin(x / len * 6.283 + ph) * (0.6 + 0.4 * Math.sin(x / 700 + ph * .3))).toFixed(1)}`;
+  return d;
+}
+
+async function seek(t) {
+  let ring = "";
+  const sw = seg(t, T.swing[0], T.swing[1]);
+  const ex = seg(t, T.exit[0], T.exit[1]);
+  const { u, p } = swipe(t);
+
+  // ── 1. heavy water, full screen; it darkens to brand blue under the phone, back for the card ──
+  const under = smooth(seg(t, T.swing[0] - .1, T.swing[1]));
+  const endIn = smooth(seg(t, T.end - .1, T.end + .8));
+  $("v").style.transform = `scale(${lerp(1.06, 1.3, sine(seg(t, 0, T.swing[0]))) + .12 * inExpo(seg(t, 1.9, T.swing[0] + .2)) - .1 * under + .04 * sine(seg(t, T.end, T.dur))}) rotate(${-2 * under}deg)`;
+  $("v").style.filter = `blur(${lerp(0, 8, under) * (1 - endIn) + 3 * endIn}px) saturate(${1.15 - .25 * under})`;
+  $("tint").style.opacity = .7 * under * (1 - endIn) + .45 * endIn;
+  $("shade").style.background = `linear-gradient(180deg, rgba(2,12,42,${.45 + .2 * under}) 0%, rgba(2,12,42,${.08 + .2 * under}) 40%, rgba(2,12,42,${.15 + .4 * under}) 100%)`;
+
+  // ── 2. hook: "It's" / "building." letters climb / "Watch." slams ──
+  const hk = $("hook");
+  hk.style.top = SAFE_TOP + 280 + "px";
+  const hOut = inExpo(seg(t, T.swing[0] - .2, T.swing[0] + .25));
+  hk.style.transform = `translateX(${-hOut * 260}px) scale(${1 + .4 * hOut})`;
+  hk.style.opacity = 1 - hOut;
+  hk.style.filter = `blur(${hOut * 18}px)`;
+  hk.style.visibility = hOut >= 1 ? "hidden" : "visible";
+  const k1 = outExpo(seg(t, .1, .7));
+  $("w1").firstChild.style.transform = `translateY(${(1 - k1) * 110}%)`;
+  [...$("w2").children].forEach((s, j) => {
+    // letters rise like a set, each a little higher than the last
+    const q = outBack(seg(t, .35 + j * .05, .85 + j * .05), 1.8);
+    s.style.transform = `translateY(${(1 - q) * 120}%) translateY(${-Math.sin(Math.PI * seg(t, .9 + j * .05, 1.5 + j * .05)) * (8 + j * 3)}px)`;
+  });
+  const k3 = seg(t, 1.45, 1.75);
+  const slam = k3 > 0 ? lerp(2.4, 1, outExpo(k3)) : 2.4;
+  $("w3s").style.transform = `scale(${slam}) rotate(${(1 - outExpo(k3)) * -6}deg)`;
+  $("w3s").style.opacity = clamp(k3 * 3);
+  $("w3").style.transformOrigin = "0 50%";
+  $("w3s").style.transformOrigin = "0 60%";
+  const shake = bump(t, 1.62, 2.1);
+  hk.style.translate = `${Math.sin(t * 90) * 14 * shake}px ${Math.cos(t * 77) * 10 * shake}px`;
+  $("flash").style.opacity = .22 * Math.pow(1 - seg(t, 1.62, 1.9), 2) * (t >= 1.62 ? 1 : 0);
+
+  // ── 3. the phone swings in from the right, big and centred ──
+  const sk = outBack(sw, 1.15);
+  const pu = outExpo(seg(t, T.push[0], T.push[1]));
+  const exE = inExpo(ex);
+  let Sk = lerp(S, PUSH.S, pu), X = lerp(POSE.X, PUSH.X, pu), Y = lerp(POSE.Y, PUSH.Y, pu);
+  // the exit: straight through the lens, around the rating card
+  const Se = Sk * (1 + 4 * exE);
+  X = X - FOC[0] * (Se - Sk); Y = Y - FOC[1] * (Se - Sk); Sk = Se;
+  X += lerp(1100, 0, sk);
+  const kick = bump(t, T.swing[1] - .1, T.swing[1] + .6);
+  $("rig").style.transform = `translate(${X}px, ${Y + 30 * kick}px) scale(${Sk})`;
+  const breathe = Math.sin(t * .8);
+  const sws = sine(seg(t, T.swipe[0], T.swipe[1]));
+  const rx = lerp(18, 4, sk) + 1.5 * breathe - 4 * pu;
+  const ry = lerp(-75, -12, sk) + 16 * sws + 2 * Math.sin(t * .55) + lerp(0, -4, pu) - 12 * pu * sws;
+  const rz = lerp(12, -2, sk) + 3 * sws - 3 * pu;
+  $("phone").style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
+  $("phone").style.boxShadow = `inset 0 0 0 3px rgba(255,255,255,.7), inset 0 0 0 8px rgba(0,0,0,.06), 0 100px 200px rgba(0,8,40,.65), 0 0 ${180 + 120 * bump(t, 5.6, 6.8)}px rgba(17,183,242,${.3 + .3 * pu})`;
+  $("phone").style.filter = sw < 1 ? `blur(${(1 - smooth(sw)) * 14}px)` : exE > 0 ? `blur(${exE * 24}px)` : "none";
+  $("rig").style.opacity = 1 - smooth(seg(t, T.exit[0] + .35, T.exit[1]));
+  $("rig").style.visibility = t < T.swing[0] || ex >= 1 ? "hidden" : "visible";
+  $("glare").style.backgroundPosition = `${lerp(130, -10, sw) + 120 * sws + 80 * pu}% 0`;
+
+  // ── 4. the swipe: pages slide, the day strip follows, header and nav hold still ──
+  panes.forEach((pn, i) => {
+    pn.style.visibility = Math.abs(i - p) < 1.02 ? "visible" : "hidden";
+    pn.style.transform = `translateX(${(i - p) * 1170}px)`;
+  });
+  const k0 = Math.min(N - 2, Math.floor(p)), fr = clamp(p - k0);
+  const sc = 78 * smooth(clamp(p));
+  strips.forEach((s, i) => {
+    s.style.transform = `translateX(${SCROLL0[i] - sc}px)`;
+    s.style.visibility = i === k0 || i === k0 + 1 ? "visible" : "hidden";
+    s.style.opacity = i === k0 + 1 ? smooth(seg(fr, .25, .75)) : 1;
+  });
+
+  // Thu 19 turns Epic: the pill jumps out of the screen toward the camera, then settles back
+  const e = clamp(1 - Math.abs(u - 1) / .3);
+  const pe = e > 0 ? Math.sin(Math.PI / 2 * smooth(e)) : 0;
+  patch.style.visibility = pe > 0 ? "visible" : "hidden";
+  const pop = $("pop");
+  pop.style.visibility = pe > 0 ? "visible" : "hidden";
+  pop.style.left = 126 + (1 - p) * 1170 + "px";
+  pop.style.transform = `translateZ(${600 * pe}px) translate(${pe * 80}px, ${-pe * 60}px) scale(${1 + 1.5 * pe}) rotateZ(${-6 * pe}deg)`;
+  pop.style.boxShadow = `0 ${30 * pe}px ${80 * pe}px rgba(13,18,37,${.35 * pe}), 0 0 ${90 * pe}px rgba(36,177,97,${pe})`;
+  const pk = seg(u, .82, 1.25);
+  if (pk > 0 && pk < 1) {
+    const cx = X + 200 * Sk, cy = Y + 812 * Sk, q = outExpo(pk);
+    ring += `<circle cx="${cx}" cy="${cy}" r="${60 + 520 * q}" fill="none" stroke="#24b161" stroke-width="${22 * (1 - pk)}" opacity="${1 - pk}"/>`;
+    ring += `<circle cx="${cx}" cy="${cy}" r="${30 + 340 * q}" fill="none" stroke="#fff" stroke-width="${8 * (1 - pk)}" opacity="${.8 * (1 - pk)}"/>`;
+  }
+
+  // ── 5. ticker above the phone: day and rating roll with the swipe ──
+  const tk = $("tick");
+  tk.style.top = SAFE_TOP + 20 + "px";
+  const tin = outExpo(seg(t, T.swing[1] - .15, T.swing[1] + .5)), tout = inOut(seg(t, T.push[0], T.push[0] + .5));
+  tk.style.opacity = tin * (1 - tout);
+  tk.style.transform = `translateY(${(1 - tin) * 90 - tout * 140}px)`;
+  tk.style.visibility = tin <= 0 || tout >= 1 ? "hidden" : "visible";
+  const t0 = Math.floor(p), tf = smooth(seg(p - t0, .3, .7));
+  const roll = (el, i, extra = "") => {
+    const y = i === t0 ? -tf : i === t0 + 1 ? 1 - tf : 2;
+    el.style.transform = `translateY(${y * 160}px)${extra}`;
+    el.style.visibility = y < 2 && y > -1 ? "visible" : "hidden";
+  };
+  [...$("dateM").children].forEach((el, i) => roll(el, i));
+  [...$("rateM").children].forEach((el, i) => roll(el, i, ` scale(${i === 1 ? 1 + .08 * Math.sin(Math.PI * e) : 1})`));
+
+  // ── 6. the swell line behind the phone builds with every day ──
+  const build = clamp(p / (N - 1)), wv = smooth(seg(t, T.swing[0], T.swing[1] + .3)) * (1 - smooth(seg(t, T.exit[0], T.exit[0] + .4)));
+  let w = "";
+  [[1500, 1, .55, 4], [1580, .75, .35, 3], [1660, .5, .2, 2]].forEach(([y0, s, o, sw2], j) => {
+    const amp = (18 + 120 * Math.pow(build, 1.4) + 30 * pu) * s;
+    w += `<path d="${wavePath(y0 - 140 * build, amp, 520 - 60 * j, t * (1.8 + .4 * j) + j)}" fill="none" stroke="#11b7f2" stroke-width="${sw2 + 3 * build}" opacity="${o * wv}" stroke-linecap="round"/>`;
+  });
+  $("waves").innerHTML = w;
+
+  // ── 7. Rosa particles rise in the free space, then behind the end card ──
+  particles($("pt"), t, Math.max(.9 * smooth(seg(t, T.swing[1], T.swing[1] + .8)), seg(t, T.end - .3, T.end + .5)), { gain: 2.6 });
+
+  // ── 8. through the lens: flash, then the end card ──
+  $("flash").style.opacity = Math.max(parseFloat($("flash").style.opacity) || 0, .9 * bump(t, T.exit[1] - .25, T.exit[1] + .6) * 1.6);
+  const E = T.end;
+  $("end").style.top = SAFE_TOP + 90 + "px";
+  const lg = seg(t, E, E + .8);
+  $("logo").style.transform = `scale(${lerp(.3, 1, outBack(lg))}) rotate(${(1 - outExpo(lg)) * -25}deg)`;
+  $("logo").style.opacity = clamp(lg * 3);
+  const rise = (el, a) => { const k = outExpo(seg(t, a, a + .8)); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * 70}px)`; el.style.filter = `blur(${(1 - k) * 10}px)`; };
+  rise($("e1"), E + .2);rise($("btn"), E + .65); rise($("e3"), E + .85);
+  const glow = 34 + 12 * Math.sin(t * 2.6);
+  $("btn").style.boxShadow = `0 0 ${glow}px rgba(17,183,242,.75), 0 0 ${glow * 2.4}px rgba(17,183,242,.35)`;
+  $("end").style.visibility = t < E ? "hidden" : "visible";
+  if (lg > 0 && lg < 1) {
+    const q = outExpo(lg);
+    ring += `<circle cx="540" cy="${SAFE_TOP + 185}" r="${80 + 440 * q}" fill="none" stroke="#11b7f2" stroke-width="${14 * (1 - lg)}" opacity="${1 - lg}"/>`;
+  }
+
+  $("ring").innerHTML = ring;
+  await document.fonts.ready;
+  const v = $("v"); await loaded(v);
+  await seekVideo(v, .2 + t * .8);
+}
+window.__film = { seek, duration: T.dur };
+</script>
+</body></html>

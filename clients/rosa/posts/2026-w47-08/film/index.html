@@ -1,0 +1,347 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url(inter-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #020617; }
+body { font-family: Inter, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+#clip { position: absolute; inset: 0; overflow: hidden; }
+video { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; transform-origin: 50% 45%; }
+#tint, #shade, #glow { position: absolute; inset: 0; }
+#tint { background: linear-gradient(180deg, #0a1f8f 0%, #031046 50%, #01040f 100%); mix-blend-mode: multiply; }
+#glow { background: radial-gradient(60% 40% at 50% 62%, rgba(17,183,242,.28), rgba(17,183,242,0) 70%), radial-gradient(50% 30% at 50% 100%, rgba(3,42,250,.35), rgba(3,42,250,0) 70%); }
+#pt { position: absolute; left: 0; top: 646px; mix-blend-mode: screen; pointer-events: none; }
+#fx, #ring { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+#flash { position: absolute; inset: 0; background: #fff; pointer-events: none; opacity: 0; }
+
+.h { font-weight: 850; letter-spacing: -0.05em; line-height: 1; }
+.mask { overflow: hidden; padding-bottom: .1em; }
+.mask > span { display: inline-block; }
+#hook { position: absolute; left: 65px; width: 950px; font-size: 172px; }
+#hook .ln { height: 182px; white-space: nowrap; }
+.cur { display: inline-block; width: 14px; height: 140px; margin-left: 10px; background: #11b7f2; vertical-align: -6px; box-shadow: 0 0 30px rgba(17,183,242,.9); }
+.gloss { background: linear-gradient(100deg, #fff 0%, #fff 42%, #8fe3ff 48%, #fff 50%, #c9f2ff 53%, #fff 60%, #fff 100%); background-size: 320% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+#eq { position: absolute; z-index: 2; left: 65px; width: 950px; font-size: 112px; }
+#eq .row { display: flex; align-items: center; height: 136px; gap: 26px; white-space: nowrap; }
+#eq .op { color: #11b7f2; }
+.pill { display: inline-block; padding: 8px 40px 18px; border-radius: 999px; background: #0c6733; color: #fff; font-weight: 800; letter-spacing: -0.03em; }
+
+#rig { position: absolute; left: 0; top: 0; transform-origin: 0 0; perspective: 3000px; }
+#phone { position: relative; padding: 30px; border-radius: 140px; transform-style: preserve-3d; transform-origin: 50% 40%;
+  background: linear-gradient(150deg, #4a4f5c, #15171d 35%, #2b2f38 65%, #0b0c10); }
+#screen { position: relative; width: 1170px; height: 2532px; overflow: hidden; border-radius: 110px; background: #000; }
+.cap { position: absolute; left: 0; width: 1170px; background-image: url(spot-santa-teresa-w47-full.png); background-repeat: no-repeat; background-size: 1170px 5424px; }
+#nav { left: 48px; width: 1074px; top: 2292px; height: 192px; border-radius: 96px; background-position: -48px -2292px; }
+.base { position: absolute; left: 728px; width: 228px; height: 40px; background-image: url(spot-santa-teresa-w47-full.png); background-repeat: no-repeat; }
+.bar { position: absolute; left: 732px; height: 17px; border-radius: 9px; }
+#glare { position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,0) 40%, rgba(255,255,255,.16) 50%, rgba(255,255,255,0) 60%); background-size: 300% 100%; }
+#pop { position: absolute; width: 164px; height: 76px; border-radius: 38px; background-image: url(spot-santa-teresa-w47-full.png); background-repeat: no-repeat; background-size: 1170px 5424px; }
+#burst { position: absolute; width: 0; height: 0; transform-style: preserve-3d; }
+#burst i { position: absolute; border-radius: 50%; border-style: solid; }
+
+#pay { position: absolute; left: 65px; width: 950px; font-size: 106px; text-align: center; }
+#pay .mask { height: 128px; }
+#end { position: absolute; left: 65px; width: 950px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+#btn { margin-top: 110px; padding: 32px 96px 38px; border-radius: 999px; background: #11b7f2; color: #fff; font-weight: 800; font-size: 62px; letter-spacing: -0.01em; }
+</style></head>
+<body>
+<div id="clip">
+  <video id="v" src="218670_large.mp4" muted playsinline preload="auto"></video>
+  <div id="tint"></div>
+  <div id="shade"></div>
+  <div id="glow"></div>
+</div>
+<svg id="fx" viewBox="0 0 1080 1920"></svg>
+<canvas id="pt" width="1080" height="1274"></canvas>
+
+<div id="hook" class="h"></div>
+
+<div id="eq" class="h">
+  <div class="row"><div class="mask"><span id="q1">Size</span></div><div class="mask"><span id="q2" class="op">+</span></div><div class="mask"><span id="q3">Period</span></div></div>
+  <div class="row"><div class="mask"><span id="q4" class="op">+</span></div><div class="mask"><span id="q5">Wind</span></div><div class="mask"><span id="q6" class="op">=</span></div><div><span id="q7" class="pill">Epic</span></div></div>
+</div>
+
+<div id="rig"><div id="phone">
+  <div id="screen">
+    <div class="cap" style="top:0; height:668px; background-position:0 0"></div>
+    <div class="cap" style="top:668px; height:817px; background-position:0 -1400px"></div>
+    <div class="cap" style="top:1485px; height:1047px; background-position:0 -2486px"></div>
+    <div id="bars"></div>
+    <div id="nav" class="cap"></div>
+    <div id="glare"></div>
+  </div>
+  <div id="pop"></div>
+  <div id="burst"></div>
+</div></div>
+<svg id="ring" viewBox="0 0 1080 1920"></svg>
+
+<div id="pay" class="h">
+  <div class="mask"><span id="p1">Swell makes it.</span></div>
+  <div class="mask"><span id="p2">Wind <span class="gloss" id="p2g">polishes</span> it.</span></div>
+</div>
+
+<div id="end">
+  <img id="logo" src="rosa-icon.svg" style="width:170px; height:170px">
+  <div id="e1" class="h" style="font-size:112px; letter-spacing:-0.035em; line-height:1.08; margin-top:56px">See why<br>it's Epic.</div>
+  <div id="btn">rosa.surf</div>
+  <div id="e3" style="font-size:52px; font-weight:600; margin-top:46px; color:#fff">link in bio</div>
+</div>
+<div id="flash"></div>
+
+<script>
+const variant = new URLSearchParams(location.search).get("variant") === "story" ? "story" : "reel";
+const SAFE_TOP = variant === "story" ? 269 : 285;
+const $ = (id) => document.getElementById(id);
+
+// ── easing ──
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const inOut = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const sine = (x) => -(Math.cos(Math.PI * x) - 1) / 2;
+const smooth = (x) => x * x * (3 - 2 * x);
+const outExpo = (x) => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const inExpo = (x) => x <= 0 ? 0 : Math.pow(2, 10 * x - 10);
+const outBack = (x, s = 1.6) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
+const spring = (x, f = 3.2, d = 5.5) => x <= 0 ? 0 : x >= 1 ? 1 : 1 - Math.exp(-d * x) * Math.cos(f * Math.PI * x) * (1 - x) - 0 * x;
+const bump = (t, a, b) => { const k = seg(t, a, b); return k > 0 && k < 1 ? Math.sin(Math.PI * k) : 0; };
+const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1e6) / 1e6; };
+
+// ── timeline (s) ──
+const T = { hookOut: [2.75, 3.25], rise: [2.95, 4.1], fill: [[4.6, 5.35], [5.4, 6.05], [6.3, 7.3]], epic: 7.5,
+  tilt: [8.4, 9.5], out: [9.55, 10.15], pay: [9.95, 12.2], end: 12.5, dur: 18 };
+
+// ── live capture: rosa.surf/spot/santa-teresa?theme=dark, full page, 2026-11-11, 1170 x 5424. The cam block
+// (rows 668-1400) is cut, the rating card follows the day strip. Rows of the Size / Period / Wind bars on screen. ──
+const SRC = 732;                                         // screen y + SRC = capture row, below the cut
+const ROWS = [{ y: 771, end: 882, col: "#11b7f2" }, { y: 843, end: 936, col: "#24b161" }, { y: 915, end: 891, col: "#24b161" }];
+const TRK = { x0: 845, x1: 956, y: 987 };               // empty track, from the clarity row, stretched under each bar while it fills
+const ts = 228 / (TRK.x1 - TRK.x0);
+const bars = ROWS.map((r) => {
+  const b = document.createElement("div"), f = document.createElement("div");
+  b.className = "base"; f.className = "bar";
+  Object.assign(b.style, { top: r.y - 20 + "px", backgroundSize: `${1170 * ts}px 5424px`, backgroundPosition: `${-TRK.x0 * ts}px ${-(TRK.y + SRC - 20)}px` });
+  Object.assign(f.style, { top: r.y - 8 + "px", background: r.col });
+  $("bars").append(b, f);
+  return { b, f };
+});
+const POP = { x: 90, y: 1477 - SRC };                    // the Epic pill, screen coords
+Object.assign($("pop").style, { left: 30 + POP.x + "px", top: 30 + POP.y + "px", backgroundPosition: `${-POP.x}px ${-(POP.y + SRC)}px` });
+Object.assign($("burst").style, { left: 30 + POP.x + 82 + "px", top: 30 + POP.y + 38 + "px" });
+$("burst").innerHTML = "<i></i><i></i><i></i>";
+
+// ── Rosa particles: the app's splash field (rosa/web particles.ts + splash: palette, density 1.4,
+// speed 1, alpha .3, 460 css px band) made a pure function of t ──
+const BW = 390, BH = 460;
+const NP = Math.round(BW * BH / 11000 * 1.4);
+const PAL = ["125, 185, 240", "94, 205, 205"];
+const SLOTS = Array.from({ length: NP }, (_, i) => ({ life: 4 * (0.8 + hash("l" + i) * 0.4), off: hash("o" + i) * 4 }));
+function particles(cv, t, o, { glow = true, gain = 1 } = {}) {
+  const c = cv.getContext("2d");
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
+  cv.style.opacity = o;
+  if (o <= 0) return;
+  const CSS = cv.width / BW;
+  c.setTransform(CSS, 0, 0, CSS, 0, 0);
+  if (glow) {
+    let g = c.createRadialGradient(BW * .18, BH * 1.3, 0, BW * .18, BH * 1.3, BH * 1.0);
+    g.addColorStop(0, "rgba(22,51,122,.55)"); g.addColorStop(.72, "rgba(22,51,122,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+    g = c.createRadialGradient(BW * .82, BH * 1.2, 0, BW * .82, BH * 1.2, BH * .9);
+    g.addColorStop(0, "rgba(13,148,136,.4)"); g.addColorStop(.7, "rgba(13,148,136,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  }
+  const ps = [];
+  SLOTS.forEach(({ life, off }, i) => {
+    const k = Math.floor((t + off) / life), age = t + off - k * life, f = age * 60;
+    const r = (s) => hash(s + i + "-" + k);
+    const depth = Math.pow(r("d"), 0.85), rad = 0.5 + depth * (3.2 - 0.5), blur = (1 - depth) * 4.5;
+    const vy = -(0.24 + depth * 1.4), vx = (r("v") - 0.5) * (0.05 + depth * 0.28);
+    const ph = r("p") * 6.283, ws = 0.004 + r("w") * 0.012, wa = 0.05 + depth * 0.4;
+    const x = r("x") * BW + vx * f + (wa / ws) * (Math.cos(ph) - Math.cos(ph + ws * f));
+    const y = BH + r("y") * 30 + vy * f;
+    const tw = r("t") * 6.283 + (0.008 + r("s") * 0.025) * f;
+    const lf = age / life, env = lf < .15 ? lf / .15 : lf > .7 ? (1 - lf) / .3 : 1;
+    const a = clamp((0.22 + depth * 0.7) * 0.3 * gain * Math.min(1, (BH - y) / 80) * Math.min(1, y / (BH * .55)) * (0.75 + Math.sin(tw) * .25) * env);
+    if (a > 0.002 && y > -10) ps.push({ x, y, rad, depth, bucket: Math.round(blur), a, col: PAL[Math.floor(r("c") * PAL.length)] });
+  });
+  ps.sort((p, q) => p.depth - q.depth);
+  const dot = (p, rad, blur, a) => {
+    c.filter = blur ? `blur(${blur / 2 * CSS}px)` : "none";
+    c.globalAlpha = a; c.fillStyle = `rgb(${p.col})`;
+    c.beginPath(); c.arc(p.x, p.y, rad, 0, 6.283); c.fill();
+  };
+  for (const p of ps) if (p.bucket === 0 && p.rad > 1.4) dot(p, p.rad * 2.6, 8, p.a * .55);
+  for (const p of ps) dot(p, p.rad, p.bucket, p.a);
+  c.filter = "none"; c.globalAlpha = 1;
+}
+
+// ── footage: seek and wait for the frame ──
+function seekVideo(v, s) {
+  const d = v.duration || 30;
+  s = s % (d - 0.1);
+  if (v.readyState >= 2 && Math.abs(v.currentTime - s) < 1e-3) return Promise.resolve();
+  return new Promise((res) => {
+    const done = () => { v.removeEventListener("seeked", done); res(); };
+    v.addEventListener("seeked", done);
+    v.currentTime = s;
+  });
+}
+const loaded = (v) => v.readyState >= 1 ? Promise.resolve() : new Promise((r) => v.addEventListener("loadedmetadata", r, { once: true }));
+
+// ── hook: typed, three lines, a cursor that blinks on the beat ──
+const LINES = ["Epic in", "Santa", "Teresa"];
+const TYPE = [[.3, .8], [.9, 1.3], [1.4, 1.95]];
+function hook(t) {
+  let html = "", cur = 0;
+  LINES.forEach((ln, i) => {
+    const n = Math.round(ln.length * seg(t, TYPE[i][0], TYPE[i][1]));
+    if (n > 0 || t >= TYPE[i][0]) cur = i;
+    const txt = ln.slice(0, n);
+    html += `<div class="ln">${i === 2 ? `<span class="gloss" id="hg">${txt}</span>` : txt}§${i}</div>`;
+  });
+  const typing = TYPE.some(([a, b]) => t >= a && t < b + .05);
+  const on = t < 2.6 && (typing || Math.floor(t * 3.4) % 2 === 0);
+  return html.replace(/§(\d)/g, (_, i) => +i === cur && on ? `<span class="cur"></span>` : "");
+}
+
+// ── phone poses: rig = translate(X, Y) scale(S); the phone is 1230 x 2592; FOC = the rating card ──
+const FOC = [615, 30 + 830];
+const A = { S: .68, fx: 540, fy: SAFE_TOP + 300 + FOC[1] * .68 };
+const B = { S: .86, fx: 540, fy: 1190 };
+
+async function seek(t) {
+  let ring = "";
+
+  // ── 1. glassy wall, full screen; it sinks into dark blue under the phone, comes back for the payoff ──
+  const dark = smooth(seg(t, 2.85, 3.8)) * (1 - smooth(seg(t, T.out[0], T.out[1] + .4)));
+  const tail = smooth(seg(t, T.out[0], T.out[1] + .4));
+  const endIn = smooth(seg(t, T.end - .2, T.end + .8));
+  const v = $("v");
+  v.style.transform = `scale(${lerp(1.04, 1.2, sine(seg(t, 0, 3))) + .15 * inExpo(seg(t, 2.4, 3.1)) - .12 * dark + .06 * sine(seg(t, T.out[0], T.dur))})`;
+  v.style.filter = `blur(${12 * dark + 2.5 * tail + 3 * endIn}px) saturate(${1.1 - .2 * dark}) brightness(${1 + .08 * bump(t, 1.9, 2.8)})`;
+  $("tint").style.opacity = .82 * dark + .35 * tail + .25 * endIn;
+  $("shade").style.background = `linear-gradient(180deg, rgba(1,4,15,${.42 + .2 * dark}) 0%, rgba(1,4,15,${.1 + .3 * dark}) 45%, rgba(1,4,15,${.25 + .4 * dark}) 100%)`;
+  $("glow").style.opacity = dark + .6 * tail;
+
+  // ── 2. hook types over the water ──
+  const hk = $("hook");
+  hk.innerHTML = hook(t);
+  hk.style.top = (SAFE_TOP + 1248) / 2 - 273 + "px";
+  const ho = inExpo(seg(t, T.hookOut[0], T.hookOut[1]));
+  hk.style.transform = `translateY(${-ho * 120}px) scale(${1 + .9 * ho})`;
+  hk.style.transformOrigin = "50% 60%";
+  hk.style.opacity = 1 - ho;
+  hk.style.filter = `blur(${ho * 22}px)`;
+  hk.style.visibility = ho >= 1 ? "hidden" : "visible";
+  const hg = document.getElementById("hg");
+  if (hg) hg.style.backgroundPosition = `${lerp(100, 0, sine(seg(t, 2.0, 2.65)))}% 0`;
+
+  // ── 3. the phone rises in, swings, settles big ──
+  const r = seg(t, T.rise[0], T.rise[1]);
+  const rk = outBack(r, 1.25);
+  const push = sine(seg(t, 4.3, 7.3));
+  const tl = seg(t, T.tilt[0], T.tilt[1]), tlk = inOut(tl);
+  const o = seg(t, T.out[0], T.out[1]), ok = inExpo(o);
+  let S = lerp(A.S, B.S, push) * (1 + .08 * tlk);
+  const fxp = lerp(A.fx, B.fx, push), fyp = lerp(A.fy, B.fy, push) + lerp(1500, 0, rk) - 2600 * ok + 170 * tlk;
+  const X = fxp - FOC[0] * S, Y = fyp - FOC[1] * S;
+  $("rig").style.transform = `translate(${X}px, ${Y}px) scale(${S})`;
+  const br = Math.sin(t * 1.1);
+  const ep = bump(t, T.epic - .05, T.epic + .6);
+  const rx = lerp(62, 20, rk) + 1.2 * br - 30 * tlk - 45 * ok - 3 * ep;
+  const ry = lerp(-20, -10, rk) + 14 * sine(seg(t, 4.3, 7.3)) - 4 * tlk + 2 * Math.sin(t * .7);
+  const rz = lerp(-10, -2, rk) + 2.5 * sine(seg(t, 4.3, 7.3)) - 2 * tlk;
+  $("phone").style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
+  $("phone").style.boxShadow = `inset 0 0 0 3px rgba(255,255,255,.22), inset 0 0 0 9px rgba(0,0,0,.5), 0 120px 220px rgba(0,0,10,.75), 0 0 ${160 + 140 * ep}px rgba(${ep > .05 ? "36,177,97" : "17,183,242"},${.28 + .35 * ep})`;
+  $("phone").style.filter = r < 1 ? `blur(${(1 - smooth(r)) * 16}px)` : ok > 0 ? `blur(${ok * 26}px)` : "none";
+  $("rig").style.visibility = t < T.rise[0] || o >= 1 ? "hidden" : "visible";
+  $("glare").style.backgroundPosition = `${lerp(140, 0, r) + 90 * push + 120 * tlk}% 0`;
+
+  // ── 4. the bars fill: size, then period, then wind ──
+  ROWS.forEach((row, i) => {
+    const k = outExpo(seg(t, T.fill[i][0], T.fill[i][1]));
+    const { b, f } = bars[i], done = k >= .999;
+    b.style.visibility = f.style.visibility = done ? "hidden" : "visible";
+    f.style.width = Math.max(0, (row.end - 732) * k) + "px";
+    f.style.opacity = k > 0 ? 1 : 0;
+    const head = bump(t, T.fill[i][0], T.fill[i][1] + .3);
+    f.style.boxShadow = `0 0 ${40 * head}px ${row.col}, 0 0 ${12 * head}px #fff`;
+  });
+
+  // ── 5. Epic: the pill leaves the screen toward the camera, a green ring bursts ──
+  const pe = Math.sin(Math.PI / 2 * smooth(clamp(seg(t, T.epic, T.epic + .35)))) * (1 - smooth(seg(t, T.epic + .8, T.epic + 1.3)));
+  const pop = $("pop");
+  pop.style.visibility = t >= T.epic && pe > 0 ? "visible" : "hidden";
+  pop.style.transform = `translateZ(${140 * pe}px) scale(${1 + 1.3 * pe}) rotateZ(${-5 * pe}deg)`;
+  pop.style.boxShadow = `0 ${30 * pe}px ${80 * pe}px rgba(0,0,0,${.5 * pe}), 0 0 ${110 * pe}px rgba(36,177,97,${pe}), 0 0 ${30 * pe}px rgba(36,177,97,${pe})`;
+  const bk = seg(t, T.epic + .1, T.epic + 1.1);
+  [...$("burst").children].forEach((el, j) => {
+    const q = outExpo(clamp(bk * 1.15 - j * .12)), a = bk > 0 && bk < 1 ? (1 - q) : 0;
+    const rad = 60 + (500 + 160 * j) * q;
+    Object.assign(el.style, { left: -rad + "px", top: -rad + "px", width: 2 * rad + "px", height: 2 * rad + "px",
+      borderWidth: (j === 1 ? 6 : 18) * (1 - q) + 1 + "px", borderColor: j === 1 ? "#fff" : "#24b161", opacity: a, transform: `translateZ(${60 * pe}px)` });
+  });
+
+  // ── 6. the sum builds above the phone, token by token with each bar ──
+  const eq = $("eq");
+  eq.style.top = SAFE_TOP + 4 + "px";
+  const eo = inExpo(seg(t, T.tilt[1] - .1, T.out[0] + .4));
+  eq.style.transform = `translateY(${-eo * 160}px)`;
+  eq.style.opacity = 1 - eo;
+  eq.style.filter = `blur(${eo * 14}px)`;
+  eq.style.visibility = t < T.fill[0][0] || eo >= 1 ? "hidden" : "visible";
+  const tok = (id, a) => { const k = outBack(seg(t, a, a + .45), 1.4); $(id).style.transform = `translateY(${(1 - k) * 115}%)`; };
+  tok("q1", T.fill[0][0]); tok("q2", T.fill[1][0] - .05); tok("q3", T.fill[1][0] + .05);
+  tok("q4", T.fill[2][0] - .05); tok("q5", T.fill[2][0] + .05); tok("q6", T.epic - .15);
+  const pk = seg(t, T.epic, T.epic + .55);
+  const q7 = $("q7");
+  q7.style.transform = `scale(${pk > 0 ? outBack(pk, 2.2) : 0}) rotate(${(1 - outExpo(pk)) * -14}deg)`;
+  q7.style.transformOrigin = "30% 60%";
+  const pg = .6 + .4 * Math.sin(t * 3) * smooth(seg(t, T.epic + .5, T.epic + 1));
+  q7.style.boxShadow = `0 0 ${50 * pg}px rgba(36,177,97,.85), 0 0 ${120 * pg}px rgba(36,177,97,.4)`;
+
+  // ── 7. through the top: the phone whips out, the water clears, the payoff ──
+  $("flash").style.opacity = .55 * bump(t, T.out[1] - .15, T.out[1] + .35) + .22 * Math.pow(1 - seg(t, T.epic, T.epic + .3), 2) * (t >= T.epic ? 1 : 0);
+  const pay = $("pay");
+  pay.style.top = SAFE_TOP + 300 + "px";
+  const lineIn = (id, a) => { const k = outExpo(seg(t, a, a + .7)); $(id).style.transform = `translateY(${(1 - k) * 130}%)`; };
+  lineIn("p1", T.pay[0]); lineIn("p2", T.pay[0] + .35);
+  $("p2g").style.backgroundPosition = `${lerp(100, 0, sine(seg(t, T.pay[0] + .9, T.pay[0] + 1.6)))}% 0`;
+  const po = inExpo(seg(t, T.pay[1] - .1, T.pay[1] + .35));
+  pay.style.transform = `scale(${1 + .6 * po})`;
+  pay.style.opacity = 1 - po;
+  pay.style.filter = `blur(${po * 18}px)`;
+  pay.style.visibility = t < T.pay[0] || po >= 1 ? "hidden" : "visible";
+
+  // ── 8. Rosa particles rise in the open water below the payoff and the end card ──
+  particles($("pt"), t, smooth(seg(t, T.out[0], T.out[1] + .6)), { gain: 3.2 });
+
+  // ── 9. end card ──
+  const E = T.end;
+  $("end").style.top = SAFE_TOP + 70 + "px";
+  const lg = seg(t, E, E + .8);
+  $("logo").style.transform = `scale(${lerp(.3, 1, outBack(lg))}) rotate(${(1 - outExpo(lg)) * -25}deg)`;
+  $("logo").style.opacity = clamp(lg * 3);
+  const rise = (el, a) => { const k = outExpo(seg(t, a, a + .8)); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * 70}px)`; el.style.filter = `blur(${(1 - k) * 10}px)`; };
+  rise($("e1"), E + .2); rise($("btn"), E + .6); rise($("e3"), E + .8);
+  const gl = 34 + 12 * Math.sin(t * 2.6);
+  $("btn").style.boxShadow = `0 0 ${gl}px rgba(17,183,242,.75), 0 0 ${gl * 2.4}px rgba(17,183,242,.35)`;
+  $("end").style.visibility = t < E ? "hidden" : "visible";
+  if (lg > 0 && lg < 1) {
+    const q = outExpo(lg);
+    ring += `<circle cx="540" cy="${SAFE_TOP + 155}" r="${80 + 440 * q}" fill="none" stroke="#11b7f2" stroke-width="${14 * (1 - lg)}" opacity="${1 - lg}"/>`;
+  }
+
+  $("ring").innerHTML = ring;
+  await document.fonts.ready;
+  await loaded(v);
+  await seekVideo(v, .3 + t);
+}
+window.__film = { seek, duration: T.dur };
+</script>
+</body></html>

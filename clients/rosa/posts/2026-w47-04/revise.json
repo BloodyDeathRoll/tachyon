@@ -1,0 +1,25 @@
+{
+ "state": "done",
+ "step": "done",
+ "notes": "remove the \"It's free.\" from the closing titles",
+ "rounds": [
+  {
+   "notes": "remove the \"It's free.\" from the closing titles",
+   "at": "2026-11-10T11:19:08+00:00"
+  }
+ ],
+ "error": null,
+ "skip_edit": false,
+ "revoice": false,
+ "changes": "I removed \"It's free.\" from the closing titles. A still at 16s shows the end card without it and nothing out of place.\n\n- `film/index.html:76` \u2014 deleted the \"It's free.\" title (`#e2`).\n- `film/index.html:389` \u2014 deleted its `pop($(\"e2\"), \u2026)` animation call.\n\nI didn't check whether the voice-over still says \"It's free\".",
+ "kind": null,
+ "no_change": false,
+ "updated_at": "2026-11-10T11:42:35+00:00",
+ "vo_before": null,
+ "verdicts": {
+  "reel": "VERDICT: WARN (worst band 0.53x; text or UI in a band shows as > 0.6x)",
+  "story": "VERDICT: WARN (worst band 0.54x; text or UI in a band shows as > 0.6x)",
+  "reel spec": "VERDICT: PASS",
+  "story spec": "VERDICT: PASS"
+ }
+}

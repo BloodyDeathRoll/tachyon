@@ -1,0 +1,332 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url(inter-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #020617; }
+body { font-family: Inter, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+#clip { position: absolute; inset: 0; overflow: hidden; }
+video { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; transform-origin: 50% 40%; }
+#dawn, #tint, #shade, #glow { position: absolute; inset: 0; }
+#dawn { background: linear-gradient(180deg, rgba(255,160,80,.95) 0%, rgba(255,120,120,.55) 22%, rgba(17,183,242,.15) 50%, rgba(3,42,250,.3) 100%); mix-blend-mode: soft-light; }
+#tint { background: linear-gradient(180deg, #0a1f8f 0%, #031046 50%, #01040f 100%); mix-blend-mode: multiply; }
+#glow { background: radial-gradient(70% 40% at 50% 70%, rgba(17,183,242,.3), rgba(17,183,242,0) 70%), radial-gradient(50% 30% at 50% 100%, rgba(3,42,250,.4), rgba(3,42,250,0) 70%); }
+#pt { position: absolute; left: 0; top: 646px; mix-blend-mode: screen; pointer-events: none; }
+#fx { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+#flash { position: absolute; inset: 0; background: #fff; pointer-events: none; opacity: 0; }
+
+.h { font-weight: 850; letter-spacing: -0.05em; line-height: 1; }
+.mask { overflow: hidden; padding-bottom: .12em; }
+.mask > span { display: inline-block; }
+#hook { position: absolute; left: 65px; width: 950px; font-size: 158px; transform-origin: 0 0; }
+#hook .ln { display: flex; gap: .24em; height: 168px; white-space: nowrap; }
+.gloss { background: linear-gradient(100deg, #fff 0%, #fff 40%, #8fe3ff 47%, #fff 50%, #c9f2ff 53%, #fff 60%, #fff 100%); background-size: 320% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+#rig { position: absolute; left: 0; top: 0; transform-origin: 0 0; perspective: 3200px; }
+#phone { position: relative; padding: 30px; border-radius: 140px; transform-style: preserve-3d; transform-origin: 50% 30%;
+  background: linear-gradient(150deg, #e9edf3, #9aa3b2 30%, #d7dce4 60%, #7d8696); }
+#screen { position: relative; width: 1170px; height: 2532px; overflow: hidden; border-radius: 110px; background: #f4f3f3; }
+.sl { position: absolute; left: 0; width: 1170px; background: url(home-w47.png) no-repeat; background-size: 1170px 2532px; transform-origin: 50% 0; }
+#pill { position: absolute; width: 210px; height: 86px; border-radius: 43px; background: url(home-w47.png) no-repeat; background-size: 1170px 2532px; }
+#glare { position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,0) 40%, rgba(255,255,255,.35) 50%, rgba(255,255,255,0) 60%); background-size: 300% 100%; }
+
+#page { position: absolute; left: 0; top: 0; width: 1170px; height: 2080px; transform-origin: 0 0; overflow: hidden; }
+#page > div { position: absolute; inset: 0; background-repeat: no-repeat; background-size: 1170px 2532px; }
+#pgHome { background-image: url(home-w47.png); }
+#pgSpot { background-image: url(spot-carcavelos-w47.png); }
+
+#tap { position: absolute; width: 0; height: 0; }
+#tap i { position: absolute; border-radius: 50%; }
+
+#slab { position: absolute; left: -40px; width: 1160px; height: 250px; background: #032afa; transform-origin: 0 50%;
+  box-shadow: 0 40px 120px rgba(3,42,250,.45); overflow: hidden; }
+#slab .h { position: absolute; left: 105px; top: 42px; font-size: 150px; white-space: nowrap; }
+
+#pay { position: absolute; left: 65px; width: 950px; font-size: 128px; text-align: center; }
+#pay .mask { height: 156px; }
+#end { position: absolute; left: 65px; width: 950px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+#btn { margin-top: 130px; padding: 32px 100px 38px; border-radius: 999px; background: #11b7f2; color: #fff; font-weight: 800; font-size: 64px; letter-spacing: -0.01em; }
+</style></head>
+<body>
+<div id="clip">
+  <video id="v" src="13772-251867974_large.mp4" muted playsinline preload="auto"></video>
+  <div id="dawn"></div>
+  <div id="tint"></div>
+  <div id="shade"></div>
+  <div id="glow"></div>
+</div>
+<canvas id="pt" width="1080" height="1274"></canvas>
+
+<div id="hook" class="h">
+  <div class="ln"><div class="mask"><span id="w1">All</span></div><div class="mask"><span id="w2">your</span></div></div>
+  <div class="ln"><div class="mask"><span id="w3">breaks,</span></div></div>
+  <div class="ln"><div class="mask"><span id="w4" class="gloss">one screen.</span></div></div>
+</div>
+
+<div id="rig"><div id="phone">
+  <div id="screen">
+    <div id="slices"></div>
+    <div id="pill"></div>
+    <div id="glare"></div>
+  </div>
+</div></div>
+
+<div id="page"><div id="pgHome"></div><div id="pgSpot"></div></div>
+<div id="tap"><i></i><i></i><i></i></div>
+<div id="slab"><div class="h" id="slabT">One tap.</div></div>
+
+<div id="pay" class="h">
+  <div class="mask"><span id="p1">Your spots.</span></div>
+  <div class="mask"><span id="p2"><span class="gloss" id="p2g">One tap</span> away.</span></div>
+</div>
+
+<div id="end">
+  <img id="logo" src="rosa-icon.svg" style="width:170px; height:170px">
+  <div id="e1" class="h" style="font-size:108px; letter-spacing:-0.035em; line-height:1.08; margin-top:56px; color:#fff">All your breaks,<br>one screen.</div>
+  <div id="btn">rosa.surf</div>
+  <div id="e3" style="font-size:52px; font-weight:600; margin-top:46px; color:#fff">link in bio</div>
+</div>
+<svg id="fx" viewBox="0 0 1080 1920"></svg>
+<div id="flash"></div>
+
+<script>
+const variant = new URLSearchParams(location.search).get("variant") === "story" ? "story" : "reel";
+const SAFE_TOP = variant === "story" ? 269 : 285;
+const $ = (id) => document.getElementById(id);
+
+// ── easing ──
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const inOut = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const sine = (x) => -(Math.cos(Math.PI * x) - 1) / 2;
+const smooth = (x) => x * x * (3 - 2 * x);
+const outExpo = (x) => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const inExpo = (x) => x <= 0 ? 0 : Math.pow(2, 10 * x - 10);
+const outBack = (x, s = 1.6) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
+const bump = (t, a, b) => { const k = seg(t, a, b); return k > 0 && k < 1 ? Math.sin(Math.PI * k) : 0; };
+const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1e6) / 1e6; };
+
+// ── timeline (s) ──
+const T = { rise: [2.45, 3.45], tap: 6.35, fly: [6.75, 7.6], slab: 7.75, exit: [9.7, 10.25], pay: [10.2, 12.3], end: 12.55, dur: 17 };
+
+// ── live capture: rosa.surf/?theme=light at 38.7,-9.4, 2026-11-10, 1170 x 2532. Rows of each block; the nav
+// (row 2292 on) is never shown, so nothing on the list scrolls under it. ──
+const SL = [[0, 175], [175, 1135], [1135, 1335], [1335, 1752], [1752, 2160]];
+const SLT = [3.05, 3.2, 3.42, 3.58, 3.74];
+const slices = SL.map(([a, b]) => {
+  const d = document.createElement("div");
+  d.className = "sl";
+  Object.assign(d.style, { top: a + "px", height: b - a + "px", backgroundPosition: `0 ${-a}px` });
+  $("slices").append(d);
+  return d;
+});
+const PILL = { x: 720, y: 660 };                        // the "Good" pill on the Carcavelos card
+Object.assign($("pill").style, { left: PILL.x + "px", top: PILL.y + "px", backgroundPosition: `${-PILL.x}px ${-PILL.y}px` });
+const CARD = { x0: 70, y0: 196, x1: 975, y1: 1120 };    // the Carcavelos card, the one we tap
+
+// ── Rosa particles: the app's splash field (rosa/web particles.ts + splash: palette, density 1.4,
+// speed 1, alpha .3, 460 css px band) made a pure function of t ──
+const BW = 390, BH = 460;
+const NP = Math.round(BW * BH / 11000 * 1.4);
+const PAL = ["125, 185, 240", "94, 205, 205"];
+const SLOTS = Array.from({ length: NP }, (_, i) => ({ life: 4 * (0.8 + hash("l" + i) * 0.4), off: hash("o" + i) * 4 }));
+function particles(cv, t, o, { glow = true, gain = 1 } = {}) {
+  const c = cv.getContext("2d");
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
+  cv.style.opacity = o;
+  if (o <= 0) return;
+  const CSS = cv.width / BW;
+  c.setTransform(CSS, 0, 0, CSS, 0, 0);
+  if (glow) {
+    let g = c.createRadialGradient(BW * .18, BH * 1.3, 0, BW * .18, BH * 1.3, BH * 1.0);
+    g.addColorStop(0, "rgba(22,51,122,.55)"); g.addColorStop(.72, "rgba(22,51,122,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+    g = c.createRadialGradient(BW * .82, BH * 1.2, 0, BW * .82, BH * 1.2, BH * .9);
+    g.addColorStop(0, "rgba(13,148,136,.4)"); g.addColorStop(.7, "rgba(13,148,136,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  }
+  const ps = [];
+  SLOTS.forEach(({ life, off }, i) => {
+    const k = Math.floor((t + off) / life), age = t + off - k * life, f = age * 60;
+    const r = (s) => hash(s + i + "-" + k);
+    const depth = Math.pow(r("d"), 0.85), rad = 0.5 + depth * (3.2 - 0.5), blur = (1 - depth) * 4.5;
+    const vy = -(0.24 + depth * 1.4), vx = (r("v") - 0.5) * (0.05 + depth * 0.28);
+    const ph = r("p") * 6.283, ws = 0.004 + r("w") * 0.012, wa = 0.05 + depth * 0.4;
+    const x = r("x") * BW + vx * f + (wa / ws) * (Math.cos(ph) - Math.cos(ph + ws * f));
+    const y = BH + r("y") * 30 + vy * f;
+    const tw = r("t") * 6.283 + (0.008 + r("s") * 0.025) * f;
+    const lf = age / life, env = lf < .15 ? lf / .15 : lf > .7 ? (1 - lf) / .3 : 1;
+    const a = clamp((0.22 + depth * 0.7) * 0.3 * gain * Math.min(1, (BH - y) / 80) * Math.min(1, y / (BH * .55)) * (0.75 + Math.sin(tw) * .25) * env);
+    if (a > 0.002 && y > -10) ps.push({ x, y, rad, depth, bucket: Math.round(blur), a, col: PAL[Math.floor(r("c") * PAL.length)] });
+  });
+  ps.sort((p, q) => p.depth - q.depth);
+  const dot = (p, rad, blur, a) => {
+    c.filter = blur ? `blur(${blur / 2 * CSS}px)` : "none";
+    c.globalAlpha = a; c.fillStyle = `rgb(${p.col})`;
+    c.beginPath(); c.arc(p.x, p.y, rad, 0, 6.283); c.fill();
+  };
+  for (const p of ps) if (p.bucket === 0 && p.rad > 1.4) dot(p, p.rad * 2.6, 8, p.a * .55);
+  for (const p of ps) dot(p, p.rad, p.bucket, p.a);
+  c.filter = "none"; c.globalAlpha = 1;
+}
+
+// ── footage: seek and wait for the frame ──
+function seekVideo(v, s) {
+  const d = v.duration || 30;
+  s = s % (d - 0.1);
+  if (v.readyState >= 2 && Math.abs(v.currentTime - s) < 1e-3) return Promise.resolve();
+  return new Promise((res) => {
+    const done = () => { v.removeEventListener("seeked", done); res(); };
+    v.addEventListener("seeked", done);
+    v.currentTime = s;
+  });
+}
+const loaded = (v) => v.readyState >= 1 ? Promise.resolve() : new Promise((r) => v.addEventListener("loadedmetadata", r, { once: true }));
+
+// ── phone pose: rig = translate(X, Y) scale(S); the phone is 1230 x 2592 and fills the bottom two thirds ──
+const S = .70, PX = 540 - 615 * S, PY = 650;
+
+async function seek(t) {
+  let fx = "";
+
+  // ── 1. dawn patrol, full screen; it cools to Rosa blue behind the phone and the end card ──
+  const fly = seg(t, T.fly[0], T.fly[1]), fk = inOut(fly);
+  const ex = seg(t, T.exit[0], T.exit[1]), exk = inExpo(ex);
+  const blue = smooth(seg(t, 2.5, 3.5)) * (1 - smooth(seg(t, T.exit[0], T.exit[1] + .5)));
+  const tail = smooth(seg(t, T.exit[0], T.exit[1] + .5));
+  const v = $("v");
+  v.style.transform = `scale(${lerp(1.02, 1.16, sine(seg(t, 0, 2.6))) + .12 * inExpo(seg(t, 2.1, 2.7)) - .1 * blue + .08 * sine(seg(t, T.exit[0], T.dur))})`;
+  v.style.filter = `blur(${10 * blue + 3 * tail}px) saturate(${1.4 - .3 * blue}) brightness(${1.18 - .1 * blue}) contrast(1.08)`;
+  $("dawn").style.opacity = clamp(1 - .7 * blue - tail);
+  $("tint").style.opacity = .7 * blue + .45 * tail;
+  $("shade").style.background = `linear-gradient(180deg, rgba(1,4,15,${.12 + .4 * blue}) 0%, rgba(1,4,15,${.04 + .3 * blue}) 45%, rgba(1,4,15,${.2 + .35 * blue + .2 * tail}) 100%)`;
+  $("glow").style.opacity = blue + .7 * tail;
+
+  // ── 2. hook: words slam up through masks, then the whole block docks small at the top ──
+  const word = (id, a) => { const k = outBack(seg(t, a, a + .42), 1.5); $(id).style.transform = `translateY(${(1 - k) * 118}%) rotate(${(1 - outExpo(seg(t, a, a + .5))) * 8}deg)`; };
+  word("w1", .25); word("w2", .45); word("w3", .75); word("w4", 1.2);
+  $("w4").style.backgroundPosition = `${lerp(100, 0, sine(seg(t, 1.7, 2.35)))}% 0`;
+  const dk = inOut(seg(t, 2.35, 3.15));
+  const hookTop = SAFE_TOP + 150, dockTop = SAFE_TOP + 20;
+  const hs = lerp(1, .52, dk);
+  const ho = smooth(seg(t, T.tap - .1, T.fly[0] + .2));
+  const hk = $("hook");
+  hk.style.transform = `translate(${0}px, ${lerp(hookTop, dockTop, dk) - 60 * ho}px) scale(${hs})`;
+  hk.style.top = "0px";
+  hk.style.opacity = 1 - ho;
+  hk.style.filter = `blur(${ho * 12}px)`;
+  hk.style.visibility = ho >= 1 ? "hidden" : "visible";
+
+  // ── 3. the phone slides up into the bottom two thirds ──
+  const r = seg(t, T.rise[0], T.rise[1]), rk = outExpo(r);
+  const settle = smooth(seg(t, T.tap - .6, T.tap - .1));    // square to camera for the tap
+  const sway = (1 - settle) * smooth(seg(t, 3.4, 4.2));
+  const press = bump(t, T.tap, T.tap + .3);
+  const Y = PY + lerp(1400, 0, rk);
+  $("rig").style.transform = `translate(${PX}px, ${Y}px) scale(${S})`;
+  const rx = lerp(38, 0, outBack(r, 1.1)) * (1 - settle) + sway * 3 * Math.sin(t * 1.3);
+  const ry = lerp(-14, 0, rk) * (1 - settle) + sway * 6 * Math.sin(t * .9);
+  const rz = lerp(-6, 0, rk) * (1 - settle) + sway * 1.2 * Math.sin(t * .7);
+  $("phone").style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg) scale(${1 + .04 * fk})`;
+  $("phone").style.boxShadow = `inset 0 0 0 3px rgba(255,255,255,.6), inset 0 0 0 9px rgba(0,0,0,.18), 0 120px 220px rgba(0,0,20,.6), 0 0 160px rgba(17,183,242,.3)`;
+  $("phone").style.filter = r < 1 ? `blur(${(1 - smooth(r)) * 14}px)` : fk > 0 ? `blur(${fk * 14}px)` : "none";
+  $("rig").style.opacity = 1 - smooth(seg(fly, .3, .9));
+  $("rig").style.visibility = t < T.rise[0] || fly >= 1 ? "hidden" : "visible";
+  $("glare").style.backgroundPosition = `${lerp(150, 0, seg(t, 3.0, 4.6))}% 0`;
+
+  // ── 4. the cards cascade in, one beat each; the Good pill pops ──
+  slices.forEach((d, i) => {
+    const k = seg(t, SLT[i], SLT[i] + .65), b = outBack(k, 1.3);
+    d.style.transform = `perspective(1800px) translateY(${(1 - b) * 420}px) rotateX(${(1 - outExpo(k)) * -48}deg) scale(${lerp(.86, 1, outExpo(k)) * (i === 1 ? 1 - .035 * press : 1)})`;
+    d.style.opacity = clamp(k * 3);
+    d.style.boxShadow = i > 0 ? `0 ${40 * (1 - outExpo(k))}px ${80 * (1 - outExpo(k))}px rgba(13,18,37,${.25 * (1 - outExpo(k))})` : "none";
+  });
+  const pk = seg(t, 4.35, 4.9), pp = Math.sin(Math.PI / 2 * clamp(pk * 2)) * (1 - smooth(seg(t, 5.2, 5.7)));
+  const pill = $("pill");
+  pill.style.visibility = pk > 0 && pp > 0 ? "visible" : "hidden";
+  pill.style.transform = `scale(${1 + .45 * pp}) rotate(${-4 * pp}deg)`;
+  pill.style.boxShadow = `0 ${24 * pp}px ${60 * pp}px rgba(0,0,0,${.3 * pp}), 0 0 ${120 * pp}px rgba(36,177,97,${pp})`;
+  if (pk > 0 && pk < 1) {   // green rings off the pill, in frame coords
+    const cx = PX + S * (30 + PILL.x + 105), cy = Y + S * (30 + PILL.y + 43);
+    [0, 1].forEach((j) => { const q = outExpo(clamp(pk * 1.2 - j * .15)); fx += `<circle cx="${cx}" cy="${cy}" r="${40 + 300 * q}" fill="none" stroke="${j ? "#fff" : "#24b161"}" stroke-width="${(j ? 4 : 12) * (1 - q) + 1}" opacity="${1 - q}"/>`; });
+  }
+
+  // ── 5. one tap on the Carcavelos card ──
+  const tp = $("tap");
+  const TX = PX + S * (30 + (CARD.x0 + CARD.x1) / 2), TY = PY + S * (30 + 640);
+  Object.assign(tp.style, { left: TX + "px", top: TY + "px" });
+  const ta = seg(t, T.tap - .35, T.tap), tb = seg(t, T.tap, T.tap + .55);
+  [...tp.children].forEach((el, j) => {
+    let rad, a, bg = "none", bd = "none";
+    if (j === 0) { rad = 56 * (1 - .25 * press); a = smooth(ta) * (1 - smooth(seg(t, T.tap + .15, T.tap + .4))); bg = "rgba(255,255,255,.85)"; }
+    else { const q = outExpo(clamp(tb * 1.1 - (j - 1) * .15)); rad = 56 + (180 + 90 * j) * q; a = tb > 0 && tb < 1 ? 1 - q : 0; bd = `${(j === 1 ? 10 : 4) * (1 - q) + 1}px solid ${j === 1 ? "#11b7f2" : "#fff"}`; }
+    Object.assign(el.style, { left: -rad + "px", top: -rad + "px", width: 2 * rad + "px", height: 2 * rad + "px", opacity: a, background: bg, border: bd,
+      boxShadow: j === 0 ? "0 10px 40px rgba(0,0,0,.35)" : "none" });
+  });
+
+  // ── 6. the card opens into the spot page and flies to full size ──
+  const pg = $("page"), FS = 1080 / 1170;
+  const ek = exk;
+  const m = (1 + .07 * sine(seg(t, T.fly[1], T.exit[0] + .3))) * (1 - .55 * ek);   // slow push, then shrink away
+  const sc = lerp(S, FS, fk) * m;
+  const ox = lerp(PX + 30 * S, 0, fk), oy = lerp(PY + 30 * S, 0, fk);
+  pg.style.transform = `translate(${ox + 540 * (1 - m)}px, ${oy + 560 * (1 - m) - 2300 * ek}px) scale(${sc}) rotate(${-8 * ek}deg)`;
+  const ins = (a) => lerp(a, 0, fk);
+  pg.style.clipPath = `inset(${ins(CARD.y0)}px ${ins(1170 - CARD.x1)}px ${ins(2080 - CARD.y1)}px ${ins(CARD.x0)}px round ${lerp(44, 0, fk) + 90 * ek}px)`;
+  pg.style.filter = ek > 0 ? `blur(${ek * 24}px)` : "none";
+  pg.style.boxShadow = `0 60px 160px rgba(0,0,20,${.5 * (1 - fk) + .5 * ek})`;
+  pg.style.visibility = t < T.fly[0] || ex >= 1 ? "hidden" : "visible";
+  $("pgSpot").style.opacity = smooth(seg(fly, .1, .32));
+
+  // ── 7. "One tap." on a tile-blue slab that slices across the open page ──
+  const sk = seg(t, T.slab, T.slab + .55), so = inExpo(seg(t, T.exit[0] - .25, T.exit[0] + .15));
+  const slab = $("slab");
+  slab.style.top = 1248 - 250 - 60 + "px";
+  slab.style.transform = `translateX(${(1 - outExpo(sk)) * -1200 + so * 1300}px) skewY(-4deg)`;
+  slab.style.visibility = sk > 0 && so < 1 ? "visible" : "hidden";
+  $("slabT").style.transform = `translateX(${(1 - outExpo(seg(t, T.slab + .12, T.slab + .7))) * -500}px)`;
+
+  // ── 8. payoff over the water ──
+  $("flash").style.opacity = .5 * bump(t, T.exit[1] - .15, T.exit[1] + .3) + .25 * bump(t, T.fly[1] - .1, T.fly[1] + .25);
+  const pay = $("pay");
+  pay.style.top = SAFE_TOP + 280 + "px";
+  const lineIn = (id, a) => { const k = outExpo(seg(t, a, a + .7)); $(id).style.transform = `translateY(${(1 - k) * 130}%)`; };
+  lineIn("p1", T.pay[0]); lineIn("p2", T.pay[0] + .3);
+  $("p2g").style.backgroundPosition = `${lerp(100, 0, sine(seg(t, T.pay[0] + .8, T.pay[0] + 1.5)))}% 0`;
+  const po = inExpo(seg(t, T.pay[1] - .1, T.pay[1] + .35));
+  pay.style.transform = `scale(${1 + .6 * po})`;
+  pay.style.opacity = 1 - po;
+  pay.style.filter = `blur(${po * 18}px)`;
+  pay.style.visibility = t < T.pay[0] || po >= 1 ? "hidden" : "visible";
+
+  // ── 9. Rosa particles rise in the open water below ──
+  particles($("pt"), t, smooth(seg(t, T.exit[0], T.exit[1] + .6)), { gain: 3.2 });
+
+  // ── 10. end card ──
+  const E = T.end;
+  $("end").style.top = SAFE_TOP + 70 + "px";
+  const lg = seg(t, E, E + .8);
+  $("logo").style.transform = `scale(${lerp(.3, 1, outBack(lg))}) rotate(${(1 - outExpo(lg)) * -25}deg)`;
+  $("logo").style.opacity = clamp(lg * 3);
+  const rise = (el, a) => { const k = outExpo(seg(t, a, a + .8)); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * 70}px)`; el.style.filter = `blur(${(1 - k) * 10}px)`; };
+  rise($("e1"), E + .2); rise($("btn"), E + .6); rise($("e3"), E + .8);
+  const gl = 34 + 12 * Math.sin(t * 2.6);
+  $("btn").style.boxShadow = `0 0 ${gl}px rgba(17,183,242,.75), 0 0 ${gl * 2.4}px rgba(17,183,242,.35)`;
+  $("end").style.visibility = t < E ? "hidden" : "visible";
+  if (lg > 0 && lg < 1) {
+    const q = outExpo(lg);
+    fx += `<circle cx="540" cy="${SAFE_TOP + 155}" r="${80 + 440 * q}" fill="none" stroke="#11b7f2" stroke-width="${14 * (1 - lg)}" opacity="${1 - lg}"/>`;
+  }
+
+  $("fx").innerHTML = fx;
+  await document.fonts.ready;
+  await loaded(v);
+  await seekVideo(v, .2 + t);
+}
+window.__film = { seek, duration: T.dur };
+</script>
+</body></html>

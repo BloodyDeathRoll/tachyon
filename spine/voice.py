@@ -87,12 +87,13 @@ def parse(spec: str) -> tuple[str, str, float]:
     return engine, name, float(sp) if sp else SPEED
 
 
-def _dia(client: str, name: str, text: str, out: Path) -> None:
+def _dia(client: str, name: str, text: str, out: Path, take: int = 0) -> None:
     """Dia-1.6B (Nari Labs, Apache-2.0, no watermark) in its own venv. The voice is a reference
     clip + transcript in clients/<c>/assets/voices/dia-<name>.wav/.txt, so it stays the same voice."""
     import tempfile
     ref = C.client_dir(client) / "assets" / "voices" / f"dia-{name}"
-    job = {"text": "[S1] " + text, "out": str(out), "seed": int("".join(ch for ch in name if ch.isdigit()) or 7),
+    # A trailing speaker tag stops Dia ending the take early (it clipped the last word without it)
+    job = {"text": "[S1] " + text + " [S1]", "out": str(out), "seed": int("".join(ch for ch in name if ch.isdigit()) or 7) + 1000 * take,
            "max_tokens": 2800}
     if ref.with_suffix(".wav").exists():
         job |= {"prompt": str(ref.with_suffix(".wav")), "prompt_text": ref.with_suffix(".txt").read_text().strip()}
@@ -101,11 +102,11 @@ def _dia(client: str, name: str, text: str, out: Path) -> None:
     subprocess.run([str(DIA_PY), str(ROOT / "tools" / "dia_tts.py"), f.name], check=True, capture_output=True)
 
 
-def synth(spec: str, text: str, out: Path, client: str = "rosa") -> None:
-    """Raw speech for `text` in voice `spec` → out (wav, any rate)."""
+def synth(spec: str, text: str, out: Path, client: str = "rosa", take: int = 0) -> None:
+    """Raw speech for `text` in voice `spec` → out (wav, any rate). take > 0: a fresh Dia sample."""
     engine, name, speed = parse(spec)
     if engine == "dia":
-        _dia(client, name, text, out)
+        _dia(client, name, text, out, take)
     elif engine == "kokoro":
         import soundfile as sf   # Kokoro only: the dashboard's Python has no soundfile
         samples, sr = _kokoro().create(text, voice=name, speed=speed, lang="en-us")
@@ -114,15 +115,25 @@ def synth(spec: str, text: str, out: Path, client: str = "rosa") -> None:
         raise ValueError(f"unknown voice engine {engine}")
 
 
-def vo_file(client: str, text: str, voice: str, out: Path) -> Path:
-    """One take of `text` → out: trimmed, -16 LUFS, 48 kHz mono."""
-    raw = out.with_name(".vo-raw.wav")
-    synth(voice, spoken(client, text), raw, client)
-    trim = "silenceremove=start_periods=1:start_threshold=-45dB,areverse,silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-af",
-                    f"{trim}highpass=f=80,loudnorm=I={TARGET_LUFS}:TP=-1.5:LRA=7", "-ar", "48000", "-ac", "1", str(out)], check=True)
-    raw.unlink()
-    return out
+def vo_file(client: str, text: str, voice: str, out: Path, takes: int = 5) -> Path:
+    """One whole take of `text` → out: trimmed, -16 LUFS, 48 kHz mono. Every take is heard back
+    (tools/vo_check.py); a cut take is thrown away and a fresh one generated, never spliced."""
+    raw, new = out.with_name(".vo-raw.wav"), out.with_name(".vo-new.wav")
+    # the tail trim skips clicks under 50 ms after the last word and keeps 0.15 s of its decay
+    trim = ("silenceremove=start_periods=1:start_threshold=-45dB,areverse,"
+            "silenceremove=start_periods=1:start_threshold=-45dB:start_duration=0.05:start_silence=0.15,areverse,")
+    errors = []
+    for take in range(takes):
+        synth(voice, spoken(client, text), raw, client, take)
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-af",
+                        f"{trim}highpass=f=80,loudnorm=I={TARGET_LUFS}:TP=-1.5:LRA=7", "-ar", "48000", "-ac", "1", str(new)], check=True)
+        raw.unlink()
+        heard = subprocess.run([str(DIA_PY), str(ROOT / "tools" / "vo_check.py"), str(new), text], capture_output=True, text=True)
+        if heard.returncode == 0:
+            return new.replace(out)
+        errors.append(heard.stderr.strip()[-200:] or "vo_check failed")
+    new.unlink(missing_ok=True)   # never hand on a cut take; the previous vo.wav stays
+    raise RuntimeError(f"{takes} takes cut off: " + " | ".join(errors))
 
 
 def make_vo(client: str, slot: str, script: str, voice: str | None = None, start: float = START) -> Path:

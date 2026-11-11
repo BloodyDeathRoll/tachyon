@@ -1,0 +1,40 @@
+{
+  "slot_id": "2026-w47-09",
+  "title": "Your spots, one tap",
+  "pillar": "Free, and why",
+  "angle": "A fresh Pixabay dawn-patrol clip of a surfer paddling out at first light runs full screen. The light-theme spots list slides up in a phone that fills the bottom two thirds, and the cards cascade into place with their ratings. One tap opens a spot and the page flies to full size. Rosa particles rise in the empty space, then the closing card.",
+  "hook_formula": "All your breaks, one screen",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Reggaetón Chillado (Auralux), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w47-09/film",
+    "source": "clients/rosa/posts/2026-w47-09/film/index.html",
+    "music": "clients/rosa/assets/music/energetic-surf-rock-music-350069.mp3"
+  },
+  "track": "ig:1057262183518059",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w47-09",
+  "plan": "2026-W47",
+  "motion": null,
+  "theme": "light",
+  "duration_s": 17.0,
+  "audio_configuration": {
+    "audio_id": "1057262183518059",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Reggaetón Chillado",
+    "artist": "Auralux",
+    "cover": "https://scontent.fhfa1-1.fna.fbcdn.net/v/t39.30808-1/568451712_1862318028054615_7997280472331703566_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=7vqk2Z2kFpUQ7kNvwFj6OOI&_nc_oc=Adp6r2wI8fLcKFRQllMocx-dhf2_YJU1lLOP3vlL09UQDdGFElwQKQw_E7W0LLINoEnkxLwWyoD1DScouuGEiR9h&_nc_zt=24&_nc_ht=scontent.fhfa1-1.fna&edm=AOP_XFkEAAAA&_nc_gid=k2tCWz2hUvyGUC5kD97jkQ&oh=00_AQSOayEVpejUYibnLLH2KLUFHktDiZbLB9bct-XOy0E1sg&oe=6AFA0005",
+    "duration": 64.0,
+    "link": null,
+    "preview_of": "ig:1057262183518059"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "slot_id": "2026-w47-07",
+  "title": "Pins worldwide",
+  "pillar": "Swell map",
+  "angle": "The light-theme spot map spins in full screen and pins drop onto the coasts in waves of colour, Fair blue, Good green, Epic deep green. The camera dives toward one coast and the map shrinks into a big phone as it lands. A pin tap swaps the screen to that spot's page with the bars filling in. Rosa particles rise around the phone and the closing card lands.",
+  "hook_formula": "Over 4,000 spots. Pick one.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Show Me Cape Town (The.Wav), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w47-07/film",
+    "source": "clients/rosa/posts/2026-w47-07/film/index.html",
+    "music": "clients/rosa/assets/music/old-steel-449645.mp3"
+  },
+  "track": "ig:881039403273388",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w47-07",
+  "plan": "2026-W47",
+  "motion": null,
+  "theme": "light",
+  "duration_s": 17.0,
+  "audio_configuration": {
+    "audio_id": "881039403273388",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Show Me Cape Town",
+    "artist": "The.Wav",
+    "cover": "https://scontent.fhfa1-1.fna.fbcdn.net/v/t39.30808-1/290666772_540533914453794_6272856569883272634_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=ZdIf7WP1xRYQ7kNvwGzxyWS&_nc_oc=AdravlsKtKIuRQ9vw8FmetdrnZToLYVj8S2db8EmTtFbbNtEuj_tlI-myTYavbN8etPU0DKUDRiL-78Acix0QaIZ&_nc_zt=24&_nc_ht=scontent.fhfa1-1.fna&edm=AOP_XFkEAAAA&_nc_gid=kqogjo1HdA9yp-Pzp9aVeg&oh=00_AQRLr-x1Za1FqBU_HL20bO-sbqQ_irotONlao1enEzGntQ&oe=6AF900AF",
+    "duration": 379.5,
+    "link": null,
+    "preview_of": "ig:881039403273388"
+  }
+}

@@ -197,15 +197,20 @@ If a note is about the post text, edit {slot_dir.relative_to(ROOT)}/caption.txt 
 Rules: keep every text and UI element inside the safe box (SAFE in lib.tsx); numbers only from
 clients/{client}/product.md; never "comment for the link"; no AI-generated footage.
 {_check_intro(film, slot_dir)}
+Do every note in full. You have full access: edit any file a note needs (the film, the slot's
+meta.json, captures) and run any script it needs (e.g. Playwright to reshoot app frames). Never stop
+to ask for approval and never leave a note undone as "out of scope".
+To drop the voice-over, delete the "voiceover", "voiceover_script" and "voiceover_voice" keys from
+{slot_dir.relative_to(ROOT) if slot_dir.is_relative_to(ROOT) else slot_dir}/meta.json.
 Do not render the video, do not commit. End with one line per change you made."""
 
 
 def _engine_intro(film: dict, slot_dir: Path) -> str:
     if film.get("engine") == "html":
         return (f"The film is one self-contained HTML page with its film.json in {film['dir']}/ (window.__film.seek(t)\n"
-                f"drives every frame; ?variant=reel|story). Edit only files in that folder; copy any new asset into it.")
-    return f"""The film is a Remotion composition. Edit only its source: {film['source']} (and
-engines/remotion/src/lib.tsx only if the change truly needs it). Composition ids: reel
+                f"drives every frame; ?variant=reel|story). Edit the files in that folder; copy any new asset into it.")
+    return f"""The film is a Remotion composition. Edit its source: {film['source']} (and
+engines/remotion/src/lib.tsx if the change needs it). Composition ids: reel
 "{film['reel']}", story "{film['story']}" (engines/remotion/src/Root.tsx; durations come from
 the constants exported by the film file)."""
 
@@ -223,7 +228,7 @@ def _edit(client: str, slot: str, film: dict, notes: str, slot_dir: Path) -> str
     # shell in engines/remotion so the npx checks match ALLOWED; --add-dir reaches the slot files
     html = film.get("engine") == "html"
     r = subprocess.run(["claude", "-p", _prompt(client, slot, film, notes, slot_dir),
-                        "--allowedTools", *tools(ALLOWED_HTML if html else ALLOWED), "--permission-mode", "acceptEdits", "--add-dir", str(ROOT)],
+                        "--allowedTools", *tools(ALLOWED_HTML if html else ALLOWED), "--permission-mode", "bypassPermissions", "--add-dir", str(ROOT)],
                        cwd=ROOT if html else REMOTION, capture_output=True, text=True, timeout=EDIT_TIMEOUT)
     (slot_dir / ".still.png").unlink(missing_ok=True)
     if r.returncode != 0:

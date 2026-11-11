@@ -1,0 +1,40 @@
+{
+  "slot_id": "2026-w47-01",
+  "title": "Bars light up",
+  "pillar": "Why this rating",
+  "angle": "A fresh Pixabay clip of a peeling left at Uluwatu snaps to a freeze frame and the light-theme Uluwatu spot page slides up over it in a big phone, filling the bottom two thirds of the screen. The Size, Period and Wind bars fill one after another on a beat, each bar's name popping huge above the phone as it lands. The rating pill punches in last and the phone swings in 3D toward the camera so the score reads full size. Rosa particles rise and fade through the empty space, then the closing card: logo, white two-line text, space, glowing blue button with white text, white \"link in bio\".",
+  "hook_formula": "Here's why it says Good",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Seasons (LAVLO), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w47-01/film",
+    "source": "clients/rosa/posts/2026-w47-01/film/index.html",
+    "music": "clients/rosa/assets/music/retro-surf-rock-348237.mp3"
+  },
+  "track": "ig:1033616122917539",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w47-01",
+  "plan": "2026-W47",
+  "motion": null,
+  "theme": "light",
+  "duration_s": 17.0,
+  "audio_configuration": {
+    "audio_id": "1033616122917539",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Seasons",
+    "artist": "LAVLO",
+    "cover": "https://scontent.fhfa1-1.fna.fbcdn.net/v/t39.30808-1/597894712_122109261867129418_8800590897625537497_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=FRErKTnaAbYQ7kNvwFhgjxt&_nc_oc=AdpaQJfLwkhHpk7dvn2lnJsuJ1LzeguMok4JzBY_ayP_ZCFGGHZABkz0IJmM4Jcnfuz3taxib94hfInX6DpUmNK8&_nc_zt=24&_nc_ht=scontent.fhfa1-1.fna&edm=AOP_XFkEAAAA&_nc_gid=kqogjo1HdA9yp-Pzp9aVeg&oh=00_AQQzaWrmFkzO0X_a5rxuawb5eTrfi1u4OzWrHeptxHaqLg&oe=6AF8F9F4",
+    "duration": 61.0,
+    "link": null,
+    "preview_of": "ig:1033616122917539"
+  }
+}

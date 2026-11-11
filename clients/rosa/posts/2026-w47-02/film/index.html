@@ -1,0 +1,371 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url(inter-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #000; }
+body { font-family: Inter, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+#sky { position: absolute; inset: 0;
+  background: radial-gradient(80% 34% at 50% 30%, rgba(17,183,242,.32) 0%, rgba(17,183,242,0) 70%),
+              radial-gradient(120% 50% at 10% 0%, rgba(3,42,250,.55) 0%, rgba(3,42,250,0) 60%),
+              linear-gradient(180deg, #020a26 0%, #000 60%); }
+#bg { position: absolute; inset: -60px; }
+#bg img { position: absolute; left: 0; top: 0; width: 1200px; height: 2040px; object-fit: cover; object-position: 30% 45%; }
+#bgshade { position: absolute; inset: 0;
+  background: radial-gradient(90% 55% at 50% 40%, rgba(3,42,250,.35) 0%, rgba(0,0,0,0) 70%), rgba(0,4,20,.55); }
+#pt { position: absolute; left: 0; top: 646px; mix-blend-mode: screen; pointer-events: none; }
+#rig { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; perspective: 2400px; perspective-origin: 540px 760px; }
+#phone { position: absolute; left: -81px; top: -342px; width: 1242px; height: 2604px; transform-origin: 621px 1302px; }
+#bezel { position: absolute; inset: 0; border-radius: 150px;
+  background: linear-gradient(145deg, #4a505c, #16191f 42%, #343a45);
+  box-shadow: inset 0 0 0 3px rgba(255,255,255,.28), inset 0 0 0 9px rgba(0,0,0,.5), 0 90px 180px rgba(0,0,0,.7), 0 0 180px rgba(17,183,242,.28); }
+#screen { position: absolute; left: 36px; top: 36px; width: 1170px; height: 2532px; overflow: hidden; background: #000; }
+#screen img { position: absolute; left: 0; top: 0; width: 1170px; height: 2532px; }
+#spot, #cover { position: absolute; left: 0; top: 0; width: 1170px; height: 2532px; }
+.patch { position: absolute; background-image: url(spot-tamarindo.png); background-repeat: no-repeat; }
+#fx { position: absolute; left: 0; top: 0; width: 1170px; height: 2532px; overflow: visible; }
+#glare { position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,0) 40%, rgba(255,255,255,.16) 49%, rgba(255,255,255,0) 58%); background-size: 300% 100%; }
+.h { font-weight: 800; letter-spacing: -0.045em; line-height: .98; }
+.line { overflow: hidden; padding-bottom: .12em; }
+.line > span { display: inline-block; }
+#hook { position: absolute; left: 65px; width: 950px; font-size: 138px; text-shadow: 0 10px 50px rgba(0,0,0,.6); }
+#hook em { font-style: normal; color: #11b7f2; }
+#tick { position: absolute; left: 65px; width: 950px; height: 170px; display: flex; align-items: center; gap: 34px; }
+#day { position: relative; width: 330px; height: 150px; overflow: hidden; }
+#day > div { position: absolute; left: 0; top: 0; font-size: 150px; font-weight: 850; letter-spacing: -0.05em; line-height: 150px; white-space: nowrap; }
+#segs { flex: 1; display: flex; gap: 12px; }
+#segs i { flex: 1; height: 26px; border-radius: 99px; background: rgba(255,255,255,.16); }
+#rated { position: absolute; left: 65px; width: 950px; font-size: 104px; }
+#end { position: absolute; left: 65px; width: 950px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+#btn { margin-top: 110px; padding: 32px 80px; border-radius: 999px; background: #11b7f2; color: #fff; font-weight: 800; font-size: 54px; letter-spacing: -0.01em; }
+#flash { position: absolute; inset: 0; background: #11b7f2; mix-blend-mode: screen; pointer-events: none; }
+</style></head>
+<body>
+<div id="sky"></div>
+<div id="bg"><img id="bgA"><img id="bgB"><div id="bgshade"></div></div>
+<canvas id="pt" width="1080" height="1274"></canvas>
+
+<div id="rig"><div id="phone">
+  <div id="bezel"></div>
+  <div id="screen">
+    <img id="mA"><img id="mB">
+    <div id="spot">
+      <img src="spot-tamarindo.png">
+      <div id="cover"></div>
+    </div>
+    <svg id="fx" viewBox="0 0 1170 2532"></svg>
+    <div id="glare"></div>
+  </div>
+</div></div>
+
+<div id="hook" class="h">
+  <div class="line"><span id="hk1">Watch the</span></div>
+  <div class="line"><span id="hk2"><em>swell</em> travel</span></div>
+</div>
+<div id="tick"><div id="day"></div><div id="segs"></div></div>
+<div id="rated" class="h"><div class="line"><span id="rt">Every day, rated</span></div></div>
+<div id="flash"></div>
+
+<div id="end">
+  <img id="logo" src="rosa-icon.svg" style="width:190px; height:190px">
+  <div id="e1" class="h" style="font-size:96px; margin-top:56px">See the swell coming</div>
+  <div id="btn">Install it</div>
+  <div id="e3" style="font-size:48px; font-weight:600; margin-top:48px">link in bio</div>
+</div>
+
+<script>
+const variant = new URLSearchParams(location.search).get("variant") === "story" ? "story" : "reel";
+const SAFE_TOP = variant === "story" ? 269 : 285;
+const $ = (id) => document.getElementById(id);
+
+// ── easing ──
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const inOut = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const sine = (x) => -(Math.cos(Math.PI * x) - 1) / 2;
+const outExpo = (x) => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const outCubic = (x) => 1 - Math.pow(1 - x, 3);
+const outBack = (x, s = 1.6) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
+const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1e6) / 1e6; };
+
+// ── timeline (s); VO from 0.5: "...moving across the map." ~3.7 · "...day by day." ~7.2 · "Then tap your coast." ~8.8 · "Stoked." ~9.6 ──
+const T = {
+  hook: [.15, 3.45],
+  pull: [3.15, 4.75],          // camera pulls back, the map settles into the phone
+  tick: [4.55, 7.55],          // day ticker while the swell rolls
+  tap: 7.75,
+  reveal: [7.9, 8.5],          // spot screen opens from the tap
+  push: [7.95, 9.0],           // phone pushes in on the week
+  week: 8.6,                   // the 7 day bars grow, staggered
+  bars: 9.05,                  // rating bars fill
+  pill: 9.55,                  // "Epic" lands on "Stoked"
+  rated: [8.35, 10.75],
+  exit: [10.65, 11.5],
+  end: 11.3, dur: 17,
+};
+
+// ── swell frames: charts-week/00..56 (rosa.surf/charts dark, at 15,-75), 8 frames a day from Wed 00:00 ──
+const FPS_MAP = 7, NF = 57;
+const DAYS = ["Wed", "Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
+const src = (i) => `charts-week/${String(i).padStart(2, "0")}.png`;
+const MAP_CROP = [300, 1780];          // map only: no top buttons, no attribution, no controls
+const TAP = { x: 252, y: 1440 };       // Costa Rica, Pacific coast
+
+// ── the spot capture (spot-tamarindo.png, 1170 x 2532, rosa.surf/spot/tamarindo dark, 2026-11-10) ──
+const WEEK = { y0: 455, y1: 538, cols: [[52, 190], [220, 356], [388, 524], [556, 692], [724, 860], [892, 1028], [1060, 1170]] };
+const BAR_X = 732, BAR_W = 215, BAR_H = 16;
+const RBARS = [
+  { y: 741, end: 881, col: "#11b7f2" },
+  { y: 813, end: 945, col: "#24b161" },
+  { y: 885, end: 890, col: "#24b161" },
+  { y: 957, end: 872, col: "#11b7f2" },
+];
+const PILL = { x: 95, y: 716, w: 150, h: 70 };
+const CARD_BLANK = [1040, 800], TRACK_PX = [930, 741];
+
+// a flat colour sampled from one spot of the capture, stretched over a box
+function sample(px, x, y, w, h, n = 4) {
+  const f = Math.max(w, h) / n, d = document.createElement("div");
+  d.className = "patch";
+  Object.assign(d.style, { left: x + "px", top: y + "px", width: w + "px", height: h + "px",
+    backgroundSize: `${1170 * f}px ${2532 * f}px`, backgroundPosition: `${-(px[0] - n / 2) * f}px ${-(px[1] - n / 2) * f}px` });
+  $("cover").appendChild(d); return d;
+}
+// a piece of the capture, at its own place
+function piece(x, y, w, h) {
+  const d = document.createElement("div");
+  d.className = "patch";
+  Object.assign(d.style, { left: x + "px", top: y + "px", width: w + "px", height: h + "px",
+    backgroundSize: "1170px 2532px", backgroundPosition: `${-x}px ${-y}px` });
+  $("cover").appendChild(d); return d;
+}
+// week strip: black it out, then each day's bars grow back from the baseline
+const wk = document.createElement("div");
+Object.assign(wk.style, { position: "absolute", left: 0, top: WEEK.y0 + "px", width: "1170px", height: WEEK.y1 - WEEK.y0 + "px", background: "#000" });
+$("cover").appendChild(wk);
+WEEK.cols.forEach((c, i) => {
+  const p = piece(c[0], WEEK.y0, c[1] - c[0], WEEK.y1 - WEEK.y0);
+  p.style.transformOrigin = "50% 100%";
+  WEEK.cols[i].el = p;
+});
+RBARS.forEach((b) => {
+  sample(CARD_BLANK, BAR_X - 14, b.y - 16, BAR_W + 28, 32);
+  const tr = sample(TRACK_PX, BAR_X, b.y - BAR_H / 2, BAR_W, BAR_H, 2);
+  tr.style.borderRadius = "99px";
+  b.fill = piece(BAR_X - 6, b.y - 13, BAR_W + 12, 26);
+});
+sample(CARD_BLANK, PILL.x - 8, PILL.y - 8, PILL.w + 16, PILL.h + 16);
+const pill = piece(PILL.x, PILL.y, PILL.w, PILL.h);
+pill.style.transformOrigin = "50% 50%";
+pill.style.borderRadius = "35px";
+
+// ticker parts
+DAYS.slice(0, 7).forEach(() => $("segs").appendChild(document.createElement("i")));
+
+// ── Rosa particles: the app's splash field (rosa/web particles.ts + splash: palette, density 1.4,
+// speed 1, alpha .3, 460 css px band) made a pure function of t ──
+const BW = 390, BH = 460;
+const N = Math.round(BW * BH / 11000 * 1.4);
+const PAL = ["125, 185, 240", "94, 205, 205"];
+const SLOTS = Array.from({ length: N }, (_, i) => ({ life: 4 * (0.8 + hash("l" + i) * 0.4), off: hash("o" + i) * 4 }));
+function particles(cv, t, o, { glow = true, gain = 1 } = {}) {
+  const c = cv.getContext("2d");
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
+  cv.style.opacity = o;
+  if (o <= 0) return;
+  const CSS = cv.width / BW;
+  c.setTransform(CSS, 0, 0, CSS, 0, 0);
+  if (glow) {
+    let g = c.createRadialGradient(BW * .18, BH * 1.3, 0, BW * .18, BH * 1.3, BH * 1.0);
+    g.addColorStop(0, "rgba(22,51,122,.55)"); g.addColorStop(.72, "rgba(22,51,122,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+    g = c.createRadialGradient(BW * .82, BH * 1.2, 0, BW * .82, BH * 1.2, BH * .9);
+    g.addColorStop(0, "rgba(13,148,136,.4)"); g.addColorStop(.7, "rgba(13,148,136,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  }
+  const ps = [];
+  SLOTS.forEach(({ life, off }, i) => {
+    const k = Math.floor((t + off) / life), age = t + off - k * life, f = age * 60;
+    const r = (s) => hash(s + i + "-" + k);
+    const depth = Math.pow(r("d"), 0.85), rad = 0.5 + depth * (3.2 - 0.5), blur = (1 - depth) * 4.5;
+    const vy = -(0.24 + depth * 1.4), vx = (r("v") - 0.5) * (0.05 + depth * 0.28);
+    const ph = r("p") * 6.283, ws = 0.004 + r("w") * 0.012, wa = 0.05 + depth * 0.4;
+    const x = r("x") * BW + vx * f + (wa / ws) * (Math.cos(ph) - Math.cos(ph + ws * f));
+    const y = BH + r("y") * 30 + vy * f;
+    const tw = r("t") * 6.283 + (0.008 + r("s") * 0.025) * f;
+    const lf = age / life, env = lf < .15 ? lf / .15 : lf > .7 ? (1 - lf) / .3 : 1;
+    const a = clamp((0.22 + depth * 0.7) * 0.3 * gain * Math.min(1, (BH - y) / 80) * Math.min(1, y / (BH * .55)) * (0.75 + Math.sin(tw) * .25) * env);
+    if (a > 0.002 && y > -10) ps.push({ x, y, rad, depth, bucket: Math.round(blur), a, col: PAL[Math.floor(r("c") * PAL.length)] });
+  });
+  ps.sort((p, q) => p.depth - q.depth);
+  const dot = (p, rad, blur, a) => {
+    c.filter = blur ? `blur(${blur / 2 * CSS}px)` : "none";
+    c.globalAlpha = a; c.fillStyle = `rgb(${p.col})`;
+    c.beginPath(); c.arc(p.x, p.y, rad, 0, 6.283); c.fill();
+  };
+  for (const p of ps) if (p.bucket === 0 && p.rad > 1.4) dot(p, p.rad * 2.6, 8, p.a * .55);
+  for (const p of ps) dot(p, p.rad, p.bucket, p.a);
+  c.filter = "none"; c.globalAlpha = 1;
+}
+
+// set an <img> and wait until it can be painted
+function show(img, s) {
+  if (img.getAttribute("src") !== s) img.src = s;
+  return img.complete && img.naturalWidth ? Promise.resolve() : img.decode().catch(() => {});
+}
+
+// a line slides up out of its mask, blur to sharp; leaves upward
+function rise(el, t, a, b, d = .7) {
+  const i = outExpo(seg(t, a, a + d)), o = 1 - inOut(seg(t, b - .35, b));
+  el.style.transform = `translateY(${(1 - i) * 105 + (1 - o) * -110}%)`;
+  el.style.opacity = Math.min(i * 1.4, 1 - seg(t, b - .2, b));
+  el.style.filter = `blur(${(1 - i) * 10 + (1 - o) * 6}px)`;
+}
+
+// ── fx (capture px): rings + sparks ──
+let fx = "";
+function burst(x, y, k, col, big = 1) {
+  if (k <= 0 || k >= 1) return;
+  const e = outExpo(k);
+  fx += `<circle cx="${x}" cy="${y}" r="${(30 + 150 * e) * big}" fill="none" stroke="${col}" stroke-width="${14 * (1 - k) * big}" opacity="${1 - k}"/>`;
+  for (let i = 0; i < 12; i++) {
+    const a = hash("sa" + i + col) * 6.283, d = (60 + hash("sd" + i) * 170) * outCubic(k) * big;
+    fx += `<circle cx="${x + Math.cos(a) * d}" cy="${y + Math.sin(a) * d}" r="${8 * (1 - k) * (0.6 + hash("sr" + i)) * big}" fill="${col}" opacity="${1 - k}"/>`;
+  }
+}
+
+// ── camera poses on the phone: translate(dx, dy) scale(s) rotateX/Y/Z around the phone's centre ──
+const P0 = { dx: 150, dy: 520, s: 1.28, rx: 50, ry: 0, rz: -12 };  // low over the Gulf, tilted
+const P1 = { dx: 30, dy: 420, s: 1.14, rx: 34, ry: 6, rz: -3 };    // swept across to Central America
+const P2 = { dx: 0, dy: 236, s: .55, rx: 0, ry: 0, rz: 0 };        // in the phone: two thirds of the frame
+const P3 = { dx: 0, dy: 649, s: .86, rx: 0, ry: 0, rz: 0 };        // in on the spot's week
+const P4 = { dx: 0, dy: 2300, s: .6, rx: 40, ry: 0, rz: 10 };      // gone
+const mix = (P, Q, k) => Object.fromEntries(Object.keys(P).map((n) => [n, lerp(P[n], Q[n], k)]));
+
+async function seek(t) {
+  fx = "";
+
+  // ── swell map: two frames crossfaded so the roll is smooth ──
+  const f = (t * FPS_MAP) % NF, a = Math.floor(f), b = (a + 1) % NF, fr = f - a;
+  const loads = [show($("mA"), src(a)), show($("mB"), src(b))];
+  $("mB").style.opacity = fr;
+
+  // ── 1. full screen: the map as a ground plane under a dark sky; 2. pull back into the phone ──
+  const fly = sine(seg(t, 0, T.pull[0] + .3));
+  const pl = inOut(seg(t, T.pull[0], T.pull[1]));
+  const pu = inOut(seg(t, T.push[0], T.push[1]));
+  const ex = inOut(seg(t, T.exit[0], T.exit[1]));
+  let P = mix(mix(P0, P1, fly), P2, pl);
+  P = mix(P, P3, pu);
+  P = mix(P, P4, ex);
+  // idle float while held in the phone
+  const hold = pl * (1 - ex);
+  P.rx += hold * (3 + Math.sin(t * .9) * 2.5) * (1 - pu * .7);
+  P.ry += hold * Math.sin(t * .7 + .5) * 7 * (1 - pu * .6);
+  P.rz += hold * Math.sin(t * .6) * 1.2;
+  // the tap kicks the phone
+  const tk = seg(t, T.tap, T.tap + .45), kick = tk > 0 && tk < 1 ? Math.sin(Math.PI * tk) * (1 - tk) : 0;
+  P.s *= 1 - .035 * kick;
+  $("phone").style.transform = `translate(${P.dx}px, ${P.dy}px) scale(${P.s}) rotateX(${P.rx}deg) rotateY(${P.ry}deg) rotateZ(${P.rz}deg)`;
+  $("rig").style.visibility = ex >= 1 ? "hidden" : "visible";
+
+  // full screen: crop to the map, fog the far edge; the UI and the body come in on the pull
+  const ui = seg(t, T.pull[0] + .75, T.pull[1] - .15);
+  const top = lerp(MAP_CROP[0], 0, ui), bot = lerp(2532 - MAP_CROP[1], 0, ui);
+  $("screen").style.clipPath = `inset(${top}px 0 ${bot}px 0 round ${114 * ui}px)`;
+  $("screen").style.borderRadius = 114 * ui + "px";
+  const fog = 1 - pl;
+  $("screen").style.webkitMaskImage = $("screen").style.maskImage =
+    `linear-gradient(180deg, rgba(0,0,0,${1 - fog}) 12%, rgba(0,0,0,${1 - fog * .6}) 24%, #000 42%)`;
+  $("bezel").style.opacity = ui;
+  $("glare").style.backgroundPosition = `${lerp(115, -15, seg(t, T.pull[1] - .3, T.pull[1] + 1.4)) + lerp(0, 130, seg(t, T.push[0], T.push[1] + .3))}% 0`;
+  $("glare").style.opacity = ui;
+  // a blue flash punctuates the pull
+  $("flash").style.opacity = .22 * Math.sin(Math.PI * seg(t, T.pull[0] + .55, T.pull[0] + 1.05)) + .25 * Math.sin(Math.PI * seg(t, T.tap + .1, T.tap + .4));
+
+  // hook over the sky
+  $("hook").style.top = SAFE_TOP + 25 + "px";
+  rise($("hk1"), t, T.hook[0], T.hook[1], .7);
+  rise($("hk2"), t, T.hook[0] + .18, T.hook[1] + .1, .7);
+
+  // ── day ticker: the day the map is on, rolling with it ──
+  const fs = f + .5, day = Math.floor(fs / 8) % 7, dp = fs / 8 - Math.floor(fs / 8);   // the day of the frame on top
+  const ti = outExpo(seg(t, T.tick[0], T.tick[0] + .6)), to = inOut(seg(t, T.tick[1] - .3, T.tick[1]));
+  $("tick").style.top = SAFE_TOP + 20 + "px";
+  $("tick").style.opacity = Math.min(ti, 1 - to);
+  $("tick").style.transform = `translateY(${(1 - ti) * 60 - to * 60}px)`;
+  $("tick").style.visibility = t < T.tick[0] || t > T.tick[1] ? "hidden" : "visible";
+  const roll = outBack(clamp(dp / .22), 1.2);
+  $("day").innerHTML = `<div style="transform:translateY(${(1 - roll) * 150 - 150}px)">${DAYS[Math.max(0, day - 1)]}</div>`
+    + `<div style="transform:translateY(${(1 - roll) * 150}px); color:#11b7f2">${DAYS[day]}</div>`;
+  [...$("segs").children].forEach((s, i) => {
+    const on = i < day ? 1 : i === day ? clamp(dp / .22) : 0;
+    s.style.background = on ? `rgba(17,183,242,${.35 + .65 * on})` : "rgba(255,255,255,.16)";
+    s.style.boxShadow = i === day ? `0 0 ${24 * on}px rgba(17,183,242,.8)` : "none";
+    s.style.transform = `scaleY(${i === day ? 1 + .35 * Math.sin(Math.PI * clamp(dp / .3)) : 1})`;
+  });
+
+  // ── 3. tap the coast: ring, then the spot opens from that point ──
+  burst(TAP.x, TAP.y, seg(t, T.tap, T.tap + .7), "#11b7f2", 1.4);
+  const pr = seg(t, T.tap - .35, T.tap + .25);
+  if (pr > 0 && pr < 1) {
+    const d = pr < .6 ? outCubic(pr / .6) : 1, o = pr < .6 ? 1 : 1 - (pr - .6) / .4;
+    fx += `<circle cx="${TAP.x}" cy="${TAP.y}" r="${lerp(120, 70, d)}" fill="rgba(255,255,255,${.35 * o})" stroke="#fff" stroke-width="8" opacity="${o}"/>`;
+  }
+  const rv = outExpo(seg(t, T.reveal[0], T.reveal[1]));
+  $("spot").style.clipPath = `circle(${rv * 2900}px at ${TAP.x}px ${TAP.y}px)`;
+  $("spot").style.visibility = t < T.reveal[0] ? "hidden" : "visible";
+
+  // the week grows, day by day
+  WEEK.cols.forEach((c, i) => {
+    const k = seg(t, T.week + i * .08, T.week + i * .08 + .55);
+    c.el.style.transform = `scaleY(${k <= 0 ? 0 : outBack(k, 1.8)})`;
+    c.el.style.filter = k > 0 && k < 1 ? `brightness(${1 + .8 * (1 - k)})` : "none";
+  });
+  // rating bars fill, then the pill lands
+  RBARS.forEach((r, i) => {
+    const a0 = T.bars + i * .1, k = outExpo(seg(t, a0, a0 + .6));
+    const frac = (r.end - BAR_X + 6) / (BAR_W + 12);
+    r.fill.style.clipPath = `inset(0 ${(1 - (k < 1 ? k * frac : 1)) * 100}% 0 0)`;
+    burst(r.end, r.y, seg(t, a0 + .3, a0 + .9), r.col, .45);
+  });
+  const pk = seg(t, T.pill, T.pill + .5);
+  pill.style.visibility = t < T.pill ? "hidden" : "visible";
+  pill.style.transform = `scale(${t < T.pill ? 0 : outBack(pk, 2.6)})`;
+  pill.style.filter = pk < 1 ? `drop-shadow(0 0 ${30 * (1 - pk)}px #24b161)` : "none";
+  burst(PILL.x + PILL.w / 2, PILL.y + PILL.h / 2, seg(t, T.pill + .05, T.pill + .8), "#24b161", 1);
+
+  $("rated").style.top = SAFE_TOP + 30 + "px";
+  rise($("rt"), t, T.rated[0], T.rated[1], .7);
+
+  // ── 4. particles rise through the open space; then the end card over the swell, blurred ──
+  const side = pl * (1 - pu);
+  particles($("pt"), t, Math.max(.75 * side, seg(t, T.exit[0], T.exit[1])), { gain: 2.6 });
+  const bo = seg(t, T.exit[0], T.exit[1] + .3);
+  $("bg").style.opacity = bo;
+  $("bg").style.visibility = bo > 0 ? "visible" : "hidden";
+  $("bg").style.filter = `blur(${lerp(30, 16, bo)}px) brightness(.75) saturate(1.2)`;
+  $("bg").style.transform = `scale(${1.15 - .08 * seg(t, T.exit[0], T.dur)}) rotate(${-3 + 3 * seg(t, T.exit[0], T.dur)}deg)`;
+  if (bo > 0) { loads.push(show($("bgA"), src(a)), show($("bgB"), src(b))); $("bgB").style.opacity = fr; }
+
+  const E = T.end;
+  $("end").style.top = SAFE_TOP + 110 + "px";
+  const lg = seg(t, E, E + .8);
+  $("logo").style.transform = `scale(${lerp(.4, 1, outBack(lg))}) rotate(${(1 - outExpo(lg)) * -20}deg)`;
+  $("logo").style.opacity = clamp(lg * 3);
+  const pop = (el, a) => { const k = outExpo(seg(t, a, a + .8)); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * 60}px)`; el.style.filter = `blur(${(1 - k) * 8}px)`; };
+  pop($("e1"), E + .2); pop($("btn"), E + .5); pop($("e3"), E + .7);
+  const glow = 30 + 10 * Math.sin(t * 2.6);
+  $("btn").style.boxShadow = `0 0 ${glow}px rgba(17,183,242,.65), 0 0 ${glow * 2.4}px rgba(17,183,242,.28)`;
+  $("end").style.visibility = t < E ? "hidden" : "visible";
+
+  $("fx").innerHTML = fx;
+  await document.fonts.ready;
+  await Promise.all(loads);
+}
+window.__film = { seek, duration: T.dur };
+</script>
+</body></html>

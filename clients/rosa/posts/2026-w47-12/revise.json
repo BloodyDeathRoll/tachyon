@@ -1,0 +1,25 @@
+{
+ "state": "done",
+ "step": "done",
+ "notes": "0:00-0:05 is way too monotonic - nothing happens.\r\nInstead of a static charts image, make it a video, and change between height, period, energy and wind. Keep the indicator of what we see (text) on the bottom right",
+ "rounds": [
+  {
+   "notes": "0:00-0:05 is way too monotonic - nothing happens.\r\nInstead of a static charts image, make it a video, and change between height, period, energy and wind. Keep the indicator of what we see (text) on the bottom right",
+   "at": "2026-11-11T08:59:11+00:00"
+  }
+ ],
+ "error": null,
+ "skip_edit": false,
+ "revoice": false,
+ "changes": "I checked stills from 0.8 s to 5.5 s. Nothing rendered or committed.\n\n- **New captures:** shot the live Charts page (`/charts` at 15,-75, dark theme, same Wed 00:00 timeline) in the Period, Energy and Wind layers, frames 4\u201328 each, into `film/chart-per/`, `film/chart-energy/` and `film/chart-wind/`.\n- **0\u20134.6 s:** the chart now cycles Height \u2192 Period \u2192 Energy \u2192 Wind, about 1.15 s each, still playing through the week. Each change wipes in from the top with a zoom punch and a light flash.\n- **Back to Height:** Height returns as the chart folds into the phone (4.6 s), so the rest of the film is unchanged.\n- **Layer label:** the current layer's name and its app colour sit bottom right, at the bottom edge of the safe box. It changes with each layer and leaves as Wind ends.\n\nThe Height frames were captured on 2026-11-10 and the new layers on 2026-11-11. They show the same forecast times, so the fields can differ slightly between layers.",
+ "kind": null,
+ "no_change": false,
+ "updated_at": "2026-11-11T09:25:18+00:00",
+ "vo_before": null,
+ "verdicts": {
+  "reel": "VERDICT: FAIL (worst band 1.02x; text or UI in a band shows as > 0.6x)",
+  "story": "VERDICT: FAIL (worst band 0.99x; text or UI in a band shows as > 0.6x)",
+  "reel spec": "VERDICT: PASS",
+  "story spec": "VERDICT: PASS"
+ }
+}

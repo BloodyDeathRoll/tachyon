@@ -1,0 +1,24 @@
+# QA · 2026-w47-06 · 2026-11-10T13:17:02+00:00
+
+## Operator notes
+
+VO cuts out - last word is cof... instead of coffee. You have done so before - ALWAYS CHECK THE V.O and make sure you do NOT cut off words
+
+## Changes
+
+I rewrote the voice-over script so "coffee" is no longer the last word. I couldn't listen to or measure the audio, so this isn't confirmed fixed until you hear the new take.
+
+- **Why the word was cut:** `vo.wav` is about 6 s long (worked out from its file size) and starts at 0.5 s, so it ends around 6.5 s in a 16.5 s film. The film isn't cutting it off. The voice generator (Dia) stopped early on the last word.
+- **Not checked:** the commands to inspect the end of `vo.wav` (ffprobe, ffmpeg, a Python check) needed your approval and didn't run.
+- **Risk:** a script edit can't stop Dia from cutting short again. If it clips the new last word ("morning"), the fix belongs in the pipeline: check the end of each take, then re-record or add padding.
+
+`meta.json` voiceover.script: changed the last sentence to "Forecast's up before my coffee, every single morning." I edited nothing else; the film has no on-screen text with the voice-over line, so it didn't need changes.
+
+## Safe zones
+
+- reel: VERDICT: WARN (worst band 0.39x; text or UI in a band shows as > 0.6x)
+- story: VERDICT: WARN (worst band 0.38x; text or UI in a band shows as > 0.6x)
+- reel spec: VERDICT: PASS
+- story spec: VERDICT: PASS
+
+VERDICT: APPROVED

@@ -1,0 +1,355 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url(inter-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #01040f; }
+body { font-family: Inter, sans-serif; color: #fff; -webkit-font-smoothing: antialiased; }
+#clip { position: absolute; inset: 0; overflow: hidden; }
+video { position: absolute; left: -260px; top: 0; width: 1600px; height: 1920px; object-fit: cover; transform-origin: 50% 50%; }
+#sun, #tint, #shade, #glow { position: absolute; inset: 0; }
+#sun { background: linear-gradient(180deg, rgba(120,220,255,.55) 0%, rgba(17,183,242,.15) 45%, rgba(0,120,140,.25) 100%); mix-blend-mode: soft-light; }
+#tint { background: linear-gradient(180deg, #0a2fa8 0%, #04185e 55%, #010820 100%); mix-blend-mode: multiply; }
+#glow { background: radial-gradient(70% 40% at 50% 70%, rgba(17,183,242,.32), rgba(17,183,242,0) 70%), radial-gradient(55% 30% at 50% 100%, rgba(3,42,250,.5), rgba(3,42,250,0) 70%); }
+#pt { position: absolute; left: 0; top: 646px; mix-blend-mode: screen; pointer-events: none; }
+#fx, #lines { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+#flash { position: absolute; inset: 0; background: #fff; pointer-events: none; opacity: 0; }
+
+.h { font-weight: 850; letter-spacing: -0.05em; line-height: 1; }
+.mask { overflow: hidden; padding-bottom: .14em; }
+.mask > span { display: inline-block; white-space: nowrap; }
+#hook { position: absolute; left: 65px; width: 950px; font-size: 176px; text-shadow: 0 10px 50px rgba(0,20,60,.45); }
+#hook .ln { height: 196px; }
+.gloss { background: linear-gradient(100deg, #fff 0%, #fff 40%, #7fdcff 47%, #fff 50%, #bdefff 53%, #fff 60%, #fff 100%); background-size: 320% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(0 10px 40px rgba(0,20,60,.45)); }
+.top { position: absolute; left: 65px; width: 950px; font-size: 112px; }
+#t2 span { color: #fff; }
+#t2 .g { color: #5fe39a; }
+
+#rig { position: absolute; left: 0; top: 0; transform-origin: 0 0; perspective: 3200px; }
+#dev { position: relative; padding: 22px; border-radius: 142px; transform-style: preserve-3d; transform-origin: 50% 50%;
+  background: linear-gradient(150deg, #3a4150, #0b0e14 30%, #262c38 60%, #07090d); }
+#screen { position: relative; width: 1170px; height: 2532px; overflow: hidden; border-radius: 120px; background: #f4f3f3; }
+#scroll { position: absolute; left: 0; top: 0; width: 1170px; }
+.sl, .lift, .badge, #nav { position: absolute; background: url(spot-madiha-w47-full.png) no-repeat; background-size: 1170px 4659px; }
+.sl { left: 0; width: 1170px; }
+.lift { transform-origin: 50% 50%; }
+.badge { transform-origin: 70% 100%; border-radius: 14px; }
+#hero { position: absolute; left: 0; top: 0; width: 1122px; height: 214px; transform-origin: 561px 107px; }
+#hrow { left: 0; top: 0; width: 1122px; height: 214px; border-radius: 28px; background-position: -24px -1883px; }
+#hbadge { left: 808px; top: -26px; width: 310px; height: 68px; background-position: -832px -1857px; }
+#glare { position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,0) 40%, rgba(255,255,255,.35) 50%, rgba(255,255,255,0) 60%); background-size: 300% 100%; }
+
+#end { position: absolute; left: 65px; width: 950px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+#btn { margin-top: 130px; padding: 32px 100px 38px; border-radius: 999px; background: #11b7f2; color: #fff; font-weight: 800; font-size: 64px; letter-spacing: -0.01em; }
+</style></head>
+<body>
+<div id="clip">
+  <video id="v" src="283533_large.mp4" muted playsinline preload="auto"></video>
+  <div id="sun"></div>
+  <div id="tint"></div>
+  <div id="shade"></div>
+  <div id="glow"></div>
+</div>
+<svg id="lines" viewBox="0 0 1080 1920"></svg>
+<canvas id="pt" width="1080" height="1274"></canvas>
+
+<div id="hook" class="h">
+  <div class="ln mask"><span id="w1">Madiha,</span></div>
+  <div class="ln mask"><span id="w2" class="gloss">Sri Lanka</span></div>
+</div>
+
+<div id="rig"><div id="dev">
+  <div id="screen">
+    <div id="scroll"><div class="sl" id="slA"></div><div class="sl" id="slB"></div></div>
+    <div id="nav"></div>
+    <div id="glare"></div>
+  </div>
+</div></div>
+<div id="hero"><div id="hrow" class="lift"></div><div id="hbadge" class="badge"></div></div>
+
+<div id="t1" class="top h mask"><span>Every 3 hours.</span></div>
+<div id="t2" class="top h mask"><span>That's <span class="g">the one.</span></span></div>
+
+<div id="end">
+  <img id="logo" src="rosa-icon.svg" style="width:170px; height:170px">
+  <div id="e1" class="h" style="font-size:104px; letter-spacing:-0.035em; line-height:1.08; margin-top:56px; color:#fff">Find your spot's<br>best hour.</div>
+  <div id="btn">rosa.surf</div>
+  <div id="e3" style="font-size:52px; font-weight:600; margin-top:46px; color:#fff">link in bio</div>
+</div>
+<svg id="fx" viewBox="0 0 1080 1920"></svg>
+<div id="flash"></div>
+
+<script>
+const variant = new URLSearchParams(location.search).get("variant") === "story" ? "story" : "reel";
+const SAFE_TOP = variant === "story" ? 269 : 285;
+const $ = (id) => document.getElementById(id);
+
+// ── easing ──
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const inOut = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const sine = (x) => -(Math.cos(Math.PI * x) - 1) / 2;
+const smooth = (x) => x * x * (3 - 2 * x);
+const outExpo = (x) => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const outQuart = (x) => 1 - Math.pow(1 - x, 4);
+const inExpo = (x) => x <= 0 ? 0 : Math.pow(2, 10 * x - 10);
+const outBack = (x, s = 1.6) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
+const bump = (t, a, b) => { const k = seg(t, a, b); return k > 0 && k < 1 ? Math.sin(Math.PI * k) : 0; };
+const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1e6) / 1e6; };
+
+// ── timeline (s) ──
+const T = { enter: 2.6, scroll: [2.9, 8.7], stop: 9.0, push: [9.0, 10.0], exit: [11.5, 12.2], end: 12.5, dur: 17 };
+
+// ── live capture: rosa.surf/spot/madiha?theme=light, full page, 2026-11-11, 1170 x 4659. The app's nav is baked in
+// at rows NAV; the page is cut there and the nav laid on top, fixed, so it never scrolls with the list ──
+const NAV = { x: 50, y: 2294, w: 1070, h: 192 };
+const CUT = [2294, 2530];
+const cutY = (y) => y < CUT[0] ? y : y - (CUT[1] - CUT[0]);   // page y -> y in the cut page
+// hour rows in page px (y0, y1); 12:30 sits under the baked-in nav and is lost with the cut
+const ROWS = [[1459, 1671], [1671, 1883], [1883, 2097, "best"], [2097, 2294], [2530, 2741], [2741, 2955], [2955, 3167]];
+const BADGES = { 2: { x: 832, y: 1857, w: 310, h: 68 } };
+const FOCUS = 1266;                       // screen y where an hour "plays"
+const FINAL = 2;                          // the 06:30 best session
+const rc = (i) => (cutY(ROWS[i][0]) + cutY(ROWS[i][1] - 1)) / 2;
+const SCROLL_END = rc(FINAL) - FOCUS;
+
+const bgAt = (el, x, y, w, h, py = y) => Object.assign(el.style, { left: x + "px", top: y + "px", width: w + "px", height: h + "px", backgroundPosition: `${-x}px ${-py}px` });
+Object.assign($("slA").style, { top: "0px", height: CUT[0] + "px", backgroundPosition: "0 0" });
+Object.assign($("slB").style, { top: CUT[0] + "px", height: 4659 - CUT[1] + "px", backgroundPosition: `0 ${-CUT[1]}px` });
+bgAt($("nav"), NAV.x, NAV.y, NAV.w, NAV.h);
+$("nav").style.borderRadius = NAV.h / 2 + "px";
+const lifts = ROWS.map(([y0, y1], i) => {
+  const el = document.createElement("div"); el.className = "lift";
+  bgAt(el, 24, cutY(y0), 1122, y1 - y0, y0);   // inset so the lifted card and its glow stay on screen
+  $("scroll").appendChild(el); return el;
+});
+const badges = {};
+for (const i in BADGES) {
+  const b = BADGES[i], el = document.createElement("div"); el.className = "badge";
+  bgAt(el, b.x, cutY(b.y), b.w, b.h, b.y);
+  $("scroll").appendChild(el); badges[i] = el;
+}
+
+// ── Rosa particles: the app's splash field (rosa/web particles.ts + splash: palette, density 1.4,
+// speed 1, alpha .3, 460 css px band) made a pure function of t ──
+const BW = 390, BH = 460;
+const NP = Math.round(BW * BH / 11000 * 1.4);
+const PAL = ["125, 185, 240", "94, 205, 205"];
+const SLOTS = Array.from({ length: NP }, (_, i) => ({ life: 4 * (0.8 + hash("l" + i) * 0.4), off: hash("o" + i) * 4 }));
+function particles(cv, t, o, { glow = true, gain = 1 } = {}) {
+  const c = cv.getContext("2d");
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
+  cv.style.opacity = o;
+  if (o <= 0) return;
+  const CSS = cv.width / BW;
+  c.setTransform(CSS, 0, 0, CSS, 0, 0);
+  if (glow) {
+    let g = c.createRadialGradient(BW * .18, BH * 1.3, 0, BW * .18, BH * 1.3, BH * 1.0);
+    g.addColorStop(0, "rgba(22,51,122,.55)"); g.addColorStop(.72, "rgba(22,51,122,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+    g = c.createRadialGradient(BW * .82, BH * 1.2, 0, BW * .82, BH * 1.2, BH * .9);
+    g.addColorStop(0, "rgba(13,148,136,.4)"); g.addColorStop(.7, "rgba(13,148,136,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  }
+  const ps = [];
+  SLOTS.forEach(({ life, off }, i) => {
+    const k = Math.floor((t + off) / life), age = t + off - k * life, f = age * 60;
+    const r = (s) => hash(s + i + "-" + k);
+    const depth = Math.pow(r("d"), 0.85), rad = 0.5 + depth * (3.2 - 0.5), blur = (1 - depth) * 4.5;
+    const vy = -(0.24 + depth * 1.4), vx = (r("v") - 0.5) * (0.05 + depth * 0.28);
+    const ph = r("p") * 6.283, ws = 0.004 + r("w") * 0.012, wa = 0.05 + depth * 0.4;
+    const x = r("x") * BW + vx * f + (wa / ws) * (Math.cos(ph) - Math.cos(ph + ws * f));
+    const y = BH + r("y") * 30 + vy * f;
+    const tw = r("t") * 6.283 + (0.008 + r("s") * 0.025) * f;
+    const lf = age / life, env = lf < .15 ? lf / .15 : lf > .7 ? (1 - lf) / .3 : 1;
+    const a = clamp((0.22 + depth * 0.7) * 0.3 * gain * Math.min(1, (BH - y) / 80) * Math.min(1, y / (BH * .55)) * (0.75 + Math.sin(tw) * .25) * env);
+    if (a > 0.002 && y > -10) ps.push({ x, y, rad, depth, bucket: Math.round(blur), a, col: PAL[Math.floor(r("c") * PAL.length)] });
+  });
+  ps.sort((p, q) => p.depth - q.depth);
+  const dot = (p, rad, blur, a) => {
+    c.filter = blur ? `blur(${blur / 2 * CSS}px)` : "none";
+    c.globalAlpha = a; c.fillStyle = `rgb(${p.col})`;
+    c.beginPath(); c.arc(p.x, p.y, rad, 0, 6.283); c.fill();
+  };
+  for (const p of ps) if (p.bucket === 0 && p.rad > 1.4) dot(p, p.rad * 2.6, 8, p.a * .55);
+  for (const p of ps) dot(p, p.rad, p.bucket, p.a);
+  c.filter = "none"; c.globalAlpha = 1;
+}
+
+// ── footage: seek and wait for the frame; ping-pong so the water never freezes or jumps ──
+function seekVideo(v, s) {
+  const d = (v.duration || 30) - 0.1, m = s % (2 * d);
+  s = m < d ? m : 2 * d - m;
+  if (v.readyState >= 2 && Math.abs(v.currentTime - s) < 1e-3) return Promise.resolve();
+  return new Promise((res) => {
+    const done = () => { v.removeEventListener("seeked", done); res(); };
+    v.addEventListener("seeked", done);
+    v.currentTime = s;
+  });
+}
+const loaded = (v) => v.readyState >= 1 ? Promise.resolve() : new Promise((r) => v.addEventListener("loadedmetadata", r, { once: true }));
+
+// mask-reveal a line: up through its mask in, up and out
+function line(el, t, a, b) {
+  const i = outBack(seg(t, a, a + .5), 1.4), o = inExpo(seg(t, b, b + .35));
+  el.firstElementChild.style.transform = `translateY(${(1 - i) * 115 - o * 115}%) rotate(${(1 - outExpo(seg(t, a, a + .55))) * 6}deg)`;
+  el.style.visibility = t > a && o < 1 ? "visible" : "hidden";
+}
+
+const S0 = .64, PTOP = 520, HALF = 607;   // dev is 1214 wide: its centre is 607 in
+
+async function seek(t) {
+  let fx = "", lines = "";
+
+  // ── 1. the reef: vivid and full screen, then cooled to Rosa blue behind the light app ──
+  const v = $("v");
+  const blue = smooth(seg(t, T.enter - .1, T.enter + .6));
+  const tail = smooth(seg(t, T.exit[0], T.end + .4));
+  v.style.transform = `translateX(${-120 * sine(seg(t, 0, T.dur))}px) scale(${lerp(1.25, 1.08, outExpo(seg(t, 0, 2.4))) + .06 * sine(seg(t, T.enter, T.dur))})`;
+  v.style.filter = `blur(${(1 - outExpo(seg(t, 0, .8))) * 16 + 9 * blue}px) saturate(${1.4 - .25 * blue}) brightness(${1.1 - .1 * blue}) contrast(1.06)`;
+  $("sun").style.opacity = 1 - .7 * blue;
+  $("tint").style.opacity = .62 * blue + .25 * tail;
+  $("shade").style.background = `linear-gradient(180deg, rgba(1,4,15,${.3 + .2 * blue}) 0%, rgba(1,4,15,${.05 + .15 * blue}) 50%, rgba(1,4,15,${.2 + .25 * blue}) 100%)`;
+  $("glow").style.opacity = .6 * blue + .6 * tail;
+
+  // ── 2. hook: words slam up, then the phone shoves them out to the right ──
+  const shove = (k) => inExpo(seg(t, T.enter - .05 + k * .05, T.enter + .3 + k * .05));
+  [["w1", .35], ["w2", .7]].forEach(([id, a], k) => {
+    const i = outBack(seg(t, a, a + .45), 1.5), o = shove(k);
+    $(id).style.transform = `translate(${o * 1300}px, ${(1 - i) * 118}%) rotate(${(1 - outExpo(seg(t, a, a + .5))) * 8}deg) skewX(${-18 * o}deg)`;
+    $(id).style.filter = o > 0 ? `blur(${o * 14}px)` : "none";
+  });
+  $("w2").style.backgroundPosition = `${lerp(100, 0, sine(seg(t, 1.5, 2.3)))}% 0`;
+  $("hook").style.top = SAFE_TOP + 250 + "px";
+  $("hook").style.visibility = t < T.enter + .45 ? "visible" : "hidden";
+
+  // ── 3. the phone: whips in from the left, drifts right as the day scrolls, stops dead centre ──
+  const kIn = outExpo(seg(t, T.enter, T.enter + .7));
+  const kd = seg(t, T.enter + .3, T.stop), kDrift = 1 - (1 - kd) * (1 - kd);
+  const cx = -440 + 590 * kIn + 390 * kDrift;           // ends at 540
+  const pk = inOut(seg(t, T.push[0], T.push[1]));
+  const ex = seg(t, T.exit[0], T.exit[1]), exk = inExpo(ex);
+  const sc = lerp(S0, .7, pk) * (1 + .015 * sine(seg(t, T.push[1], T.exit[1])));
+  const Ty = lerp(PTOP + S0 * (22 + FOCUS), 1380, pk);    // frame y of the focus line; phone top stays under the line of text
+  const ox = cx - HALF * sc, oy = Ty - sc * (22 + FOCUS) + 2300 * exk;
+  $("rig").style.transform = `translate(${ox}px, ${oy}px) scale(${sc})`;
+  const sway = (1 - pk) * smooth(seg(t, T.enter + .7, T.enter + 1.2)) * (1 - smooth(seg(t, T.stop - .6, T.stop)));
+  const rx = 6 * (1 - kIn) + sway * 3 * Math.sin(t * 1.3) + 24 * exk;
+  const ry = -lerp(0, 34, 1 - kIn) - 10 * (1 - kDrift) * kIn + sway * 3 * Math.sin(t * .9);
+  const rz = -6 * (1 - kIn) - 9 * exk;
+  $("dev").style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
+  const gp = smooth(seg(t, T.push[0] + .3, T.push[1]));
+  $("dev").style.boxShadow = `inset 0 0 0 3px rgba(255,255,255,.22), 0 120px 220px rgba(0,0,20,.6), 0 0 ${160 + 80 * gp}px rgba(${gp > 0 ? "36,177,97" : "17,183,242"},${.35 + .1 * gp})`;
+  $("dev").style.filter = kIn < 1 ? `blur(${(1 - outExpo(seg(t, T.enter, T.enter + .45))) * 22}px)` : `brightness(${1 - .4 * gp}) blur(${2.5 * gp + exk * 16}px)`;
+  $("rig").style.visibility = t < T.enter || ex >= 1 ? "hidden" : "visible";
+  $("glare").style.backgroundPosition = `${t < T.stop ? lerp(150, -50, seg(t, T.enter + .2, T.enter + 1.6)) : lerp(150, -50, seg(t, T.stop, T.stop + 1))}% 0`;
+  // speed streaks behind the whip
+  const sp = bump(t, T.enter - .05, T.enter + .8);
+  if (sp > 0) for (let i = 0; i < 16; i++) {
+    const y = 380 + hash("ly" + i) * 1450, len = 300 + hash("ll" + i) * 700, x = -900 + ((t - T.enter) * 3600 + hash("lx" + i) * 1600);
+    lines += `<rect x="${x}" y="${y}" width="${len}" height="${2 + hash("lh" + i) * 5}" rx="3" fill="#fff" opacity="${.45 * sp * hash("lo" + i)}"/>`;
+  }
+  // the dead stop: a hard ring off the phone
+  const st = seg(t, T.stop - .02, T.stop + .6);
+  if (st > 0 && st < 1) {
+    const q = outExpo(st);
+    fx += `<rect x="${540 - HALF * S0 - 40 * q}" y="${PTOP - 40 * q}" width="${2 * HALF * S0 + 80 * q}" height="${1500}" rx="${92 + 30 * q}" fill="none" stroke="#11b7f2" stroke-width="${16 * (1 - q)}" opacity="${1 - q}"/>`;
+  }
+
+  // ── 4. the day plays: one smooth scroll that leans on each 3-hour row, never stopping ──
+  const SP = 209;
+  const S = SCROLL_END * sine(seg(t, T.scroll[0], T.scroll[1]));
+  const lean = .8 * smooth(seg(t, T.scroll[0], T.scroll[0] + .9));
+  const scroll = Math.max(0, S - lean * SP / 6.283 * Math.sin(6.283 * (S - SCROLL_END) / SP));
+  $("scroll").style.transform = `translateY(${-scroll}px)`;
+  // each hour lifts off the page as it crosses the focus line; best sessions glow green
+  ROWS.forEach((r, i) => {
+    const d = rc(i) - scroll - FOCUS;
+    let g = Math.exp(-Math.pow(d / 150, 2)) * smooth(seg(t, T.scroll[0], T.scroll[0] + .5));
+    const best = r[2] === "best";
+    if (i === FINAL) g = Math.max(g, smooth(seg(t, T.scroll[1] - .3, T.scroll[1])));
+    g *= 1 - smooth(seg(t, T.exit[0] + .2, T.exit[1]));
+    const el = lifts[i];
+    const pulse = i === FINAL ? .5 + .5 * Math.sin((t - T.push[1]) * 5) : 0;
+    const hold = i === FINAL ? gp : 0;
+    el.style.transform = `scale(${1 + (best ? .03 : .02) * g})`;
+    const swap = i === FINAL && t >= T.push[0];   // the hero card takes over the final row
+    el.style.opacity = swap ? 0 : 1;
+    if (badges[i]) badges[i].style.opacity = swap ? 0 : 1;
+    el.style.zIndex = g > .01 ? 2 : 1;
+    el.style.borderRadius = 28 * g + "px";
+    el.style.boxShadow = g < .01 ? "none" : best
+      ? `inset 0 0 0 ${9 * g}px rgba(36,177,97,${g}), 0 ${30 * g}px ${80 * g}px rgba(13,18,37,${.25 * g}), 0 0 ${(110 + 60 * pulse * hold) * g}px rgba(36,177,97,${(.75 + .25 * pulse * hold) * g})`
+      : `inset 0 0 0 ${6 * g}px rgba(17,183,242,${.9 * g}), 0 ${24 * g}px ${60 * g}px rgba(13,18,37,${.22 * g})`;
+    if (badges[i]) {
+      const b = badges[i], pop = outBack(clamp(g * 1.4), 2.2);
+      b.style.zIndex = 3;
+      b.style.transform = `scale(${1 + .28 * pop * (g > .02 ? 1 : 0)}) rotate(${-3 * pop}deg)`;
+      b.style.boxShadow = g > .02 ? `0 0 ${70 * g}px rgba(36,177,97,${g}), 0 ${14 * g}px ${30 * g}px rgba(0,0,0,${.25 * g})` : "none";
+    }
+  });
+  // the push: the 06:30 window lifts out of the screen toward camera and owns the frame
+  const hp = seg(t, T.push[0] + .1, T.push[1] + .3), hk = outBack(hp, 1.4);
+  const hcx = ox + sc * (22 + 585), hcy = oy + sc * (22 + rc(FINAL) - scroll);
+  const hs = sc * (1.03 + .22 * hk) * (1 + .012 * Math.sin((t - T.push[1]) * 5) * smooth(seg(t, T.push[1], T.push[1] + .4)));
+  const hero = $("hero");
+  Object.assign(hero.style, { left: hcx - 561 + "px", top: hcy - 107 + "px", visibility: t >= T.push[0] && ex < 1 ? "visible" : "hidden",
+    transform: `perspective(2400px) rotateX(${8 * bump(t, T.push[0] + .1, T.push[1] + .3)}deg) scale(${hs})`, filter: exk > 0 ? `blur(${exk * 16}px)` : "none" });
+  const hpulse = .5 + .5 * Math.sin((t - T.push[1]) * 5);
+  $("hrow").style.boxShadow = `inset 0 0 0 9px #24b161, 0 ${40 * hk}px ${120 * hk}px rgba(0,0,30,${.5 * hk}), 0 0 ${110 + 70 * hk * hpulse}px rgba(36,177,97,${.75 + .25 * hk * hpulse})`;
+  const bk = outBack(seg(t, T.push[1] - .2, T.push[1] + .3), 2.4);
+  $("hbadge").style.transform = `scale(${1 + .12 * bk}) rotate(${-2 * bk}deg)`;
+  $("hbadge").style.boxShadow = `0 0 ${70 + 40 * hpulse}px rgba(36,177,97,1), 0 14px 30px rgba(0,0,0,.25)`;
+  // a burst off the badge the moment each best session arrives
+  [FINAL].forEach((i) => {
+    const tc = i === FINAL ? T.scroll[1] - .25 : T.scroll[0] + (T.scroll[1] - T.scroll[0]) * (Math.acos(1 - 2 * clamp((rc(i) - FOCUS) / SCROLL_END)) / Math.PI);
+    const q0 = seg(t, tc - .1, tc + .6);
+    if (q0 <= 0 || q0 >= 1) return;
+    const b = BADGES[i], bx = ox + sc * (22 + b.x + b.w / 2), by = oy + sc * (22 + cutY(b.y) + b.h / 2 - scroll);
+    [0, 1].forEach((j) => {
+      const q = outExpo(clamp(q0 * 1.15 - j * .15));
+      fx += `<circle cx="${bx}" cy="${by}" r="${30 + 240 * q}" fill="none" stroke="${j ? "#fff" : "#24b161"}" stroke-width="${(j ? 4 : 14) * (1 - q) + 1}" opacity="${1 - q}"/>`;
+    });
+  });
+
+  // ── 5. top lines ──
+  $("t1").style.top = SAFE_TOP + 40 + "px";
+  $("t2").style.top = SAFE_TOP + 5 + "px";
+  line($("t1"), t, T.enter + .55, T.push[0] - .25);
+  line($("t2"), t, T.push[0] + .35, T.exit[0] - .1);
+
+  // ── 6. flashes on the hits ──
+  $("flash").style.opacity = .35 * bump(t, T.enter - .05, T.enter + .25) + .18 * bump(t, T.stop - .05, T.stop + .2) + .3 * bump(t, T.end - .15, T.end + .2);
+
+  // ── 7. Rosa particles rise in the empty space once the phone is gone, and stay under the end card ──
+  particles($("pt"), t, smooth(seg(t, T.exit[0] + .2, T.exit[1] + .5)), { gain: 3.2 });
+
+  // ── 8. end card ──
+  const E = T.end;
+  $("end").style.top = SAFE_TOP + 70 + "px";
+  const lg = seg(t, E, E + .8);
+  $("logo").style.transform = `scale(${lerp(.3, 1, outBack(lg))}) rotate(${(1 - outExpo(lg)) * -25}deg)`;
+  $("logo").style.opacity = clamp(lg * 3);
+  const rise = (el, a) => { const k = outExpo(seg(t, a, a + .8)); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * 70}px)`; el.style.filter = `blur(${(1 - k) * 10}px)`; };
+  rise($("e1"), E + .2); rise($("btn"), E + .6); rise($("e3"), E + .8);
+  const gl = 34 + 12 * Math.sin(t * 2.6);
+  $("btn").style.boxShadow = `0 0 ${gl}px rgba(17,183,242,.75), 0 0 ${gl * 2.4}px rgba(17,183,242,.35)`;
+  $("end").style.visibility = t < E ? "hidden" : "visible";
+  if (lg > 0 && lg < 1) {
+    const q = outExpo(lg);
+    fx += `<circle cx="540" cy="${SAFE_TOP + 155}" r="${80 + 440 * q}" fill="none" stroke="#11b7f2" stroke-width="${14 * (1 - lg)}" opacity="${1 - lg}"/>`;
+  }
+
+  $("fx").innerHTML = fx;
+  $("lines").innerHTML = lines;
+  await document.fonts.ready;
+  await loaded(v);
+  await seekVideo(v, .2 + t * .8);
+}
+window.__film = { seek, duration: T.dur };
+</script>
+</body></html>

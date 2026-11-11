@@ -60,3 +60,5 @@ clients/*/higgs-hook/**/*.mp4
 clients/*/higgs-hook/**/*.wav
 clients/*/higgs-hook/**/*.webm
 clients/*/higgs-hook/**/.rec/
+clients/*/higgs-hook/**/.motion-*/
+clients/*/.browser-profile/

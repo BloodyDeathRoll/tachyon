@@ -1,0 +1,14 @@
+2026-w47-01 self-check: CHANGED: the swing ended at 2.35× and cut off the Size/Period/Wind bars and Map; it now ends at 1.0× with the whole rating card on screen, and the summary pill moved off the card.
+2026-w47-02 self-check: OK
+2026-w47-03 self-check: CHANGED: day panes now stop above their own nav (`clip-path: inset(600px 0 240px 0)` in `film/index.html`), so the bottom nav no longer scrolls with the days.
+2026-w47-04 self-check: CHANGED: moved the "Search." label below the search results so the search bar shows (build not checked).
+2026-w47-05 self-check: CHANGED: removed "It's free." from the closing card in `film/index.html` (operator notes w47-01, -02 and -04).
+2026-w47-06 self-check: OK
+2026-w47-07 self-check: OK
+2026-w47-08 self-check: CHANGED: second payoff line ("Wind polishes it.") no longer peeks out as stray dashes under "Swell makes it." around 10s.
+2026-w47-09 self-check: OK
+2026-w47-10 self-check: CHANGED: removed the scroll blur that made the whole app unreadable from about 4.25s to 5.15s.
+2026-w47-11 self-check: OK
+2026-w47-12 self-check: OK
+2026-w47-13 self-check: OK
+2026-w47-14 self-check: OK

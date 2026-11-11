@@ -1,0 +1,40 @@
+{
+  "slot_id": "2026-w47-02",
+  "title": "Swell crosses Americas",
+  "pillar": "Swell map",
+  "angle": "Open on the dark swell map over the Americas, full screen with no phone, the week's animation playing as the camera tilts across it in smooth 3D. The camera pulls back and the map settles into a large phone that holds two thirds of the frame while the swell keeps moving inside it. A tap on a coast and the screen swaps to that spot's week with the bars filling in. Rosa particles drift up through the open space, then the closing card with the glowing blue button.",
+  "hook_formula": "Watch the swell travel",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Texas Roadhouse Blues (Brent Bourgeois), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w47-02/film",
+    "source": "clients/rosa/posts/2026-w47-02/film/index.html",
+    "music": "clients/rosa/assets/music/surf-rock-204622.mp3"
+  },
+  "track": "ig:153881445338907",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w47-02",
+  "plan": "2026-W47",
+  "motion": null,
+  "theme": "dark",
+  "duration_s": 17.0,
+  "audio_configuration": {
+    "audio_id": "153881445338907",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Texas Roadhouse Blues",
+    "artist": "Brent Bourgeois",
+    "cover": "https://scontent.fhfa1-1.fna.fbcdn.net/v/t39.30808-1/463254674_8848662205194754_7278824932744620191_n.jpg?stp=c0.0.1365.1365a_dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=7s_JNBjEdWgQ7kNvwEHUYOA&_nc_oc=AdpbhaMRH-iohKU9-tCF61kTQEE6lIu6IOHgof0MXqR4tSA-63vE0l7WPF7mjdhBE7tAJ02UOKtVMqNlI0TJmOAM&_nc_zt=24&_nc_ht=scontent.fhfa1-1.fna&edm=AOP_XFkEAAAA&_nc_gid=cdl6WW28FIBN1Fa76HJQsQ&oh=00_AQTnRqn9Z7DXEZZgGsmNc7BLvi8KCE3TjELLkhbBAkYUpw&oe=6AF8E4A3",
+    "duration": 197.8,
+    "link": null,
+    "preview_of": "ig:153881445338907"
+  }
+}

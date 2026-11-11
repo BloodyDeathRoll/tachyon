@@ -1,0 +1,27 @@
+{
+  "slot_id": "2026-w47-08",
+  "title": "Epic in Santa Teresa",
+  "pillar": "Why this rating",
+  "angle": "A fresh glassy-line Pixabay clip plays full screen, then a big \"Epic in Santa Teresa\" in white types over it. The dark Santa Teresa spot page rises into a large phone and the size, period and wind bars fill, showing how the three add up. The Epic pill pops as the rating lands, the phone tilts toward camera. Rosa particles rise in the empty space, then the closing card.",
+  "hook_formula": "Epic in Santa Teresa",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Surf Rock Summer (BFCMUSIC), baked in",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w47-08/film",
+    "source": "clients/rosa/posts/2026-w47-08/film/index.html",
+    "music": "clients/rosa/assets/music/surf-rock-summer-325576.mp3"
+  },
+  "track": "surf-rock-summer",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w47-08",
+  "plan": "2026-W47",
+  "motion": null,
+  "theme": "dark",
+  "duration_s": 18.0
+}

@@ -1,0 +1,40 @@
+{
+  "slot_id": "2026-w47-04",
+  "title": "No paywall, ever",
+  "pillar": "Free, and why",
+  "angle": "Big white words \"No paywall\" slam onto a dark ocean clip from Pixabay, then shatter into Rosa particles that rise and fade. The dark home screen rises in a phone that fills most of the frame and one thumb flow plays: search, tap a spot, the forecast opens, no sign-up anywhere. Each step gets a single punchy word that kicks in beside the phone and clears. Closing card: logo, white two-line text, space, glowing blue button.",
+  "hook_formula": "No paywall. No account.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Quirky Bossa (Vocals) (Scott Dugdale), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w47-04/film",
+    "source": "clients/rosa/posts/2026-w47-04/film/index.html",
+    "music": "clients/rosa/assets/music/upbeat-groove-620328.mp3"
+  },
+  "track": "ig:150504705576125",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w47-04",
+  "plan": "2026-W47",
+  "motion": null,
+  "theme": "dark",
+  "duration_s": 16.5,
+  "audio_configuration": {
+    "audio_id": "150504705576125",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Quirky Bossa (Vocals)",
+    "artist": "Scott Dugdale",
+    "cover": "https://static.xx.fbcdn.net/rsrc.php/yM/r/LXmIH1W7DBC.webp",
+    "duration": 48.0,
+    "link": null,
+    "preview_of": "ig:150504705576125"
+  }
+}

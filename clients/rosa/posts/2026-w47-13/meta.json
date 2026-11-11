@@ -1,0 +1,50 @@
+{
+  "slot_id": "2026-w47-13",
+  "title": "Flat to Epic",
+  "pillar": "Why this rating",
+  "angle": "The five ratings, Flat, Poor, Fair, Good and Epic, fire across the screen as big pills in the app's colours, one per beat. The last one, Epic, zooms into the light-theme Supertubos page in a big phone, the rating pill sitting where it was. The bars fill to show what made it. Rosa particles rise in the empty space, then the closing card.",
+  "hook_formula": "Flat, Poor, Fair, Good, Epic",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Bring The Lights (Instrumental) (Jazmine), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w47-13/film",
+    "source": "clients/rosa/posts/2026-w47-13/film/index.html",
+    "music": "clients/rosa/assets/music/upbeat-groove-620328.mp3"
+  },
+  "track": "ig:1193260955869259",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w47-13",
+  "plan": "2026-W47",
+  "motion": null,
+  "theme": "light",
+  "voiceover_script": "Flat, poor, fair, good, epic. Rosa tells you which one, and why. Epic's my favourite, obviously.",
+  "voiceover_voice": "dia:seed3",
+  "voiceover": {
+    "script": "Flat, poor, fair, good, epic. Rosa tells you which one, and why. Epic's my favourite, obviously.",
+    "voice": "dia:seed3",
+    "speed": 1.08,
+    "start": 0.5,
+    "file": "vo.wav",
+    "engine": "dia-1.6b (Nari Labs, Apache-2.0), local GPU"
+  },
+  "duration_s": 15.0,
+  "audio_configuration": {
+    "audio_id": "1193260955869259",
+    "audio_volume": 30,
+    "video_volume": 100
+  },
+  "track_info": {
+    "title": "Bring The Lights (Instrumental)",
+    "artist": "Jazmine",
+    "cover": "https://scontent.fhfa1-1.fna.fbcdn.net/v/t1.6435-1/88331260_3116208495108870_8191915269690490880_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=R7Zyotz4GH4Q7kNvwGXbvDP&_nc_oc=AdpOsWdyrUExepMBU_ob0FmNGlDa-dMgtCB-AFy74wL5wT4eX4CesTGr8pHk3PVuHFMR6n8TsGMysl_CSHXueeKm&_nc_zt=24&_nc_ht=scontent.fhfa1-1.fna&edm=AOP_XFkEAAAA&_nc_gid=FxhhfvSYHh2S3sE1PSMjgg&oh=00_AQRXj5WXP9jn4vsDTqyWa06U9Rl2CK6O6c3eCA-HMcgeyQ&oe=6B1BA4E3",
+    "duration": 165.2,
+    "link": null,
+    "preview_of": "ig:1193260955869259"
+  }
+}

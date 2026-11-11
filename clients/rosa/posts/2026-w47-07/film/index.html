@@ -1,0 +1,483 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url(inter-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #e8ecef; }
+body { font-family: Inter, sans-serif; color: #0d1225; -webkit-font-smoothing: antialiased; }
+#world { position: absolute; inset: 0; overflow: hidden; }
+
+/* blue stage: footage pushed under the brand tile */
+#bg { position: absolute; inset: 0; overflow: hidden; opacity: 0; }
+video { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; transform-origin: 50% 50%; }
+#tint { position: absolute; inset: 0; background: linear-gradient(180deg, #032afa 0%, #0a1f8f 55%, #01061a 100%); mix-blend-mode: multiply; opacity: .62; }
+#vig { position: absolute; inset: 0; background: radial-gradient(120% 80% at 50% 45%, rgba(1,6,26,0) 40%, rgba(1,6,26,.85) 100%); }
+#pt { position: absolute; left: 0; top: 646px; mix-blend-mode: screen; pointer-events: none; }
+
+#globe { position: absolute; left: 0; top: 0; transform-origin: 50% 50%; }
+#flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(circle at 50% 50%, #ffffff 0%, #bfefff 35%, rgba(17,183,242,0) 75%); }
+
+#stage { position: absolute; inset: 0; perspective: 3600px; perspective-origin: 50% 45%; }
+#rig { position: absolute; left: 0; top: 0; transform-origin: 0 0; transform-style: preserve-3d; }
+#phone { position: relative; padding: 34px; border-radius: 160px; transform-style: preserve-3d; transform-origin: 50% 50%; }
+#bezel { position: absolute; inset: 0; border-radius: 160px; background: linear-gradient(150deg, #e9edf3, #b7bec9 38%, #dfe4ea 70%, #9aa2ae); }
+#screen { position: relative; width: 1170px; height: 2532px; overflow: hidden; border-radius: 126px; }
+.scr { position: absolute; left: 0; top: 0; width: 1170px; height: 2532px; background-size: 1170px 2532px; }
+#s1in { position: absolute; inset: 0; background: url(map-northshore-w47.png) 0 0 / 1170px 2532px; }
+/* patches cut from the same capture, laid over the bars so they can fill in with the app's own pixels */
+.col { position: absolute; top: 412px; background-image: url(spot-leftovers.png); background-size: 1170px 11723px; }
+.bar { position: absolute; height: 34px; background-image: url(spot-leftovers.png); background-size: 1170px 2532px; }
+#glare { position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,0) 40%, rgba(255,255,255,.14) 50%, rgba(255,255,255,0) 60%); background-size: 300% 100%; }
+#thumb { position: absolute; left: 0; top: 0; width: 150px; height: 150px; margin: -75px 0 0 -75px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(13,18,37,.35) 0%, rgba(13,18,37,.2) 55%, rgba(13,18,37,.08) 70%);
+  border: 5px solid rgba(255,255,255,.9); box-shadow: 0 16px 40px rgba(0,0,0,.35); }
+#rip { position: absolute; left: 0; top: 0; border-radius: 50%; border: 10px solid #11b7f2; }
+
+/* type: every word rises through its own mask */
+.ln { position: absolute; left: 65px; width: 950px; text-align: center; white-space: nowrap; font-weight: 850; letter-spacing: -0.05em; line-height: 1.04; }
+.w { display: inline-block; overflow: hidden; vertical-align: bottom; padding: 0 .04em .1em; margin: 0 -.04em -.1em; }
+.w > span { display: inline-block; }
+.pill { background: #0c6733; color: #fff; border-radius: .26em; padding: 0 .2em .04em; }
+#hook { position: absolute; left: 65px; width: 950px; text-align: center; }
+#over { font-size: 88px; font-weight: 800; letter-spacing: -0.04em; }
+#num { font-size: 300px; font-weight: 900; letter-spacing: -0.065em; line-height: .9; font-variant-numeric: tabular-nums; }
+#spots { font-size: 88px; font-weight: 800; letter-spacing: -0.04em; margin-top: 14px; }
+#pick { font-size: 150px; font-weight: 900; letter-spacing: -0.06em; color: #032afa; position: absolute; left: 0; width: 950px; }
+.halo { text-shadow: 0 0 40px rgba(244,243,243,.95), 0 0 16px rgba(244,243,243,.9); }
+
+#end { position: absolute; left: 65px; width: 950px; display: flex; flex-direction: column; align-items: center; text-align: center; color: #fff; }
+.h { font-weight: 850; letter-spacing: -0.05em; line-height: 1; font-size: 108px; }
+#btn { margin-top: 120px; padding: 34px 96px; border-radius: 999px; background: #11b7f2; color: #fff; font-weight: 800; font-size: 60px; letter-spacing: -0.01em; }
+#fx { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+</style>
+<script src="globe-data.js"></script>
+</head>
+<body>
+<div id="world">
+  <div id="bg">
+    <video id="v" src="1306-145340152_medium.mp4" muted playsinline preload="auto"></video>
+    <div id="tint"></div>
+    <div id="vig"></div>
+  </div>
+  <canvas id="pt" width="1080" height="1274"></canvas>
+  <canvas id="globe" width="1080" height="1920"></canvas>
+
+  <div id="stage"><div id="rig"><div id="phone">
+    <div id="bezel"></div>
+    <div id="screen">
+      <div class="scr" id="s1"><div id="s1in"></div></div>
+      <div class="scr" id="s2" style="background-image:url(spot-leftovers.png)"></div>
+      <div id="rip"></div>
+      <div id="thumb"></div>
+      <div id="glare"></div>
+    </div>
+  </div></div></div>
+
+  <div id="hook" class="halo">
+    <div id="over">Over</div>
+    <div id="num">0</div>
+    <div id="spots">spots worldwide</div>
+    <div id="pick">Pick one.</div>
+  </div>
+
+  <div class="ln" id="L1" style="font-size:112px; color:#fff">Tap a pin.</div>
+  <div class="ln" id="L2" style="font-size:96px; color:#fff">Size · period · wind</div>
+  <div class="ln" id="L3" style="font-size:100px; color:#fff">See why it's <span class="pill">Epic</span></div>
+
+  <svg id="fx" viewBox="0 0 1080 1920"></svg>
+
+  <div id="end">
+    <img id="logo" src="rosa-icon.svg" style="width:200px; height:200px">
+    <div id="e1" class="h" style="margin-top:60px">Over 4,000 spots.</div>
+    <div id="e2" class="h">Pick yours.</div>
+    <div id="btn">rosa.surf</div>
+    <div id="e3" style="font-size:54px; font-weight:600; margin-top:50px; color:#fff">link in bio</div>
+  </div>
+</div>
+<div id="flash"></div>
+
+<script>
+const variant = new URLSearchParams(location.search).get("variant") === "story" ? "story" : "reel";
+const SAFE_TOP = variant === "story" ? 269 : 285;
+const $ = (id) => document.getElementById(id);
+
+// ── easing ──
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const inOut = (x) => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const sine = (x) => -(Math.cos(Math.PI * x) - 1) / 2;
+const smooth = (x) => x * x * (3 - 2 * x);
+const outExpo = (x) => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const outCubic = (x) => 1 - Math.pow(1 - x, 3);
+const inCubic = (x) => x * x * x;
+const outBack = (x, s = 1.7) => 1 + (s + 1) * Math.pow(x - 1, 3) + s * Math.pow(x - 1, 2);
+const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1e6) / 1e6; };
+const bump = (t, a, d) => { const k = seg(t, a, a + d); return k > 0 && k < 1 ? Math.sin(Math.PI * k) * (1 - k) : 0; };
+
+// ── timeline (s) ──
+const T = {
+  dive: [3.15, 4.65], capIn: [3.95, 4.55], shrink: [4.7, 5.7],
+  tap: 6.55, reveal: [6.62, 7.15], cols: 6.95, bars: 7.35,
+  outro: [10.9, 11.8], end: 11.45, dur: 17,
+};
+const OAHU = [21.62, -158.06];
+const PIN = [450, 1403];            // the "2" cluster by Leftovers on map-northshore-w47.png, capture px
+
+// ── 1. the light spot map: an orthographic globe of land specks, pins drop in waves ──
+const D = Math.PI / 180;
+const hv = (la, lo) => [Math.cos(la * D) * Math.sin(lo * D), Math.sin(la * D), Math.cos(la * D) * Math.cos(lo * D)];
+const WAVE = { 2: .35, 1: 1.05, 0: 1.75 };                        // Fair, then Good, then Epic
+const COL = { 2: "#11b7f2", 1: "#24b161", 0: "#0c6733" };
+const ORIGIN = hv(12, -95);
+const PINS = SPOTS.filter((q) => q[2] <= 2).map((q, i) => {
+  const v = hv(q[0], q[1]), ang = Math.acos(clamp(v[0] * ORIGIN[0] + v[1] * ORIGIN[1] + v[2] * ORIGIN[2], -1, 1));
+  return { v, band: q[2], at: WAVE[q[2]] + .8 * Math.min(1, ang / 1.9) + .08 * hash("p" + i) };
+});
+// the source grid carries a stray full row at -16.4°: keep only its points that have land just above or below
+const near = (la, lo) => LAND.some((q) => Math.abs(q[0] - la) < .1 && Math.abs(q[1] - lo) < 2.2);
+const LANDV = LAND.filter((q) => q[0] !== -16.4 || near(-18, q[1]) || near(-14.8, q[1])).map((q) => hv(q[0], q[1]));
+
+function camera(t) {
+  // drifts over the Americas while the pins land, then whips west to Hawaii into the dive
+  const s = inOut(seg(t, 2.3, T.dive[0] + .7)), drift = 10 * sine(seg(t, 0, 2.3));
+  const lat0 = lerp(8, OAHU[0], s), lon0 = lerp(-72 - drift, OAHU[1], s);
+  const dk = seg(t, T.dive[0], T.dive[1]);
+  const R = lerp(860, 1050, sine(seg(t, 0, T.dive[0]))) * Math.pow(65, inCubic(dk));
+  const cx = lerp(540, 415, smooth(dk)), cy = lerp(1060, 1086, smooth(dk));   // lands where the tapped pin sits full-bleed
+  return { lat0, lon0, R, cx, cy, dk };
+}
+
+function drawGlobe(t) {
+  const cv = $("globe"), f = cv.getContext("2d");
+  f.setTransform(1, 0, 0, 1, 0, 0); f.clearRect(0, 0, 1080, 1920);
+  const fade = 1 - seg(t, T.shrink[0], T.shrink[0] + .5);
+  cv.style.opacity = fade;
+  if (fade <= 0) return;
+  const { lat0, lon0, R, cx, cy, dk } = camera(t);
+  const cL = Math.cos(lon0 * D), sL = Math.sin(lon0 * D), c0 = Math.cos(lat0 * D), s0 = Math.sin(lat0 * D);
+  const pr = (v) => { const x = v[0] * cL - v[2] * sL, z1 = v[2] * cL + v[0] * sL; return [x, v[1] * c0 - z1 * s0, v[1] * s0 + z1 * c0]; };
+
+  // paper backdrop and the ocean disc in the app's map greys
+  const bk = f.createLinearGradient(0, 0, 0, 1920);
+  bk.addColorStop(0, "#f4f3f3"); bk.addColorStop(1, "#dfe4e8");
+  f.fillStyle = bk; f.fillRect(0, 0, 1080, 1920);
+  f.save();
+  f.shadowColor = "rgba(13,18,37,.18)"; f.shadowBlur = 120; f.shadowOffsetY = 40;
+  const oc = f.createRadialGradient(cx - R * .35, cy - R * .4, R * .05, cx, cy, R);
+  oc.addColorStop(0, "#d3d8dc"); oc.addColorStop(.75, "#c3c9cd"); oc.addColorStop(1, "#b3bbc1");
+  f.fillStyle = oc; f.beginPath(); f.arc(cx, cy, R, 0, 7); f.fill();
+  f.restore();
+
+  // graticule
+  if (dk < .6) {
+    f.strokeStyle = `rgba(255,255,255,${.35 * (1 - dk / .6)})`; f.lineWidth = 2;
+    const path = (pts) => { f.beginPath(); let pen = false; for (const v of pts) { const p = pr(v); if (p[2] > 0) { const x = cx + R * p[0], y = cy - R * p[1]; pen ? f.lineTo(x, y) : f.moveTo(x, y); pen = true; } else pen = false; } f.stroke(); };
+    for (let lo = -180; lo < 180; lo += 20) { const a = []; for (let la = -80; la <= 80; la += 4) a.push(hv(la, lo)); path(a); }
+    for (let la = -60; la <= 60; la += 20) { const a = []; for (let lo = -180; lo <= 180; lo += 4) a.push(hv(la, lo)); path(a); }
+  }
+
+  // land specks
+  const ls = R * .0165, M = ls + 4;
+  f.fillStyle = "#f6f5f3";
+  for (const v of LANDV) {
+    const p = pr(v); if (p[2] <= 0) continue;
+    const x = cx + R * p[0], y = cy - R * p[1];
+    if (x < -M || x > 1080 + M || y < -M || y > 1920 + M) continue;
+    const s = ls * (.55 + .45 * p[2]);
+    f.globalAlpha = .55 + .45 * p[2];
+    f.beginPath(); f.arc(x, y, s / 2 + .6, 0, 7); f.fill();
+  }
+  f.globalAlpha = 1;
+
+  // pins: fall in, pop, ring out
+  const base = Math.min(30, Math.max(8, R * .0085));
+  for (const pn of PINS) {
+    const a = t - pn.at; if (a < 0) continue;
+    const p = pr(pn.v); if (p[2] <= .02) continue;
+    const x = cx + R * p[0], y0 = cy - R * p[1];
+    if (x < -60 || x > 1140 || y0 < -60 || y0 > 1980) continue;
+    const k = clamp(a / .32), sc = outBack(k, 2.6), y = y0 - (1 - outCubic(k)) * 70;
+    const r = base * (pn.band === 0 ? 1.15 : 1) * (.6 + .4 * p[2]) * sc;
+    const rk = clamp(a / .7);
+    if (rk < 1) {
+      f.strokeStyle = COL[pn.band]; f.globalAlpha = (1 - rk) * .5 * p[2]; f.lineWidth = 3 * (1 - rk) + .5;
+      f.beginPath(); f.arc(x, y0, base * (1 + 3 * outExpo(rk)), 0, 7); f.stroke();
+    }
+    f.globalAlpha = clamp(k * 3) * (.45 + .55 * p[2]);
+    f.fillStyle = "#fff"; f.beginPath(); f.arc(x, y, r + 2.5, 0, 7); f.fill();
+    f.fillStyle = COL[pn.band]; f.beginPath(); f.arc(x, y, r, 0, 7); f.fill();
+  }
+  f.globalAlpha = 1;
+  // the dive swoops the map in 3D
+  const sw = Math.sin(Math.PI * dk);
+  cv.style.transform = `perspective(1600px) rotateX(${12 * sw}deg) rotateZ(${-6 * sw}deg) scale(${1 + .42 * sw})`;   // scaled so no canvas edge shows
+  cv.style.filter = dk > .55 ? `blur(${(dk - .55) * 26}px)` : "none";
+}
+
+// ── Rosa particles: the app's splash field (rosa/web particles.ts + splash: palette, density 1.4,
+// speed 1, alpha .3, 460 css px band) made a pure function of t ──
+const BW = 390, BH = 460;
+const NP = Math.round(BW * BH / 11000 * 1.4);
+const PAL = ["125, 185, 240", "94, 205, 205"];
+const SLOTS = Array.from({ length: NP }, (_, i) => ({ life: 4 * (0.8 + hash("l" + i) * 0.4), off: hash("o" + i) * 4 }));
+function particles(cv, t, o, { glow = true, gain = 1 } = {}) {
+  const c = cv.getContext("2d");
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, cv.width, cv.height);
+  cv.style.opacity = o;
+  if (o <= 0) return;
+  const CSS = cv.width / BW;
+  c.setTransform(CSS, 0, 0, CSS, 0, 0);
+  if (glow) {
+    let g = c.createRadialGradient(BW * .18, BH * 1.3, 0, BW * .18, BH * 1.3, BH * 1.0);
+    g.addColorStop(0, "rgba(22,51,122,.55)"); g.addColorStop(.72, "rgba(22,51,122,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+    g = c.createRadialGradient(BW * .82, BH * 1.2, 0, BW * .82, BH * 1.2, BH * .9);
+    g.addColorStop(0, "rgba(13,148,136,.4)"); g.addColorStop(.7, "rgba(13,148,136,0)");
+    c.fillStyle = g; c.fillRect(0, 0, BW, BH);
+  }
+  const ps = [];
+  SLOTS.forEach(({ life, off }, i) => {
+    const k = Math.floor((t + off) / life), age = t + off - k * life, f = age * 60;
+    const r = (s) => hash(s + i + "-" + k);
+    const depth = Math.pow(r("d"), 0.85), rad = 0.5 + depth * (3.2 - 0.5), blur = (1 - depth) * 4.5;
+    const vy = -(0.24 + depth * 1.4), vx = (r("v") - 0.5) * (0.05 + depth * 0.28);
+    const ph = r("p") * 6.283, ws = 0.004 + r("w") * 0.012, wa = 0.05 + depth * 0.4;
+    const x = r("x") * BW + vx * f + (wa / ws) * (Math.cos(ph) - Math.cos(ph + ws * f));
+    const y = BH + r("y") * 30 + vy * f;
+    const tw = r("t") * 6.283 + (0.008 + r("s") * 0.025) * f;
+    const lf = age / life, env = lf < .15 ? lf / .15 : lf > .7 ? (1 - lf) / .3 : 1;
+    const a = clamp((0.22 + depth * 0.7) * 0.3 * gain * Math.min(1, (BH - y) / 80) * Math.min(1, y / (BH * .55)) * (0.75 + Math.sin(tw) * .25) * env);
+    if (a > 0.002 && y > -10) ps.push({ x, y, rad, depth, bucket: Math.round(blur), a, col: PAL[Math.floor(r("c") * PAL.length)] });
+  });
+  ps.sort((p, q) => p.depth - q.depth);
+  const dot = (p, rad, blur, a) => {
+    c.filter = blur ? `blur(${blur / 2 * CSS}px)` : "none";
+    c.globalAlpha = a; c.fillStyle = `rgb(${p.col})`;
+    c.beginPath(); c.arc(p.x, p.y, rad, 0, 6.283); c.fill();
+  };
+  for (const p of ps) if (p.bucket === 0 && p.rad > 1.4) dot(p, p.rad * 2.6, 8, p.a * .55);
+  for (const p of ps) dot(p, p.rad, p.bucket, p.a);
+  c.filter = "none"; c.globalAlpha = 1;
+}
+
+// ── footage: seek and wait for the frame ──
+function seekVideo(v, s) {
+  const d = v.duration || 30;
+  s = s % (d - 0.1);
+  if (v.readyState >= 2 && Math.abs(v.currentTime - s) < 1e-3) return Promise.resolve();
+  return new Promise((res) => {
+    const done = () => { v.removeEventListener("seeked", done); res(); };
+    v.addEventListener("seeked", done);
+    v.currentTime = s;
+  });
+}
+const loaded = (v) => v.readyState >= 1 ? Promise.resolve() : new Promise((r) => v.addEventListener("loadedmetadata", r, { once: true }));
+
+// ── the phone: 1238 x 2600; poses are its centre (x, y), scale and 3D angles ──
+const PW = 1238, PH = 2600;
+const FULL = [540, 960, 1080 / 1170, 0, 0, 0];   // screen edge to edge: the map reads as the whole frame
+const POSES = [                                   // [t, cx, cy, scale, rx, ry, rz]
+  [5.7, 540, 1215, .575, 8, -12, -2],
+  [6.4, 540, 1200, .58, 3, -4, 0],                // steady for the tap
+  [7.3, 560, 1195, .585, 6, 13, 1.5],
+  [9.1, 520, 1200, .585, 9, -13, -1.5],
+  [10.9, 540, 1205, .58, 5, 6, 0],
+];
+function pose(t) {
+  if (t <= POSES[0][0]) return POSES[0].slice(1);
+  for (let i = 0; i < POSES.length - 1; i++) {
+    const a = POSES[i], b = POSES[i + 1];
+    if (t <= b[0]) { const k = sine(seg(t, a[0], b[0])); return a.slice(1).map((v, j) => lerp(v, b[j + 1], k)); }
+  }
+  return POSES[POSES.length - 1].slice(1);
+}
+
+// ── the thumb, in capture px ──
+function thumb(t) {
+  const keys = [[5.95, 900, 1750], [6.45, ...PIN], [6.7, ...PIN], [7.1, 820, 1700]];
+  if (t < keys[0][0] || t > keys[keys.length - 1][0]) return null;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const a = keys[i], b = keys[i + 1];
+    if (t <= b[0]) {
+      const k = inOut(seg(t, a[0], b[0])), arc = Math.sin(Math.PI * k) * (a[1] === b[1] ? 0 : 120);
+      return [lerp(a[1], b[1], k) + arc * .4, lerp(a[2], b[2], k) - arc];
+    }
+  }
+}
+
+// ── bars on the spot page, in capture px ──
+const COLS = [[56, 185], [224, 352], [392, 520], [560, 687], [728, 856], [895, 1024], [1063, 1170]];
+const BARS = [741, 815, 887, 960];
+const BAR_X = [726, 966], BLANK_Y = 1056;
+function buildBars() {
+  const s2 = $("s2");
+  COLS.forEach(([a, b], i) => {
+    const d = document.createElement("div"); d.className = "col"; d.id = "col" + i;
+    // a blank row band (385..412) of the capture stretched x4.63 over the columns
+    Object.assign(d.style, { left: a - 4 + "px", width: b - a + 8 + "px", backgroundPosition: `${-(a - 4)}px ${-385 * 4.63}px` });
+    s2.appendChild(d);
+  });
+  BARS.forEach((y, i) => { const d = document.createElement("div"); d.className = "bar"; d.id = "bar" + i; d.style.top = y - 17 + "px"; s2.appendChild(d); });
+}
+function bars(t) {
+  COLS.forEach((_, i) => {
+    const k = outCubic(seg(t, T.cols + i * .07, T.cols + i * .07 + .55));
+    $("col" + i).style.height = 125 * (1 - k) + "px";
+  });
+  BARS.forEach((_, i) => {
+    const k = outExpo(seg(t, T.bars + i * .18, T.bars + i * .18 + .7));
+    const L = lerp(BAR_X[0], BAR_X[1], k), el = $("bar" + i);
+    Object.assign(el.style, { left: L + "px", width: Math.max(0, BAR_X[1] - L) + "px", backgroundPosition: `${-L}px ${-BLANK_Y}px` });
+  });
+}
+
+// ── type lines: words rise through masks, then leave upward ──
+function splitWords(el) {
+  const parts = [];
+  el.childNodes.forEach((n) => {
+    if (n.nodeType === 3) n.textContent.split(/(\s+)/).forEach((w) => w && parts.push(/^\s+$/.test(w) ? " " : `<span class="w"><span>${w}</span></span>`));
+    else parts.push(`<span class="w"><span>${n.outerHTML}</span></span>`);
+  });
+  el.innerHTML = parts.join("");
+}
+function line(el, t, a, b, { gap = .07, y } = {}) {
+  el.style.top = y + "px";
+  el.style.visibility = t >= a && t < b + .6 ? "visible" : "hidden";
+  el.querySelectorAll(".w > span").forEach((s, i) => {
+    const k = outExpo(seg(t, a + i * gap, a + i * gap + .55)), o = inCubic(seg(t, b + i * .04, b + .3 + i * .04));
+    s.style.transform = `translateY(${(1 - k) * 110 - o * 110}%) rotate(${(1 - k) * 6}deg)`;
+  });
+}
+
+let ready = null;
+async function seek(t) {
+  if (!ready) ready = document.fonts.load("900 100px Inter").then(() => document.fonts.ready).then(() => {
+    ["L1", "L2", "L3"].forEach((id) => splitWords($(id))); buildBars();
+  });
+  await ready;
+  let fx = "";
+
+  // ── 1. the map ──
+  drawGlobe(t);
+  const dk = seg(t, T.dive[0], T.dive[1]);
+
+  // hook: the count ticks with the pins, then "Pick one."
+  const hk = $("hook");
+  hk.style.top = SAFE_TOP + 40 + "px";
+  const cnt = Math.round(4000 * outCubic(seg(t, .35, 2.45)) / 10) * 10;
+  $("num").textContent = cnt.toLocaleString("en-US");
+  const hi = outExpo(seg(t, 0, .5)), pk = outBack(seg(t, 2.55, 2.95), 2);
+  const ov = outBack(seg(t, 2.35, 2.75), 2);   // "Over" lands once the count tops out
+  $("over").style.opacity = clamp(ov * 3); $("over").style.transform = `translateY(${(1 - ov) * 60}px) scale(${lerp(1.5, 1, ov)})`;
+  $("num").style.transform = `scale(${lerp(.6, 1, outBack(seg(t, 0, .55), 1.5)) * (1 + .06 * bump(t, 2.45, .35))})`;
+  $("num").style.opacity = hi;
+  $("spots").style.opacity = outExpo(seg(t, .3, .8));
+  $("pick").style.top = 560 + "px";
+  $("pick").style.opacity = clamp(pk * 3);
+  $("pick").style.transform = `scale(${lerp(1.8, 1, pk)})`;
+  // into the dive: the hook flies past the camera
+  const hout = inCubic(seg(t, T.dive[0] - .1, T.dive[0] + .55));
+  hk.style.opacity = 1 - hout;
+  hk.style.transform = `scale(${1 + 1.6 * hout})`;
+  hk.style.filter = hout > 0 ? `blur(${hout * 18}px)` : "none";
+  hk.style.visibility = hout >= 1 ? "hidden" : "visible";
+
+  // ── 2. the blue stage comes up as the map shrinks into the phone ──
+  const sk = seg(t, T.shrink[0], T.shrink[1]), oc = seg(t, T.outro[0], T.outro[1]);
+  $("bg").style.opacity = smooth(seg(t, T.shrink[0] + .1, T.shrink[0] + .6));
+  $("v").style.transform = `scale(${1.25 - .12 * sine(seg(t, T.shrink[0], T.dur))})`;
+  $("v").style.filter = `blur(${lerp(4, 1.5, oc)}px) brightness(${lerp(1.05, 1.15, oc)}) saturate(1.25)`;
+  particles($("pt"), t, seg(t, T.shrink[0] + .3, T.shrink[1] + .3), { gain: lerp(3.6, 5.5, oc) });
+
+  // ── 3. the phone ──
+  const ce = inOut(sk);
+  let P;
+  if (t < T.shrink[0]) P = FULL.slice();
+  else {
+    const to = pose(t);
+    P = FULL.map((v, j) => lerp(v, to[j], ce));
+    P[4] += 30 * Math.sin(Math.PI * ce) * (1 - ce * .3);   // a swing as it lands
+    P[3] += 14 * Math.sin(Math.PI * ce);
+  }
+  let [cx, cy, sc, rx, ry, rz] = P;
+  sc *= 1 - .015 * bump(t, T.tap, .35);
+  // outro: tips back and drops away under the end card
+  const oe = inCubic(oc);
+  cy += 1500 * oe; rx += 55 * oe; sc *= 1 - .25 * oe;
+  $("rig").style.transform = `translate(${cx - PW * sc / 2}px, ${cy - PH * sc / 2}px) scale(${sc})`;
+  $("phone").style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
+  const land = smooth(seg(t, T.shrink[0], T.shrink[0] + .4));
+  $("bezel").style.opacity = land;
+  $("phone").style.boxShadow = land > 0 ? `0 100px 200px rgba(0,4,30,${.7 * land}), 0 0 240px rgba(17,183,242,${(.3 + .3 * bump(t, T.tap, .4)) * land})` : "none";
+  $("screen").style.borderRadius = 126 * land + "px";
+  $("stage").style.display = t < T.capIn[0] || oc >= 1 ? "none" : "block";
+  $("glare").style.backgroundPosition = `${lerp(110, -10, seg(t, T.shrink[0], T.outro[1]))}% 0`;
+
+  // the capture comes out of the dive: zooms in from the coast, sharpening
+  const ci = seg(t, T.capIn[0], T.capIn[1]);
+  $("s1").style.opacity = smooth(ci);
+  $("s1in").style.transformOrigin = `${PIN[0]}px ${PIN[1]}px`;
+  $("s1in").style.transform = `scale(${lerp(.55, 1, outCubic(seg(t, T.capIn[0], T.shrink[0] + .1)))})`;
+  $("s1in").style.filter = ci < 1 ? `blur(${(1 - ci) * 14}px)` : "none";
+
+  // tap the pin: the spot page opens out of it
+  const rv = seg(t, ...T.reveal);
+  $("s2").style.visibility = rv > 0 ? "visible" : "hidden";
+  $("s2").style.clipPath = `circle(${3000 * inOut(rv)}px at ${PIN[0]}px ${PIN[1]}px)`;
+  bars(t);
+
+  const th = thumb(t), tm = $("thumb");
+  tm.style.visibility = th ? "visible" : "hidden";
+  if (th) {
+    const press = Math.sin(Math.PI * seg(t, T.tap - .08, T.tap + .14));
+    tm.style.transform = `translate(${th[0]}px, ${th[1]}px) scale(${1 - .22 * press})`;
+    tm.style.opacity = Math.min(seg(t, 5.95, 6.2), 1 - seg(t, 6.85, 7.1));
+  }
+  const rp = $("rip"), rq = seg(t, T.tap, T.tap + .5);
+  rp.style.visibility = rq > 0 && rq < 1 ? "visible" : "hidden";
+  const RR = 40 + 220 * outExpo(rq);
+  Object.assign(rp.style, { left: PIN[0] - RR + "px", top: PIN[1] - RR + "px", width: 2 * RR + "px", height: 2 * RR + "px", opacity: 1 - rq, borderWidth: 14 * (1 - rq) + 2 + "px" });
+
+  // landing shockwave around the phone
+  const lk = seg(t, T.shrink[1] - .15, T.shrink[1] + .5);
+  if (lk > 0 && lk < 1) {
+    const e = outExpo(lk);
+    fx += `<ellipse cx="540" cy="1215" rx="${420 + 560 * e}" ry="${760 + 560 * e}" fill="none" stroke="#11b7f2" stroke-width="${18 * (1 - lk)}" opacity="${1 - lk}"/>`;
+  }
+
+  // ── 4. type over the phone section ──
+  line($("L1"), t, 5.55, 6.75, { y: SAFE_TOP + 20 });
+  line($("L2"), t, T.bars - .05, 8.85, { gap: .18, y: SAFE_TOP + 28 });
+  line($("L3"), t, 9.05, 10.75, { y: SAFE_TOP + 24 });
+
+  // ── 5. flashes: one at the dive's bottom, one as the end card lands ──
+  let fl = .55 * Math.pow(1 - seg(t, T.capIn[0] + .1, T.capIn[0] + .6), 3) * (t > T.capIn[0] + .1 ? 1 : 0);
+  $("flash").style.opacity = fl;
+
+  // ── 6. end card ──
+  const E = T.end, LOGO_Y = SAFE_TOP + 90 + 100;
+  $("end").style.top = SAFE_TOP + 90 + "px";
+  const lg = seg(t, E, E + .8);
+  $("logo").style.transform = `translateY(${(1 - outBack(lg, 1.8)) * -260}px) scale(${lerp(.4, 1, outBack(lg, 2))})`;
+  $("logo").style.opacity = clamp(lg * 3);
+  const pop = (el, a) => { const k = outExpo(seg(t, a, a + .8)); el.style.opacity = k; el.style.transform = `translateY(${(1 - k) * 70}px)`; el.style.filter = `blur(${(1 - k) * 10}px)`; };
+  pop($("e1"), E + .3); pop($("e2"), E + .5); pop($("btn"), E + .85); pop($("e3"), E + 1.05);
+  const glow = 34 + 12 * Math.sin(t * 2.6);
+  $("btn").style.boxShadow = `0 0 ${glow}px rgba(17,183,242,.75), 0 0 ${glow * 2.4}px rgba(17,183,242,.35)`;
+  $("end").style.visibility = t < E ? "hidden" : "visible";
+  if (lg > 0 && lg < 1) {
+    const e = outExpo(lg);
+    fx += `<circle cx="540" cy="${LOGO_Y}" r="${80 + 520 * e}" fill="none" stroke="#11b7f2" stroke-width="${16 * (1 - lg)}" opacity="${1 - lg}"/>`;
+    fx += `<circle cx="540" cy="${LOGO_Y}" r="${60 + 360 * e}" fill="none" stroke="#fff" stroke-width="${6 * (1 - lg)}" opacity="${.8 * (1 - lg)}"/>`;
+  }
+  $("fx").innerHTML = fx;
+
+  const v = $("v"); await loaded(v);
+  await seekVideo(v, .3 + t * .9);
+}
+window.__film = { seek, duration: T.dur };
+</script>
+</body></html>

@@ -229,6 +229,8 @@ def _mux(video: Path, track: dict | None, vo: Path | None, vo_start: float, musi
         mixin.append("[m]")
         idx += 1
     if vo:
+        if vo_start + _duration(vo) > dur - FADE:   # the fade-out would swallow the last words
+            raise RuntimeError(f"voice-over ends at {vo_start + _duration(vo):.2f}s, video fades out at {dur - FADE:.2f}s")
         cmd += ["-i", str(vo)]
         ms = int(vo_start * 1000)
         chains.append(f"[{idx}:a]aresample=48000,aformat=channel_layouts=stereo,adelay={ms}|{ms}[v]")

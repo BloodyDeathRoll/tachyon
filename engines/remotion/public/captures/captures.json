@@ -17,5 +17,173 @@
   "at": "2026-10-31T18:25:35+00:00",
   "viewport": "390x844@3x",
   "theme": "dark"
+ },
+ {
+  "file": "home-clean.png",
+  "url": "https://rosa.surf/?theme=dark",
+  "title": "Rosa - free surf forecast, worldwide",
+  "at": "2026-11-10T10:00:33+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "search-uluwatu.png",
+  "url": "https://rosa.surf/search?q=uluwatu&theme=dark",
+  "title": "Search spots | Rosa",
+  "at": "2026-11-10T11:49:18+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "spot-pipeline-w47.png",
+  "url": "https://rosa.surf/spot/pipeline?theme=dark",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-11-10T12:54:30+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "spot-pipeline-w47-full.png",
+  "url": "https://rosa.surf/spot/pipeline?theme=dark",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-11-10T12:55:50+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "spot-supertubos-w47-full.png",
+  "url": "https://rosa.surf/spot/supertubos?theme=dark",
+  "title": "Supertubos (Peniche) surf forecast - Casal da Vala, Portugal | Rosa",
+  "at": "2026-11-10T14:32:29+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "spot-hatteras-w47.png",
+  "url": "https://rosa.surf/spot/cape-hatteras-lighthouse?theme=dark",
+  "title": "Cape Hatteras Lighthouse surf forecast - Buxton, Outer Banks | Rosa",
+  "at": "2026-11-10T16:03:34+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "spot-pavones-w47.png",
+  "url": "https://rosa.surf/spot/pavones?theme=dark",
+  "title": "Pavones surf forecast - R\u00edo Claro de Pav\u00f3n, Costa Rica | Rosa",
+  "at": "2026-11-10T16:03:46+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "spot-rincon-w47.png",
+  "url": "https://rosa.surf/spot/rincon?theme=dark",
+  "title": "Rincon Point surf forecast - Rincon, California | Rosa",
+  "at": "2026-11-10T16:03:51+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "pipe-d00.png",
+  "url": "https://rosa.surf/spot/pipeline?ev=2026-11-10&theme=dark",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-11-10T16:52:12+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "pipe-d01.png",
+  "url": "https://rosa.surf/spot/pipeline?ev=2026-11-11&theme=dark",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-11-10T16:52:31+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "pipe-d02.png",
+  "url": "https://rosa.surf/spot/pipeline?ev=2026-11-12&theme=dark",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-11-10T16:52:36+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "pipe-d03.png",
+  "url": "https://rosa.surf/spot/pipeline?ev=2026-11-13&theme=dark",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-11-10T16:52:48+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "pipe-d04.png",
+  "url": "https://rosa.surf/spot/pipeline?ev=2026-11-14&theme=dark",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-11-10T16:53:00+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "pipe-d05.png",
+  "url": "https://rosa.surf/spot/pipeline?ev=2026-11-15&theme=dark",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-11-10T16:53:07+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "pipe-d06.png",
+  "url": "https://rosa.surf/spot/pipeline?ev=2026-11-16&theme=dark",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-11-10T16:53:18+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "pipe-d07.png",
+  "url": "https://rosa.surf/spot/pipeline?ev=2026-11-17&theme=dark",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-11-10T16:53:30+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "pipe-d08.png",
+  "url": "https://rosa.surf/spot/pipeline?ev=2026-11-18&theme=dark",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-11-10T16:55:39+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "pipe-d09.png",
+  "url": "https://rosa.surf/spot/pipeline?ev=2026-11-19&theme=dark",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-11-10T16:53:59+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "pipe-d10.png",
+  "url": "https://rosa.surf/spot/pipeline?ev=2026-11-20&theme=dark",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-11-10T16:54:06+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "pipe-d11.png",
+  "url": "https://rosa.surf/spot/pipeline?ev=2026-11-21&theme=dark",
+  "title": "Banzai Pipeline (Oahu) surf forecast - Pupukea, Hawaii | Rosa",
+  "at": "2026-11-10T16:54:18+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "spot-santa-teresa-w47-full.png",
+  "url": "https://rosa.surf/spot/santa-teresa?theme=dark",
+  "title": "Santa Teresa surf forecast - Costa Rica | Rosa",
+  "at": "2026-11-11T10:26:42+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
  }
 ]

@@ -1,0 +1,40 @@
+{
+  "slot_id": "2026-w47-11",
+  "title": "Madiha hour by hour",
+  "pillar": "Spot spotlight",
+  "angle": "A fresh Pixabay reef clip opens full screen, then the light-theme Madiha page fills a large phone that moves from left to right across the frame as it scrolls. The day plays hour by hour in three-hour steps, the best window glowing as it passes. The phone stops dead centre and pushes in on that window. Rosa particles rise in the empty space, then the closing card.",
+  "hook_formula": "Madiha, Sri Lanka",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Disco Nights (Scott Dugdale), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w47-11/film",
+    "source": "clients/rosa/posts/2026-w47-11/film/index.html",
+    "music": "clients/rosa/assets/music/surf-rock-204622.mp3"
+  },
+  "track": "ig:1719530634773795",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w47-11",
+  "plan": "2026-W47",
+  "motion": null,
+  "theme": "light",
+  "duration_s": 17.0,
+  "audio_configuration": {
+    "audio_id": "1719530634773795",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Disco Nights",
+    "artist": "Scott Dugdale",
+    "cover": "https://static.xx.fbcdn.net/rsrc.php/yM/r/LXmIH1W7DBC.webp",
+    "duration": 101.8,
+    "link": null,
+    "preview_of": "ig:1719530634773795"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "slot_id": "2026-w47-06",
+  "title": "Search any break",
+  "pillar": "Spot spotlight",
+  "angle": "Break names type in huge across the screen one after another, Uluwatu, Supertubos, Pipeline, each one bursting into Rosa particles. The dark search screen zooms up big in the phone and a name is typed into it, the results drop in and one tap opens the spot. The spot page holds large while the camera drifts around the phone in 3D. Closing card with the glowing blue button and white \"link in bio\".",
+  "hook_formula": "Name a break. Any break.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Play It Out (Lance Taber), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w47-06/film",
+    "source": "clients/rosa/posts/2026-w47-06/film/index.html",
+    "music": "clients/rosa/assets/music/upbeat-lounge-613342.mp3"
+  },
+  "track": "ig:4138507289807850",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w47-06",
+  "plan": "2026-W47",
+  "motion": null,
+  "theme": "dark",
+  "voiceover_script": "Honestly, I just type the break. Any spot, anywhere, it's in there. Forecast's up before I've had my coffee.",
+  "voiceover_voice": "dia:seed8",
+  "voiceover": {
+    "script": "Honestly, I just type the break. Any spot, anywhere, it's in there. Forecast's up before my coffee, every single morning.",
+    "voice": "dia:seed8",
+    "speed": 1.08,
+    "start": 0.5,
+    "file": "vo.wav",
+    "engine": "dia-1.6b (Nari Labs, Apache-2.0), local GPU"
+  },
+  "duration_s": 16.5,
+  "audio_configuration": {
+    "audio_id": "4138507289807850",
+    "audio_volume": 30,
+    "video_volume": 100
+  },
+  "track_info": {
+    "title": "Play It Out",
+    "artist": "Lance Taber",
+    "cover": "https://scontent.fhfa1-1.fna.fbcdn.net/v/t39.30808-1/721995528_1596613692472072_5882819112672547774_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=v2NmJbLPw2kQ7kNvwHwFh7D&_nc_oc=AdoTcy7Y1q6P9uWcxdqjBxgLzEJGFYEqIxYT8gwidry5LctBZn1_SQliOlcaTXdz6lRo0fDV3BhglRsCibluGtr9&_nc_zt=24&_nc_ht=scontent.fhfa1-1.fna&edm=AOP_XFkEAAAA&_nc_gid=wtDaQRTvdLrDtrd_Z4C1RQ&oh=00_AQR9BWLsCeOYYOkVKr6gU4iLGc2dZgBvpBfwcbiwNFl0nQ&oe=6AF8DAF6",
+    "duration": 208.1,
+    "link": null,
+    "preview_of": "ig:4138507289807850"
+  }
+}

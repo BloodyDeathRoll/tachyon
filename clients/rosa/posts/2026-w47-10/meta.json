@@ -1,0 +1,50 @@
+{
+  "slot_id": "2026-w47-10",
+  "title": "Worth the drive",
+  "pillar": "Swell alert moment",
+  "angle": "A fresh Pixabay clip of a car on a coast road at sunrise pans across the screen and freezes. The dark Supertubos page punches in big over it and scrolls to tomorrow morning, bottom nav fixed in place. The rating pill turns green and the word \"Go\" pops out of it in huge white type. Rosa particles rise in the free space, then the closing card.",
+  "hook_formula": "Is it worth the drive?",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Party O'Clock (Lyle Workman), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w47-10/film",
+    "source": "clients/rosa/posts/2026-w47-10/film/index.html",
+    "music": "clients/rosa/assets/music/retro-surf-rock-348237.mp3"
+  },
+  "track": "ig:490308081502958",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w47-10",
+  "plan": "2026-W47",
+  "motion": null,
+  "theme": "dark",
+  "voiceover_script": "Dude, is it worth the drive? I just check Rosa the night before. Green tomorrow morning? I'm already packing the car!",
+  "voiceover_voice": "dia:seed9",
+  "voiceover": {
+    "script": "Dude, is it worth the drive? I always check Rosa the night before. Green tomorrow morning? I'm already packing the car!",
+    "voice": "dia:seed9",
+    "speed": 1.08,
+    "start": 0.5,
+    "file": "vo.wav",
+    "engine": "dia-1.6b (Nari Labs, Apache-2.0), local GPU"
+  },
+  "duration_s": 15.0,
+  "audio_configuration": {
+    "audio_id": "490308081502958",
+    "audio_volume": 30,
+    "video_volume": 100
+  },
+  "track_info": {
+    "title": "Party O'Clock",
+    "artist": "Lyle Workman",
+    "cover": "https://scontent.fhfa1-1.fna.fbcdn.net/v/t39.30808-1/864003353_1141550431721715_5063135114576095626_n.jpg?stp=c0.0.1975.1975a_dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=8BW7f1zdUYAQ7kNvwE6KzEO&_nc_oc=AdrYeFKWpGCangWoPgob6EnPFWMu6UFz9G05IBDEjavfzK29XTtalq3xGdoHmQyWNgLkxl77ezMG19k3MZxkDf5a&_nc_zt=24&_nc_ht=scontent.fhfa1-1.fna&edm=AOP_XFkEAAAA&_nc_gid=bdGLr0W6aTdNjaH9V8nrPQ&oh=00_AQS_ZG3mMJ7feIltUMsSwJqmsNIP3-MdiPX17aLqiMeMrQ&oe=6AFA2D9A",
+    "duration": 164.2,
+    "link": null,
+    "preview_of": "ig:490308081502958"
+  }
+}

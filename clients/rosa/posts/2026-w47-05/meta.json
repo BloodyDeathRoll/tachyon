@@ -1,0 +1,40 @@
+{
+  "slot_id": "2026-w47-05",
+  "title": "Pipeline builds",
+  "pillar": "Swell alert moment",
+  "angle": "A fresh Pixabay clip of Pipeline-style heavy water rushes in, then the light-theme Pipeline page swings into a large centred phone. One eased swipe moves through the days and the size bar climbs as the swell builds, the rating stepping from Fair to Good. On the Good day the pill flashes green and the phone pushes toward camera. Rosa particles rise in the free space, then the closing card.",
+  "hook_formula": "It's building. Watch.",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "Head In The Clouds (Sugartapes), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w47-05/film",
+    "source": "clients/rosa/posts/2026-w47-05/film/index.html",
+    "music": "clients/rosa/assets/music/upbeat-summer-background-music-368292.mp3"
+  },
+  "track": "ig:2185456801802676",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w47-05",
+  "plan": "2026-W47",
+  "motion": null,
+  "theme": "light",
+  "duration_s": 17.0,
+  "audio_configuration": {
+    "audio_id": "2185456801802676",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Head In The Clouds",
+    "artist": "Sugartapes",
+    "cover": "https://scontent.fhfa1-1.fna.fbcdn.net/v/t39.30808-1/274602736_106434688647609_2260428062682802319_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=K8FkC0fyBkYQ7kNvwHoJatz&_nc_oc=Ado70qF73aWNnvz8frHOuazmLt-IHzWSO3-GOzq6m13wpavlJJpod8Xt2e1-rmk2i8EL-yb5CiqWX7hZNP4PkXvV&_nc_zt=24&_nc_ht=scontent.fhfa1-1.fna&edm=AOP_XFkEAAAA&_nc_gid=GIDqeIwfZYtZvPs_FqEYKQ&oh=00_AQShcZASxpxBo9KDD0qwSotHrP5g9vUziauUVUTeBX2Sxg&oe=6AF8EC54",
+    "duration": 157.8,
+    "link": null,
+    "preview_of": "ig:2185456801802676"
+  }
+}

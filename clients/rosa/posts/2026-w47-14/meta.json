@@ -1,0 +1,40 @@
+{
+  "slot_id": "2026-w47-14",
+  "title": "Sunday plan",
+  "pillar": "Spot spotlight",
+  "angle": "A fresh Pixabay sunset session clip plays full screen and \"Next week?\" types in big white over it. The dark Pipeline page lands in a large phone that turns once in 3D and swipes forward through next week in one smooth eased move, bottom nav fixed. The best day lights up green and holds. Rosa particles rise in the empty space, then the closing card.",
+  "hook_formula": "Next week, sorted",
+  "cta": "link in bio (rosa.surf on the end card)",
+  "audio_type": "On It (LAVLO), instagram",
+  "engine": "remotion 4 (engines/remotion)",
+  "film": {
+    "engine": "html",
+    "dir": "clients/rosa/posts/2026-w47-14/film",
+    "source": "clients/rosa/posts/2026-w47-14/film/index.html",
+    "music": "clients/rosa/assets/music/upbeat-summer-background-music-368292.mp3"
+  },
+  "track": "ig:1577747737223798",
+  "trial": false,
+  "share_to_feed": true,
+  "thumb_offset": 1200,
+  "story": true,
+  "landing": "https://rosa.surf/",
+  "bio_link_while_live": "https://rosa.surf/?utm_source=instagram&utm_medium=social&utm_campaign=2026-w47-14",
+  "plan": "2026-W47",
+  "motion": null,
+  "theme": "dark",
+  "duration_s": 16.5,
+  "audio_configuration": {
+    "audio_id": "1577747737223798",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "On It",
+    "artist": "LAVLO",
+    "cover": "https://scontent.fhfa1-1.fna.fbcdn.net/v/t39.30808-1/597894712_122109261867129418_8800590897625537497_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=R8E5ZN742a0Q7kNvwFbXuao&_nc_oc=AdrEiNmlssKhHaWcTspOoABPKn8pOA0Wzwe8W3_fr7xixX66DQN95mUVzrAjRJoP4TtGafVKk9Zo9PIxeGtAAnrw&_nc_zt=24&_nc_ht=scontent.fhfa1-1.fna&edm=AOP_XFkEAAAA&_nc_gid=8GvVYvHCiMtwHMjQH0bySA&oh=00_AQTXbFZ_YgV4GhMPxj8x7rkegwLz9ApAhjoMo0ti4r3cgQ&oe=6AFA1334",
+    "duration": 61.9,
+    "link": null,
+    "preview_of": "ig:1577747737223798"
+  }
+}
