@@ -41,6 +41,7 @@ ID = re.compile(r"[^\w-]+")
 ARGV = {"plan": ("spine.week", "prepare"), "auto": ("spine.week", "auto"), "produce": ("spine.manual", "produce"),
         "revise": ("spine.revise", "run"), "formats": ("spine.formats", "make"), "caption": ("spine.caption", "write")}
 NO_SLOT = {"plan", "auto"}
+PULL_WAIT = 5   # seconds between pull tries: a blip, not a minute
 MAKES_VIDEO = {"produce", "revise", "formats"}   # kinds after which the slot's video.mp4 is reported
 
 
@@ -182,7 +183,7 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) ->
             passing = isinstance(e, OSError) or e.status >= 500   # the network or the Worker down: worth another try
             if i == REPORT_TRIES - 1 or not passing:
                 raise RuntimeError(f"could not pull {client}'s files: {e}") from e   # the job fails before it starts: stale text makes wrong films
-            sleep(POLL)
+            sleep(PULL_WAIT)
     log = log_dir() / f"job-{job['id']}.log"
     with log.open("a") as out:
         r = runner([sys.executable, "-m", *argv], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT)

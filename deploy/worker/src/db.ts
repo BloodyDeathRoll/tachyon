@@ -334,8 +334,9 @@ export const OPS: Record<string, (c: Ctx, a: Args) => Promise<unknown>> = {
   async set_grants(c, a) {
     const given = obj(a.grants, "grants");
     const grants = Object.fromEntries(Object.entries(given).filter(([k]) => !CLIENT_COLUMNS.has(k)));
+    if (a.emergency_stop != null && typeof a.emergency_stop !== "boolean") throw new HttpError(400, "value", "emergency_stop must be true or false");
     await c.env.DB.prepare("UPDATE clients SET grants = ?, emergency_stop = COALESCE(?, emergency_stop) WHERE id = ?")
-      .bind(JSON.stringify(grants), a.emergency_stop == null ? null : a.emergency_stop ? 1 : 0, c.client)
+      .bind(JSON.stringify(grants), a.emergency_stop == null ? null : a.emergency_stop === true ? 1 : 0, c.client)
       .run();
     return true;
   },

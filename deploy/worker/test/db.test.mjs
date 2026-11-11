@@ -186,6 +186,12 @@ test("the clients row: grants in, columns out; the brand markdown with versions"
   assert.equal(row.token_enc, undefined);
   await op("set_grants", { grants: { slots: ["18:30"] } });
   assert.equal((await op("client")).result.emergency_stop, 1); // left alone when not given
+  // every grants.yaml key that is a column stays out of the grants JSON
+  await op("set_grants", { grants: { slots: ["06:30"], page_id: "p", ig_user_id: "u", ig_username: "n", emergency_stop: false, display_name: "R" } });
+  assert.deepEqual((await op("client")).result.grants, { slots: ["06:30"] });
+  // the stop is a boolean or nothing: "false" as a string is refused, not read as true
+  assert.equal((await op("set_grants", { grants: {}, emergency_stop: "false" })).status, 400);
+  assert.equal((await op("client")).result.emergency_stop, 1);
   assert.equal((await op("set_client_file", { name: "../brand.md", text: "x" })).status, 400);
   await op("set_client_file", { name: "brand.md", text: "# One" });
   await op("set_client_file", { name: "brand.md", text: "# Two" });
