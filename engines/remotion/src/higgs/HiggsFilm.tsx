@@ -24,7 +24,7 @@ import { Particles } from "./Particles";
 */
 
 export type FilmProps = { variant: Variant; clips: string; s1: number; s5: number; joke: string[][]; lock: number; app?: string; jokeLow?: boolean };
-export const FILM_DEFAULTS: FilmProps = { variant: "reel", clips: "higgs/example-01", s1: 5.056, s5: 5.0,
+export const FILM_DEFAULTS: FilmProps = { variant: "reel", clips: "higgs/samurai", s1: 5.056, s5: 5.0,
   joke: [["Preparing", "for"], ["a", "fight?"]], lock: 2.4 };
 const APP = "higgs/app";   // the app section's frames, shared by every film
 const times = (S1: number) => ({

@@ -21,7 +21,7 @@ EXAMPLE = ROOT / ".claude" / "skills" / "higgs-hook" / "example.script.json"
 @pytest.fixture
 def hh(tmp_path, monkeypatch):
     monkeypatch.setattr(C, "CLIENTS", tmp_path)
-    d = tmp_path / "t" / "higgs-hook" / "b1" / "01"
+    d = tmp_path / "t" / "higgs-hook" / "s1"
     d.mkdir(parents=True)
     (tmp_path / "t" / "grants.yaml").write_text("display_name: T\n")
     shutil.copy(EXAMPLE, d / "script.json")
@@ -49,7 +49,7 @@ def peak(path: Path, a: float, b: float) -> float:
 
 
 def test_example_script_is_valid_except_clips(hh):
-    issues = H.check("t", "b1", "01", "both")
+    issues = H.check("t", "s1", "both")
     assert issues and all(i.startswith("missing clip") for i in issues)
     assert len(issues) == 4
 
@@ -57,25 +57,25 @@ def test_example_script_is_valid_except_clips(hh):
 def test_clips_needed_follow_the_format(hh):
     for n in ("s1-9x16.mp4", "s5-9x16.mp4"):
         (hh / n).write_bytes(b"x")
-    assert H.check("t", "b1", "01", "vertical") == []
-    assert H.check("t", "b1", "01", "horizontal") == ["missing clip s1-16x9.mp4", "missing clip s5-16x9.mp4"]
-    assert H.check("t", "b1", "01", "square") == ["format must be one of ['both', 'horizontal', 'vertical']"]
+    assert H.check("t", "s1", "vertical") == []
+    assert H.check("t", "s1", "horizontal") == ["missing clip s1-16x9.mp4", "missing clip s5-16x9.mp4"]
+    assert H.check("t", "s1", "square") == ["format must be one of ['both', 'horizontal', 'vertical']"]
 
 
 def test_check_catches_bad_scripts(hh):
     edit(hh, joke_lines=["Preparing for a big fight", "a fight?"])
-    assert "joke line 'Preparing for a big fight' is over 16 characters" in H.check("t", "b1", "01", "vertical")
+    assert "joke line 'Preparing for a big fight' is over 16 characters" in H.check("t", "s1", "vertical")
     edit(hh, joke_lines=["just one"], lock={"9x16": 7})
-    issues = H.check("t", "b1", "01", "vertical")
+    issues = H.check("t", "s1", "vertical")
     assert "joke_lines must be two lines" in issues and "lock.9x16 must be seconds into scene 5 (0-5)" in issues
     edit(hh, joke_lines=None, lock=None)
-    issues = H.check("t", "b1", "01", "vertical")
+    issues = H.check("t", "s1", "vertical")
     assert "script.json has no joke_lines" in issues and "script.json has no lock" in issues
-    assert H.check("t", "b1", "02") == [f"no script.json in {hh.parent / '02'}"]
+    assert H.check("t", "s2") == [f"no script.json in {hh.parent / 's2'}"]
 
 
 def test_props_pick_the_clips_and_moment_for_the_ratio(hh):
-    s = H.load("t", "b1", "01")
+    s = H.load("t", "s1")
     p = H.props(s, "b1-01", "16x9", "reel", 5.06, 5.0)
     assert p == {"variant": "reel", "clips": "higgs/b1-01", "s1": 5.06, "s5": 5.0,
                  "joke": [["Preparing", "for"], ["a", "fight?"]], "lock": 1.8}
@@ -83,13 +83,13 @@ def test_props_pick_the_clips_and_moment_for_the_ratio(hh):
 
 
 def test_props_pass_an_app_line_only_when_set(hh):
-    s = H.load("t", "b1", "01")
+    s = H.load("t", "s1")
     assert "app" not in H.props(s, "b1-01", "9x16", "reel", 5, 5)
     assert H.props({**s, "app_line": "Check in depth."}, "b1-01", "9x16", "reel", 5, 5)["app"] == "Check in depth."
 
 
 def test_props_pass_joke_low_only_when_set(hh):
-    s = H.load("t", "b1", "01")
+    s = H.load("t", "s1")
     assert "jokeLow" not in H.props(s, "b1-01", "9x16", "reel", 5, 5)
     assert H.props({**s, "joke_low": True}, "b1-01", "9x16", "reel", 5, 5)["jokeLow"] is True
 

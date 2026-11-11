@@ -35,8 +35,8 @@ Per script, from its Notion row (the source of truth; prompts paste as they are)
    16:9 and scene 5 still 9:16, both made with the scene 1 still as reference. A video's still
    must match its shape (a 16:9 still in a 9:16 video renders rotated).
 2. Seedance 2.5 image-to-video, 720p: `s1-9x16`, `s1-16x9`, `s5-9x16`, `s5-16x9`.
-3. Drop the files in `~/Projects/tachyon/clients/rosa/higgs-hook/<batch>/<nn>/` with those
-   names (`.mp4`). Then tell Claude "render <batch>".
+3. Drop the files in `~/Projects/tachyon/clients/rosa/higgs-hook/<slug>/` (the script's
+   character: `samurai`, `diver`, …) with those names (`.mp4`). Then tell Claude "render <slug>".
 
 ## 4. Script (one per script)
 
@@ -59,8 +59,8 @@ joke_lines, lock) for the render.
 ## 6. Build (Claude)
 
 1. `.claude/skills/higgs-hook/SKILL.md`: writes a batch (Notion rows + `script.json`) and renders.
-2. `spine/higgs.py render <client> <batch> <nn> vertical|horizontal|both`: copies the clips to
-   `engines/remotion/public/higgs/<batch>-<nn>/`, renders `HiggsFilm`, `HiggsFilm-story`,
+2. `spine/higgs.py render <client> <slug> vertical|horizontal|both`: copies the clips to
+   `engines/remotion/public/higgs/<slug>/`, renders `HiggsFilm`, `HiggsFilm-story`,
    `HiggsFilm-16x9` into `out/video.mp4`, `out/video-story.mp4`, `out/video-16x9.mp4`, keeps the
    clip sound only, runs `spec_check` on the vertical files.
 3. Upload into the system through the dashboard; `spec_check` QA runs as for every slot.

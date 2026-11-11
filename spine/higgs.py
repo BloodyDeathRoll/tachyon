@@ -1,10 +1,10 @@
 """higgs-hook: reels built on two Higgsfield clips (docs/HIGGS-HOOK.md).
 
-    .venv/bin/python -m spine.higgs check   <client> <batch> <nn>
-    .venv/bin/python -m spine.higgs screens <client> <batch> <nn>       # record the app flow
-    .venv/bin/python -m spine.higgs render  <client> <batch> <nn> vertical|horizontal|both
+    .venv/bin/python -m spine.higgs check   <client> <slug>
+    .venv/bin/python -m spine.higgs screens <client> <slug>       # record the app flow
+    .venv/bin/python -m spine.higgs render  <client> <slug> vertical|horizontal|both
 
-A script lives in clients/<c>/higgs-hook/<batch>/<nn>/: script.json (written by the higgs-hook
+A script lives in clients/<c>/higgs-hook/<slug>/ (its slug: samurai, diver, …): script.json (written by the higgs-hook
 skill), the operator's clips s1-9x16.mp4, s1-16x9.mp4, s5-9x16.mp4, s5-16x9.mp4, and after a
 render out/video.mp4 + out/video-story.mp4 (vertical) and/or out/video-16x9.mp4 (horizontal).
 The operator uploads the result through the dashboard (Calendar → Add new).
@@ -38,20 +38,20 @@ FORMATS = {"vertical": ("9x16",), "horizontal": ("16x9",), "both": ("9x16", "16x
 REQUIRED = ("title", "joke_lines", "lock")
 
 
-def script_dir(client: str, batch: str, nn: str) -> Path:
-    return C.client_dir(client) / "higgs-hook" / batch / nn
+def script_dir(client: str, slug: str) -> Path:
+    return C.client_dir(client) / "higgs-hook" / slug
 
 
-def load(client: str, batch: str, nn: str) -> dict:
-    return json.loads((script_dir(client, batch, nn) / "script.json").read_text())
+def load(client: str, slug: str) -> dict:
+    return json.loads((script_dir(client, slug) / "script.json").read_text())
 
 
-def check(client: str, batch: str, nn: str, fmt: str = "both") -> list[str]:
+def check(client: str, slug: str, fmt: str = "both") -> list[str]:
     """Everything that stops a render, as plain lines. Empty = ready."""
-    d = script_dir(client, batch, nn)
+    d = script_dir(client, slug)
     if not (d / "script.json").exists():
         return [f"no script.json in {d}"]
-    s = load(client, batch, nn)
+    s = load(client, slug)
     issues = [f"script.json has no {k}" for k in REQUIRED if not s.get(k)]
     lines = s.get("joke_lines")
     if lines and not (isinstance(lines, list) and len(lines) == 2 and all(isinstance(l, str) and l.strip() for l in lines)):
@@ -174,14 +174,14 @@ def speedup(seconds: float) -> float:
     return min(max(seconds / SCREENS_MAX, 1.0), 1.5)
 
 
-def screens(client: str, batch: str, nn: str) -> Path:
+def screens(client: str, slug: str) -> Path:
     """Drive the live app through screens.steps at phone size and record it → screens.mp4.
     Two passes in one browser profile: the first warms the cache, the second is recorded."""
     import tempfile
     from playwright.sync_api import sync_playwright
     from . import capture as CAP
-    d = script_dir(client, batch, nn)
-    spec = load(client, batch, nn)["screens"]
+    d = script_dir(client, slug)
+    spec = load(client, slug)["screens"]
     theme = spec.get("theme", "dark")
     tmp = d / ".rec"
     shutil.rmtree(tmp, ignore_errors=True)
@@ -214,22 +214,21 @@ COMPS = {"9x16": [("HiggsFilm", "reel", "video.mp4"), ("HiggsFilm-story", "story
          "16x9": [("HiggsFilm-16x9", "reel", "video-16x9.mp4")]}
 
 
-def props(s: dict, key: str, ratio: str, variant: str, s1: float, s5: float) -> dict:
-    return {"variant": variant, "clips": f"higgs/{key}", "s1": round(s1, 3), "s5": round(s5, 3),
+def props(s: dict, slug: str, ratio: str, variant: str, s1: float, s5: float) -> dict:
+    return {"variant": variant, "clips": f"higgs/{slug}", "s1": round(s1, 3), "s5": round(s5, 3),
             "joke": [l.split() for l in s["joke_lines"]], "lock": s["lock"][ratio],
             **({"app": s["app_line"]} if s.get("app_line") else {}),
             **({"jokeLow": True} if s.get("joke_low") else {})}
 
 
-def render(client: str, batch: str, nn: str, fmt: str) -> list[Path]:
+def render(client: str, slug: str, fmt: str) -> list[Path]:
     from .publisher import spec_check as SC
-    issues = check(client, batch, nn, fmt)
+    issues = check(client, slug, fmt)
     if issues:
         raise ValueError("; ".join(issues))
-    d = script_dir(client, batch, nn)
-    s = load(client, batch, nn)
-    key = f"{batch}-{nn}"
-    pub = PUBLIC / key
+    d = script_dir(client, slug)
+    s = load(client, slug)
+    pub = PUBLIC / slug
     pub.mkdir(parents=True, exist_ok=True)
     out = d / "out"
     out.mkdir(exist_ok=True)
@@ -240,7 +239,7 @@ def render(client: str, batch: str, nn: str, fmt: str) -> list[Path]:
         s1, s5 = _duration(d / f"s1-{ratio}.mp4"), _duration(d / f"s5-{ratio}.mp4")
         for comp, variant, name in COMPS[ratio]:
             pf, raw, dst = d / f".props-{comp}.json", d / f".raw-{comp}.mp4", out / name
-            pf.write_text(json.dumps(props(s, key, ratio, variant, s1, s5)))
+            pf.write_text(json.dumps(props(s, slug, ratio, variant, s1, s5)))
             _run(["npx", "remotion", "render", "src/index.ts", comp, str(raw), f"--props={pf}", "--log=error",
                   f"--timeout={RENDER_TIMEOUT_MS}"], cwd=REMOTION)
             # the clips' own sound only (no music, no voice-over)
@@ -255,15 +254,15 @@ def render(client: str, batch: str, nn: str, fmt: str) -> list[Path]:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) >= 4 and argv[0] == "check":
-        issues = check(*argv[1:4], argv[4] if len(argv) > 4 else "both")
+    if len(argv) >= 3 and argv[0] == "check":
+        issues = check(*argv[1:3], argv[3] if len(argv) > 3 else "both")
         print("\n".join(issues) or "ready")
         return 1 if issues else 0
-    if len(argv) == 4 and argv[0] == "screens":
-        print(screens(*argv[1:4]))
+    if len(argv) == 3 and argv[0] == "screens":
+        print(screens(*argv[1:3]))
         return 0
-    if len(argv) == 5 and argv[0] == "render":
-        for f in render(*argv[1:5]):
+    if len(argv) == 4 and argv[0] == "render":
+        for f in render(*argv[1:4]):
             print(f)
         return 0
     print(__doc__)

@@ -1,6 +1,6 @@
 ---
 name: higgs-hook
-description: Write a batch of 3 higgs-hook reel scripts for Rosa (weird funny Higgsfield/Seedance opener, two-line joke, the standard app section, callback closer with the lockup), each with stills and Seedance prompts for 9:16 and 16:9, in Notion, then render them once the operator drops the clips. Use when the user says "higgs-hook", "higgs scripts", "new higgs batch", or "render <batch>".
+description: Write a batch of 3 higgs-hook reel scripts for Rosa (weird funny Higgsfield/Seedance opener, two-line joke, the standard app section, callback closer with the lockup), each with stills and Seedance prompts for 9:16 and 16:9, in Notion, then render them once the operator drops the clips. Use when the user says "higgs-hook", "higgs scripts", "new higgs batch", or "render <slug>".
 ---
 
 # higgs-hook
@@ -15,14 +15,15 @@ result through the dashboard (Calendar → Add new). Run from the main checkout 
 2. Spot list: `curl -s https://rosa-data-opal.vercel.app/data/index.json` (`spots.<slug>`:
    name, region, country, lat, lon, rating). Pick 3 pairs (spot A, spot B more local, near A or
    a dream trip from A). No spot in `used.yaml`. Spread countries across the batch.
-3. Batch id: `YYYY-MM-DD` (today); a second batch the same day gets `-b`.
+3. Each script's folder is its slug (the character: `samurai`, `diver`, …), never a date or a number.
+   A slug already in `clients/rosa/higgs-hook/` is taken: pick another character.
 4. Notion is the source of truth for every script. For each script add one row to the client's
    Notion database "higgs-hook scripts" (step 8). The repo holds only what the render stitches:
-   `clients/rosa/higgs-hook/<batch>/<nn>/script.json` in the exact shape of
+   `clients/rosa/higgs-hook/<slug>/script.json` in the exact shape of
    `.claude/skills/higgs-hook/example.script.json` (title, slug, joke, joke_lines, lock),
    then the operator's clips. Script changes go to the Notion row first, then into `script.json`.
 5. Append to `used.yaml` (`characters`, `spots`, `jokes`).
-6. Run `.venv/bin/python -m spine.higgs check rosa <batch> <nn> both` for each: every issue
+6. Run `.venv/bin/python -m spine.higgs check rosa <slug> both` for each: every issue
    except "missing clip" must be fixed before you hand over.
 7. Pass the joke and the caption through `/ig-human`. Caption via `/ig-caption`.
 8. Notion row. Find the database (any client, not only Rosa):
@@ -43,7 +44,7 @@ result through the dashboard (Calendar → Add new). Run from the main checkout 
    "Find my wave", `Repo path` (the script folder), `Done` `__NO__`. Leave `Hook`, `End line`,
    `VO` empty (retired). Content: the sections below, in the shape of the model row
    "Samurai paddle-out" (https://app.notion.com/p/409fdf788e46814cbd80e9ebaf91e636): read it first.
-9. Reply with the batch path, the 3 titles and the link to the client's Notion database.
+9. Reply with the 3 script folders, the 3 titles and the link to the client's Notion database.
    Nothing else.
 
 ### The idea
@@ -71,7 +72,7 @@ Seedance 16:9) · `## Joke (on scene 1, from 2 s)` (line 1 white, line 2 blue) �
 `## App section (the same in every film)` (copy the model row) · `## Scene 5 (last 5 s)`
 (beats, Seedance 9:16, Seedance 16:9) · `## Closing` (the key moment per format) ·
 `## Caption` · `## Files to drop` (`s1-9x16.mp4`, `s1-16x9.mp4`, `s5-9x16.mp4`, `s5-16x9.mp4`
-into `clients/rosa/higgs-hook/<batch>/<nn>/`).
+into `clients/rosa/higgs-hook/<slug>/`).
 
 ### Stills and Seedance prompts (learned on the Samurai)
 
@@ -98,14 +99,14 @@ into `clients/rosa/higgs-hook/<batch>/<nn>/`).
 - A fix that changes the action, a size or a contact is a regeneration, not an edit (Higgsfield's
   own rule for Seedance 2.5 Edit).
 
-## Render ("render <batch>" or "render <batch> <nn>")
+## Render ("render <slug>", e.g. "render diver")
 
 1. Ask: vertical, horizontal or both (unless the operator said).
 2. Read the Notion row; `script.json` must match its joke lines. Notion wins.
 3. Watch each scene 5 clip and set `lock` in `script.json`: the seconds into the clip of its key
    moment, per format (`{"9x16": 2.4, "16x9": 1.8}`); the takes differ.
-4. `.venv/bin/python -m spine.higgs check rosa <batch> <nn> <format>`; report missing clips.
-5. `.venv/bin/python -m spine.higgs render rosa <batch> <nn> <format>` (Remotion `HiggsFilm`,
+4. `.venv/bin/python -m spine.higgs check rosa <slug> <format>`; report missing clips.
+5. `.venv/bin/python -m spine.higgs render rosa <slug> <format>` (Remotion `HiggsFilm`,
    clip sound only).
 6. Read `out/check.txt`. Look at full-size frames of every text beat and the lockup
    (`ffmpeg -ss <t> -i out/video.mp4 -frames:v 1 x.png`), never only a contact sheet: check no
