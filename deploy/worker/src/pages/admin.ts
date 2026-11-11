@@ -1,0 +1,90 @@
+// Members and Clients (docs/CLOUDFLARE-PLAN.md, "Dashboard": admins also see them): HTML
+// forms over src/admin.ts's JSON API, called as the API would be, so the rules live there
+// alone. Only an admin gets here (src/pages/index.ts checks `user.admin`, as src/index.ts does
+// for /api/admin). The shell needs a client: the admin's first, or a stand-in when none exists
+// yet (the Clients page is how the first one is made).
+//
+//   GET  /admin/members    the users, their clients, the invite form
+//   POST /admin/members    action = invite {email, admin?} | remove {id} | add | drop {user, client}
+//   GET  /admin/clients    the clients, the create form
+//   POST /admin/clients    action = create {id, name}
+
+import { admin } from "../admin.ts";
+import { HttpError } from "../http.ts";
+import type { UserRow } from "../members.ts";
+import { ago, esc, redirect, shell, when, type Json, type Page } from "./shell.ts";
+
+interface User {
+  id: number;
+  email: string;
+  name: string | null;
+  admin: boolean;
+  signed_in: boolean;
+  last_seen_at: number | null;
+  clients: string[];
+}
+interface Client {
+  id: string;
+  name: string;
+  ig_username: string | null;
+  connected: number;
+  publisher: string;
+  created_at: number;
+}
+
+/** A Page for an admin with no clients at all. */
+export function noClient(env: Page["env"], user: UserRow, now: number): Page {
+  const client = { id: "", name: "Tachyon", ig_user_id: null, page_id: null, ig_username: null, connected: true, token_expires: null, grants: {}, emergency_stop: 0, publisher: "worker" };
+  return { env, c: { env, client: "", by: user.id, now }, user, client, nav: [], now };
+}
+
+/** One call into src/admin.ts as the JSON API gets it: the method, the path under /api/admin, the body. */
+async function api(p: Page, method: string, tail: string[], body: Json = {}): Promise<Json> {
+  const r = await admin(new Request("http://admin", { method }), p.env, ["api", "admin", ...tail], async () => body, p.user.id, p.now);
+  if (!r) throw new HttpError(404, "not found");
+  return (await r.json()) as Json;
+}
+
+async function members(p: Page): Promise<string> {
+  const users = (await api(p, "GET", ["users"])).users as User[];
+  const clients = (await api(p, "GET", ["clients"])).clients as Client[];
+  const post = (fields: Record<string, string | number>, button: string) =>
+    `<form method=post style='display:inline'>${Object.entries(fields).map(([k, v]) => `<input type=hidden name=${k} value='${esc(v)}'>`).join("")}<button class='btn sec small'>${button}</button></form>`;
+  const rows = users.map((u) => {
+    const mine = u.clients.map((c) => `<span class='tag sched'>${esc(c)} ${post({ action: "drop", user: u.id, client: c }, "×")}</span>`).join(" ");
+    const free = clients.filter((c) => !u.clients.includes(c.id));
+    const add = free.length
+      ? `<form method=post style='display:inline'><input type=hidden name=action value=add><input type=hidden name=user value=${u.id}><select name=client>${free.map((c) => `<option value='${esc(c.id)}'>${esc(c.name)}</option>`).join("")}</select> <button class='btn sec small'>Add</button></form>`
+      : "";
+    const seen = u.last_seen_at ? ago(new Date(u.last_seen_at).toISOString(), p.now) : u.signed_in ? "" : "not signed in yet";
+    return `<tr><td>${esc(u.email)}${u.admin ? " <span class='tag need'>admin</span>" : ""}</td><td>${esc(u.name ?? "")}</td><td>${seen}</td><td>${mine} ${add}</td><td>${u.id === p.user.id ? "" : post({ action: "remove", id: u.id }, "Remove")}</td></tr>`;
+  }).join("");
+  return `<h1>Members</h1><p class=sub>Who may sign in and which clients they manage. A member does everything for the client.</p>
+<section class=card><h2>Invite</h2><form method=post class=btns><input type=hidden name=action value=invite><input type=email name=email required placeholder='them@example.com' aria-label=Email><label class=chk><input type=checkbox name=admin value=1>Admin</label><button class='btn pri small'>Invite</button></form>
+<p class=hint>They sign in with that Google account at /login.</p></section>
+<section class=card style='margin-top:20px'><h2>Users</h2><div class=wide><table class=jobs><tr><th>Email</th><th>Name</th><th>Seen</th><th>Clients</th><th></th></tr>${rows}</table></div></section>`;
+}
+
+async function clientsPage(p: Page): Promise<string> {
+  const clients = (await api(p, "GET", ["clients"])).clients as Client[];
+  const rows = clients.map((c) => `<tr><td><a href='/${encodeURIComponent(c.id)}'>${esc(c.name)}</a></td><td>${esc(c.id)}</td><td>${c.ig_username ? `@${esc(c.ig_username)}` : c.connected ? "connected" : "not connected"}</td><td>${esc(c.publisher)}</td><td>${when(new Date(c.created_at).toISOString())}</td></tr>`).join("");
+  return `<h1>Clients</h1><p class=sub>Every client the Worker publishes for. A new one is connected to Instagram from its Overview.</p>
+<section class=card><h2>New client</h2><form method=post class=btns><input type=hidden name=action value=create><input type=text name=id required pattern='[\\w-]{1,64}' placeholder='id (letters, digits, - and _)' aria-label=Id><input type=text name=name placeholder='Name' aria-label=Name><button class='btn pri small'>Create</button></form></section>
+<section class=card style='margin-top:20px'><h2>Clients</h2><div class=wide><table class=jobs><tr><th>Name</th><th>Id</th><th>Instagram</th><th>Publisher</th><th>Created</th></tr>${rows}</table></div></section>`;
+}
+
+export async function renderAdmin(p: Page, kind: "members" | "clients", req: Request): Promise<Response> {
+  if (req.method === "POST") {
+    const form = await req.formData().catch(() => new FormData());
+    const f = (k: string) => String(form.get(k) ?? "");
+    const action = f("action");
+    if (kind === "members" && action === "invite") await api(p, "POST", ["users"], { email: f("email"), admin: f("admin") === "1" });
+    else if (kind === "members" && action === "remove") await api(p, "DELETE", ["users", f("id")]);
+    else if (kind === "members" && (action === "add" || action === "drop")) await api(p, action === "add" ? "POST" : "DELETE", ["memberships"], { user: Number(f("user")), client: f("client") });
+    else if (kind === "clients" && action === "create") await api(p, "POST", ["clients"], { id: f("id"), name: f("name") });
+    else throw new HttpError(400, "action");
+    return redirect(`/admin/${kind}`);
+  }
+  if (req.method !== "GET") throw new HttpError(405, "method");
+  return shell(p, kind, kind === "members" ? await members(p) : await clientsPage(p), kind === "members" ? "Members" : "Clients");
+}

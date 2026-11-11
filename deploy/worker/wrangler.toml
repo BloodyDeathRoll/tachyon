@@ -1,0 +1,33 @@
+# Tachyon Worker - sign-in, members, job queue, R2 upload (docs/CLOUDFLARE-PLAN.md).
+# Deploys to the Tachyon Cloudflare account only, never to the Rosa or OneShot ones
+# (README.md). Until that account exists: `npm test` and `npx wrangler dev` (local).
+name = "tachyon"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+[observability]
+enabled = true
+
+[vars]
+# Public OAuth client id of the Tachyon Google project. Empty until the account exists.
+GOOGLE_CLIENT_ID = "995691174904-eagsiav8l0iqm0d7nk29e7131qj9ggoj.apps.googleusercontent.com"
+# The Meta app (docs/CLOUDFLARE-PLAN.md, "Instagram connection"): its public id. Empty until set.
+META_APP_ID = ""
+# The public base of the media bucket (r2.dev or a custom domain, no trailing slash): Instagram
+# fetches `<MEDIA_PUBLIC_URL>/<r2_key>`. Empty until the bucket is public.
+MEDIA_PUBLIC_URL = ""
+# Secrets, NOT here: `npx wrangler secret put SESSION_SECRET`, `... GOOGLE_CLIENT_SECRET`,
+# `... META_APP_SECRET`, `... TOKEN_SECRET` (seals the Page tokens), `... VERCEL_TOKEN` (the bio link).
+
+[triggers]
+# The one Cron Trigger, every minute: publish steps, then the daily sweep (src/cron.ts).
+crons = ["* * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tachyon"
+database_id = "bda1cb4e-a489-4a15-98b2-cf741fcf9840"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "tachyon-media"

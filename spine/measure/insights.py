@@ -164,7 +164,7 @@ def snapshot_account_7d(client: str, *, graph: Graph | None = None, at: datetime
     metrics["as_of"] = at.isoformat(timespec="seconds")
     db = DB.for_client(C.client_dir(client))
     try:
-        db.conn.execute("DELETE FROM metric_snapshots WHERE post_id IS NULL AND source='ig_account' AND window='7d'")
+        db.delete_snapshots(None, "ig_account", "7d")
         db.add_snapshot(None, "ig_account", "7d", metrics)
     finally:
         db.close()

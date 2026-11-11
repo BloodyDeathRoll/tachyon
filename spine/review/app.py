@@ -34,7 +34,9 @@ from zoneinfo import ZoneInfo
 from .. import audience as AU
 from .. import clients as C
 from .. import formats as F
+from .. import jobs as J
 from .. import manual as M
+from .. import remote as RM
 from .. import revise as R
 from .. import schedule as SCH
 from .. import week as W
@@ -2331,6 +2333,8 @@ class Handler(BaseHTTPRequestHandler):
 
     @staticmethod
     def _publish_now(client: str, slot: str) -> None:
+        if RM.config() and DB.for_client(C.client_dir(client)).client_row().get("publisher") == "worker":
+            return   # the Worker's cron takes a due QUEUED slot within the minute
         logs = Path.home() / ".tachyon" / "logs"
         logs.mkdir(parents=True, exist_ok=True)
         with open(logs / "publish.log", "a") as log:   # this video only (locked against cron)
@@ -2528,6 +2532,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parts = [p for p in urlparse(self.path).path.split("/") if p]
+        try:
+            return self._post(parts)
+        finally:
+            # with a Worker, its publisher reads caption, first comment and meta from D1: after any
+            # change to a video, send the files up (idempotent; a failure is the next save's problem)
+            if RM.config() and len(parts) >= 3 and parts[1] == "v":
+                try:
+                    J.push_files(parts[0], parts[2])
+                except Exception as e:  # noqa: BLE001
+                    print(f"push_files {parts[0]}/{parts[2]}: {e}", file=sys.stderr)
+
+    def _post(self, parts):
         if len(parts) == 3 and parts[1:] == ["new", "upload"]:
             return self._upload(parts[0])
         if len(parts) == 3 and parts[1:] == ["audience", "upload"]:
@@ -2708,6 +2724,8 @@ class Handler(BaseHTTPRequestHandler):
                         (d / "posts" / slot / "caption.txt").write_text(form["caption"])
                     db.set_state(slot, "APPROVED", note=notes or None, scheduled_at=at)
                     R.dismiss(name, slot)
+                    if RM.config():   # the Worker publishes from R2: a host sends the file up
+                        J.enqueue("upload", name, slot)
                 elif form.get("action") == "caption":
                     row_ = db.post(slot)
                     if row_["state"] in CAPTION_LOCKED or row_["published_at"]:

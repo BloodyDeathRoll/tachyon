@@ -350,9 +350,7 @@ def _fail(db: DB, slot: Path, slot_id: str, caption: str, first_comment: str, re
     if post["state"] != "PUBLISHING":
         return
     db.set_state(slot_id, "FAILED", note=reason)
-    prior = sum(1 for r in db.conn.execute(
-        "SELECT 1 FROM journal WHERE target=? AND action='post.state' AND intent LIKE '%\"to\": \"FAILED\"%'", (slot_id,)))
-    if prior >= 2:
+    if db.fail_count(slot_id) >= 2:
         _write_handoff(slot, slot_id, caption, first_comment, reason)
         db.set_state(slot_id, "MANUAL_HANDOFF", note=reason)
 
@@ -404,17 +402,10 @@ def main(argv: list[str]) -> int:
         if "--now" in argv:
             db = DB.for_client(C.client_dir(client))
             try:
-                db.post(slot_id)   # KeyError on an unknown slot
-                ts = now()
-                db.conn.execute("BEGIN IMMEDIATE")
-                db.journal("post.scheduled_now", slot_id, {"scheduled_at": ts})
-                db.conn.execute("UPDATE posts SET scheduled_at=? WHERE slot_id=?", (ts, slot_id))
-                db.conn.execute("COMMIT")
+                db.set_scheduled(slot_id, now())   # KeyError on an unknown slot
             except KeyError:
                 print(f"no such slot: {slot_id}"); return 1
             finally:
-                if db.conn.in_transaction:
-                    db.conn.execute("ROLLBACK")
                 db.close()
         try:
             with publish_lock(client):
