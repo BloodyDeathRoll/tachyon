@@ -460,6 +460,7 @@ class RemoteDB:
     def add_snapshot(self, post_id: str | None, source: str, window: str, metrics: dict) -> None:
         self._snaps = None
         self._op("add_snapshot", post_id=post_id, source=source, window=window, metrics=metrics)
+        self._snaps = None   # again: a read while the write ran may have kept the old rows
 
     def snapshots(self, post_id: str | None = None) -> list[dict]:
         """Every snapshot of the client in one request, kept for this object's life (a page, a
@@ -467,7 +468,7 @@ class RemoteDB:
         if self._snaps is None:
             self._snaps = self._op("snapshots", post_id=None)
         # copies: a caller that edits a row or its metrics leaves the cache as it was
-        return [{**s, "metrics": copy.deepcopy(s["metrics"])} for s in self._snaps if not post_id or s.get("post_id") == post_id]
+        return [{**s, "metrics": copy.deepcopy(s.get("metrics"))} for s in self._snaps if not post_id or s.get("post_id") == post_id]
 
     def add_experiment(self, id: str, week: str, variable: str, hypothesis: str,
                        primary_metric: str, guardrail_metric: str, window_days: int, min_samples: int = 3) -> None:
@@ -505,6 +506,7 @@ class RemoteDB:
     def delete_snapshots(self, post_id: str | None, source: str, window: str) -> None:
         self._snaps = None
         self._op("delete_snapshots", post_id=post_id, source=source, window=window)
+        self._snaps = None
 
     def import_followers(self, got: dict, source: str) -> int | None:
         return self._op("import_followers", taken_at=got["written"], sha=got["sha"], source=source,
