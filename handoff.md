@@ -1,70 +1,53 @@
-# Session Handoff — 2026-10-29 (evening: w44-16 publish incident)
-
-(Earlier handoffs today, all uncommitted work in this worktree — read before committing:
-`handoff.afternoon-2026-10-29.md` (was handoff.md until this session), `handoff.polish-2026-10-29.md`,
-`handoff.pause-2026-10-29.md`, `handoff.cloudflare-2026-10-29.md`. This session did NOT touch the
-uncommitted changes in this worktree; its code went through a separate worktree and PR #22.)
+# Session Handoff — 2026-11-11
 
 ## Goal
-The 20:30 reel `rosa/2026-w44-16` was stuck "publishing" (actually QUEUED). Find out why, get it live,
-and stop the same failure from happening again.
+Update the Rosa higgs-hook "diver" film's on-screen text, then tidy `clients/rosa/higgs-hook/`
+into one folder per script named by its slug (samurai, diver, …).
 
 ## Current State
-- w44-16 is LIVE: https://www.instagram.com/reel/DfFsLLgiICh/ (posted by the 20:50 cron run, state MEASURING).
-- PR #22 (`upload-color-range`) MERGED to main as `faac70f`; the remote branch is deleted.
-- `~/Projects/tachyon` (main checkout, where cron + dashboard run) has NOT pulled `faac70f` yet,
-  so cron and the dashboard still run the old code. Last check: `## main...origin/main` before the merge.
-- Local worktree `~/.superset/worktrees/tachyon/upload-color-range` still exists; its branch is merged.
-- Full suite on the PR branch: 177 passed, 2 failed. Both failures also fail on main without these changes
-  (times off by 2 h, probably timezone): `tests/test_dashboard.py::test_schedule_times_are_editable`,
-  `tests/test_dashboard_v3.py::test_posts_per_day_add_and_remove`.
+- All work is in the MAIN checkout `~/Projects/tachyon`, branch `higgs-film`.
+  branch has no higgs code). Nothing pushed. Commits: `6eefb33`, `6449bd4`, `7ced2fe`, `4910e3d`.
+- Diver renders done and frame-checked (before the folder move):
+  `clients/rosa/higgs-hook/diver/out/video.mp4`, `video-story.mp4`, `video-16x9.mp4`.
+  Joke "Check the swell." / "Then commit." (bottom of the safe area); app line "Check in depth."
+  at 130px, left-aligned.
+- Not re-rendered after the move to slug folders (render path now `public/higgs/<slug>`).
+- `tests/test_higgs.py`: 20 pass. `npx tsc --noEmit` in `engines/remotion` clean.
+- Notion "higgs-hook scripts": diver row joke/sections updated; "Repo path" set to
+  `clients/rosa/higgs-hook/<slug>` on all 10 script rows.
+- Uncommitted in main, not mine: `clients/rosa/grants.yaml`, `clients/rosa/posts/2026-w47-06/meta.json`.
 
-## Root cause (verified)
-1. The uploaded phone video was full range. ffprobe reports `yuvj420p,pc`.
-2. The upload transcode in `spine/manual.py` `add_upload` set `-pix_fmt yuv420p` but kept the full range,
-   so the output still probed `yuvj420p`. Reproduced on the same file.
-3. Uploads never ran `spec_check`, so the first check was at publish time (20:30):
-   `spec_check failed at publish time: pix_fmt yuvj420p, want yuv420p`.
-4. That refusal happens before PUBLISHING, so the post stayed QUEUED. The error only appeared in
-   `~/.tachyon/logs/publish.log`.
-- Nothing re-rendered the file: it was written once, by the upload, at 09:18:41. An earlier guess that a
-  Remotion render caused it was wrong.
-
-## Active Files (PR #22, now on main)
-- `spine/manual.py` — the upload transcode adds `scale=out_range=tv` and `-color_range tv`; `spec_verdicts` is added to the QA verdicts.
-- `spine/revise.py` — new `spec_verdicts(slot_dir)`, the publish-time spec_check run at QA; skips missing files.
-- `spine/week.py` — week renders add `R.spec_verdicts(sd)` to the verdicts.
-- `spine/review/app.py` — approve returns 409 "Instagram would refuse this file: …" when the spec check fails.
-- `spine/publisher/publish.py` — a spec failure at publish time moves the post QUEUED → NEEDS_APPROVAL with the reason as its note (dry_run excluded).
-- `tests/test_dashboard.py` — new tests `test_upload_of_full_range_video_comes_out_in_spec` and `test_approve_refuses_a_file_instagram_would_refuse`. Both failed before the fix and pass after it.
-- `tests/test_publish.py` — `test_publish_refuses_silent_video_and_stays_queued` renamed to `…_sends_it_back_for_approval`; it now asserts NEEDS_APPROVAL and the note.
-- Data, in the main checkout: `clients/rosa/posts/2026-w44-16/video.mp4` and `video-story.mp4`, plus
-  `engines/remotion/public/uploads/2026-w44-16.mp4`, replaced with a `spec_check --fix` output (yuv420p tv).
-  The original video is in the session scratchpad only (temporary).
+## Active Files (main checkout)
+- `spine/higgs.py` — CLI now `check|screens|render <client> <slug> [fmt]`; props pass `app` (from
+  `app_line`) and `jokeLow` (from `joke_low`) only when set.
+- `engines/remotion/src/higgs/HiggsFilm.tsx` — `app?`, `jokeLow?` props; custom app line set like
+  "16 days forecast." (130px, two lines, left); `FILM_DEFAULTS.clips` = `higgs/samurai`.
+- `tests/test_higgs.py` — two new props tests; fixture path + call signature changed for slug layout.
+- `clients/rosa/higgs-hook/<slug>/` — script.json, script.md (old `nn-name.md`), clips, out/.
+- `.claude/skills/higgs-hook/SKILL.md`, `docs/HIGGS-HOOK.md` — slug folders, `render <slug>`.
+- `engines/remotion/public/higgs/` (gitignored) — renamed `example-01`→`samurai`, `2026-10-30-02`→`diver`.
 
 ## Changes Made This Session
-1. Fixed tonight's video with `python3 -m spine.publisher.spec_check --fix` and copied the result to all three paths. A dry-run publish passed; cron published it at 20:50.
-2. Upload encode: converts the range, because `-pix_fmt` alone keeps full range.
-3. spec_check at QA (uploads, edits, week renders) plus a hard gate at approve. A safe-zone FAIL can still be overridden by the operator; a spec FAIL cannot.
-   Missing files are skipped at QA and approve, so existing tests and slots with no video yet keep working.
-4. Publish-time spec failure goes back to NEEDS_APPROVAL. History: on 2026-10-29 the user chose
-   "Option A" and approved changing the existing stays-QUEUED test. That approval covered that one test only.
-5. Agent review: first run "No issues found". The run on the final commit `eed61eb` posted nothing, so I
-   commented `@claude review`. That run found no blockers and three minor points, all left as is:
-   approve also checks the story file (kept, decision 14); approve is slower; spec lines sit under "Safe zones" in qa.md.
+1. Diver joke → "No excuses. / Check the swell!"; added optional `app_line` (per-script
+   replacement of "Location is everything.") → "Check in depth.".
+2. Joke → "Check the swell / before you commit" (17 chars > `JOKE_MAX` 16); custom app line
+   enlarged to 16-days style. Temporarily raised JOKE_MAX to 17 (reverted, never committed).
+3. Joke → "Check the swell." / "Then commit." (fits 16); added `joke_low` (joke anchored at
+   bottom of safe area, gradient flipped) so it clears the diver's helmet; app line left-aligned.
+4. Folder tidy: batch/nn folders → slug folders (slug from script.json), batch `index.md`
+   files deleted, Notion Repo paths updated. Why: user demanded videos live under the script
+   name (script1 samurai, script2 diver), no dates/numbers.
 
 ## Failed Attempts
-- First version of fix 3 left the slot QUEUED→NEEDS_APPROVAL without approval to change
-  `test_publish_refuses_silent_video_and_stays_queued`; reverted until the user chose Option A.
-- The approve gate first failed on missing video files and broke `test_approve_schedules_next_free_slot`
-  (409). Fixed by skipping missing files; the test was not edited.
-- The auto review on a `synchronize` push does not post a fresh comment once the PR has one. A new review needs a manual `@claude review` comment.
+- Raising `JOKE_MAX` to 17 broke `test_check_catches_bad_scripts` (hardcodes "over 16
+  characters"); reverted instead of editing the test.
+- A template-literal quote mismatch in HiggsFilm.tsx gradient broke the first render of step 3; fixed.
 
 ## Next Step
-1. Ask the user, then pull main into the main checkout so cron and the dashboard get the fix:
-   `git -C ~/Projects/tachyon pull`. Check first that the checkout has no local changes that block the pull.
-2. The review page (`spine/review/app.py`) does not show the post `note`. A NEEDS_APPROVAL slot sent back by
-   publish shows its reason only when Approve returns the 409. Possible follow-up: render `row["note"]`.
-3. Not checked: whether editing a video after approval re-runs the approval check.
-4. Optional cleanup, ask first: `git worktree remove ~/.superset/worktrees/tachyon/upload-color-range`.
-5. The 2 timezone test failures on main are untriaged.
+1. Re-render diver from the new path to confirm the slug layout:
+   `cd ~/Projects/tachyon && .venv/bin/python -m spine.higgs render rosa diver both`
+2. Open questions for the user (ask, don't assume):
+   - Diver caption still says "He checks the swell in depth." — change it?
+   - Delete old `clients/rosa/higgs-hook/samurai/out/v7, v8, v9, v9-nomusic, v10-nomusic`?
+   - Diver is Notion status "Posted": the live IG post has the old text.
+3. Push `higgs-film` / open PR only if the user asks.
