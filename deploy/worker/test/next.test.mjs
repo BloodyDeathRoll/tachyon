@@ -12,7 +12,9 @@ test("safeNext keeps same-site paths and sends everything else to /app", () => {
   }
   // same origin after parsing, but a path that reads as another host: the full URL keeps it here
   for (const tricky of ["/.//evil.com", "/a/..//evil.com"]) {
-    const to = new URL(safeNext(tricky, o), "https://other.example");
-    assert.equal(to.origin, o, tricky);
+    const out = safeNext(tricky, o);
+    assert.equal(out, "https://t.example//evil.com", tricky);
+    assert.equal(new URL(out, "https://other.example").origin, o, tricky);
   }
+  assert.equal(safeNext("https://user@t.example/rosa", o), "https://t.example/rosa"); // no user part
 });
