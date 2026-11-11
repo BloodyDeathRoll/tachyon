@@ -37,7 +37,8 @@ export async function releaseLease(env: { DB: D1Database }, name: string, holder
 }
 
 /** Delete every R2 object no post names in r2_key or cover_key, once it is a day old. Any
-    unpublished post keeps its file, in any state; a published one lost its r2_key at publish. */
+    unpublished post keeps its file, in any state; a published one lost its r2_key at publish.
+    A client's avatar (`<client>/avatar.png`, the sidebar icon) is kept. */
 export async function sweep(env: { DB: D1Database; MEDIA: R2Bucket }, now: number): Promise<{ deleted: string[]; kept: number }> {
   const referenced = new Set(
     (
@@ -46,7 +47,7 @@ export async function sweep(env: { DB: D1Database; MEDIA: R2Bucket }, now: numbe
   );
   // shortcut: one list() page of 1,000 objects; past that, keep the cursor in the sweep lease row and go on next minute
   const page = await env.MEDIA.list({ limit: 1000 });
-  const gone = page.objects.filter((o) => !referenced.has(o.key) && o.uploaded.getTime() < now - GRACE_MS).map((o) => o.key);
+  const gone = page.objects.filter((o) => !referenced.has(o.key) && !o.key.endsWith("/avatar.png") && o.uploaded.getTime() < now - GRACE_MS).map((o) => o.key);
   if (gone.length) await env.MEDIA.delete(gone);
   await env.DB.prepare("DELETE FROM pending_connects WHERE expires < ?").bind(now).run();
   return { deleted: gone, kept: page.objects.length - gone.length };

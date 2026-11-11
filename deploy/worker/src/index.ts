@@ -42,6 +42,7 @@ import { insertJob, JOB_KINDS } from "./jobs.ts";
 import { clientsOf, member, type UserRow } from "./members.ts";
 import { homePage } from "./pages/home.ts";
 import { pages } from "./pages/index.ts";
+import { esc } from "./pages/shell.ts";
 import { roomFor } from "./quota.ts";
 import { mint, SESSION_TTL_MS, verify } from "./session.ts";
 
@@ -504,6 +505,28 @@ export async function media(req: Request, env: { DB: D1Database; MEDIA: R2Bucket
   return json(200, { key });
 }
 
+// ── a client's icon: the sidebar's avatar (app.py's assets/icon.png), sent up by a PC ─────────
+const AVATAR_MAX = 512 * 1024;
+
+async function avatarImage(env: Env, user: UserRow, client: string): Promise<Response> {
+  await member(env, user, client);
+  const obj = await env.MEDIA.get(`${client}/avatar.png`);
+  if (obj) return new Response(obj.body, { headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=3600" } });
+  const row = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(client).first<{ name: string | null }>();
+  const letter = esc((row?.name || client).slice(0, 1).toUpperCase());
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="20" fill="#84E01B"/><text x="20" y="26" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-weight="700" font-size="17" fill="#111">${letter}</text></svg>`;
+  return new Response(svg, { headers: { "Content-Type": "image/svg+xml", "Cache-Control": "private, max-age=300" } });
+}
+
+async function avatarUpload(req: Request, env: Env, user: UserRow, client: string): Promise<Response> {
+  await member(env, user, client);
+  const len = Number(req.headers.get("Content-Length"));
+  if (!req.body || !Number.isInteger(len) || len <= 0) throw new HttpError(411, "length");
+  if (len > AVATAR_MAX) throw new HttpError(413, "size");
+  await env.MEDIA.put(`${client}/avatar.png`, req.body, { httpMetadata: { contentType: "image/png" } });
+  return json(200, { ok: true });
+}
+
 // ── router ────────────────────────────────────────────────────────────────────
 
 async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -556,6 +579,8 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
     return res;
   }
   if (path === "/api/hosts" && req.method === "POST") return registerHost(req, env, user, now);
+  if (p[0] === "static" && p[1] === "avatar" && p.length === 3 && req.method === "GET") return avatarImage(env, user, p[2]!.replace(/\.png$/, ""));
+  if (p[0] === "api" && p[1] === "avatar" && p.length === 3 && req.method === "PUT") return avatarUpload(req, env, user, p[2]!);
   if (path === "/api/jobs/next" && req.method === "GET") return nextJob(url, env, ctx, user, now);
   if (path === "/api/jobs" && req.method === "GET") return listJobs(url, env, user);
   if (path === "/api/jobs" && req.method === "POST") return enqueue(req, env, user, now);
