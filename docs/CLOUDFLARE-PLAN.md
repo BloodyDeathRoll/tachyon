@@ -2,7 +2,8 @@
 
 Written 2026-10-29, revised 2026-11-04 (operator decisions below). Built so far: the
 Worker skeleton in `deploy/worker/` (schema, sign-in, members, jobs, R2 upload; tests run
-locally, nothing deployed, see its README). Everything else is executed later, phase by phase.
+locally, nothing deployed, see its README) and phase 1 (`spine/db.py` on D1 through the
+Worker, `spine/migrate_d1.py`). Everything else is executed later, phase by phase.
 
 ## Goal
 
@@ -63,7 +64,7 @@ Stays as is: bio link redirect on Vercel (`spine/publisher/links.py`), code in g
 
 - `users(id PK, google_sub UNIQUE, email UNIQUE, name, admin, session_epoch, created_at)`. `id` is internal, so an invited user can be given memberships at once; `google_sub` is null until their first sign-in. That sign-in binds `google_sub` to the row by email only if the Google ID token has `email_verified` true (as Rosa `deploy/user-api/src/google.ts` requires). After the bind, sign-in matches on `google_sub` only, so a later email change keeps the account.
 - `memberships(user, client)` — a member manages the client. Every page and route checks it.
-- `clients(id, name, ig_user_id, page_id, token_enc, token_expires, ig_username, schedule, autonomy JSON, emergency_stop, publisher, created_by)`. `publisher` is `local` or `worker`: `local` for clients migrated from a folder, `worker` for clients created in the dashboard (they have no crontab entry). The Worker's cron publishes only for `worker` clients that have a `token_enc`.
+- `clients(id, name, ig_user_id, page_id, token_enc, token_expires, ig_username, grants JSON, emergency_stop, publisher, created_by)`. `grants` is the former `grants.yaml` as one JSON value (slots, week_prep, auto_reply, auto_approve_pillars, bio_link, ga4_property); the columns beside it are the ones the Worker's cron reads. `publisher` is `local` or `worker`: `local` for clients migrated from a folder, `worker` for clients created in the dashboard (they have no crontab entry). The Worker's cron publishes only for `worker` clients that have a `token_enc`.
 - `client_files(client, name, text, version, updated_by, updated_at)` — the brand markdown.
 - `hosts(id, user, name, clients JSON, caps JSON, last_seen)` — a PC: which clients it holds assets for, what it can do (`render`, `voice`, `claude`). Registered by `spine/worker.py` on start. `last_seen` is written at most every 5 min, so the dashboard shows a host as online if it was seen in the last 10 min.
 - `jobs(id, kind, client, slot_id, state, holder, until, payload, result, by, created_at)` — local work: `plan`, `produce`, `revise`, `formats`, `voice`, `upload`, `spec`. A host may claim a job only if its `clients` list has the job's client.
@@ -113,7 +114,7 @@ In flight at any time: at most the approved-but-unpublished videos, ~22 MB each.
 
 ## Local code changes
 
-- `spine/db.py`: talk to D1 through the Worker API instead of `sqlite3.connect`. One module, all callers keep their methods. Auth: the host's session token (the same Google session, saved on the PC by `spine.worker login`). Every call is a Worker request and may be a D1 write, so a job's writes are batched: one request per state change, not per row.
+- `spine/db.py`: talk to D1 through the Worker API instead of `sqlite3.connect`. One module, all callers keep their methods. Auth: the host's session token (the same Google session, saved on the PC by `spine.worker login`). Every call is a Worker request and may be a D1 write, so a job's writes are batched: one request per state change, not per row. Built (phase 1): `RemoteDB` calls `POST /api/db/<client>/<op>`, one op per method (`deploy/worker/src/db.ts`); the raw SQL callers ran on `db.conn` became methods on both backends; a state change is a version-guarded UPDATE with its journal row in the same batch; `~/.tachyon/worker.json` (or `TACHYON_API`) switches a PC over, `spine/migrate_d1.py` writes the client's rows as SQL for `wrangler d1 execute`.
 - `spine/clients.py`: `load_grants` reads the `clients` row; `client_dir` unchanged; a `pull(client)` writes `client_files` to disk before a generation.
 - `spine/publisher/publish.py`: `publish_slot` ported to the Worker (`video_url`, no `Graph.upload`); the Python keeps `spec_check` and the R2 upload. `auth.py` retired.
 - `spine/worker.py` (new): host registration, job loop, lease heartbeat, R2 upload.

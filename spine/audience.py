@@ -19,6 +19,7 @@ from pathlib import Path
 
 from spine import clients as C
 from spine.db import DB
+from spine.remote import RemoteError
 
 FOLLOWERS = re.compile(r"(^|/)followers(_\d+)?\.json$")
 FOLLOWING = re.compile(r"(^|/)following(_\d+)?\.json$")
@@ -94,23 +95,7 @@ def import_export(client: str, path: Path) -> int | None:
     got = parse_export(path)
     db = DB.for_client(C.client_dir(client))
     try:
-        db.conn.execute("BEGIN IMMEDIATE")   # the duplicate check and the insert are one step
-        if db.conn.execute("SELECT 1 FROM follower_snapshots WHERE file_sha=?", (got["sha"],)).fetchone():
-            db.conn.execute("ROLLBACK")
-            return None
-        cur = db.conn.execute(
-            "INSERT INTO follower_snapshots(taken_at, file_sha, source, n_followers, n_following) VALUES (?,?,?,?,?)",
-            (got["written"], got["sha"], path.name, len(got["followers"]), None if got["following"] is None else len(got["following"])))
-        sid = cur.lastrowid
-        db.conn.executemany("INSERT INTO follower_members VALUES (?,?,?)",
-                            [(sid, "follower", u) for u in sorted(got["followers"])]
-                            + [(sid, "following", u) for u in sorted(got["following"] or ())])
-        db.conn.execute("COMMIT")
-        return sid
-    except Exception:
-        if db.conn.in_transaction:
-            db.conn.execute("ROLLBACK")
-        raise
+        return db.import_followers(got, path.name)
     finally:
         db.close()
 
@@ -122,7 +107,7 @@ def scan(client: str) -> list[int]:
     for f in sorted((x for x in d.glob("*") if x.suffix in (".zip", ".json") or x.is_dir()), key=lambda x: x.stat().st_mtime) if d.exists() else []:
         try:
             sid = import_export(client, f)
-        except (ValueError, OSError, sqlite3.Error) as e:   # one bad file must not stop the rest
+        except (ValueError, OSError, sqlite3.Error, RemoteError) as e:   # one bad file must not stop the rest
             print(f"{f.name}: {e}", file=sys.stderr)
             continue
         if sid:
@@ -134,17 +119,7 @@ def dropped(client: str) -> dict:
     """Followers in the previous export who are gone from the newest one."""
     db = DB.for_client(C.client_dir(client))
     try:
-        snaps = db.conn.execute("SELECT * FROM follower_snapshots ORDER BY taken_at DESC, id DESC LIMIT 2").fetchall()
-        out = {"snapshots": len(snaps), "since": None, "at": snaps[0]["taken_at"] if snaps else None,
-               "followers": snaps[0]["n_followers"] if snaps else None, "dropped": []}
-        if len(snaps) == 2:
-            new, old = snaps
-            out["since"] = old["taken_at"]
-            out["dropped"] = [r[0] for r in db.conn.execute(
-                "SELECT username FROM follower_members WHERE snapshot_id=? AND kind='follower' "
-                "AND username NOT IN (SELECT username FROM follower_members WHERE snapshot_id=? AND kind='follower') "
-                "ORDER BY username", (old["id"], new["id"]))]
-        return out
+        return db.follower_dropped()
     finally:
         db.close()
 

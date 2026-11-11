@@ -2,6 +2,10 @@
 
 Tables: posts, metric_snapshots, experiments, conversions, engage_log, costs, journal.
 Every state change and every write to Meta goes through `journal` (append-only).
+
+With a Worker configured (spine/remote.py), `DB.for_client` gives a `RemoteDB` instead:
+the same methods against D1 through the Worker, one request per method
+(docs/CLOUDFLARE-PLAN.md). Callers never touch `.conn`; the raw SQL they need is a method here.
 """
 
 from __future__ import annotations
@@ -11,6 +15,7 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
+from . import remote as R
 from . import state as S
 
 SCHEMA = """
@@ -129,7 +134,10 @@ class DB:
         self.conn.executescript(SCHEMA)
 
     @classmethod
-    def for_client(cls, client_dir: str | Path) -> "DB":
+    def for_client(cls, client_dir: str | Path) -> "DB | RemoteDB":
+        cfg = R.config()
+        if cfg:
+            return RemoteDB(Path(client_dir).name, cfg)
         return cls(Path(client_dir) / "tachyon.db")
 
     def close(self) -> None:
@@ -149,7 +157,7 @@ class DB:
                           (permalink, slot_id))
 
     def journal_outcome(self, journal_id: int, outcome: dict) -> None:
-        self.conn.execute("UPDATE journal SET outcome=? WHERE id=?", (json.dumps(outcome), journal_id))
+        self.conn.execute("UPDATE journal SET outcome=? WHERE id=? AND outcome IS NULL", (json.dumps(outcome), journal_id))   # write-once, as on the Worker
 
     # ── posts ────────────────────────────────────────────────────────────────
     def create_post(self, slot_id: str, client: str, **fields) -> sqlite3.Row:
@@ -292,3 +300,206 @@ class DB:
             "INSERT INTO costs(post_id, kind, amount, unit, created_at) VALUES (?,?,?,?,?)",
             (post_id, kind, amount, unit, now()),
         )
+
+    # ── the raw SQL the callers used to run themselves ───────────────────────
+    def scheduled_times(self, states) -> list[sqlite3.Row]:
+        """(slot_id, scheduled_at) of every post in one of `states` that has a time (spine/schedule.py)."""
+        states = tuple(states)
+        if not states:
+            return []
+        return self.conn.execute(
+            f"SELECT slot_id, scheduled_at FROM posts WHERE state IN ({','.join('?' * len(states))}) AND scheduled_at IS NOT NULL",
+            states).fetchall()
+
+    def set_scheduled(self, slot_id: str, at: str) -> None:
+        """Publish now: the slot's time becomes `at`, journaled. Atomic."""
+        self.post(slot_id)
+        self.conn.execute("BEGIN IMMEDIATE")
+        try:
+            self.journal("post.scheduled_now", slot_id, {"scheduled_at": at})
+            self.conn.execute("UPDATE posts SET scheduled_at=?, updated_at=? WHERE slot_id=?", (at, now(), slot_id))
+            self.conn.execute("COMMIT")
+        except Exception:
+            self.conn.execute("ROLLBACK")
+            raise
+
+    def fail_count(self, slot_id: str) -> int:
+        """How many times the slot went to FAILED (publish.py hands off after the second)."""
+        return self.conn.execute(
+            "SELECT count(*) FROM journal WHERE target=? AND action='post.state' AND json_extract(intent, '$.to')='FAILED'",
+            (slot_id,)).fetchone()[0]
+
+    def delete_snapshots(self, post_id: str | None, source: str, window: str) -> None:
+        self.conn.execute("DELETE FROM metric_snapshots WHERE post_id IS ? AND source=? AND window=?", (post_id, source, window))
+
+    def import_followers(self, got: dict, source: str) -> int | None:
+        """One parsed Instagram export (spine/audience.py parse_export) as a snapshot with its
+        members; None when this exact export is already in. One step."""
+        self.conn.execute("BEGIN IMMEDIATE")   # the duplicate check and the insert are one step
+        try:
+            if self.conn.execute("SELECT 1 FROM follower_snapshots WHERE file_sha=?", (got["sha"],)).fetchone():
+                self.conn.execute("ROLLBACK")
+                return None
+            cur = self.conn.execute(
+                "INSERT INTO follower_snapshots(taken_at, file_sha, source, n_followers, n_following) VALUES (?,?,?,?,?)",
+                (got["written"], got["sha"], source, len(got["followers"]), None if got["following"] is None else len(got["following"])))
+            sid = cur.lastrowid
+            self.conn.executemany("INSERT INTO follower_members VALUES (?,?,?)",
+                                  [(sid, "follower", u) for u in sorted(got["followers"])]
+                                  + [(sid, "following", u) for u in sorted(got["following"] or ())])
+            self.conn.execute("COMMIT")
+            return sid
+        except Exception:
+            if self.conn.in_transaction:
+                self.conn.execute("ROLLBACK")
+            raise
+
+    def follower_dropped(self) -> dict:
+        """Followers in the previous export who are gone from the newest one."""
+        snaps = self.conn.execute("SELECT * FROM follower_snapshots ORDER BY taken_at DESC, id DESC LIMIT 2").fetchall()
+        out = {"snapshots": len(snaps), "since": None, "at": snaps[0]["taken_at"] if snaps else None,
+               "followers": snaps[0]["n_followers"] if snaps else None, "dropped": []}
+        if len(snaps) == 2:
+            new, old = snaps
+            out["since"] = old["taken_at"]
+            out["dropped"] = [r[0] for r in self.conn.execute(
+                "SELECT username FROM follower_members WHERE snapshot_id=? AND kind='follower' "
+                "AND username NOT IN (SELECT username FROM follower_members WHERE snapshot_id=? AND kind='follower') "
+                "ORDER BY username", (old["id"], new["id"]))]
+        return out
+
+
+class Row(dict):
+    """A row from the Worker, read like a sqlite3.Row: by name or position; iterating gives the values."""
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return list(self.values())[key]
+        return super().__getitem__(key)
+
+    def __iter__(self):
+        return iter(self.values())
+
+
+class RemoteDB:
+    """`DB`'s methods against D1 through the Worker (deploy/worker/src/db.ts): one request per
+    method, scoped to one client, journaled by the Worker with the signed-in user. The
+    Worker's answers come back as the exceptions the callers expect: KeyError for a missing
+    post, state.IllegalTransition for a refused transition, ValueError for bad fields; anything
+    else is a remote.RemoteError."""
+
+    RETRIES = 3   # on "changed": the post moved under a write; every op reads it again and decides again (set_state, move, set_scheduled)
+
+    def __init__(self, client: str, cfg: dict | None = None):
+        self.client = client
+        self.cfg = cfg or R.config()
+        if not self.cfg:
+            raise R.RemoteError(0, "config", "no Worker configured")
+
+    def close(self) -> None:
+        pass
+
+    def _op(self, op: str, **args):
+        for i in range(self.RETRIES):
+            try:
+                return R.call("POST", f"/api/db/{self.client}/{op}", args, cfg=self.cfg)["result"]
+            except R.RemoteError as e:
+                if e.status == 409 and e.error == "changed" and i < self.RETRIES - 1:
+                    continue
+                if e.status == 404 and e.error == "slot":
+                    raise KeyError(args.get("slot_id")) from None
+                if e.status == 409 and e.error == "transition":
+                    raise S.IllegalTransition(e.detail or e.error) from None
+                if e.status == 409 and e.error == "exists":   # what the SQLite backend raises for the same row
+                    raise sqlite3.IntegrityError(e.detail or e.error) from None
+                if e.status == 400 and e.error in ("fields", "move", "value"):
+                    raise ValueError(e.detail or e.error) from None
+                raise
+        raise AssertionError("unreachable")
+
+    def _rows(self, op: str, **args) -> list[Row]:
+        return [Row(r) for r in self._op(op, **args)]
+
+    # ── journal ──────────────────────────────────────────────────────────────
+    def journal(self, action: str, target: str | None, intent: dict | None = None) -> int:
+        return self._op("journal", action=action, target=target, intent=intent)
+
+    def journal_outcome(self, journal_id: int, outcome: dict) -> None:
+        self._op("journal_outcome", id=journal_id, outcome=outcome)
+
+    def set_permalink(self, slot_id: str, permalink: str) -> None:
+        self._op("set_permalink", slot_id=slot_id, permalink=permalink)
+
+    # ── posts ────────────────────────────────────────────────────────────────
+    def create_post(self, slot_id: str, client: str, **fields) -> Row:
+        if client != self.client:
+            raise ValueError(f"this DB is {self.client}'s, not {client}'s")
+        return Row(self._op("create_post", slot_id=slot_id, fields=fields))
+
+    def post(self, slot_id: str) -> Row:
+        return Row(self._op("post", slot_id=slot_id))
+
+    def delete_post(self, slot_id: str) -> None:
+        self._op("delete_post", slot_id=slot_id)
+
+    def posts(self, state: str | None = None) -> list[Row]:
+        return self._rows("posts", state=state)
+
+    def set_state(self, slot_id: str, to: str, note: str | None = None, **updates) -> Row:
+        return Row(self._op("set_state", slot_id=slot_id, to=to, note=note, updates=updates))
+
+    MOVABLE = DB.MOVABLE
+
+    def move(self, slot_id: str, at: str, swap_with: str | None = None) -> None:
+        self._op("move", slot_id=slot_id, at=at, swap_with=swap_with)
+
+    # ── metrics, experiments, conversions, engagement, costs ─────────────────
+    def add_snapshot(self, post_id: str | None, source: str, window: str, metrics: dict) -> None:
+        self._op("add_snapshot", post_id=post_id, source=source, window=window, metrics=metrics)
+
+    def snapshots(self, post_id: str | None = None) -> list[dict]:
+        return self._op("snapshots", post_id=post_id)
+
+    def add_experiment(self, id: str, week: str, variable: str, hypothesis: str,
+                       primary_metric: str, guardrail_metric: str, window_days: int, min_samples: int = 3) -> None:
+        self._op("add_experiment", id=id, week=week, variable=variable, hypothesis=hypothesis,
+                 primary_metric=primary_metric, guardrail_metric=guardrail_metric, window_days=window_days,
+                 min_samples=min_samples)
+
+    def decide_experiment(self, id: str, verdict: str, directional_only: bool) -> None:
+        self._op("decide_experiment", id=id, verdict=verdict, directional_only=bool(directional_only))
+
+    def add_conversion(self, source: str, event: str, occurred_at: str, post_id: str | None = None,
+                       value: float | None = None, utm_campaign: str | None = None) -> None:
+        self._op("add_conversion", source=source, event=event, occurred_at=occurred_at, post_id=post_id,
+                 value=value, utm_campaign=utm_campaign)
+
+    def add_engage(self, date: str, account: str, post_url: str | None, planned_at: str | None, comment: str) -> int:
+        return self._op("add_engage", date=date, account=account, post_url=post_url, planned_at=planned_at, comment=comment)
+
+    def tick_engage(self, id: int) -> None:
+        self._op("tick_engage", id=id)
+
+    def add_cost(self, kind: str, amount: float, unit: str, post_id: str | None = None) -> None:
+        self._op("add_cost", kind=kind, amount=amount, unit=unit, post_id=post_id)
+
+    # ── the raw SQL the callers used to run themselves ───────────────────────
+    def scheduled_times(self, states) -> list[Row]:
+        return self._rows("scheduled_times", states=list(states))
+
+    def set_scheduled(self, slot_id: str, at: str) -> None:
+        self._op("set_scheduled", slot_id=slot_id, at=at)
+
+    def fail_count(self, slot_id: str) -> int:
+        return self._op("fail_count", slot_id=slot_id)
+
+    def delete_snapshots(self, post_id: str | None, source: str, window: str) -> None:
+        self._op("delete_snapshots", post_id=post_id, source=source, window=window)
+
+    def import_followers(self, got: dict, source: str) -> int | None:
+        return self._op("import_followers", taken_at=got["written"], sha=got["sha"], source=source,
+                        followers=sorted(got["followers"]),
+                        following=None if got["following"] is None else sorted(got["following"]))
+
+    def follower_dropped(self) -> dict:
+        return self._op("follower_dropped")
