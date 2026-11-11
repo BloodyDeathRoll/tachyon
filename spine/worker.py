@@ -305,6 +305,15 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) ->
     if job["kind"] == "upload":
         pull(client, slot, sleep)   # the operator's online edits, so the files sent up are the newest
         return {"keys": upload(client, slot, cfg)}
+    if job["kind"] == "track":   # an Instagram song picked online: download it, mix it in
+        from . import tracks as T
+        song = T.ig_track(payload.get("track") or {})
+        pull(client, slot, sleep)
+        if not (C.client_dir(client) / "posts" / slot / "video.mp4").is_file():
+            raise FileNotFoundError(f"{slot}'s video is not on this PC")
+        T.set_track(client, slot, song["id"], song)
+        # the new cut goes up with the next sync (sync_videos) once the video is approved
+        return {"track": song["id"], "media": media_of(client, slot, cfg), "files": sorted(J.push_files(client, slot, ("meta.json",)))}
     argv = payload.get("argv")
     if not isinstance(argv, list) or not all(isinstance(a, str) for a in argv):
         raise ValueError("the job has no argv")

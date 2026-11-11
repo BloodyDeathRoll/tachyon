@@ -462,3 +462,29 @@ def test_sync_videos_a_refused_cover_is_retried_and_logged_once(env, monkeypatch
     assert W.sync_videos(["rosa"], CFG) == [] and W.sync_videos(["rosa"], CFG) == []
     assert len(said) == 1 and "cover not sent" in said[0]
     assert W.sync_videos(["rosa"], CFG) == ["rosa/s5 cover"] and not W._warned
+
+
+def test_a_track_job_mixes_the_song_picked_online_and_sends_the_meta(env, monkeypatch):
+    from spine import tracks as T
+    sd = env / "clients" / "rosa" / "posts" / "w01-s1"
+    sd.mkdir()
+    (sd / "video.mp4").write_bytes(b"vid")
+    picked = []
+
+    def set_track(client, slot, tid, given):
+        picked.append((client, slot, tid, given["preview"]))
+        (sd / "meta.json").write_text('{"track": "%s"}\n' % tid)
+    monkeypatch.setattr(T, "set_track", set_track)
+    song = {"audio_id": "123", "title": "A Big Mess", "artist": "TrackTribe", "preview": "https://video-lga3-1.xx.fbcdn.net/a.m4a"}
+    f = fake(monkeypatch, (200, {"result": True}))
+    job = {"id": 3, "kind": "track", "client": "rosa", "slot_id": "w01-s1", "payload": json.dumps({"track": song})}
+    out = W.run_job(job, CFG)
+    assert picked == [("rosa", "w01-s1", "ig:123", song["preview"])]
+    assert out["track"] == "ig:123" and out["files"] == ["meta.json"] and out["media"]["size"] == 3
+    assert f.calls[-1][2] == {"slot_id": "w01-s1", "files": {"meta.json": '{"track": "ig:123"}\n'}}
+    for bad in ({**song, "preview": "https://evil.example/a.m4a"}, {**song, "preview": "http://video.xx.fbcdn.net/a"}, {**song, "audio_id": "1;rm"}):
+        with pytest.raises(ValueError):
+            W.run_job({**job, "payload": json.dumps({"track": bad})}, CFG)
+    (sd / "video.mp4").unlink()
+    with pytest.raises(FileNotFoundError):
+        W.run_job(job, CFG)

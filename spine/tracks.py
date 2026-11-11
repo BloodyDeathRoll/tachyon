@@ -325,8 +325,32 @@ def ig_song(client: str, slot: str) -> Path:
     return C.client_dir(client) / "posts" / slot / IG_PREVIEW
 
 
-def set_track(client: str, slot: str, track_id: str) -> None:
-    track = next((t for t in _library(client) if t["id"] == track_id), None) or _ig_known(client).get(track_id)
+IG_HOST = ".fbcdn.net"   # where Instagram's song files and covers are served from
+
+
+def ig_track(given: dict) -> dict:
+    """An Instagram song as the Worker's music page sent it (a job's payload), checked: only an
+    https link on Instagram's own CDN is ever downloaded."""
+    from urllib.parse import urlparse
+    aid = str(given.get("audio_id") or "")
+    if not aid.isdigit():
+        raise ValueError(f"not an Instagram audio id: {aid!r}")
+    pv = str(given.get("preview") or "")
+    u = urlparse(pv)
+    if pv and (u.scheme != "https" or not (u.hostname or "").endswith(IG_HOST)):
+        raise ValueError(f"not an Instagram song link: {pv[:80]}")
+    dur = given.get("duration")
+    return {"id": IG_PREFIX + aid, "audio_id": aid, "title": str(given.get("title") or "Untitled")[:200],
+            "artist": str(given.get("artist") or "")[:200] or None, "source": "instagram",
+            "cover": given.get("cover") or None, "duration": dur if isinstance(dur, (int, float)) else None,
+            "link": given.get("link") or None, "preview": pv or None}
+
+
+def set_track(client: str, slot: str, track_id: str, given: dict | None = None) -> None:
+    """Pick a track for the slot and re-mix its videos. `given`: an Instagram song found online
+    (the Worker's music page), not in this PC's search cache."""
+    track = (next((t for t in _library(client) if t["id"] == track_id), None) or _ig_known(client).get(track_id)
+             or (given if given and given.get("id") == track_id else None))
     if not track:
         raise KeyError(f"no track {track_id}")
     p, m = _meta(client, slot)

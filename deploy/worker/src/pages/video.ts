@@ -1,8 +1,9 @@
 // One video (app.py render_video, render_byhand, render_qa and their POSTs, port): the
 // player, approve or send back with notes, the schedule, the post text, the links, and the
 // jobs a PC runs for it. What app.py forked here is a jobs row (spine/worker.py ARGV).
-// Left out from app.py: the music card and track picker (local files and the Instagram
-// music search), the safe-zone overlay and the story/format variants (local files), the
+// The music card searches Instagram's music here; a pick is a `track` job: a PC downloads the
+// song and mixes it into the video (spine/tracks.py; Instagram drops a song sent at publish).
+// Left out from app.py: the PC's own music library, the safe-zone overlay and the story/format variants (local files), the
 // spec check before approve (ffprobe on a PC), the local publisher on Publish now (the
 // cron publishes within the minute), the bio link on a hand link (the cron's publish does
 // it for its own posts), the quick-preview popup and the copy button (script).
@@ -298,6 +299,7 @@ export async function renderVideo(p: Page, slot: string): Promise<Response> {
   blocks.push(await jobsCard(s));
 
   const right: string[] = [await whenCard(s, label, cls)];
+  if (!row.published_at) right.push(musicCard(s));
   const gen = !s.caption && !locked(s) && (row.r2_key || s.host) && !open_(jobs.caption)
     ? `<form method=post action='${act}' class=btns style='margin-top:8px'><button class='btn sec small' name=action value=gencaption>Write the caption on a PC</button></form>` : "";
   const writing = open_(jobs.caption) && !s.caption;
@@ -318,6 +320,72 @@ export async function renderVideo(p: Page, slot: string): Promise<Response> {
 <div class=vpage><div class=player>${player(s)}</div><div class='stack c2'>${blocks.join("")}</div><div class='stack c3'>${right.join("")}</div></div>`;
   const refresh = cls === "busy" || publishing(row, p.now) ? 15 : open_(jobs.formats) || writing ? 5 : null;
   return shell(p, "overview", body, title, refresh);
+}
+
+const IG_HOST = ".fbcdn.net"; // Instagram's CDN: the only place a song or a cover is taken from
+
+/** An https link on Instagram's CDN, or "". */
+function igUrl(v: unknown): string {
+  try {
+    const u = new URL(String(v ?? ""));
+    return u.protocol === "https:" && u.hostname.endsWith(IG_HOST) ? u.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function songLocked(s: Slot): boolean {
+  return locked(s) || publishing(s.row, s.p.now);
+}
+
+/** The song in the video, the mix a PC is making, and the way to change it. */
+function musicCard(s: Slot): string {
+  const base = path(s.p.client.id, s.slot);
+  const info = (s.meta.track_info ?? {}) as Json;
+  const ig = String(s.meta.track ?? "").startsWith("ig:");
+  const now = ig && info.title ? `<b>${esc(info.title)}</b>${info.artist ? ` <span class=muted>${esc(info.artist)}</span>` : ""}`
+    : s.meta.audio_type ? esc(s.meta.audio_type) : "<span class=muted>No song picked.</span>";
+  const j = s.jobs.track;
+  const want = j ? String(((parseJson(j.payload).track ?? {}) as Json).title ?? "the song") : "";
+  const status = open_(j) ? `<div class=prog><i></i></div><p class=hint>Mixing &ldquo;${esc(want)}&rdquo; into the video on a PC. ${jobLine(j!, s.p.now)}</p>`
+    : j?.state === "failed" ? `<p class=hint>Could not mix &ldquo;${esc(want)}&rdquo;: ${esc(String(j.result ?? "").slice(-200))}</p>` : "";
+  const change = songLocked(s) || open_(j) ? "" : `<a class='btn sec' href='${base}/music'>${icon("music", 16)}${ig || s.meta.audio_type ? "Change" : "Pick"}</a>`;
+  return `<section class=card><h2>Music</h2><div class=crow><p>${now}</p>${change}</div>${status}</section>`;
+}
+
+/** Instagram's music: trending, or a search. Each row plays its preview and picks it. */
+export async function renderMusic(p: Page, slot: string, fetcher: Fetcher, q: string): Promise<Response> {
+  const s = await load(p, slot);
+  const back = path(p.client.id, slot);
+  const head = `<a class=back href='${back}'>${icon("back", 16)}${esc(titleOf(s.row, s.meta))}</a><h1>Music</h1><p class=sub>Instagram's music. A PC mixes the song you pick into the video, then the new cut replaces the old one.</p>
+<form method=get action='${back}/music' class=crow><input name=q value='${esc(q)}' placeholder='Search Instagram music' aria-label='Search Instagram music' autocomplete=off style='flex:1'><button class='btn sec'>${icon("search", 16)}Search</button></form>`;
+  const card = (text: string) => shell(p, "overview", `${head}<section class=card><p class=muted>${text}</p></section>`, "Music");
+  if (songLocked(s)) return card(LOCKED);
+  let rows: Json[];
+  try {
+    const params: Record<string, string> = { audio_type: "music", user_id: String(p.client.ig_user_id ?? "") };
+    if (q) params.search_query = q;
+    const res = await (await graphFor(p, fetcher)).get("ig_audio", params);
+    rows = ((res.audio ?? res.data ?? []) as Json[]).filter((r) => /^\d+$/.test(String(r.audio_id ?? r.id ?? "")));
+  } catch (e) {
+    return card(`Could not reach Instagram: ${esc(e instanceof HttpError ? e.detail ?? e.message : String(e))}`);
+  }
+  if (!rows.length) return card(q ? `Nothing on Instagram for &ldquo;${esc(q)}&rdquo;.` : "Instagram returned no trending music.");
+  const cur = String(s.meta.track ?? "");
+  const items = rows.map((r) => {
+    const id = String(r.audio_id ?? r.id);
+    const cover = igUrl(r.cover_artwork_thumbnail_uri ?? r.profile_picture_url);
+    const preview = igUrl(r.download_url);
+    const ms = Number(r.duration_in_ms);
+    const dur = ms > 0 ? `${Math.floor(ms / 60000)}:${String(Math.round(ms / 1000) % 60).padStart(2, "0")}` : "";
+    const artist = String(r.display_artist ?? r.ig_username ?? "");
+    const hidden = { audio_id: id, title: String(r.title ?? "Untitled"), artist, cover, duration: ms > 0 ? String(Math.round(ms / 100) / 10) : "", link: String(r.on_platform_audio_preview_link ?? ""), preview };
+    const fields = Object.entries(hidden).map(([k, v]) => `<input type=hidden name=${k} value='${esc(v)}'>`).join("");
+    const inUse = cur === `ig:${id}`;
+    return `<form method=post action='${back}/track' class=cand>${cover ? `<img src='${esc(cover)}' alt='' style='width:54px;height:54px'>` : ""}<div class=t><b>${esc(hidden.title)}</b>
+<div>${esc(artist)}${dur ? ` · ${dur}` : ""}</div>${preview ? `<audio controls preload=none src='${esc(preview)}' style='width:100%;height:32px;margin-top:6px'></audio>` : ""}</div>${fields}${inUse ? "<span class='tag live'>In use</span>" : "<button class='btn pri small'>Use</button>"}</form>`;
+  });
+  return shell(p, "overview", `${head}<section class=card>${items.join("")}</section>`, "Music");
 }
 
 /** Recent posts on the account that no slot is linked to yet, newest first. */
@@ -402,6 +470,21 @@ export async function act(p: Page, slot: string, action: string, form: FormData,
       if (!cand) throw new HttpError(400, "media", `${media} is not a recent, unlinked post on @${p.client.ig_username ?? p.client.id}`);
       if (!HAND_FROM.has(row.state)) throw new HttpError(400, "state", `${slot} is ${row.state}; only unpublished slots can be linked`);
       await linkByHand(p.c, slot, cand);
+      return redirect(back);
+    }
+    case "track": {
+      if (songLocked(s)) throw new HttpError(409, "locked", LOCKED);
+      if (open_(s.jobs.track)) throw new HttpError(409, "busy", "a PC is mixing a song into it: wait for it to finish");
+      const id = field(form, "audio_id");
+      if (!/^\d+$/.test(id)) throw new HttpError(400, "track", "not an Instagram song");
+      const preview = igUrl(field(form, "preview"));
+      if (!preview) throw new HttpError(400, "track", "this song has no file Instagram lets us download");
+      const dur = Number(field(form, "duration"));
+      const track: Json = {
+        audio_id: id, title: field(form, "title").slice(0, 200) || "Untitled", artist: field(form, "artist").slice(0, 200),
+        cover: igUrl(field(form, "cover")), duration: dur > 0 ? dur : null, link: field(form, "link").slice(0, 500), preview,
+      };
+      await enqueue(s, "track", { track });
       return redirect(back);
     }
     case "formats": {
