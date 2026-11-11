@@ -80,6 +80,7 @@ mkdir -p "$HOME/.config/systemd/user"
 # a user unit gets a minimal PATH: jobs run claude, node and npx (often under nvm or ~/.local/bin).
 # nvm's folder names the node version: after a node upgrade, run this script again.
 UNIT_PATH="$(dirname "$(command -v claude)"):$(dirname "$(command -v node)"):/usr/local/bin:/usr/bin:/bin"
+case "$UNIT_PATH" in *'"'*) echo "the folders of claude or node contain a \" (the unit's quoted PATH cannot): move them"; exit 1;; esac
 # safe in a sed replacement (& # \) and in a unit file (% is a specifier there)
 unit_text() { printf '%s' "$1" | sed -e 's/%/%%/g' -e 's/[&#\\]/\\&/g'; }
 sed -e "s#%h/Projects/tachyon#$(unit_text "$ROOT")#" -e "s#/usr/bin/python3#$(unit_text "$PY")#" \
