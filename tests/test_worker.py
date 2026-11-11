@@ -345,7 +345,8 @@ def test_login_checks_the_session_and_saves_it(env, monkeypatch):
 
 
 def test_run_stops_when_the_session_is_dead(env, monkeypatch):
-    fake(monkeypatch, (200, {"clients": ["rosa"], "dropped": []}), (204, None), (401, {"error": "auth"}))
+    # an idle poll, then the video sync's two reads (approved, queued: nothing), then the dead session
+    fake(monkeypatch, (200, {"clients": ["rosa"], "dropped": []}), (204, None), (200, {"result": []}), (200, {"result": []}), (401, {"error": "auth"}))
     slept = []
     assert W.run(CFG, sleep=slept.append) == 3
     assert slept == [W.POLL]
@@ -417,3 +418,23 @@ def test_end_to_end_a_job_round_trip(worker, env, monkeypatch):
     assert json.loads(online["meta.json"])["engine_choice"] == "html"
     assert "ig_user_id" in (env / "clients" / "rosa" / "grants.yaml").read_text()   # pulled from the row before the job
     assert W.once(cfg) is False
+
+
+def test_sync_videos_sends_a_new_or_changed_cut_and_nothing_else(env, monkeypatch):
+    posts = env / "clients" / "rosa" / "posts"
+    for slot, data in (("s1", b"new"), ("s2", b"same"), ("s3", b"recut"), ("s5", b"live")):
+        (posts / slot).mkdir()
+        (posts / slot / "video.mp4").write_bytes(data)
+    same = W.sha256(posts / "s2" / "video.mp4")
+    approved = [
+        {"slot_id": "s1", "r2_key": None, "r2_sha": None, "ig_media_id": None},       # never sent
+        {"slot_id": "s2", "r2_key": "k2", "r2_sha": same, "ig_media_id": None},       # the cut in R2
+        {"slot_id": "s3", "r2_key": "k3", "r2_sha": "0" * 64, "ig_media_id": None},   # re-rendered since
+        {"slot_id": "s4", "r2_key": None, "r2_sha": None, "ig_media_id": None},       # no file on this PC
+    ]
+    queued = [{"slot_id": "s5", "r2_key": None, "r2_sha": None, "ig_media_id": "123"}]   # published
+    f = fake(monkeypatch, (200, {"result": approved}), (200, {"key": "x"}), (409, {"error": "changed"}), (200, {"result": queued}))
+    assert W.sync_videos(["rosa"], CFG) == ["rosa/s1"]   # s3's PUT was refused (publishing): next round
+    puts = [c for c in f.calls if c[0] == "PUT"]
+    assert [c[1] for c in puts] == ["http://w/api/media/rosa/s1/video", "http://w/api/media/rosa/s3/video"]
+    assert puts[0][2] == b"new" and puts[0][3]["X-sha256"] == W.sha256(posts / "s1" / "video.mp4")

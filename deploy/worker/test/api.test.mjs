@@ -142,6 +142,40 @@ test("media: a video uploads under a random key, a replacement deletes the old o
   assert.equal((await put(1, "w45-2", "cover")).status, 200); // a cover may change after publish
 });
 
+test("/ig/<key> serves a waiting video without sign-in, and nothing else", async () => {
+  const bytes = new TextEncoder().encode("0123456789");
+  const up = await call("PUT", "/api/media/rosa/w45-1/video", { as: 1, raw: bytes, headers: { "Content-Length": "10" } });
+  const key = up.data.key;
+  const whole = await call("GET", `/ig/${key}`);
+  assert.equal(whole.status, 200);
+  assert.equal(whole.data, "0123456789");
+  assert.equal(whole.headers.get("Content-Type"), "video/mp4");
+  const part = await call("GET", `/ig/${key}`, { headers: { Range: "bytes=2-4" } });
+  assert.equal(part.status, 206);
+  assert.equal(String(part.data), "234"); // call() parses JSON, and "234" is a number
+  assert.equal((await call("GET", "/ig/rosa/w45-1/00000000000000000000000000000000.mp4")).status, 404); // no row
+  assert.equal((await call("GET", `/ig/${key.replace(".mp4", ".jpg")}`)).status, 404); // not a video key
+  assert.equal((await call("GET", "/ig/rosa%2F..%2Fw45-1%2Fx.mp4")).status, 404); // no key shape, no lookup
+  // a replacement: the old address dies with the old file
+  await call("PUT", "/api/media/rosa/w45-1/video", { as: 1, raw: bytes, headers: { "Content-Length": "10" } });
+  assert.equal((await call("GET", `/ig/${key}`)).status, 404);
+  // the host's sha goes with the key; a malformed one is not stored
+  const sha = "a".repeat(64);
+  await call("PUT", "/api/media/rosa/w45-1/video", { as: 1, raw: bytes, headers: { "Content-Length": "10", "X-Sha256": sha } });
+  assert.equal((await env.DB.prepare("SELECT r2_sha FROM posts WHERE slot_id = 'w45-1'").first()).r2_sha, sha);
+  await call("PUT", "/api/media/rosa/w45-1/video", { as: 1, raw: bytes, headers: { "Content-Length": "10", "X-Sha256": "nope" } });
+  assert.equal((await env.DB.prepare("SELECT r2_sha FROM posts WHERE slot_id = 'w45-1'").first()).r2_sha, null);
+  // while Instagram may be fetching it, the video stays as it is
+  await env.DB.prepare("UPDATE posts SET state = 'PUBLISHING' WHERE slot_id = 'w45-1'").run();
+  assert.equal((await call("PUT", "/api/media/rosa/w45-1/video", { as: 1, raw: bytes, headers: { "Content-Length": "10" } })).status, 409);
+  await env.DB.prepare("UPDATE posts SET state = 'APPROVED' WHERE slot_id = 'w45-1'").run();
+  const current = (await env.DB.prepare("SELECT r2_key FROM posts WHERE slot_id = 'w45-1'").first()).r2_key;
+  // published: no longer served, even while the file is still there
+  await env.DB.prepare("UPDATE posts SET ig_media_id = '9' WHERE slot_id = 'w45-1'").run();
+  assert.equal((await call("GET", `/ig/${current}`)).status, 404);
+  await env.DB.prepare("UPDATE posts SET ig_media_id = NULL WHERE slot_id = 'w45-1'").run();
+});
+
 test("the sign-in page carries the Google client id and needs no session", async () => {
   const r = await call("GET", "/login");
   assert.equal(r.status, 200);

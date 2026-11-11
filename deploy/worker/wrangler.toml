@@ -12,10 +12,10 @@ enabled = true
 # Public OAuth client id of the Tachyon Google project. Empty until the account exists.
 GOOGLE_CLIENT_ID = "995691174904-eagsiav8l0iqm0d7nk29e7131qj9ggoj.apps.googleusercontent.com"
 # The Meta app (docs/CLOUDFLARE-PLAN.md, "Instagram connection"): its public id. Empty until set.
-META_APP_ID = ""
-# The public base of the media bucket (r2.dev or a custom domain, no trailing slash): Instagram
-# fetches `<MEDIA_PUBLIC_URL>/<r2_key>`. Empty until the bucket is public.
-MEDIA_PUBLIC_URL = ""
+META_APP_ID = "1497581085764373"
+# Where Instagram fetches a video (no trailing slash): `<MEDIA_PUBLIC_URL>/<r2_key>`. The Worker's
+# own /ig route streams it from the private bucket while it waits to publish (src/index.ts).
+MEDIA_PUBLIC_URL = "https://tachyon.os2.workers.dev/ig"
 # Secrets, NOT here: `npx wrangler secret put SESSION_SECRET`, `... GOOGLE_CLIENT_SECRET`,
 # `... META_APP_SECRET`, `... TOKEN_SECRET` (seals the Page tokens), `... VERCEL_TOKEN` (the bio link).
 

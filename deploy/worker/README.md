@@ -43,8 +43,8 @@ on a local port, and runs the Python `RemoteDB` against it; it skips without `no
 The cron (`src/cron.ts`, every minute) publishes for every `clients` row whose
 `publisher` is `worker` and that has a token. Nothing publishes until both hold.
 
-1. Make the bucket public (`npx wrangler r2 bucket domain` or its r2.dev URL) and set
-   `MEDIA_PUBLIC_URL` in `wrangler.toml`; secrets `TOKEN_SECRET`, `META_APP_SECRET`,
+1. Set `MEDIA_PUBLIC_URL` in `wrangler.toml` to `https://<worker host>/ig` (the bucket stays
+   private; the Worker serves waiting videos itself); secrets `TOKEN_SECRET`, `META_APP_SECRET`,
    `VERCEL_TOKEN` (`npx wrangler secret put ...`), `META_APP_ID` in `wrangler.toml`.
 2. Connect the client: `<worker url>/connect/<client>` in a browser signed in at `/login`.
 3. On the creator's PC the host loop runs (`spine.worker run`). Approving a video in the
