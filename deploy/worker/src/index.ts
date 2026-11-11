@@ -436,7 +436,8 @@ async function publicVideo(req: Request, env: Env, key: string): Promise<Respons
   if (!/^[a-z0-9-]+\/[A-Za-z0-9_-]+\/[0-9a-f]{32}\.mp4$/.test(key)) throw new HttpError(404, "not found");
   const row = await env.DB.prepare("SELECT 1 AS ok FROM posts WHERE r2_key = ? AND ig_media_id IS NULL").bind(key).first();
   if (!row) throw new HttpError(404, "not found");
-  return serve(req, env.MEDIA, key, MEDIA.video.type);
+  const res = await serve(req, env.MEDIA, key, MEDIA.video.type);
+  return req.method === "HEAD" ? new Response(null, { status: res.status, headers: res.headers }) : res;
 }
 
 export async function media(req: Request, env: { DB: D1Database; MEDIA: R2Bucket }, user: UserRow, client: string, slot: string, name: string): Promise<Response> {

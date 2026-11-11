@@ -150,6 +150,10 @@ test("/ig/<key> serves a waiting video without sign-in, and nothing else", async
   assert.equal(whole.status, 200);
   assert.equal(whole.data, "0123456789");
   assert.equal(whole.headers.get("Content-Type"), "video/mp4");
+  const head = await call("HEAD", `/ig/${key}`);
+  assert.equal(head.status, 200);
+  assert.equal(head.data, "");
+  assert.equal(head.headers.get("Content-Length"), "10");
   const part = await call("GET", `/ig/${key}`, { headers: { Range: "bytes=2-4" } });
   assert.equal(part.status, 206);
   assert.equal(String(part.data), "234"); // call() parses JSON, and "234" is a number

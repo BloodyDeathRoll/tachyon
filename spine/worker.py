@@ -228,6 +228,8 @@ def sync_videos(clients: list[str], cfg: dict) -> list[str]:
                 p = C.client_dir(client) / "posts" / row["slot_id"] / "video.mp4"
                 if row.get("ig_media_id") or not p.is_file():
                     continue
+                if row.get("r2_key") and not row.get("r2_sha"):
+                    continue   # sent from a browser (no sha): that file is the cut, not this PC's
                 sha = _sha(p)
                 if row.get("r2_key") and row.get("r2_sha") == sha:
                     continue
@@ -235,8 +237,8 @@ def sync_videos(clients: list[str], cfg: dict) -> list[str]:
                     R.call("PUT", f"/api/media/{client}/{row['slot_id']}/video", raw=p.read_bytes(), cfg=cfg,
                            headers={"Content-Type": "video/mp4", "X-Sha256": sha}, timeout=600)
                     sent.append(f"{client}/{row['slot_id']}")
-                except R.RemoteError as e:   # 409: publishing now, or changed under us; next round
-                    if e.status >= 500 or e.status == 401:
+                except R.RemoteError as e:   # 409: publishing now, or changed under us; 507: R2 full; next round
+                    if e.status == 401 or (e.status >= 500 and e.status != 507):
                         raise
                     say(f"{client}/{row['slot_id']}: video not sent ({e})")
     return sent

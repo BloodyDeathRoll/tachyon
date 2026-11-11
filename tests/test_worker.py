@@ -422,7 +422,7 @@ def test_end_to_end_a_job_round_trip(worker, env, monkeypatch):
 
 def test_sync_videos_sends_a_new_or_changed_cut_and_nothing_else(env, monkeypatch):
     posts = env / "clients" / "rosa" / "posts"
-    for slot, data in (("s1", b"new"), ("s2", b"same"), ("s3", b"recut"), ("s5", b"live")):
+    for slot, data in (("s1", b"new"), ("s2", b"same"), ("s3", b"recut"), ("s5", b"live"), ("s6", b"old"), ("s7", b"big")):
         (posts / slot).mkdir()
         (posts / slot / "video.mp4").write_bytes(data)
     same = W.sha256(posts / "s2" / "video.mp4")
@@ -431,10 +431,12 @@ def test_sync_videos_sends_a_new_or_changed_cut_and_nothing_else(env, monkeypatc
         {"slot_id": "s2", "r2_key": "k2", "r2_sha": same, "ig_media_id": None},       # the cut in R2
         {"slot_id": "s3", "r2_key": "k3", "r2_sha": "0" * 64, "ig_media_id": None},   # re-rendered since
         {"slot_id": "s4", "r2_key": None, "r2_sha": None, "ig_media_id": None},       # no file on this PC
+        {"slot_id": "s6", "r2_key": "k6", "r2_sha": None, "ig_media_id": None},       # sent from a browser
+        {"slot_id": "s7", "r2_key": None, "r2_sha": None, "ig_media_id": None},       # R2 full: the others still go
     ]
     queued = [{"slot_id": "s5", "r2_key": None, "r2_sha": None, "ig_media_id": "123"}]   # published
-    f = fake(monkeypatch, (200, {"result": approved}), (200, {"key": "x"}), (409, {"error": "changed"}), (200, {"result": queued}))
+    f = fake(monkeypatch, (200, {"result": approved}), (200, {"key": "x"}), (409, {"error": "changed"}), (507, {"error": "storage"}), (200, {"result": queued}))
     assert W.sync_videos(["rosa"], CFG) == ["rosa/s1"]   # s3's PUT was refused (publishing): next round
     puts = [c for c in f.calls if c[0] == "PUT"]
-    assert [c[1] for c in puts] == ["http://w/api/media/rosa/s1/video", "http://w/api/media/rosa/s3/video"]
+    assert [c[1] for c in puts] == ["http://w/api/media/rosa/s1/video", "http://w/api/media/rosa/s3/video", "http://w/api/media/rosa/s7/video"]
     assert puts[0][2] == b"new" and puts[0][3]["X-sha256"] == W.sha256(posts / "s1" / "video.mp4")
