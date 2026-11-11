@@ -51,6 +51,19 @@ CREATE TABLE IF NOT EXISTS metric_snapshots (
   metrics      TEXT NOT NULL,       -- json
   UNIQUE(client, post_id, source, window)
 );
+-- every read of this table goes through one of these: a scan reads every row, and D1's free
+-- tier allows 5M rows read a day (a minute cron scanning ~8k rows four times ran it out)
+CREATE INDEX IF NOT EXISTS snaps_post ON metric_snapshots(client, post_id, source, collected_at);
+CREATE INDEX IF NOT EXISTS snaps_window ON metric_snapshots(client, source, window, post_id);   -- covering: the cron reads post_id only
+CREATE INDEX IF NOT EXISTS snaps_time ON metric_snapshots(client, source, collected_at);
+-- views gained per hour over all a client's videos: the overview chart reads ~50 rows here,
+-- not every video's hourly history (~4k rows for 48 h). putSnapshot (src/db.ts) adds to it.
+CREATE TABLE IF NOT EXISTS view_gains (
+  client TEXT NOT NULL,
+  hour   TEXT NOT NULL,                  -- UTC, YYYY-MM-DDTHH
+  gain   INTEGER NOT NULL,
+  PRIMARY KEY (client, hour)
+);
 CREATE TABLE IF NOT EXISTS experiments (
   client           TEXT NOT NULL,
   id               TEXT NOT NULL,

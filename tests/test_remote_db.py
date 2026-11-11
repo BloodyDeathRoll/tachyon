@@ -186,17 +186,32 @@ def test_local_journal_outcome_is_write_once(monkeypatch, tmp_path):
     d.close()
 
 
-def test_snapshots_are_one_request_per_object(monkeypatch):
+def test_snapshots_one_request_per_post_kept_for_the_page(monkeypatch):
     from tests.fakes import FakeWorker
-    rows = [{"post_id": "a", "window": "1h", "metrics": {}}, {"post_id": None, "window": "7d", "metrics": {}},
-            {"post_id": "b", "window": "1h", "metrics": {}}]
-    f = FakeWorker((200, {"result": rows}), (200, {"result": True}), (200, {"result": rows[:1]}))
+    a = [{"post_id": "a", "source": "ig_media", "window": "24h", "metrics": {}}]
+    f = FakeWorker((200, {"result": a}), (200, {"result": []}), (200, {"result": True}), (200, {"result": a}),
+                   (200, {"result": a[0]}))
     monkeypatch.setattr(R, "opener", f)
     db = RemoteDB("rosa", {"api": "http://w", "token": "t"})
-    assert [s["post_id"] for s in db.snapshots("a")] == ["a"]
-    assert len(db.snapshots()) == 3 and [s["post_id"] for s in db.snapshots("b")] == ["b"]
-    assert len(f.calls) == 1
+    assert db.snapshots("a") == a and db.snapshots("a") == a and db.snapshots() == []
+    assert [c[2] for c in f.calls] == [{"post_id": "a"}, {"post_id": None}]   # each asked once
     db.snapshots("a")[0]["metrics"]["views"] = 9
     assert db.snapshots("a")[0]["metrics"] == {}   # a caller's edit is not in the cache
-    db.add_snapshot("a", "ig_media", "2h", {})   # a write: the next read asks again
-    assert len(db.snapshots()) == 1 and len(f.calls) == 3
+    db.add_snapshot("a", "ig_media", "live", {})   # a write: the next read asks again
+    assert db.snapshots("a") == a and len(f.calls) == 4
+    assert db.latest_snapshot("a") == a[0] and f.calls[4][1].endswith("/latest_snapshot")
+    f.answers.append((200, {"result": [["2026-11-01T10", 4]]}))
+    assert db.view_gains("2026-11-01T00") == [("2026-11-01T10", 4)] and f.calls[5][2] == {"since": "2026-11-01T00"}
+
+
+def test_local_snapshots_leave_the_hourly_rows_to_the_charts(tmp_path):
+    db = DB(tmp_path / "t.db")
+    db.add_snapshot("p", "ig_media", "h:2026-11-01T10", {"views": 5})
+    db.add_snapshot("p", "ig_media", "24h", {"views": 9})
+    db.add_snapshot(None, "ig_account", "daily", {})
+    assert sorted(s["window"] for s in db.snapshots()) == ["24h", "daily"]
+    assert len(db.snapshots("p")) == 2 and db.latest_snapshot("p")["window"] in ("24h", "h:2026-11-01T10")
+    db.add_snapshot("p", "ig_media", "live", {"views": 12})
+    gains = db.view_gains("2000")
+    assert sum(g for _, g in gains) == 12   # 5 + 4 + 3: every rise over the previous snapshot, from 0
+    assert db.latest_snapshot("nope") is None

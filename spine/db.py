@@ -262,9 +262,31 @@ class DB:
         )
 
     def snapshots(self, post_id: str | None = None) -> list[dict]:
-        q = "SELECT * FROM metric_snapshots" + (" WHERE post_id=?" if post_id else "") + " ORDER BY collected_at"
+        """One post's snapshots; with no post, the account rows and the videos' 24h/72h/7d/live rows,
+        exactly the Worker's set (a new source or window goes in both). The hourly ones (h:...) are
+        charted from view_gains, as the Worker does (deploy/worker/src/db.ts)."""
+        q = "SELECT * FROM metric_snapshots" + (" WHERE post_id=?" if post_id else
+                                                " WHERE source='ig_account' OR (source='ig_media' AND window IN ('24h','72h','7d','live'))") + " ORDER BY collected_at"
         rows = self.conn.execute(q, (post_id,) if post_id else ()).fetchall()
         return [{**dict(r), "metrics": json.loads(r["metrics"])} for r in rows]
+
+    def latest_snapshot(self, post_id: str, source: str = "ig_media") -> dict | None:
+        r = self.conn.execute("SELECT * FROM metric_snapshots WHERE post_id=? AND source=? ORDER BY collected_at DESC LIMIT 1",
+                              (post_id, source)).fetchone()
+        return {**dict(r), "metrics": json.loads(r["metrics"])} if r else None
+
+    def view_gains(self, since: str) -> list[tuple[str, int]]:
+        """Views gained per UTC hour (YYYY-MM-DDTHH) over every video, from `since` on: each
+        snapshot's rise over the video's previous one (publish counts as 0). The Worker keeps
+        these sums in a table (deploy/worker/src/db.ts putSnapshot); here they are summed on read."""
+        prev: dict[str, int] = {}
+        out: dict[str, int] = {}
+        for r in self.conn.execute("SELECT post_id, collected_at, metrics FROM metric_snapshots WHERE source='ig_media' AND post_id IS NOT NULL ORDER BY collected_at"):
+            v = int(json.loads(r["metrics"]).get("views") or 0)
+            if v > prev.get(r["post_id"], 0) and r["collected_at"][:13] >= since:
+                out[r["collected_at"][:13]] = out.get(r["collected_at"][:13], 0) + v - prev.get(r["post_id"], 0)
+            prev[r["post_id"]] = v
+        return sorted(out.items())
 
     def add_experiment(self, id: str, week: str, variable: str, hypothesis: str,
                        primary_metric: str, guardrail_metric: str, window_days: int, min_samples: int = 3) -> None:
@@ -455,7 +477,7 @@ class RemoteDB:
         self._op("move", slot_id=slot_id, at=at, swap_with=swap_with)
 
     # ── metrics, experiments, conversions, engagement, costs ─────────────────
-    _snaps: list[dict] | None = None   # snapshots(): every row of the client, read once
+    _snaps: dict | None = None   # snapshots(post_id) answers, kept for this object's life (a page, a job)
 
     def add_snapshot(self, post_id: str | None, source: str, window: str, metrics: dict) -> None:
         self._snaps = None
@@ -463,12 +485,19 @@ class RemoteDB:
         self._snaps = None   # again: a read while the write ran may have kept the old rows
 
     def snapshots(self, post_id: str | None = None) -> list[dict]:
-        """Every snapshot of the client in one request, kept for this object's life (a page, a
-        job): a page asks per video, and one round trip each made the overview take ~45 s."""
+        """As DB.snapshots, each answer kept for this object's life: a page asks the same twice."""
         if self._snaps is None:
-            self._snaps = self._op("snapshots", post_id=None)
+            self._snaps = {}
+        if post_id not in self._snaps:
+            self._snaps[post_id] = self._op("snapshots", post_id=post_id)
         # copies: a caller that edits a row or its metrics leaves the cache as it was
-        return [{**s, "metrics": copy.deepcopy(s.get("metrics"))} for s in self._snaps if not post_id or s.get("post_id") == post_id]
+        return [{**s, "metrics": copy.deepcopy(s.get("metrics"))} for s in self._snaps[post_id]]
+
+    def latest_snapshot(self, post_id: str, source: str = "ig_media") -> dict | None:
+        return self._op("latest_snapshot", post_id=post_id, source=source)
+
+    def view_gains(self, since: str) -> list[tuple[str, int]]:
+        return [(h, g) for h, g in self._op("view_gains", since=since)]
 
     def add_experiment(self, id: str, week: str, variable: str, hypothesis: str,
                        primary_metric: str, guardrail_metric: str, window_days: int, min_samples: int = 3) -> None:
