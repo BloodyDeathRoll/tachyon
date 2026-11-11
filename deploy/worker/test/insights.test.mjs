@@ -239,19 +239,23 @@ test("pickup links a slot waiting with the same caption and imports a new reel w
   assert.equal(await post("2030-w10-02"), null);
 });
 
-test("the cron minute runs pickup at :17 and insights otherwise, after the publish step", async () => {
+test("the cron minute runs pickup at :17 and insights every 5th minute, after the publish step", async () => {
   script.push({ body: { data: [] } });
   let out = await tick(env, T0, fetcher);
   assert.deepEqual(out.rosa, []); // nothing due to publish, nothing new to pick up
   assert.match(calls.at(-1).url, /\/178\/media\?/);
-  script.push(...mediaAnswers(1, 1), ...mediaAnswers(1, 1)); // :18, insights: the two reels pickup made want this hour's row
-  out = await tick(env, T0 + 60_000, fetcher);
+  const n = calls.length;
+  out = await tick(env, T0 + 60_000, fetcher); // :18: no measuring minute (INSIGHTS_EVERY), so no Graph call
+  assert.deepEqual(out.rosa, []);
+  assert.equal(calls.length, n);
+  script.push(...mediaAnswers(1, 1), ...mediaAnswers(1, 1)); // :20, insights: the two reels pickup made want this hour's row
+  out = await tick(env, T0 + 3 * 60_000, fetcher);
   assert.deepEqual(out.rosa, ["insights w hourly", "insights 2030-w10-01 hourly"]);
-  out = await tick(env, T0 + 60_000, fetcher);
+  out = await tick(env, T0 + 3 * 60_000, fetcher);
   assert.deepEqual(out.rosa, []); // nothing more due this hour
   await env.DB.prepare("DELETE FROM metric_snapshots WHERE window = 'daily'").run();
   script.push({ body: { data: [] } }, { body: { followers_count: 1 } });
-  out = await tick(env, T0 + 60_000, fetcher);
+  out = await tick(env, T0 + 3 * 60_000, fetcher);
   assert.deepEqual(out.rosa, ["insights account"]);
 });
 

@@ -10,7 +10,7 @@
 // one, a refusal recorded as null.
 
 import { Budget } from "./budget.ts";
-import { files, iso, posts, setState, type Ctx, type PostRow } from "./db.ts";
+import { files, iso, posts, putSnapshot, setState, type Ctx, type PostRow } from "./db.ts";
 import { Graph, GraphError, type Fetcher } from "./graph.ts";
 
 type Json = Record<string, unknown>;
@@ -55,11 +55,7 @@ function parse(ts: string | null): number {
   return Date.parse((ts ?? "").replace(/Z$/, "+00:00")) || 0;
 }
 
-async function addSnapshot(c: Ctx, postId: string | null, source: string, window: string, metrics: unknown): Promise<void> {
-  await c.env.DB.prepare("INSERT OR REPLACE INTO metric_snapshots (client, post_id, source, window, collected_at, metrics) VALUES (?, ?, ?, ?, ?, ?)")
-    .bind(c.client, postId, source, window, iso(c.now), JSON.stringify(metrics))
-    .run();
-}
+const addSnapshot = putSnapshot; // the one writer: it keeps view_gains in step
 
 /** What is due now: the windows (the measures the dashboard reads) before the hourly rows,
     then the account rows. The reads are narrow: this hour's rows, the three windows' rows,
@@ -71,7 +67,7 @@ export async function due(c: Ctx, now: number, all?: PostRow[]): Promise<Work[]>
     (await db.prepare("SELECT post_id || '|' || window AS k FROM metric_snapshots WHERE client = ? AND source = 'ig_media' AND window IN ('24h', '72h', '7d')").bind(c.client).all<{ k: string }>()).results.map((r) => r.k),
   );
   const hour = hourKey(now);
-  const hourly = new Set((await db.prepare("SELECT post_id FROM metric_snapshots WHERE client = ? AND window = ?").bind(c.client, hour).all<{ post_id: string }>()).results.map((r) => r.post_id));
+  const hourly = new Set((await db.prepare("SELECT post_id FROM metric_snapshots WHERE client = ? AND source = 'ig_media' AND window = ?").bind(c.client, hour).all<{ post_id: string }>()).results.map((r) => r.post_id));
   const windows: Work[] = [];
   const hours: Work[] = [];
   for (const p of live) {

@@ -298,6 +298,31 @@ export async function clientRow(c: Ctx): Promise<Record<string, unknown>> {
   return { ...row, connected: Boolean(row.connected), grants: JSON.parse(String(row.grants ?? "{}")) as unknown };
 }
 
+/** Write a snapshot; a video's views also add their rise since its previous snapshot (publish
+    counts as 0) to view_gains for this hour, the overview chart's rows. One index row read. */
+export async function putSnapshot(c: Ctx, postId: string | null, source: string, window: string, metrics: unknown): Promise<void> {
+  const at = iso(c.now);
+  const put = c.env.DB.prepare("INSERT OR REPLACE INTO metric_snapshots (client, post_id, source, window, collected_at, metrics) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(c.client, postId, source, window, at, JSON.stringify(metrics));
+  const views = Number((metrics as { views?: unknown } | null)?.views) || 0;
+  if (source !== "ig_media" || !postId || views <= 0) {
+    await put.run();
+    return;
+  }
+  const prev = await c.env.DB.prepare("SELECT json_extract(metrics, '$.views') AS v FROM metric_snapshots WHERE client = ? AND post_id = ? AND source = 'ig_media' ORDER BY collected_at DESC LIMIT 1")
+    .bind(c.client, postId).first<{ v: number | null }>();
+  const gain = views - (Number(prev?.v) || 0);
+  if (gain <= 0) {
+    await put.run();
+    return;
+  }
+  await c.env.DB.batch([
+    put,
+    c.env.DB.prepare("INSERT INTO view_gains (client, hour, gain) VALUES (?, ?, ?) ON CONFLICT (client, hour) DO UPDATE SET gain = gain + excluded.gain")
+      .bind(c.client, at.slice(0, 13), gain),
+  ]);
+}
+
 export const OPS: Record<string, (c: Ctx, a: Args) => Promise<unknown>> = {
   async journal(c, a) {
     const action = str(a.action, "action");
@@ -421,19 +446,30 @@ export const OPS: Record<string, (c: Ctx, a: Args) => Promise<unknown>> = {
     return true;
   },
   async add_snapshot(c, a) {
-    await c.env.DB.prepare(
-      "INSERT OR REPLACE INTO metric_snapshots (client, post_id, source, window, collected_at, metrics) VALUES (?, ?, ?, ?, ?, ?)",
-    )
-      .bind(c.client, optStr(a.post_id, "post_id"), str(a.source, "source"), str(a.window, "window"), iso(c.now), JSON.stringify(a.metrics ?? {}))
-      .run();
+    await putSnapshot(c, optStr(a.post_id, "post_id"), str(a.source, "source"), str(a.window, "window"), a.metrics ?? {});
     return true;
   },
+  /** One post's snapshots; with no post, every row except the hourly ones (h:...), which only the
+      views charts sum in view_gains. Each query walks an index (schema.sql), never the table. */
   async snapshots(c, a) {
     const pid = optStr(a.post_id, "post_id");
     const q = pid
       ? c.env.DB.prepare("SELECT * FROM metric_snapshots WHERE client = ? AND post_id = ? ORDER BY collected_at").bind(c.client, pid)
-      : c.env.DB.prepare("SELECT * FROM metric_snapshots WHERE client = ? ORDER BY collected_at").bind(c.client);
+      : c.env.DB.prepare(
+        "SELECT * FROM metric_snapshots WHERE client = ? AND source = 'ig_account' UNION ALL SELECT * FROM metric_snapshots WHERE client = ? AND source = 'ig_media' AND window IN ('24h', '72h', '7d', 'live') ORDER BY collected_at",
+      ).bind(c.client, c.client);
     return (await q.all<{ metrics: string }>()).results.map((r) => ({ ...r, metrics: JSON.parse(r.metrics) as unknown }));
+  },
+  /** The newest snapshot of one post and source, or null: one index row. */
+  async latest_snapshot(c, a) {
+    const r = await c.env.DB.prepare("SELECT * FROM metric_snapshots WHERE client = ? AND post_id = ? AND source = ? ORDER BY collected_at DESC LIMIT 1")
+      .bind(c.client, str(a.post_id, "post_id"), str(a.source, "source")).first<{ metrics: string }>();
+    return r ? { ...r, metrics: JSON.parse(r.metrics) as unknown } : null;
+  },
+  /** Views gained per UTC hour over every video, from the hour `since` (YYYY-MM-DDTHH) on: [[hour, gain]]. */
+  async view_gains(c, a) {
+    return (await c.env.DB.prepare("SELECT hour, gain FROM view_gains WHERE client = ? AND hour >= ? ORDER BY hour")
+      .bind(c.client, str(a.since, "since")).all<{ hour: string; gain: number }>()).results.map((r) => [r.hour, r.gain]);
   },
   async delete_snapshots(c, a) {
     await c.env.DB.prepare("DELETE FROM metric_snapshots WHERE client = ? AND post_id IS ? AND source = ? AND window = ?")
