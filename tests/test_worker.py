@@ -557,6 +557,11 @@ def test_sync_music_skips_what_the_worker_refuses_and_keys_by_worker(env, monkey
     assert W.sync_music(["rosa"], CFG) == ["rosa/tracks.json", "rosa/ok.mp3 refused"]
     assert [r["file"] for r in f.calls[0][2]["tracks"]] == [None, "ok.mp3"]
     assert W.sync_music(["rosa"], CFG) == [] and len(f.calls) == 2   # refused: not again until the file changes
+    (d / "ok.mp3").write_bytes(b"ok v2")
+    f = fake(monkeypatch, (429, {"error": "slow down"}))   # a passing refusal: tried again next round
+    assert W.sync_music(["rosa"], CFG) == []
+    f = fake(monkeypatch, (200, {"ok": True}))
+    assert W.sync_music(["rosa"], CFG) == ["rosa/ok.mp3"]
     other = {**CFG, "api": "http://other"}
     f = fake(monkeypatch, (200, {"ok": True}), (200, {"ok": True}))
     assert W.sync_music(["rosa"], other) == ["rosa/tracks.json", "rosa/ok.mp3"]   # another Worker gets it all

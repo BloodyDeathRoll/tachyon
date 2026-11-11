@@ -315,7 +315,7 @@ def sync_music(clients: list[str], cfg: dict) -> list[str]:
                 if e.status == 401 or (e.status >= 500 and e.status != 507):
                     raise
                 say(f"{key}: not sent ({e})")
-                if e.status != 507:   # refused for what it is: not again until the file changes; R2 full: next round
+                if e.status in (400, 413, 415):   # refused for what it is: not again until it changes; the rest next round
                     sent[key] = f"refused:{sha}"
                     out.append(f"{key} refused")
                 continue
