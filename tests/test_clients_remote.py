@@ -18,6 +18,13 @@ ROW = {"id": "rosa", "name": "Rosa", "ig_user_id": "178", "page_id": "p1", "ig_u
        "emergency_stop": 0, "publisher": "worker"}
 
 
+@pytest.fixture(autouse=True)
+def no_cached_grants():
+    C._GRANTS.clear()
+    yield
+    C._GRANTS.clear()
+
+
 @pytest.fixture
 def remote(tmp_path, monkeypatch):
     monkeypatch.setenv("TACHYON_API", "http://w")
@@ -111,7 +118,6 @@ def test_a_job_pulls_first_and_tries_again_over_the_network(remote, monkeypatch)
 
 
 def test_grants_are_read_once_per_few_seconds_and_a_save_clears_them(remote, monkeypatch):
-    C._GRANTS.clear()
     f = fake(monkeypatch, (200, {"result": ROW}))
     for _ in range(5):
         assert C.load_grants("rosa")["page_id"] == "p1"
@@ -123,3 +129,11 @@ def test_grants_are_read_once_per_few_seconds_and_a_save_clears_them(remote, mon
     C.save_grants("rosa", {"slots": ["18:30"]})
     C.load_grants("rosa")
     assert [c[1].rsplit("/", 1)[1] for c in f.calls] == ["client", "set_grants", "client"]
+
+
+def test_a_switch_reads_the_row_fresh_before_it_writes(remote, monkeypatch):
+    f = fake(monkeypatch, (200, {"result": ROW}), (200, {"result": {**ROW, "grants": {"slots": ["07:00"]}}}), (200, {"result": True}))
+    C.load_grants("rosa")   # cached
+    C.set_flag("rosa", "emergency_stop", True)
+    assert [c[1].rsplit("/", 1)[1] for c in f.calls] == ["client", "client", "set_grants"]
+    assert f.calls[2][2]["grants"]["slots"] == ["07:00"]   # the fresh row, not the cached one

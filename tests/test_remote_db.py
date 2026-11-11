@@ -196,5 +196,7 @@ def test_snapshots_are_one_request_per_object(monkeypatch):
     assert [s["post_id"] for s in db.snapshots("a")] == ["a"]
     assert len(db.snapshots()) == 3 and [s["post_id"] for s in db.snapshots("b")] == ["b"]
     assert len(f.calls) == 1
+    db.snapshots("a")[0]["metrics"]["views"] = 9
+    assert db.snapshots("a")[0]["metrics"] == {}   # a caller's edit is not in the cache
     db.add_snapshot("a", "ig_media", "2h", {})   # a write: the next read asks again
     assert len(db.snapshots()) == 1 and len(f.calls) == 3

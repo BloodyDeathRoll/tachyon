@@ -10,6 +10,7 @@ the same methods against D1 through the Worker, one request per method
 
 from __future__ import annotations
 
+import copy
 import json
 import sqlite3
 from datetime import datetime, timezone
@@ -454,18 +455,19 @@ class RemoteDB:
         self._op("move", slot_id=slot_id, at=at, swap_with=swap_with)
 
     # ── metrics, experiments, conversions, engagement, costs ─────────────────
+    _snaps: list[dict] | None = None   # snapshots(): every row of the client, read once
+
     def add_snapshot(self, post_id: str | None, source: str, window: str, metrics: dict) -> None:
         self._snaps = None
         self._op("add_snapshot", post_id=post_id, source=source, window=window, metrics=metrics)
-
-    _snaps: list[dict] | None = None
 
     def snapshots(self, post_id: str | None = None) -> list[dict]:
         """Every snapshot of the client in one request, kept for this object's life (a page, a
         job): a page asks per video, and one round trip each made the overview take ~45 s."""
         if self._snaps is None:
             self._snaps = self._op("snapshots", post_id=None)
-        return [s for s in self._snaps if not post_id or s.get("post_id") == post_id]
+        # copies: a caller that edits a row or its metrics leaves the cache as it was
+        return [{**s, "metrics": copy.deepcopy(s["metrics"])} for s in self._snaps if not post_id or s.get("post_id") == post_id]
 
     def add_experiment(self, id: str, week: str, variable: str, hypothesis: str,
                        primary_metric: str, guardrail_metric: str, window_days: int, min_samples: int = 3) -> None:
