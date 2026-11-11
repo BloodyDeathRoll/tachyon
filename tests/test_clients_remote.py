@@ -108,3 +108,18 @@ def test_a_job_pulls_first_and_tries_again_over_the_network(remote, monkeypatch)
     with pytest.raises(RuntimeError, match="could not pull"):   # the Worker down: tried three times first
         W.run_job(job, R.config(), runner=ok, sleep=slept.append)
     assert len(slept) == 4
+
+
+def test_grants_are_read_once_per_few_seconds_and_a_save_clears_them(remote, monkeypatch):
+    C._GRANTS.clear()
+    f = fake(monkeypatch, (200, {"result": ROW}))
+    for _ in range(5):
+        assert C.load_grants("rosa")["page_id"] == "p1"
+    assert len(f.calls) == 1   # a page asks once per video: one request
+    g = C.load_grants("rosa")
+    g["bio_link"]["key"] = "edited"
+    assert C.load_grants("rosa")["bio_link"]["key"] == "k"   # an edit before save is not in the cache
+    f.answers += [(200, {"result": True}), (200, {"result": ROW})]
+    C.save_grants("rosa", {"slots": ["18:30"]})
+    C.load_grants("rosa")
+    assert [c[1].rsplit("/", 1)[1] for c in f.calls] == ["client", "set_grants", "client"]

@@ -1,11 +1,12 @@
 {
   "title": "The diver at Coxos",
   "slug": "diver",
-  "joke": "Check the swell in depth.",
+  "joke": "No excuses. Check the swell!",
   "joke_lines": [
-    "Check the swell",
-    "in depth."
+    "No excuses.",
+    "Check the swell!"
   ],
+  "app_line": "Check in depth.",
   "lock": {
     "9x16": 2.5,
     "16x9": 2.5

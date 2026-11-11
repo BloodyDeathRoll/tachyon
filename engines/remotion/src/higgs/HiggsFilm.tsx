@@ -10,7 +10,7 @@ import { Particles } from "./Particles";
   lockup moment in scene 5. Everything between the clips is the same in every film. Shot list:
   1 Higgsfield scene 1, the joke on top from 2 s: two lines, left-aligned, line 2 blue.
   2 Straight into the phone: the particle stream flows to the pin on the coast, half of it pours into the
-    phone, the real home screen (light theme, recorded) with "Location is everything." on one line above.
+    phone, the real home screen (light theme, recorded) with "Location is everything." on one line above (script.json app_line overrides it).
   4 The phone spins once into a spot page (w45-10), "16 days forecast." then "No ads, no paywall.";
     the stream flows past it to the pin on the coast.
   5 The showreel globe (real land points, Rosa's spots lighting up in the order they were added),
@@ -23,7 +23,7 @@ import { Particles } from "./Particles";
   Type: the w45-10 slam (each word scales in from 1.6, no masks, so no letter is ever clipped).
 */
 
-export type FilmProps = { variant: Variant; clips: string; s1: number; s5: number; joke: string[][]; lock: number };
+export type FilmProps = { variant: Variant; clips: string; s1: number; s5: number; joke: string[][]; lock: number; app?: string };
 export const FILM_DEFAULTS: FilmProps = { variant: "reel", clips: "higgs/example-01", s1: 5.056, s5: 5.0,
   joke: [["Preparing", "for"], ["a", "fight?"]], lock: 2.4 };
 const APP = "higgs/app";   // the app section's frames, shared by every film
@@ -115,13 +115,14 @@ const Globe: React.FC<{ t: number; T: Times }> = ({ t, T }) => {
   return <canvas ref={ref} width={width} height={height} style={{ position: "absolute", left: 0, top: 0 }} />;
 };
 
-export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5, joke, lock }) => {
+export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5, joke, lock, app = "Location is everything." }) => {
   useInter();
   const t = useT();
   const { fps, width, height } = useVideoConfig();
   const W = width > height, ar = W ? "16x9" : "9x16";
   const B = SAFE[variant];
   const T = times(S1), LK = T.s5 + lock;
+  const appWs = app.split(" "), appBlue = [appWs.length - 1];   // the app section's first line, last word blue
   // joke: line 2 is the punch (blue); the size shrinks so the longest line fits the safe width
   const jokeW = W ? 1000 : B.w, jokeChars = Math.max(...joke.map((l) => l.join(" ").length));
   const jokeSize = Math.min(W ? 130 : 128, Math.floor(jokeW / (0.56 * jokeChars)));
@@ -218,9 +219,9 @@ export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5,
       )}
 
       {W
-        ? <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[["Location", "is"], ["everything."]]} blue={[2]} size={120} align="left"
+        ? <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[appWs.slice(0, -1), appWs.slice(-1)]} blue={appBlue} size={120} align="left"
             style={{ left: 1060, top: 540 - 1.08 * 120, width: 780 }} />
-        : <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[["Location", "is", "everything."]]} blue={[2]} size={84}
+        : <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[appWs]} blue={appBlue} size={84}
             style={{ left: B.x, top: B.y + 20, width: B.w }} />}
       <Slam t={t} a={T.spin + 0.45} z={T.noads} lines={[["16", "days"], ["forecast."]]} blue={[2]} size={130} align={W ? "left" : "right"} gap={0.22}
         style={W ? { left: 1060, top: 540 - 1.08 * 130, width: 780 } : { left: B.x, top: B.y + 20, width: B.w }} />

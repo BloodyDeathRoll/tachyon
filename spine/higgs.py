@@ -13,7 +13,7 @@ Film (Remotion `HiggsFilm`, one template for every script): scene 1 clip with th
 (two lines, from 2 s), the app section (the same in every film), scene 5 clip with the lockup
 rising at the clip's key moment. Sound: the clips' own, no music, no voice-over.
 script.json: title, joke_lines [line 1, line 2 (the punch)], lock {"9x16": s, "16x9": s} (seconds
-into scene 5). The script itself (prompts, caption) lives in Notion. `screens` re-records the app (the shared frames in public/higgs/app).
+into scene 5), optional app_line (replaces "Location is everything."). The script itself (prompts, caption) lives in Notion. `screens` re-records the app (the shared frames in public/higgs/app).
 """
 
 from __future__ import annotations
@@ -216,7 +216,8 @@ COMPS = {"9x16": [("HiggsFilm", "reel", "video.mp4"), ("HiggsFilm-story", "story
 
 def props(s: dict, key: str, ratio: str, variant: str, s1: float, s5: float) -> dict:
     return {"variant": variant, "clips": f"higgs/{key}", "s1": round(s1, 3), "s5": round(s5, 3),
-            "joke": [l.split() for l in s["joke_lines"]], "lock": s["lock"][ratio]}
+            "joke": [l.split() for l in s["joke_lines"]], "lock": s["lock"][ratio],
+            **({"app": s["app_line"]} if s.get("app_line") else {})}
 
 
 def render(client: str, batch: str, nn: str, fmt: str) -> list[Path]:
