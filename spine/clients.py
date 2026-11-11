@@ -11,8 +11,10 @@ generation, so the prompts keep reading files. The folder itself stays: the asse
 
 from __future__ import annotations
 
+import copy
 import os
 import re
+import time
 from datetime import date
 from pathlib import Path
 
@@ -66,19 +68,32 @@ def _row_grants(row: dict) -> dict:
     return data
 
 
-def load_grants(name: str) -> dict:
+_GRANTS: dict[str, tuple[float, dict]] = {}   # name -> (read at, the remote row's grants)
+GRANTS_TTL = 5.0   # a page reads them once per video; an edit here clears it, one elsewhere shows within seconds
+
+
+def load_grants(name: str, fresh: bool = False) -> dict:
+    """fresh: skip the cache, for a read that is written back (set_flag)."""
     db = _remote(name)
-    data = _row_grants(db.client_row()) if db else (yaml.safe_load((client_dir(name) / "grants.yaml").read_text()) or {})
+    if db:
+        hit = _GRANTS.get(name)
+        if fresh or not hit or time.monotonic() - hit[0] > GRANTS_TTL:
+            hit = _GRANTS[name] = (time.monotonic(), _row_grants(db.client_row()))
+        data = copy.deepcopy(hit[1])   # a caller may edit nested keys before save_grants
+    else:
+        data = yaml.safe_load((client_dir(name) / "grants.yaml").read_text()) or {}
     merged = {**DEFAULT_GRANTS, **data}
     merged["auto_reply"] = {**DEFAULT_GRANTS["auto_reply"], **(data.get("auto_reply") or {})}
     return merged
 
 
 def save_grants(name: str, grants: dict) -> None:
+    _GRANTS.pop(name, None)
     db = _remote(name)
     if db:
         db.set_grants({k: v for k, v in grants.items() if k not in COLUMNS},
                       emergency_stop=bool(grants["emergency_stop"]) if "emergency_stop" in grants else None)   # absent: left as it is
+        _GRANTS.pop(name, None)   # again: a read while the write ran may have kept the old row
         return
     (client_dir(name) / "grants.yaml").write_text(yaml.safe_dump(grants, sort_keys=False))
 
@@ -120,7 +135,7 @@ def set_flag(name: str, dotted: str, value: bool) -> dict:
     """Flip one autonomy flag or emergency_stop. Anything else is refused."""
     if dotted not in AUTONOMY_FLAGS + ["emergency_stop"]:
         raise ValueError(f"not a switch: {dotted}")
-    g = load_grants(name)
+    g = load_grants(name, fresh=True)
     if "." in dotted:
         a, b = dotted.split(".")
         g[a][b] = bool(value)
@@ -136,7 +151,7 @@ EDITABLE = {"slots", "week_prep"}   # dashboard-editable settings besides the sw
 def set_value(name: str, key: str, value) -> dict:
     if key not in EDITABLE:
         raise ValueError(f"not editable: {key}")
-    g = load_grants(name)
+    g = load_grants(name, fresh=True)
     g[key] = value
     save_grants(name, g)
     return g

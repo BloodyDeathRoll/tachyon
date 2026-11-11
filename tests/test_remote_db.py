@@ -184,3 +184,19 @@ def test_local_journal_outcome_is_write_once(monkeypatch, tmp_path):
     d.journal_outcome(j, {"id": "c2"})
     assert d.conn.execute("SELECT outcome FROM journal WHERE id=?", (j,)).fetchone()[0] == '{"id": "c1"}'
     d.close()
+
+
+def test_snapshots_are_one_request_per_object(monkeypatch):
+    from tests.fakes import FakeWorker
+    rows = [{"post_id": "a", "window": "1h", "metrics": {}}, {"post_id": None, "window": "7d", "metrics": {}},
+            {"post_id": "b", "window": "1h", "metrics": {}}]
+    f = FakeWorker((200, {"result": rows}), (200, {"result": True}), (200, {"result": rows[:1]}))
+    monkeypatch.setattr(R, "opener", f)
+    db = RemoteDB("rosa", {"api": "http://w", "token": "t"})
+    assert [s["post_id"] for s in db.snapshots("a")] == ["a"]
+    assert len(db.snapshots()) == 3 and [s["post_id"] for s in db.snapshots("b")] == ["b"]
+    assert len(f.calls) == 1
+    db.snapshots("a")[0]["metrics"]["views"] = 9
+    assert db.snapshots("a")[0]["metrics"] == {}   # a caller's edit is not in the cache
+    db.add_snapshot("a", "ig_media", "2h", {})   # a write: the next read asks again
+    assert len(db.snapshots()) == 1 and len(f.calls) == 3
