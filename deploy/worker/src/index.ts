@@ -33,6 +33,7 @@
 // the session's `sub` carries users.id here. An error is {error: <code>, detail?: <sentence>}.
 
 import { admin } from "./admin.ts";
+import { roomFor } from "./quota.ts";
 import { callback, pick, startUrl } from "./connect.ts";
 import { tick } from "./cron.ts";
 import { OPS } from "./db.ts";
@@ -439,6 +440,7 @@ export async function media(req: Request, env: { DB: D1Database; MEDIA: R2Bucket
   const len = Number(req.headers.get("Content-Length"));
   if (!req.body || !Number.isInteger(len) || len <= 0) throw new HttpError(411, "length");
   if (len > MAX_UPLOAD_BYTES) throw new HttpError(413, "size");
+  if (!(await roomFor(env.MEDIA, len))) throw new HttpError(507, "storage"); // stay inside R2's free tier
   const key = `${client}/${slot}/${hex32()}.${kind.ext}`;
   await env.MEDIA.put(key, req.body, { httpMetadata: { contentType: kind.type } });
   const guard = name === "video" ? " AND ig_media_id IS NULL" : "";
