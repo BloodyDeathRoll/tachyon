@@ -65,7 +65,7 @@ export async function newSlotId(c: Ctx, at: string): Promise<string> {
 
 /** The journal rows of a state walk, each applied only if the UPDATE before them in the batch
     held (`changes()` stays 1 through the inserts: a journal insert changes one row too). */
-function walked(c: Ctx, slot: string, from: string, states: string[], note: string | null, extra: Json): D1PreparedStatement[] {
+export function walked(c: Ctx, slot: string, from: string, states: string[], note: string | null, extra: Json): D1PreparedStatement[] {
   return states.map((to, i) => journalIfChanged(c, "post.state", slot, { from: i ? states[i - 1] : from, to, note: to === "MANUAL_HANDOFF" ? note : null, ...(to === "PUBLISHED" ? extra : {}) }));
 }
 

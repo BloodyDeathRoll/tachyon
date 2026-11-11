@@ -397,7 +397,7 @@ ${setup}
     the caller gets a 409), and the previous object is deleted. GET: the object, for a
     host's spec check and the dashboard player; a Range request gets its part (a phone's
     video player refuses a file it cannot seek). */
-async function media(req: Request, env: Env, user: UserRow, client: string, slot: string, name: string): Promise<Response> {
+export async function media(req: Request, env: { DB: D1Database; MEDIA: R2Bucket }, user: UserRow, client: string, slot: string, name: string): Promise<Response> {
   const kind = MEDIA[name as keyof typeof MEDIA];
   if (!kind) throw new HttpError(404, "not found");
   await member(env, user, client);

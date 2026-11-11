@@ -336,6 +336,45 @@ pre{white-space:pre-wrap;font:13px/1.55 ui-monospace,monospace;color:var(--ink2)
  main{padding:16px 16px 48px}.vpage{grid-template-columns:1fr}.player{position:static}.vpage .c3{grid-column:auto}
  .stats{grid-template-columns:repeat(2,1fr);row-gap:18px}.stat:nth-child(3){border-left:0;padding-left:0}
  .grid{grid-template-columns:repeat(2,1fr);gap:12px}.card{padding:20px 16px}h1{font-size:24px}.tiles{grid-template-columns:repeat(2,1fr)}}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:12px}
+.day{display:grid;gap:12px;align-content:start}
+.dh{font-size:13px;color:var(--ink3);text-align:center;padding-bottom:4px}.dh b{display:block;font-size:20px;color:var(--ink);font-weight:700}
+.dh.today b{background:var(--lime);border-radius:9px;width:fit-content;margin:0 auto;padding:0 9px}
+.cell{aspect-ratio:260/290;border-radius:12px;overflow:hidden;position:relative;background:#111;outline:3px solid transparent;outline-offset:2px}
+.cell img{width:100%;height:100%;object-fit:cover;object-position:50% 30%;display:block}
+.cell .cov{position:absolute;inset:0;z-index:1}
+.cell .no{left:6px;top:6px;font-size:10.5px;padding:2px 6px}
+.cell .mt{position:absolute;right:6px;top:6px;z-index:2;font:600 10.5px system-ui;color:#fff;background:rgba(0,0,0,.55);padding:2px 6px;border-radius:7px}
+.cell .mv{position:absolute;right:6px;bottom:6px;z-index:2;font:600 11.5px system-ui;color:var(--ink);background:#fff;padding:3px 8px;border-radius:999px}
+.cell form{position:absolute;inset:0;z-index:2;display:grid;place-items:center;background:rgba(0,0,0,.35)}
+.cell .cb{position:absolute;left:0;right:0;bottom:0;padding:26px 8px 8px;background:linear-gradient(transparent,rgba(0,0,0,.82));display:flex;flex-direction:column;gap:5px;align-items:flex-start;pointer-events:none}
+.cell .cb .tag{font-size:10.5px;padding:2px 7px}.cell .cb .stw{width:20px;height:20px}
+.cell .ct{color:#fff;font-size:12.5px;font-weight:700;line-height:1.2}
+.cell.open{background:transparent;border:1.5px dashed #D4D4D4;display:grid;place-items:center;align-content:center;gap:6px;color:var(--ink3);font-size:12.5px;text-align:center}
+.cell.open .mt{position:static;color:var(--ink3);background:none;font-size:12.5px;font-weight:400}
+.cell.open form{position:static;background:none}
+.cell.past{opacity:.5}
+.cell.hl{outline-color:var(--lime)}
+.addnew{background:#fff;box-shadow:inset 0 0 0 1px var(--rule);border-radius:999px;padding:5px 12px;font:600 12.5px system-ui;color:var(--ink)}
+.calnav{display:flex;gap:8px;align-items:center}
+.calnav a{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:9px;background:#fff;box-shadow:inset 0 0 0 1px var(--rule);font-size:20px}
+.calnav a.txt{width:auto;padding:0 14px;font-weight:600;font-size:14px}
+.month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.mh{font-size:13px;color:var(--ink3);text-align:center;padding-bottom:2px}
+.mday{border:1px solid var(--rule);border-radius:12px;padding:8px;min-height:120px}
+.mday b{font-size:14px;display:inline-block;padding:0 6px;border-radius:7px}.mday.today b{background:var(--lime)}.mday.out{opacity:.45}
+.mcells{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px;margin-top:6px}
+.cell.mini{border-radius:8px;outline-width:2px}.cell.mini .no{left:3px;top:3px;font-size:9.5px;padding:1px 4px;border-radius:5px}
+.cell.mini .mt{left:0;right:0;top:auto;bottom:0;border-radius:0;text-align:center;font-size:10px;background:linear-gradient(transparent,rgba(0,0,0,.8));padding:10px 4px 3px}
+.mdot{position:absolute;right:4px;top:4px;z-index:2;width:8px;height:8px;border-radius:50%;background:#fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.4)}
+.mdot.need{background:var(--lime)}.mdot.sched{background:var(--blue)}.mdot.live{background:var(--green)}.mdot.busy{background:var(--amber)}
+.cell.mini.open{font-size:10.5px;border-width:1px}.cell.mini.open .mt{position:static;background:none;padding:0}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 0;border-top:1px solid var(--rule)}.switch:first-of-type{border-top:0}
+.tfield input{flex:1;min-width:0;font-size:17px;font-weight:600;border:1px solid var(--rule);border-radius:10px;padding:7px 12px;color:var(--ink);background:#fff}
+.x{width:34px;height:34px;flex:none;border-radius:9px;border:0;background:transparent;color:var(--ink3);cursor:pointer;font-size:20px}.x:disabled{opacity:.3;cursor:default}
+@media (max-width:900px){.cal,.month{grid-template-columns:1fr}.day{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}
+ .dh{grid-column:1/-1;display:flex;gap:8px;align-items:baseline;border-top:1px solid var(--rule);padding-top:12px}.dh b{display:inline;font-size:16px}
+ .cell.open.past,.mh,.mday.out{display:none}}
 `;
 
 // the times in the browser's zone; the custom-time form's local value and the offset it posts back
