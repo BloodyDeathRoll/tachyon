@@ -503,3 +503,15 @@ class RemoteDB:
 
     def follower_dropped(self) -> dict:
         return self._op("follower_dropped")
+
+    # ── only online: the post's text files and the clients row ─────────────
+    def set_files(self, slot_id: str, files: dict[str, str]) -> None:
+        """posts/<slot>/caption.txt, first_comment.txt, meta.json as this PC has them."""
+        self._op("set_files", slot_id=slot_id, files=files)
+
+    def files(self, slot_id: str) -> dict[str, str]:
+        return self._op("files", slot_id=slot_id)
+
+    def client_row(self) -> dict:
+        """The clients row (grants, publisher, connected, ...), never the token."""
+        return self._op("client")

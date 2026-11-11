@@ -99,6 +99,7 @@ def test_a_failed_job_reports_its_tail(env, monkeypatch):
     ("revise", "s", ["spine.revise", "run", "acme", "s"]),                    # another client
     ("revise", "s", ["spine.revise", "run", "rosa", "other"]),                # another slot
     ("plan", None, ["spine.week", "prepare", "acme", "2026-W10"]),            # another client's week
+    ("auto", None, ["spine.week", "auto", "acme"]),                           # another client's auto
     ("produce", "s", ["spine.manual", "produce", "rosa"]),                    # too short
     ("upload", "s", None),                                                    # kinds without argv are the worker's own
 ])
@@ -116,6 +117,7 @@ def test_only_video_making_jobs_report_a_file(env, monkeypatch):
     (sd / "video.mp4").write_bytes(b"vid")
     ok = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0)  # noqa: E731
     assert W.run_job({"id": 1, "kind": "caption", "client": "rosa", "slot_id": "s", "payload": {"argv": ["spine.caption", "write", "rosa", "s"]}}, CFG, runner=ok)["media"] is None
+    assert W.run_job({"id": 3, "kind": "auto", "client": "rosa", "slot_id": None, "payload": {"argv": ["spine.week", "auto", "rosa"]}}, CFG, runner=ok)["media"] is None
     assert W.run_job({"id": 2, "kind": "revise", "client": "rosa", "slot_id": "s", "payload": {"argv": ["spine.revise", "run", "rosa", "s"]}}, CFG, runner=ok)["media"]["size"] == 3
 
 
@@ -173,20 +175,36 @@ def test_a_refused_job_marks_its_status_failed(env, monkeypatch):
     assert not (env / "clients" / "rosa" / "posts" / "w01-s1" / "caption.writing").exists()
 
 
-def test_upload_puts_the_video_and_the_cover(env, monkeypatch):
+def test_upload_puts_the_video_the_cover_and_the_text_files(env, monkeypatch):
     sd = env / "clients" / "rosa" / "posts" / "w01-s1"
     sd.mkdir()
     (sd / "video.mp4").write_bytes(b"vid")
     (sd / "cover.jpg").write_bytes(b"jpg")
-    f = fake(monkeypatch, (200, {"key": "rosa/w01-s1/aa.mp4"}), (200, {"key": "rosa/w01-s1/bb.jpg"}))
-    assert W.run_job({"id": 1, "kind": "upload", "client": "rosa", "slot_id": "w01-s1"}, CFG) == {"keys": {"video": "rosa/w01-s1/aa.mp4", "cover": "rosa/w01-s1/bb.jpg"}}
+    (sd / "caption.txt").write_text("Hi\n")
+    (sd / "meta.json").write_text('{"is_ai_generated": true}\n')
+    f = fake(monkeypatch, (200, {"key": "rosa/w01-s1/aa.mp4"}), (200, {"key": "rosa/w01-s1/bb.jpg"}), (200, {"result": True}))
+    assert W.run_job({"id": 1, "kind": "upload", "client": "rosa", "slot_id": "w01-s1"}, CFG) == {
+        "keys": {"video": "rosa/w01-s1/aa.mp4", "cover": "rosa/w01-s1/bb.jpg", "files": ["caption.txt", "meta.json"]}}
     method, url, body, headers = f.calls[0]
     assert (method, url, body) == ("PUT", "http://w/api/media/rosa/w01-s1/video", b"vid")
     assert headers["Content-type"] == "video/mp4" and headers["Content-length"] == "3"
     assert f.calls[1][1].endswith("/cover") and f.calls[1][3]["Content-type"] == "image/jpeg"
+    assert f.calls[2][:3] == ("POST", "http://w/api/db/rosa/set_files", {"slot_id": "w01-s1", "files": {"caption.txt": "Hi\n", "meta.json": '{"is_ai_generated": true}\n'}})
     (sd / "video.mp4").unlink()
     with pytest.raises(FileNotFoundError):
         W.upload("rosa", "w01-s1", CFG)
+
+
+def test_enqueue_and_push_files(env, monkeypatch):
+    f = fake(monkeypatch, (200, {"id": 5}), (200, {"result": True}))
+    assert J.enqueue("upload", "rosa", "w01-s1") == 5
+    assert f.calls[0][2] == {"kind": "upload", "client": "rosa", "slot_id": "w01-s1", "payload": None}
+    sd = env / "clients" / "rosa" / "posts" / "w01-s1"
+    sd.mkdir()
+    assert J.push_files("rosa", "w01-s1") == {} and len(f.calls) == 1   # nothing to send, no request
+    (sd / "first_comment.txt").write_text("Which spot?\n")
+    assert J.push_files("rosa", "w01-s1") == {"first_comment.txt": "Which spot?\n"}
+    assert f.calls[1][2] == {"slot_id": "w01-s1", "files": {"first_comment.txt": "Which spot?\n"}}
 
 
 def test_spec_downloads_the_file_and_checks_it(env, monkeypatch):

@@ -36,9 +36,11 @@ HEARTBEAT = 60
 TAIL = 600               # characters of a failed job's output kept in its result
 REPORT_TRIES = 3         # done/fail over a flaky network: a lost report would re-run the job
 ID = re.compile(r"[^\w-]+")
-# what a job of each kind may run: module, subcommand, then the job's client and slot (or the week)
-ARGV = {"plan": ("spine.week", "prepare"), "produce": ("spine.manual", "produce"), "revise": ("spine.revise", "run"),
-        "formats": ("spine.formats", "make"), "caption": ("spine.caption", "write")}
+# what a job of each kind may run: module, subcommand, then the job's client and slot (or the
+# week for plan; nothing more for auto, the cron's daily `week auto`)
+ARGV = {"plan": ("spine.week", "prepare"), "auto": ("spine.week", "auto"), "produce": ("spine.manual", "produce"),
+        "revise": ("spine.revise", "run"), "formats": ("spine.formats", "make"), "caption": ("spine.caption", "write")}
+NO_SLOT = {"plan", "auto"}
 MAKES_VIDEO = {"produce", "revise", "formats"}   # kinds after which the slot's video.mp4 is reported
 
 
@@ -108,7 +110,9 @@ def media_of(client: str, slot: str | None, cfg: dict) -> dict | None:
 
 
 def upload(client: str, slot: str, cfg: dict) -> dict:
-    """PUT the slot's video.mp4 and cover.jpg to the Worker (R2). The keys."""
+    """PUT the slot's video.mp4 and cover.jpg to the Worker (R2), then its text files (the
+    publisher reads caption, first comment and meta from D1). The keys and the file names."""
+    from . import jobs as J
     sd = C.client_dir(client) / "posts" / slot
     out = {}
     for name, fname, ctype in (("video", "video.mp4", "video/mp4"), ("cover", "cover.jpg", "image/jpeg")):
@@ -119,6 +123,7 @@ def upload(client: str, slot: str, cfg: dict) -> dict:
             continue
         out[name] = R.call("PUT", f"/api/media/{client}/{slot}/{name}", raw=p.read_bytes(), cfg=cfg,
                            headers={"Content-Type": ctype}, timeout=600)["key"]
+    out["files"] = sorted(J.push_files(client, slot))
     return out
 
 
@@ -164,9 +169,10 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run) -> dict:
     # a job runs the one command its kind allows, for its own client and slot: a member of one
     # client must not run work for another, nor the publisher
     want = ARGV.get(job["kind"])
-    if not want or tuple(argv[:2]) != want or len(argv) < 4 or argv[2] != client:
+    need = 3 if job["kind"] == "auto" else 4
+    if not want or tuple(argv[:2]) != want or len(argv) < need or argv[2] != client:
         _refused(job, argv, f"refused: a {job['kind']} job for {client} cannot run {' '.join(argv)}")
-    if job["kind"] != "plan" and argv[3] != slot:
+    if job["kind"] not in NO_SLOT and argv[3] != slot:
         _refused(job, argv, f"refused: the job is for slot {slot}, the command for {argv[3]}")
     log = log_dir() / f"job-{job['id']}.log"
     with log.open("a") as out:

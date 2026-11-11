@@ -17,11 +17,30 @@ from . import remote as R
 ROOT = Path(__file__).resolve().parent.parent
 
 
+POST_FILES = ("caption.txt", "first_comment.txt", "meta.json")   # what the Worker's publisher reads
+
+
+def enqueue(kind: str, client: str, slot: str | None, payload: dict | None = None) -> int:
+    """A job for the Worker's queue. The job id."""
+    return R.call("POST", "/api/jobs", {"kind": kind, "client": client, "slot_id": slot, "payload": payload})["id"]
+
+
 def spawn(kind: str, client: str, slot: str | None, argv: list[str], log: Path) -> int | None:
     """Run `python -m <argv>` detached with its output appended to `log`, or enqueue it as a
     `kind` job for `client` (payload {"argv": argv}). The job id, or None when run here."""
     if R.config():
-        return R.call("POST", "/api/jobs", {"kind": kind, "client": client, "slot_id": slot, "payload": {"argv": argv}})["id"]
+        return enqueue(kind, client, slot, {"argv": argv})
     with log.open("a") as out:
         subprocess.Popen([sys.executable, "-m", *argv], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
     return None
+
+
+def push_files(client: str, slot: str) -> dict[str, str]:
+    """posts/<slot>/'s text files as the Worker's publisher will read them (post_files). What was sent."""
+    from . import clients as C
+    from .db import RemoteDB
+    sd = C.client_dir(client) / "posts" / slot
+    files = {name: (sd / name).read_text() for name in POST_FILES if (sd / name).exists()}
+    if files:
+        RemoteDB(client).set_files(slot, files)
+    return files
