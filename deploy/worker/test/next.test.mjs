@@ -18,3 +18,14 @@ test("safeNext keeps same-site paths and sends everything else to /app", () => {
   }
   assert.equal(safeNext("https://user@t.example/rosa", o), "https://t.example/rosa"); // no user part
 });
+
+test("the login page carries a working copy of safeNext", async (t) => {
+  const { start } = await import("./harness.mjs");
+  const { mf } = await start();
+  t.after(() => mf.dispose());
+  const html = await (await mf.dispatchFetch("http://t/login")).text();
+  const src = /location\.replace\(\((function safeNext[\s\S]*?\n\})\)\(q\.get/.exec(html)?.[1];
+  assert.ok(src, "safeNext is inlined in the page");
+  const inPage = new Function(`return (${src})`)();
+  for (const n of ["/rosa", "//evil.com", "/.//evil.com", null]) assert.equal(inPage(n, "https://t.example"), safeNext(n, "https://t.example"), String(n));
+});
