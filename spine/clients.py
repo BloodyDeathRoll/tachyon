@@ -93,6 +93,7 @@ def save_grants(name: str, grants: dict) -> None:
     if db:
         db.set_grants({k: v for k, v in grants.items() if k not in COLUMNS},
                       emergency_stop=bool(grants["emergency_stop"]) if "emergency_stop" in grants else None)   # absent: left as it is
+        _GRANTS.pop(name, None)   # again: a read while the write ran may have kept the old row
         return
     (client_dir(name) / "grants.yaml").write_text(yaml.safe_dump(grants, sort_keys=False))
 

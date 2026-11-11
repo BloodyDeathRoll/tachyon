@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS posts (
   r2_key         TEXT,                         -- the video in R2, from upload until published
   r2_sha         TEXT,                         -- sha256 of that file: a host re-uploads when its cut differs (spine/worker.py)
   cover_key      TEXT,                         -- the cover in R2, kept
+  story_key      TEXT,                         -- the story cut in R2, from upload until published
+  story_sha      TEXT,                         -- sha256 of that file, as r2_sha
   container_id   TEXT,                         -- the REELS container while PUBLISHING (src/publish.ts)
   publishing_at  TEXT,                         -- when PUBLISHING began: the stuck timer, the recovery window
   created_at     TEXT NOT NULL,

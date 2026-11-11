@@ -6,8 +6,10 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import subprocess
 import sys
+import time
 
 import pytest
 import yaml
@@ -346,8 +348,8 @@ def test_login_checks_the_session_and_saves_it(env, monkeypatch):
 
 
 def test_run_stops_when_the_session_is_dead(env, monkeypatch):
-    # an idle poll, then the video sync's read (nothing), then the dead session
-    fake(monkeypatch, (200, {"clients": ["rosa"], "dropped": []}), (204, None), (200, {"result": []}), (401, {"error": "auth"}))
+    # an idle poll, then the video sync's read (nothing), the music sync's tracks.json, then the dead session
+    fake(monkeypatch, (200, {"clients": ["rosa"], "dropped": []}), (204, None), (200, {"result": []}), (200, {"ok": True}), (401, {"error": "auth"}))
     slept = []
     assert W.run(CFG, sleep=slept.append) == 3
     assert slept == [W.POLL]
@@ -431,6 +433,9 @@ def test_sync_videos_sends_a_new_or_changed_cut_and_nothing_else(env, monkeypatc
     (posts / "s2" / "cover.jpg").write_bytes(b"c2")   # its cover is online already
     (posts / "s7" / "cover.jpg").write_bytes(b"c7")   # its video was refused (R2 full): the cover waits too
     same = W.sha256(posts / "s2" / "video.mp4")
+    old = time.time() - W.SETTLE - 5
+    for v in posts.glob("*/video.mp4"):
+        os.utime(v, (old, old))   # settled: not mid-render
     row = lambda slot, state="APPROVED", **kw: {"slot_id": slot, "state": state, "r2_key": None, "r2_sha": None, "ig_media_id": None, "cover_key": None, **kw}
     rows = [
         row("s1"),                                          # never sent
@@ -440,7 +445,10 @@ def test_sync_videos_sends_a_new_or_changed_cut_and_nothing_else(env, monkeypatc
         row("s5", "PUBLISHED", ig_media_id="123"),           # published: its cover only
         row("s6", r2_key="k6"),                              # sent from a browser
         row("s7"),                                          # R2 full: the others still go
+        row("s8", "NEEDS_APPROVAL"),                        # unpublished too, but its file is mid-render
     ]
+    (posts / "s8").mkdir()
+    (posts / "s8" / "video.mp4").write_bytes(b"half")
     f = fake(monkeypatch, (200, {"result": rows}), (200, {"key": "v1"}), (200, {"key": "c1"}), (409, {"error": "changed"}),
              (200, {"key": "c5"}), (507, {"error": "storage"}))
     assert W.sync_videos(["rosa"], CFG) == ["rosa/s1", "rosa/s5 cover"]   # s3 refused (publishing): next round
@@ -512,3 +520,65 @@ def test_an_instagram_song_is_taken_only_from_instagram(env):
     assert T.fetch_ig_preview("rosa", "s", ok["preview"], opener=away) is None
     stay = lambda u, timeout: Resp(b"song", "https://video-2.xx.fbcdn.net/a.m4a")  # noqa: E731
     assert T.fetch_ig_preview("rosa", "s", ok["preview"], opener=stay).read_bytes() == b"song"
+
+
+def test_sync_music_sends_the_library_its_mp3s_and_the_icon_once(env, monkeypatch):
+    from spine import tracks as T
+    d = env / "clients" / "rosa" / "assets" / "music"
+    d.mkdir(parents=True)
+    (d / "a.mp3").write_bytes(b"mp3")
+    (d / "b.wav").write_bytes(b"wav")
+    (d / "tracks.yaml").write_text("ig_queries: [surf rock]\ntracks:\n- {id: a, title: A, artist: X, mood: m, file: a.mp3, duration: 61}\n- {id: b, title: B, file: b.wav}\n")
+    (env / "clients" / "rosa" / "assets" / "icon.png").write_bytes(b"png")
+    monkeypatch.setattr(T, "ROOT", env)
+    f = fake(monkeypatch, (200, {"ok": True}), (200, {"ok": True}), (200, {"ok": True}))
+    assert W.sync_music(["rosa"], CFG) == ["rosa/tracks.json", "rosa/a.mp3", "rosa/icon.png"]
+    urls = [c[1] for c in f.calls]
+    assert urls == ["http://w/api/music/rosa/tracks.json", "http://w/api/music/rosa/a.mp3", "http://w/api/avatar/rosa"]
+    lib = f.calls[0][2]   # the fake decodes a JSON body
+    assert lib["ig_queries"] == ["surf rock"]
+    assert lib["tracks"] == [{"id": "a", "title": "A", "artist": "X", "mood": "m", "duration": 61, "file": "a.mp3"},
+                             {"id": "b", "title": "B", "artist": None, "mood": None, "duration": None, "file": None}]   # a wav: no preview
+    assert W.sync_music(["rosa"], CFG) == [] and len(f.calls) == 3   # nothing changed: nothing sent
+    (d / "a.mp3").write_bytes(b"mp3 v2")
+    fake(monkeypatch, (200, {"ok": True}))
+    assert W.sync_music(["rosa"], CFG) == ["rosa/a.mp3"]
+
+
+def test_sync_music_skips_what_the_worker_refuses_and_keys_by_worker(env, monkeypatch):
+    from spine import tracks as T
+    d = env / "clients" / "rosa" / "assets" / "music"
+    d.mkdir(parents=True)
+    (d / "my song.mp3").write_bytes(b"x")   # a space: not a name the Worker takes, so no preview
+    (d / "ok.mp3").write_bytes(b"ok")
+    (d / "tracks.yaml").write_text("tracks:\n- {id: s, title: S, file: my song.mp3}\n- {id: o, title: O, file: ok.mp3}\n")
+    monkeypatch.setattr(T, "ROOT", env)
+    f = fake(monkeypatch, (200, {"ok": True}), (400, {"error": "name"}))
+    assert W.sync_music(["rosa"], CFG) == ["rosa/tracks.json", "rosa/ok.mp3 refused"]
+    assert [r["file"] for r in f.calls[0][2]["tracks"]] == [None, "ok.mp3"]
+    assert W.sync_music(["rosa"], CFG) == [] and len(f.calls) == 2   # refused: not again until the file changes
+    (d / "ok.mp3").write_bytes(b"ok v2")
+    f = fake(monkeypatch, (429, {"error": "slow down"}))   # a passing refusal: tried again next round
+    assert W.sync_music(["rosa"], CFG) == []
+    f = fake(monkeypatch, (200, {"ok": True}))
+    assert W.sync_music(["rosa"], CFG) == ["rosa/ok.mp3"]
+    other = {**CFG, "api": "http://other"}
+    f = fake(monkeypatch, (200, {"ok": True}), (200, {"ok": True}))
+    assert W.sync_music(["rosa"], other) == ["rosa/tracks.json", "rosa/ok.mp3"]   # another Worker gets it all
+
+
+def test_sync_videos_sends_the_story_cut_once(env, monkeypatch):
+    sd = env / "clients" / "rosa" / "posts" / "s1"
+    sd.mkdir(parents=True)
+    (sd / "video-story.mp4").write_bytes(b"story")
+    old = time.time() - W.SETTLE - 5
+    os.utime(sd / "video-story.mp4", (old, old))
+    sha = W.sha256(sd / "video-story.mp4")
+    row = {"slot_id": "s1", "state": "APPROVED", "r2_key": None, "r2_sha": None, "ig_media_id": None, "cover_key": "c", "story_sha": None}
+    f = fake(monkeypatch, (200, {"result": [row]}), (200, {"key": "st"}))
+    assert W.sync_videos(["rosa"], CFG) == ["rosa/s1 story"]
+    put = [c for c in f.calls if c[0] == "PUT"][0]
+    assert put[1].endswith("/s1/story") and put[2] == b"story" and put[3]["X-sha256"] == sha
+    f = fake(monkeypatch, (200, {"result": [row | {"story_sha": sha}]}))   # the same cut is in R2: nothing goes
+    assert W.sync_videos(["rosa"], CFG) == []
+    assert not [c for c in f.calls if c[0] == "PUT"]

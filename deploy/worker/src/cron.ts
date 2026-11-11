@@ -37,16 +37,17 @@ export async function releaseLease(env: { DB: D1Database }, name: string, holder
 }
 
 /** Delete every R2 object no post names in r2_key or cover_key, once it is a day old. Any
-    unpublished post keeps its file, in any state; a published one lost its r2_key at publish. */
+    unpublished post keeps its file, in any state; a published one lost its r2_key at publish.
+    A client's avatar (`<client>/avatar.png`) and music library (`<client>/music/`) are kept. */
 export async function sweep(env: { DB: D1Database; MEDIA: R2Bucket }, now: number): Promise<{ deleted: string[]; kept: number }> {
   const referenced = new Set(
     (
-      await env.DB.prepare("SELECT r2_key AS k FROM posts WHERE r2_key IS NOT NULL UNION SELECT cover_key FROM posts WHERE cover_key IS NOT NULL").all<{ k: string }>()
+      await env.DB.prepare("SELECT r2_key AS k FROM posts WHERE r2_key IS NOT NULL UNION SELECT cover_key FROM posts WHERE cover_key IS NOT NULL UNION SELECT story_key FROM posts WHERE story_key IS NOT NULL").all<{ k: string }>()
     ).results.map((r) => r.k),
   );
   // shortcut: one list() page of 1,000 objects; past that, keep the cursor in the sweep lease row and go on next minute
   const page = await env.MEDIA.list({ limit: 1000 });
-  const gone = page.objects.filter((o) => !referenced.has(o.key) && o.uploaded.getTime() < now - GRACE_MS).map((o) => o.key);
+  const gone = page.objects.filter((o) => !referenced.has(o.key) && !/^[^/]+\/(avatar\.png$|music\/)/.test(o.key) && o.uploaded.getTime() < now - GRACE_MS).map((o) => o.key);
   if (gone.length) await env.MEDIA.delete(gone);
   await env.DB.prepare("DELETE FROM pending_connects WHERE expires < ?").bind(now).run();
   return { deleted: gone, kept: page.objects.length - gone.length };

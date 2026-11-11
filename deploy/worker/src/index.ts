@@ -42,6 +42,7 @@ import { insertJob, JOB_KINDS } from "./jobs.ts";
 import { clientsOf, member, type UserRow } from "./members.ts";
 import { homePage } from "./pages/home.ts";
 import { pages } from "./pages/index.ts";
+import { esc } from "./pages/shell.ts";
 import { roomFor } from "./quota.ts";
 import { mint, SESSION_TTL_MS, verify } from "./session.ts";
 
@@ -73,7 +74,9 @@ const JOBS_LIST = 50;
 const MEDIA = {
   video: { ext: "mp4", type: "video/mp4", column: "r2_key" },
   cover: { ext: "jpg", type: "image/jpeg", column: "cover_key" },
+  story: { ext: "mp4", type: "video/mp4", column: "story_key" },
 } as const;
+const SHA_COLUMN: Record<string, string> = { video: "r2_sha", story: "story_sha" };
 // slice c: the web-app manifest (docs/CLOUDFLARE-PLAN.md, "Dashboard") and its icon, the only
 // static files here. Colours are the shell's --side and --ground. Public: a manifest is fetched
 // without the cookie unless the link says use-credentials (MDN, crossorigin), and it holds nothing.
@@ -476,24 +479,24 @@ export async function media(req: Request, env: { DB: D1Database; MEDIA: R2Bucket
     return serve(req, env.MEDIA, post.key, kind.type);
   }
   if (req.method !== "PUT") throw new HttpError(405, "method");
-  if (name === "video" && post.ig_media_id) throw new HttpError(409, "published");
+  if (name !== "cover" && post.ig_media_id) throw new HttpError(409, "published");
   const len = Number(req.headers.get("Content-Length"));
   if (!req.body || !Number.isInteger(len) || len <= 0) throw new HttpError(411, "length");
   if (len > MAX_UPLOAD_BYTES) throw new HttpError(413, "size");
   if (!(await roomFor(env.MEDIA, len))) throw new HttpError(507, "storage"); // stay inside R2's free tier; check-then-put is not atomic, the cap's 2 GB margin absorbs a race
   const key = `${client}/${slot}/${hex32()}.${kind.ext}`;
   await env.MEDIA.put(key, req.body, { httpMetadata: { contentType: kind.type } });
-  // a video is not replaced while Instagram may be fetching it (a container in flight)
-  const guard = name === "video" ? " AND ig_media_id IS NULL AND state != 'PUBLISHING'" : "";
+  // a video (and its story, dropped with it at publish) is not replaced while Instagram may be fetching it
+  const guard = name !== "cover" ? " AND ig_media_id IS NULL AND state != 'PUBLISHING'" : "";
   // the file's sha256, as the host computed it: what it compares its cut against next time
   const sha = /^[0-9a-f]{64}$/.exec(req.headers.get("X-Sha256") ?? "")?.[0] ?? null;
-  const shaSet = name === "video" ? ", r2_sha = ?" : "";
+  const shaSet = SHA_COLUMN[name] ? `, ${SHA_COLUMN[name]} = ?` : "";
   let changes = 0;
   try {
     const r = await env.DB.prepare(
       `UPDATE posts SET ${kind.column} = ?${shaSet} WHERE client = ? AND slot_id = ? AND ${kind.column} IS ?${guard}`,
     )
-      .bind(key, ...(name === "video" ? [sha] : []), client, slot, post.key)
+      .bind(key, ...(SHA_COLUMN[name] ? [sha] : []), client, slot, post.key)
       .run();
     changes = r.meta.changes;
   } finally {
@@ -502,6 +505,51 @@ export async function media(req: Request, env: { DB: D1Database; MEDIA: R2Bucket
   if (changes !== 1) throw new HttpError(409, "changed");
   if (post.key) await env.MEDIA.delete(post.key).catch(() => {}); // unreferenced now, so not an error
   return json(200, { key });
+}
+
+// ── a client's icon: the sidebar's avatar (app.py's assets/icon.png), sent up by a PC ─────────
+const AVATAR_MAX = 512 * 1024;
+
+async function avatarImage(env: Env, user: UserRow, client: string): Promise<Response> {
+  await member(env, user, client);
+  const obj = await env.MEDIA.get(`${client}/avatar.png`);
+  if (obj) return new Response(obj.body, { headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=60" } }); // a new icon shows within the minute
+  const row = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(client).first<{ name: string | null }>();
+  const letter = esc((row?.name || client).slice(0, 1).toUpperCase());
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="20" fill="#84E01B"/><text x="20" y="26" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-weight="700" font-size="17" fill="#111">${letter}</text></svg>`;
+  return new Response(svg, { headers: { "Content-Type": "image/svg+xml", "Cache-Control": "private, max-age=300" } });
+}
+
+async function avatarUpload(req: Request, env: Env, user: UserRow, client: string): Promise<Response> {
+  await member(env, user, client);
+  const len = Number(req.headers.get("Content-Length"));
+  if (!req.body || !Number.isInteger(len) || len <= 0) throw new HttpError(411, "length");
+  if (len > AVATAR_MAX) throw new HttpError(413, "size");
+  const put = await env.MEDIA.put(`${client}/avatar.png`, req.body, { httpMetadata: { contentType: "image/png" } });
+  if (put && put.size > AVATAR_MAX) { // Content-Length lied: the stream is not capped by it
+    await env.MEDIA.delete(`${client}/avatar.png`);
+    throw new HttpError(413, "size");
+  }
+  return json(200, { ok: true });
+}
+
+// ── a client's music library: the PC's tracks.json and mp3s, for the video page's Library tab ──
+const MUSIC_MAX = 25 * 1024 * 1024;
+const MUSIC_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.(mp3|json)$/;
+
+async function musicUpload(req: Request, env: Env, user: UserRow, client: string, name: string): Promise<Response> {
+  await member(env, user, client);
+  if (!MUSIC_NAME.test(name) || (name.endsWith(".json") && name !== "tracks.json")) throw new HttpError(400, "name", "an mp3, or tracks.json");
+  const len = Number(req.headers.get("Content-Length"));
+  if (!req.body || !Number.isInteger(len) || len <= 0) throw new HttpError(411, "length");
+  if (len > MUSIC_MAX) throw new HttpError(413, "size");
+  if (!(await roomFor(env.MEDIA, len))) throw new HttpError(507, "storage");
+  const put = await env.MEDIA.put(`${client}/music/${name}`, req.body, { httpMetadata: { contentType: name.endsWith(".json") ? "application/json" : "audio/mpeg" } });
+  if (put && put.size > MUSIC_MAX) { // Content-Length lied: the stream is not capped by it
+    await env.MEDIA.delete(`${client}/music/${name}`);
+    throw new HttpError(413, "size");
+  }
+  return json(200, { ok: true });
 }
 
 // ── router ────────────────────────────────────────────────────────────────────
@@ -556,6 +604,9 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
     return res;
   }
   if (path === "/api/hosts" && req.method === "POST") return registerHost(req, env, user, now);
+  if (p[0] === "static" && p[1] === "avatar" && p.length === 3 && req.method === "GET") return avatarImage(env, user, p[2]!.replace(/\.png$/, ""));
+  if (p[0] === "api" && p[1] === "avatar" && p.length === 3 && req.method === "PUT") return avatarUpload(req, env, user, p[2]!);
+  if (p[0] === "api" && p[1] === "music" && p.length === 4 && req.method === "PUT") return musicUpload(req, env, user, p[2]!, p[3]!);
   if (path === "/api/jobs/next" && req.method === "GET") return nextJob(url, env, ctx, user, now);
   if (path === "/api/jobs" && req.method === "GET") return listJobs(url, env, user);
   if (path === "/api/jobs" && req.method === "POST") return enqueue(req, env, user, now);

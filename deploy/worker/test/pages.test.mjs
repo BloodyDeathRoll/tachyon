@@ -106,7 +106,7 @@ test("/app: your clients with a link each, your role and what it allows, sign ou
   await env.DB.prepare("UPDATE users SET session_epoch = 0 WHERE id = 2").run(); // the later tests' tokens use epoch 0
 });
 
-test("the overview lists a video under its state; the filter is a link", async () => {
+test("the overview lists a video under its state; the filter runs in the page", async () => {
   await waiting("a1", { title: "Reef hop", file: true });
   await waiting("p1", { title: "Already out" });
   for (const s of ["APPROVED", "QUEUED", "PUBLISHING"]) await setState(ctx(), "p1", s, null, {});
@@ -120,9 +120,9 @@ test("the overview lists a video under its state; the filter is a link", async (
   assert.match(r.text, /1 to approve/);
   assert.match(r.text, /\/m\/rosa\/a1\/cover/);
   assert.match(r.text, /Already out/);
-  const live = await call("GET", "/rosa?f=live");
-  assert.doesNotMatch(live.text, /Reef hop/);
-  assert.match(live.text, /Already out/);
+  assert.match(r.text, /<a class=vid data-cls='need' href='\/rosa\/v\/a1'>/); // the filter's script hides cards by data-cls
+  assert.match(r.text, /<a class=vid data-cls='live' href='\/rosa\/v\/p1'>/);
+  assert.match(r.text, /<button type=button data-f='live' class=''>Live<i>1<\/i><\/button>/);
   assert.doesNotMatch(r.text, /Acme/); // alice is no member of acme: the switcher lists rosa alone
 });
 
@@ -134,6 +134,16 @@ test("the video page: the caption, the R2 player until publish, the permalink af
   assert.match(r.text, /value=approve/);
   assert.match(r.text, /Save text/);
   assert.match(r.text, /<time datetime="/); // the preview slot, in the browser's zone
+  assert.doesNotMatch(r.text, /class='seg fmtseg'/); // no story cut: no Reel/Story switch
+  assert.match(r.text, /Download reel/);
+  await env.DB.prepare("UPDATE posts SET story_key = 'rosa/a1/s.mp4' WHERE slot_id = 'a1'").run();
+  const reel = await call("GET", "/rosa/v/a1");
+  assert.match(reel.text, /class='seg fmtseg'><a href='\/rosa\/v\/a1' class='on'>Reel<\/a><a href='\/rosa\/v\/a1\?as=story' class=''>Story/);
+  const story = await call("GET", "/rosa/v/a1?as=story");
+  assert.match(story.text, /src='\/m\/rosa\/a1\/story'/);
+  assert.match(story.text, /Download story/);
+  assert.match(story.text, /Story UI/);
+  await env.DB.prepare("UPDATE posts SET story_key = NULL WHERE slot_id = 'a1'").run();
   const live = await call("GET", "/rosa/v/p1");
   assert.match(live.text, /https:\/\/instagram\.com\/reel\/m1/);
   assert.doesNotMatch(live.text, /\/m\/rosa\/p1\/video/);
@@ -305,6 +315,11 @@ test("Generate New, the formats and the caption writer are jobs with the argv a 
   const plans = (await env.DB.prepare("SELECT payload, by FROM jobs WHERE kind = 'plan'").all()).results;
   assert.equal(plans.length, 1);
   assert.deepEqual(JSON.parse(plans[0].payload), { argv: ["spine.week", "prepare", "rosa", "2031-W10"], instructions: "airy", engine: "html" });
+  // the "Prepare automatically" switch: grants.week_prep.auto, no plan job
+  await call("POST", "/rosa/week", { form: { action: "auto", value: "1" } });
+  const g = JSON.parse((await env.DB.prepare("SELECT grants FROM clients WHERE id = 'rosa'").first()).grants);
+  assert.equal(g.week_prep.auto, true);
+  assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM jobs WHERE kind = 'plan'").first()).n, 1);
 });
 
 test("delete drops the R2 objects and the rows; a live video cannot be deleted", async () => {
@@ -414,4 +429,51 @@ test("/m/<client>/<slot>/video streams for a member with the cookie, 401 without
   assert.equal(back.headers.get("Content-Length"), "14");
   assert.equal((await call("GET", "/m/rosa/v1/video", { headers: { Range: "bytes=-0" } })).status, 416); // an empty suffix: nothing to give
   assert.equal(part.headers.get("Content-Length"), "6");
+});
+
+test("music: app.py's card, Library and Instagram; a pick is a track job a PC mixes; locked once going out", async () => {
+  await waiting("mu1", { file: true });
+  await env.MEDIA.put("rosa/music/tracks.json", JSON.stringify({ ig_queries: [], tracks: [
+    { id: "lib1", title: "Old Steel", artist: "AlexGrohl", mood: "blues rock", duration: 125, file: "old-steel.mp3" },
+  ] }));
+  await env.MEDIA.put("rosa/music/old-steel.mp3", "mp3bytes");
+  let r = await call("GET", "/rosa/v/mu1");
+  assert.match(r.text, /<section class=card id=music><div class=row><h2>Music<\/h2><div class=seg><a href='\/rosa\/v\/mu1' class='on'>Library<\/a><a href='\/rosa\/v\/mu1\?music=ig' class=''>Instagram<\/a>/);
+  assert.match(r.text, /data-src='\/rosa\/track\/lib1'[\s\S]*<b>Old Steel<\/b><small>AlexGrohl · blues rock · 2:05<\/small><\/div><button class='btn sec' name=track value='lib1'>Use<\/button>/);
+  const mp3 = await call("GET", "/rosa/track/lib1");
+  assert.equal(mp3.status, 200);
+  assert.equal(mp3.text, "mp3bytes");
+  // the Instagram tab: the rows load after the page (?rows=1)
+  r = await call("GET", "/rosa/v/mu1?music=ig");
+  assert.match(r.text, /class=tracks data-wait/);
+  const songs = { body: { audio: [
+    { audio_id: "111", title: "A Big Mess", display_artist: "TrackTribe", duration_in_ms: 211000,
+      download_url: "https://video-lga3-1.xx.fbcdn.net/a.m4a", cover_artwork_thumbnail_uri: "https://evil.example/c.jpg" },
+    { audio_id: "x;y", title: "Not an id" },
+  ] } };
+  script.push(songs);
+  r = await node("GET", "/rosa/v/mu1?music=ig&q=mess&rows=1");
+  assert.match(calls.at(-1).url, /\/ig_audio\?[^ ]*search_query=mess/);
+  assert.match(r.text, /<b>A Big Mess<\/b><small>TrackTribe · 3:31<\/small>/);
+  assert.match(r.text, /data-src='https:\/\/video-lga3-1\.xx\.fbcdn\.net\/a\.m4a'/);
+  assert.doesNotMatch(r.text, /evil\.example|Not an id/);
+  assert.equal((await call("POST", "/rosa/v/mu1/track", { form: { src: "instagram", track: "ig:999" } })).status, 400); // never listed
+  assert.equal((await call("POST", "/rosa/v/mu1/track", { form: { src: "instagram", track: "ig:111" } })).status, 303);
+  const job = await env.DB.prepare("SELECT kind, payload FROM jobs WHERE slot_id = 'mu1' ORDER BY id DESC").first();
+  assert.equal(job.kind, "track");
+  assert.deepEqual(JSON.parse(job.payload), { slot: "mu1", track: { id: "ig:111", audio_id: "111", title: "A Big Mess", artist: "TrackTribe", cover: "", duration: 211, link: "", preview: "https://video-lga3-1.xx.fbcdn.net/a.m4a" } });
+  r = await call("GET", "/rosa/v/mu1");
+  assert.match(r.text, /Mixing &ldquo;A Big Mess&rdquo;/);
+  assert.match(r.text, /name=track value='lib1' disabled>Use/); // one mix at a time
+  assert.equal((await call("POST", "/rosa/v/mu1/track", { form: { src: "file", track: "lib1" } })).status, 409);
+  // a library pick, on another slot; an unknown one refused
+  await waiting("mu3", { file: true });
+  assert.equal((await call("POST", "/rosa/v/mu3/track", { form: { src: "file", track: "nope" } })).status, 400);
+  assert.equal((await call("POST", "/rosa/v/mu3/track", { form: { src: "file", track: "lib1" } })).status, 303);
+  const lib = await env.DB.prepare("SELECT payload FROM jobs WHERE slot_id = 'mu3' AND kind = 'track'").first();
+  assert.deepEqual(JSON.parse(lib.payload).track, { id: "lib1", title: "Old Steel", artist: "AlexGrohl" });
+  // going out: no change
+  await waiting("mu2", { file: true });
+  await env.DB.prepare("UPDATE posts SET state = 'PUBLISHING' WHERE slot_id = 'mu2'").run();
+  assert.equal((await call("POST", "/rosa/v/mu2/track", { form: { src: "file", track: "lib1" } })).status, 409);
 });

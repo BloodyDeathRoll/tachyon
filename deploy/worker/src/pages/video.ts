@@ -1,8 +1,9 @@
 // One video (app.py render_video, render_byhand, render_qa and their POSTs, port): the
 // player, approve or send back with notes, the schedule, the post text, the links, and the
 // jobs a PC runs for it. What app.py forked here is a jobs row (spine/worker.py ARGV).
-// Left out from app.py: the music card and track picker (local files and the Instagram
-// music search), the safe-zone overlay and the story/format variants (local files), the
+// The music card searches Instagram's music here; a pick is a `track` job: a PC downloads the
+// song and mixes it into the video (spine/tracks.py; Instagram drops a song sent at publish).
+// Left out from app.py: the PC's own music library, the safe-zone overlay and the story/format variants (local files), the
 // spec check before approve (ffprobe on a PC), the local publisher on Publish now (the
 // cron publishes within the minute), the bio link on a hand link (the cron's publish does
 // it for its own posts), the quick-preview popup and the copy button (script).
@@ -14,11 +15,13 @@ import { HttpError } from "../http.ts";
 import { insertJob, latestJobs, slotJobs, type JobRow } from "../jobs.ts";
 import { FIELDS, HAND_FROM, linkByHand } from "../pickup.ts";
 import { dropVideo } from "../publish.ts";
+import { viewsBlock } from "./overview.ts";
 import { previewSlots, slots, slotForApproval, takenSlots } from "./schedule.ts";
 import {
-  ago, CAPTION_LOCKED, ENGINES, esc, hostsLine, icon, jobLine, jobResult, LIVE, mediaLatest, MOVABLE, NO_DELETE, num, overdue, parse, parseJson, path,
+  ago, CAPTION_LOCKED, display, ENGINES, esc, icon, jobLine, jobResult, LIVE, mediaLatest, MOVABLE, NO_DELETE, num, overdue, page, parse, parseJson, path,
   publishing, redirect, shell, slotNo, tagFor, titleOf, when, type Json, type Page,
 } from "./shell.ts";
+import { AUDIO_JS, EMPTY_HINT, GEN_BTN, MOTION_STYLES } from "./ui.gen.ts";
 
 const RATIOS: Record<string, string> = { "1x1": "1:1", "4x5": "4:5", "2x3": "2:3", "16x9": "16:9" }; // spine/formats.py LABEL
 const CAPTION_MAX = 2200;
@@ -88,73 +91,93 @@ async function previewSlot(p: Page, slot: string): Promise<string | null> {
   return previewSlots(await takenSlots(p.c), unslotted, p.client.grants, p.now)[slot] ?? null;
 }
 
-function mediaUrl(s: Slot, name: "video" | "cover"): string {
+function mediaUrl(s: Slot, name: "video" | "cover" | "story"): string {
   return `/m/${encodeURIComponent(s.p.client.id)}/${encodeURIComponent(s.slot)}/${name}`;
 }
 
-// ── cards ─────────────────────────────────────────────────────────────────────
+// ── cards (app.py's, markup for markup) ──────────────────────────────────────
 
-function player(s: Slot): string {
-  const cover = s.row.cover_key ? `<img src='${mediaUrl(s, "cover")}' alt=''>` : "";
-  let out: string;
-  if (s.row.r2_key) {
-    out = `<div class=frame><video controls playsinline preload=metadata${s.row.cover_key ? ` poster='${mediaUrl(s, "cover")}'` : ""} src='${mediaUrl(s, "video")}'></video></div>`;
-  } else if (s.row.permalink) {
-    out = `${cover ? `<div class=frame>${cover}</div>` : ""}<p class=hint>Instagram has the file: <a class=lnk href='${esc(s.row.permalink)}' target=_blank rel=noopener>open the reel</a>.</p>`;
-  } else if (s.host) {
-    out = `${cover ? `<div class=frame>${cover}</div>` : ""}<p class=hint>The video is on ${esc(s.host)}; it comes here when the video is approved.</p>`;
-  } else {
-    out = cover ? `<div class=frame>${cover}</div><p class=hint>No video file yet.</p>` : "<div class=empty>No video file yet.</div>";
-  }
-  const dl = s.row.r2_key ? `<a class='btn sec' href='${mediaUrl(s, "video")}' download>${icon("download", 16)}Download reel</a>` : "";
-  return `${out}<div class=pctl><span>${formatsButton(s)}</span>${dl}</div>`;
+/** app.py popup(): a trigger that opens a centred box; Esc, Cancel or a click outside closes it. */
+function popup(trigger: string, box: string): string {
+  return `<div class=pop>${trigger}<div class=rgm hidden>${box}</div><script>(()=>{const w=document.currentScript.parentElement,m=w.querySelector('.rgm');w.querySelector('[data-open]').addEventListener('click',e=>{e.preventDefault();m.hidden=false;const f=m.querySelector('textarea,input:not([type=hidden]),button');if(f)f.focus();});m.addEventListener('click',e=>{if(m.querySelector('.busy'))return;if(e.target===m||e.target.closest('[data-close]'))m.hidden=true;});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!m.querySelector('.busy'))m.hidden=true;});})();</script></div>`;
 }
 
-/** Other formats: a `formats` job for the ratios ticked (spine/formats.py make on a host). */
+const RATIO_ORDER = ["1x1", "4x5", "2x3", "16x9"]; // spine/formats.py RATIOS
+
+/** app.py formats_button(): Generate new version, the other formats a PC lays out and renders. */
 function formatsButton(s: Slot): string {
   const st = s.jobs.formats;
-  if (open_(st)) return `<span class='tag gen'>${st!.state === "running" ? "Generating other formats…" : "Waiting for a PC…"}</span>`;
-  const err = st?.state === "failed" ? `<p class=hint style='color:#b42318;margin:0'>Last run failed: ${esc(jobResult(st).slice(0, 300))}</p>` : "";
-  const boxes = Object.entries(RATIOS).map(([r, lab]) => `<label class=chk><input type=checkbox name=r value=${r} checked>${lab}</label>`).join("");
-  return `<details class=pop><summary class='btn plain'>Generate new version</summary><div class=box><form method=post action='${path(s.p.client.id, s.slot)}/formats'><h2>Generate other formats</h2>
-<p class=muted style='margin:0 0 8px'>For posting by hand on other platforms. Each format is a new layout of this film, rendered on a PC with the files. A few minutes per format.</p>${err}
-<div class=btns style='margin-top:8px'>${boxes}</div><div class=btns><button class='btn pri small'>Generate</button></div></form></div></details>`;
+  if (open_(st)) return `<span class='tag gen'>${st!.state === "running" ? "Generating" : "Waiting to make"} …</span>`;
+  const err = st?.state === "failed" ? `<p class=hint style='color:#b42318;margin:0'>Last run failed: ${esc(jobResult(st))}</p>` : "";
+  const boxes = RATIO_ORDER.map((r) => `<label class=chk style='flex-direction:row;gap:8px;color:var(--ink)'><input type=checkbox name=r value=${r} checked>${RATIOS[r]}</label>`).join("");
+  const box = `<form method=post action='${path(s.p.client.id, s.slot)}/formats' class=rgbox><h2>Generate other formats</h2><p class=muted style='margin:0;max-width:400px'>For posting by hand on other platforms. Each format is a new layout of this film (same words, beats and footage, placed for that size), rendered with the reel's sound. A few minutes per format. A video with an Instagram track comes out without that music.</p>${err}${boxes}<div class=btns><button class='btn pri small'>Generate</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>`;
+  return popup(`<button type=button class='btn plain' data-open>Generate new version</button>`, box);
 }
 
+/** app.py's player block: the Reel/Story switch, the cut, the safe-zone overlay, Generate new version, Download, Show what Instagram covers. */
+function player(s: Slot, asStory: boolean): string {
+  const story = asStory && !!s.row.story_key;
+  const ui = "<div class=ui><i style='top:0;height:14%'></i><i style='bottom:0;height:35%'></i>"
+    + (story ? "" : "<b style='left:0;right:0;top:14.84%;bottom:14.84%'></b><span style='top:15.4%'>Feed 4:5 crop</span>")
+    + `<span style='top:1%'>${story ? "Story" : "Reel"} UI</span><span style='bottom:1%'>${story ? "Reply bar" : "Caption · buttons"}</span></div>`;
+  const poster = s.row.cover_key ? ` poster='${mediaUrl(s, "cover")}'` : "";
+  const base = path(s.p.client.id, s.slot);
+  const seg = s.row.story_key ? `<div class='seg fmtseg'><a href='${base}' class='${story ? "" : "on"}'>Reel</a><a href='${base}?as=story' class='${story ? "on" : ""}'>Story</a></div>` : "";
+  let frame: string;
+  if (story) {
+    frame = `<div class=frame id=frame><video controls playsinline preload=metadata${poster} style='aspect-ratio:9/16' src='${mediaUrl(s, "story")}'></video>${ui}</div>`;
+  } else if (s.row.r2_key) {
+    frame = `<div class=frame id=frame><video controls playsinline preload=metadata${poster} style='aspect-ratio:9/16' src='${mediaUrl(s, "video")}'></video>${ui}</div>`;
+  } else if (s.row.cover_key && (s.meta.source === "instagram" || s.row.published_at)) {
+    frame = `<div class=frame id=frame><img src='${mediaUrl(s, "cover")}' alt='' style='aspect-ratio:9/16;width:100%;object-fit:cover;display:block'>${s.row.published_at ? "" : "<p class=muted style='margin:8px 0 0;font-size:13px'>Instagram does not share this reel's file (licensed song): cover only.</p>"}</div>`;
+  } else if (s.row.cover_key && s.host) {
+    frame = `<div class=frame id=frame><img src='${mediaUrl(s, "cover")}' alt='' style='aspect-ratio:9/16;width:100%;object-fit:cover;display:block'><p class=muted style='margin:8px 0 0;font-size:13px'>The video is on ${esc(s.host)}; it comes here when it is approved.</p></div>`;
+  } else {
+    // the file is on a PC until it is approved (app.py had it on disk): say where
+    frame = `<div class=empty>${s.host ? `The video is on ${esc(s.host)}; it comes here when it is approved.` : "No video file yet."}</div>`;
+  }
+  const dls = story ? `<a class='btn sec' href='${mediaUrl(s, "story")}' download>${icon("download", 16)}Download story</a>`
+    : s.row.r2_key ? `<a class='btn sec' href='${mediaUrl(s, "video")}' download>${icon("download", 16)}Download reel</a>` : "";
+  const canFmt = !(s.meta.upload && !((s.meta.film ?? {}) as Json).source); // an upload until its first edit
+  return `${seg}${frame}<div class=pctl><span>${canFmt ? formatsButton(s) : ""}</span>${dls}</div><hr class=pdiv><label class='chk big'><input type=checkbox onchange="document.getElementById('frame').classList.toggle('showui',this.checked)">Show what Instagram covers</label>`;
+}
+
+/** app.py motion_pill(): the reel's motion style by name. */
+function motionPill(s: Slot): string {
+  const m = MOTION_STYLES[String(s.meta.motion ?? "")];
+  const [name, tip] = m ? [m.style || m.title || "", `${m.title} · ${m.url}`] : ["House look", "The house motion language (Showreel, Favorites)"];
+  return `<span class=mpill title='${esc(tip)}'>${esc(name)}</span>`;
+}
+
+function enginePick(): string {
+  return `<fieldset class=engines><legend>Animate with</legend>${Object.entries(ENGINES).map(([k, v]) => `<label class=chk><input type=radio name=engine value=${k}${k === "html" ? " checked" : ""}>${esc(v)}</label>`).join("")}</fieldset>`;
+}
+
+/** app.py generate_box(): the Generate New dialog. */
 function generateBox(s: Slot): string {
-  const engines = Object.entries(ENGINES).map(([k, v]) => `<label class=chk><input type=radio name=engine value=${k}${k === "html" ? " checked" : ""}>${esc(v)}</label>`).join("");
-  return `<details class=pop><summary class='btn sec'>Generate New</summary><div class=box><form method=post action='${path(s.p.client.id, s.slot)}/decide'><input type=hidden name=action value=generate><h2>Generate new</h2>
-<fieldset class=engines><legend>Animate with</legend>${engines}</fieldset><label>What should the video be?<textarea name=prompt rows=5 placeholder='e.g. Same message, but lead with the swell map'></textarea></label>
-<p class=hint style='margin:0'>Leave it empty and Claude comes up with the idea. This video is replaced; the current cut stays under its versions on the PC.</p>
-<div class=btns><button class='btn pri small'>Generate</button></div></form></div></details>`;
+  return `<dialog class=dlg id=gennew><form method=post action='${path(s.p.client.id, s.slot)}/decide' class=rgbox onsubmit="return confirm('Replace this video with a new one? The current cut stays under its versions.')"><input type=hidden name=action value=generate><h2>Generate new</h2>${enginePick()}<label>What should the video be?<textarea name=prompt rows=5 placeholder='e.g. Same message, but lead with the swell map'></textarea></label><p class=hint style='margin:0'>${EMPTY_HINT} This video is replaced; the current cut stays under its versions.</p><div class=btns><button class='btn pri small'>Generate</button><button type=button class='btn sec small' onclick="this.closest('dialog').close()">Cancel</button></div></form></dialog>`;
 }
 
 function errorCard(s: Slot, st: JobRow): string {
   const isNew = st.kind === "produce";
   const payload = parseJson(st.payload);
   const asked = typeof payload.prompt === "string" ? payload.prompt : typeof payload.notes === "string" ? payload.notes : "";
-  return `<section class='card errcard' id=error><h2>${isNew ? "Making it failed" : "Re-render failed"}</h2><p class=hint>${jobLine(st, s.p.now).replace(/ — .*$/, "")}. ${
-    isNew && !s.row.r2_key && !s.host ? "Nothing was made yet." : "The video here is still the previous cut, so you can approve it or send new notes."}</p>${
-    asked ? `<p class=hint><b>${isNew ? "Your prompt" : "Your notes"}:</b> ${esc(asked)}</p>` : ""}<pre class=errlog>${esc(jobResult(st) || "No error text.")}</pre>
-<form method=post action='${path(s.p.client.id, s.slot)}/decide'><div class=btns><button class='btn pri' name=action value=retry>${icon("redo")}Re-run</button></div><p class=hint>Runs the same job again on a PC with the files.</p></form></section>`;
+  return `<section class='card errcard' id=error><h2>${isNew ? "Making it failed" : "Re-render failed"}</h2><p class=hint>Failed ${esc(ago(iso(st.updated_at), s.p.now))}. ${
+    isNew && !s.row.r2_key && !s.host ? "Nothing was made yet.</p>" : "The video here is still the previous cut, so you can approve it or send new notes.</p>"}${
+    asked ? `<p class=hint><b>${isNew ? "Your prompt" : "Your notes"}:</b> ${esc(asked)}</p>` : ""}<pre class=errlog>${esc(jobResult(st) || "No error text.")}</pre><form method=post action='${path(s.p.client.id, s.slot)}/decide'><div class=btns><button class='btn pri' name=action value=retry>${icon("redo")}Re-run</button></div><p class=hint>${isNew ? "Tries again from where it stopped, with the same prompt." : "Runs the edit and the render again with the same notes."}</p></form></section>`;
 }
 
+/** app.py's Review card: Approve | Edit (notes) | Generate New. */
 function reviewCard(s: Slot): string {
   const act = `${path(s.p.client.id, s.slot)}/decide`;
-  const engine = ((s.meta.film ?? {}) as Json).engine;
-  const edit = engine === "remotion" || engine === "html" // only a film a note can edit gets the Edit box (decide's reject refuses the rest)
-    ? `<details class=pop><summary class='btn sec'>${icon("edit", 16)}Edit</summary><div class=box><form method=post action='${act}'><label for=notes class=muted style='font-size:14px'>What should change?</label>
-<textarea id=notes name=notes required placeholder='e.g. Lead with the advantage, not the number. Make it faster.' style='margin-top:8px'></textarea>
-<div class=btns><button class='btn pri' name=action value=reject>${icon("redo")}Update</button></div></form></div></details>`
-    : `<span class='muted' style='font-size:14px'>No film to edit with a note: use Generate New.</span>`;
-  return `<section class=card><h2>Review</h2><div class=btns><form method=post action='${act}'><button class='btn pri' name=action value=approve>${icon("check")}Approve</button></form>
-${edit}${generateBox(s)}</div></section>`;
+  return `<section class=card><div class=row><h2>Review</h2>${motionPill(s)}</div><form method=post action='${act}' style='margin-top:16px'><div class=ask0><div class=btns><button class='btn pri' name=action value=approve>${icon("check")}Approve</button><button type=button class='btn sec' onclick="const f=this.form;f.querySelector('.ask0').hidden=true;f.querySelector('.ask1').hidden=false;f.notes.focus()">${icon("edit", 16)}Edit</button>${GEN_BTN}</div></div><div class=ask1 hidden><label for=notes class=muted style='font-size:14px'>What should change?</label><textarea id=notes name=notes placeholder='e.g. Lead with the advantage, not the number. Make it faster.' style='margin-top:8px' oninput="this.form.querySelector('[value=reject]').disabled=!this.value.trim()"></textarea><div class=btns><button class='btn pri' name=action value=reject disabled>${icon("redo")}Update</button><button type=button class='btn sec' onclick="const f=this.form;f.notes.value='';f.querySelector('[value=reject]').disabled=true;f.querySelector('.ask1').hidden=true;f.querySelector('.ask0').hidden=false">${icon("x", 16)}Cancel</button>${GEN_BTN}</div></div></form>${generateBox(s)}</section>`;
 }
 
 function holdButton(s: Slot): string {
   const act = `${path(s.p.client.id, s.slot)}/decide`;
   if (s.row.state === "PAUSED") {
-    return `<form method=post action='${act}'><button class='btn sec ico' name=action value=resume title='Release it' aria-label='Release it'>${icon("play", 18)}</button></form>`;
+    const late = overdue(s.row, s.p.now) ? ` onsubmit="return confirm('Its time has passed: publish to Instagram now?')"` : "";
+    return `<form method=post action='${act}'${late}><button class='btn sec ico' name=action value=resume title='Release it' aria-label='Release it'>${icon("play", 18)}</button></form>`;
   }
   if (s.row.state === "APPROVED" || s.row.state === "QUEUED") {
     return `<form method=post action='${act}'><button class='btn sec ico' name=action value=pause title='Pause: hold it off Instagram' aria-label='Pause: hold it off Instagram'>${icon("pause", 18)}</button></form>`;
@@ -162,21 +185,32 @@ function holdButton(s: Slot): string {
   return "";
 }
 
-/** Publish now (approved only, behind a second tap) and Custom time (any future time, in the browser's zone). */
-function whenTools(s: Slot, at: string | null): string {
+/** app.py when_tools(): Publish now (approved only), Swap slot (the calendar), Custom time. */
+function whenTools(s: Slot, cal: string, at: string | null): string {
   const act = `${path(s.p.client.id, s.slot)}/decide`;
   const now = ["APPROVED", "QUEUED"].includes(s.row.state)
-    ? `<details class=pop><summary class='btn pri'>${icon("ext", 16)}Publish now</summary><div class=box><form method=post action='${act}'><p style='margin:0 0 8px'>Publish to Instagram now?</p><button class='btn pri' name=action value=publish_now>Yes, publish now</button></form></div></details>`
-    : "";
+    ? `<form method=post action='${act}' onsubmit="return confirm('Publish to Instagram now?')"><button class='btn pri' name=action value=publish_now>${icon("ext", 16)}Publish now</button></form>` : "";
+  const swap = cal ? `<a class='btn sec' href='${cal}'>${icon("cal", 16)}Swap slot</a>` : "";
   const utc = at ? ` data-utc='${new Date(parse(at) ?? 0).toISOString()}'` : "";
-  const custom = `<details class=pop><summary class='btn sec'>${icon("clock", 16)}Custom time</summary><div class=box><form method=post action='${act}' class=btns style='margin:0'>
-<input type=datetime-local name=at required aria-label='Custom time'${utc}><input type=hidden name=tz value=''><button class='btn dark' name=action value=custom>Save</button></form></div></details>`;
-  return `<div class='btns whentools'>${now}${custom}</div>`;
+  const custom = `<details class=cust><summary class='btn sec'>${icon("clock", 16)}Custom time</summary><form method=post action='${act}' class=btns><input type=datetime-local name=at required aria-label='Custom time'${utc}><input type=hidden name=tz value=''><button class='btn dark' name=action value=custom>Save</button></form></details>`;
+  return `<div class='btns whentools'>${now}${swap}${custom}</div>`;
+}
+
+/** The ISO week a UTC stamp falls in, in UTC (the browser's week may differ by a day at the edge). */
+function isoWeek(ms: number): string {
+  const d = new Date(ms);
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const y = t.getUTCFullYear();
+  const w = Math.ceil(((t.getTime() - Date.UTC(y, 0, 1)) / 86400000 + 1) / 7);
+  return `${y}-W${String(w).padStart(2, "0")}`;
 }
 
 async function whenCard(s: Slot, label: string, cls: string): Promise<string> {
   const { row, p } = s;
   const at = cls === "live" ? row.published_at : row.scheduled_at || (cls === "need" ? await previewSlot(p, s.slot) : null);
+  const cal = at ? `${path(p.client.id)}/calendar?w=${isoWeek(parse(at) ?? 0)}&hl=${encodeURIComponent(s.slot)}` : "";
   let wtxt: string;
   let wh: string;
   let act = "";
@@ -192,7 +226,7 @@ async function whenCard(s: Slot, label: string, cls: string): Promise<string> {
   }
   const busy = publishing(row, p.now);
   const hold = act || busy ? "" : holdButton(s);
-  if (!act) act = busy ? `<div class='btns whentools'><button class='btn pri' disabled>${icon("ext", 16)}Publishing…</button></div>` : cls !== "live" && MOVABLE.has(row.state) ? whenTools(s, at) : "";
+  if (!act) act = busy ? `<div class='btns whentools'><button class='btn pri' disabled>${icon("ext", 16)}Publishing…</button></div>` : cls !== "live" && MOVABLE.has(row.state) ? whenTools(s, cal, at) : "";
   const onSlot = at ? slots(p.client.grants).includes(new Date(parse(at) ?? 0).toISOString().slice(11, 16)) : false;
   const mode = cls === "live" || !at ? "" : onSlot ? "Auto" : "Custom";
   return `<section class='card whencard'><div class=row><div class=whenl><span class=wl>${wtxt}</span><p class=big>${wh}</p>${hold}${mode ? `<span class=wm>${mode}</span>` : ""}</div>${act}</div>${repliesCard(s)}${aiLabelCard(s)}</section>`;
@@ -226,7 +260,7 @@ function aiLabelCard(s: Slot): string {
   return `<div id=ailabel class=rblock><div class='rrow${lock ? " inh" : ""}'><div><b>AI label</b><small>${note}</small></div>${btn}</div></div>`;
 }
 
-async function perfCard(s: Slot, cls: string): Promise<string> {
+async function perfCard(s: Slot, cls: string, q: URLSearchParams): Promise<string> {
   const [m, at] = await mediaLatest(s.p.c, s.slot);
   let perf: string;
   if (m) {
@@ -238,44 +272,44 @@ async function perfCard(s: Slot, cls: string): Promise<string> {
   } else {
     perf = `<p class=muted style='margin:8px 0 0'>${cls === "live" ? "First numbers arrive within the hour." : "Numbers appear once it is live."}</p>`;
   }
+  if (s.row.published_at) perf += await viewsBlock(s.p, [s.row], q, 600, 200, "day", path(s.p.client.id, s.slot));
   return `<section class=card><h2>Performance</h2>${perf}</section>`;
 }
 
-/** Post text and first comment: two lines, then Edit (until it goes out) or Read. `extra` goes under an empty text. */
-function textCard(s: Slot, title: string, name: "caption" | "first_comment", text: string, empty: string, extra = ""): string {
+/** app.py's Post text card: two lines, then Edit (until it goes out) or Read; Copy in the head. */
+function captionCard(s: Slot): string {
   const act = `${path(s.p.client.id, s.slot)}/decide`;
-  const short = text ? esc(text.split(/\s+/).join(" ")) : empty;
-  if (!locked(s)) {
-    return `<section class=card><h2>${title}</h2><details class=capedit><summary class=crow><p class=clamp>${short}</p><span class='btn sec'>${icon("edit", 16)}Edit</span></summary>
-<form method=post action='${act}' style='margin-top:16px'><textarea name=${name} rows=${name === "caption" ? 14 : 4} maxlength=${CAPTION_MAX} aria-label='${title}'>${esc(text)}</textarea>
-<div class=btns><button class='btn dark' name=action value=${name}>Save text</button></div></form></details>${text ? "" : extra}</section>`;
+  const cap = s.caption;
+  const writing = open_(s.jobs.caption) && !cap;
+  const short = writing ? "Writing the post text…" : cap ? esc(cap.split(/\s+/).join(" ")) : `No text yet.${s.row.r2_key || s.host ? " <button class='lnk linkbtn' form=gencap name=action value=gencaption>Generate</button>" : ""}`;
+  const head = cap ? `<div class=row><h2>Post text</h2><button type=button class='x' title='Copy the post text' aria-label='Copy the post text' data-t='${esc(cap)}' onclick="navigator.clipboard.writeText(this.dataset.t);this.title='Copied'">${icon("copy", 16)}</button></div>` : "<h2>Post text</h2>";
+  if (!CAPTION_LOCKED.has(s.row.state) && !s.row.published_at) {
+    return `<section class=card>${head}<details class=capedit><summary class=crow><p class=clamp>${short}</p><span class='btn sec' title='Read the full text and edit'>${icon("edit", 16)}Edit</span></summary><form method=post action='${act}' style='margin-top:16px'><textarea name=caption rows=14 maxlength=${CAPTION_MAX} aria-label='Post text'>${esc(cap)}</textarea><div class=btns><button class='btn dark' name=action value=caption>Save text</button><button type=button class='btn sec' onclick="this.closest('details').open=false">Cancel</button></div></form></details><form id=gencap method=post action='${act}'></form></section>`;
   }
-  if (!text) return "";
-  return `<section class=card><h2>${title}</h2><details class=capedit><summary class=crow><p class=clamp>${short}</p><span class='btn sec'>Read</span></summary><div class=capfull>${esc(text)}</div></details></section>`;
+  if (!cap) return "";
+  return `<section class=card>${head}<details class=capedit><summary class=crow><p class=clamp>${short}</p><span class='btn sec' title='Read the full text'>Read</span></summary><div class=capfull>${esc(cap)}</div></details></section>`;
 }
 
-async function jobsCard(s: Slot): Promise<string> {
-  const jobs = Object.values(s.jobs).sort((a, b) => b.id - a.id);
-  if (!jobs.length) return "";
-  const rows = jobs.map((j) => `<tr><td>${esc(j.kind)}</td><td>${jobLine(j, s.p.now).replace(/^[^:]+: /, "")}</td></tr>`).join("");
-  const hosts = jobs.some((j) => j.state === "queued") ? `<p class=hint>${await hostsLine(s.p.env.DB, s.p.client.id, s.p.now)}</p>` : "";
-  return `<section class=card><h2>Jobs</h2><table class=jobs>${rows}</table>${hosts}</section>`;
+function deleteCard(s: Slot, title: string): string {
+  const box = `<form method=post action='${path(s.p.client.id, s.slot)}/delete' class=rgbox onsubmit="const b=this.querySelector('.danger');b.classList.add('busy');b.textContent='Deleting…';this.querySelectorAll('button').forEach(x=>x.disabled=true)"><h2>Delete this video?</h2><p class=muted style='margin:0;max-width:380px'>&ldquo;${esc(title)}&rdquo; leaves the plan, the calendar and the dashboard. A PC that made it keeps its files.</p><div class=btns><button class='btn danger small'>Delete</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>`;
+  return popup(`<button type=button class='btn sec' data-open>${icon("x", 16)}Delete video</button>`, box);
 }
 
-function popup(label: string, action: string, title: string, text: string, button: string): string {
-  return `<details class=pop><summary class='btn sec'>${icon("x", 16)}${label}</summary><div class=box><form method=post action='${action}'><h2>${title}</h2><p class=muted style='margin:0;max-width:380px'>${text}</p>
-<div class=btns><button class='btn danger small'>${button}</button></div></form></div></details>`;
+function removeCard(s: Slot, title: string): string {
+  const box = `<form method=post action='${path(s.p.client.id, s.slot)}/remove' class=rgbox><h2>Remove from Instagram?</h2><p class=muted style='margin:0;max-width:380px'>&ldquo;${esc(title)}&rdquo; is deleted from Instagram for good, with its likes, comments and views. Its numbers so far stay here. This cannot be undone.</p><div class=btns><button class='btn danger small'>Remove</button><button type=button class='btn sec small' data-close>Cancel</button></div></form>`;
+  return popup(`<button type=button class='btn sec' data-open>${icon("x", 16)}Remove from Instagram</button>`, box);
 }
 
 // ── pages ─────────────────────────────────────────────────────────────────────
 
-export async function renderVideo(p: Page, slot: string): Promise<Response> {
+export async function renderVideo(p: Page, slot: string, q: URLSearchParams = new URLSearchParams(), fetcher: Fetcher | null = null): Promise<Response> {
   const s = await load(p, slot);
   const { row, meta, jobs } = s;
   const [label, cls] = tagFor(row, jobs) ?? ["Not on the plan", "busy"];
+  const music = q.get("music") ?? "file";
+  const mq = (q.get("q") ?? "").trim().slice(0, 100);
+  if (q.get("rows") === "1") return page(await musicCard(s, cls, music, mq, false, fetcher), 200); // the Instagram rows, fetched after the page (AUDIO_JS)
   const st = making(jobs);
-  const base = path(p.client.id, slot);
-  const act = `${base}/decide`;
   const title = titleOf(row, meta);
 
   const whenLine = cls === "live" ? `<span class='tag live'>Live</span> &nbsp;since ${when(row.published_at)}`
@@ -287,37 +321,192 @@ export async function renderVideo(p: Page, slot: string): Promise<Response> {
   const nothingYet = st?.kind === "produce" && st.state !== "done" && !row.r2_key && !s.host;
   if (cls === "need" && !nothingYet) blocks.push(reviewCard(s));
   else if (["APPROVED", "QUEUED", "PAUSED"].includes(row.state)) {
-    blocks.push(`<section class=card><h2>Review</h2><form method=post action='${act}' class=crow><p>Approved. Something came up? Take the approval back and keep editing; it stays off Instagram until you approve again.</p><button class='btn sec' name=action value=revoke>${icon("edit", 16)}Edit</button></form></section>`);
+    blocks.push(`<section class=card><div class=row><h2>Review</h2>${motionPill(s)}</div><form method=post action='${path(p.client.id, slot)}/decide' class=crow><p>Approved. Something came up? Take the approval back and keep editing; it stays off Instagram until you approve again.</p><button class='btn sec' name=action value=revoke>${icon("edit", 16)}Edit</button></form></section>`);
   } else if (cls === "busy" && label === "In production") {
-    blocks.push(`<section class=card><h2>Being made</h2><div class=prog><i></i></div><p class=hint>Planned for ${when(row.scheduled_at) || "no slot yet"}. It comes back here for approval when it is ready. This page refreshes itself.</p>${st ? `<p class=hint>${jobLine(st, p.now)}</p>` : ""}</section>`);
-  } else if (cls === "busy" && st) {
-    const notes = parseJson(st.payload).notes;
-    blocks.push(`<section class=card><h2>${st.state === "running" ? "Rendering the new version" : "Starting"}…</h2><div class=prog><i></i></div>${typeof notes === "string" && notes ? `<div class=note>${esc(notes)}</div>` : ""}<p class=hint>${jobLine(st, p.now)}. This page refreshes itself.</p></section>`);
+    blocks.push(`<section class=card><h2>Being made</h2><div class=prog><i></i></div><p class=hint>Planned for ${when(row.scheduled_at)}. It comes back here for approval when it is ready. This page refreshes itself.</p></section>`);
+  } else if (cls === "busy") {
+    const notes = st ? parseJson(st.payload).notes : "";
+    blocks.push(`<section class=card><h2>${st?.state === "running" ? "Rendering the new version" : "Starting"}…</h2><div class=prog><i></i></div><div class=note>${esc(typeof notes === "string" ? notes : "")}</div><p class=hint>${st?.state === "queued" ? `${jobLine(st, p.now)}.` : `Started ${st ? ago(iso(st.created_at), p.now) : ""}.`} This page refreshes itself.</p></section>`);
   }
-  if (row.published_at) blocks.unshift(await perfCard(s, cls));
-  blocks.push(await jobsCard(s));
+  blocks.push(await musicCard(s, cls, music, mq, true, fetcher));
+  if (row.published_at) blocks.unshift(await perfCard(s, cls, q)); // published: performance leads the middle column
 
   const right: string[] = [await whenCard(s, label, cls)];
-  const gen = !s.caption && !locked(s) && (row.r2_key || s.host) && !open_(jobs.caption)
-    ? `<form method=post action='${act}' class=btns style='margin-top:8px'><button class='btn sec small' name=action value=gencaption>Write the caption on a PC</button></form>` : "";
-  const writing = open_(jobs.caption) && !s.caption;
-  right.push(textCard(s, "Post text", "caption", s.caption, writing ? "Writing the post text…" : "No text yet.", gen));
-  right.push(textCard(s, "First comment", "first_comment", s.first, "No first comment."));
+  right.push(captionCard(s));
   if (HAND_FROM.has(row.state)) {
-    right.push(`<section class=card><h2>Posted it by hand?</h2><div class=crow><p>Want to use a song only the Instagram app has? Post manually in the app, then link the post here so it gets tracked.</p><a class='btn sec' href='${base}/byhand'>${icon("link", 16)}Link</a></div></section>`);
+    right.push(`<section class=card><h2>Posted it by hand?</h2><div class=crow><p>Want to use a song only the Instagram app has? Post manually in the app, then link the post here so it gets tracked.</p><a class='btn sec' href='${path(p.client.id, slot)}/byhand'>${icon("link", 16)}Link</a></div></section>`);
   }
-  const links = [`<a class='btn plain' href='${base}/qa'>QA report</a>`];
-  if (!NO_DELETE.has(row.state) && !open_(st)) {
-    links.push(popup("Delete video", `${base}/delete`, "Delete this video?", `&ldquo;${esc(title)}&rdquo; leaves the plan, the calendar and the dashboard, with its file here. A PC that made it keeps its copy.`, "Delete"));
-  } else if (LIVE.has(row.state) && row.ig_media_id) {
-    links.push(popup("Remove from Instagram", `${base}/remove`, "Remove from Instagram?", `&ldquo;${esc(title)}&rdquo; is deleted from Instagram for good, with its likes, comments and views. Its numbers so far stay here. This cannot be undone.`, "Remove"));
-  }
+  const links = [`<a class='btn plain' href='${path(p.client.id, slot)}/qa'>QA report</a>`];
+  if (!NO_DELETE.has(row.state) && st?.state !== "running") links.push(deleteCard(s, title));
+  else if (LIVE.has(row.state) && row.ig_media_id) links.push(removeCard(s, title));
   right.push(`<div class=links>${links.join("")}</div>`);
 
-  const body = `<a class=back href='${path(p.client.id)}'>${icon("back", 16)}Overview</a><h1>${esc(title)} <span class=hno>${esc(slotNo(slot).filter(Boolean).join(" · "))}</span></h1><p class=sub>${whenLine}</p>
-<div class=vpage><div class=player>${player(s)}</div><div class='stack c2'>${blocks.join("")}</div><div class='stack c3'>${right.join("")}</div></div>`;
-  const refresh = cls === "busy" || publishing(row, p.now) ? 15 : open_(jobs.formats) || writing ? 5 : null;
+  const body = `<a class=back href='${path(p.client.id)}'>${icon("back", 16)}Overview</a><h1>${esc(title)} <span class=hno>${esc(slotNo(slot).filter(Boolean).join(" · "))}</span></h1><p class=sub>${whenLine}</p><div class=vpage><div class=player>${player(s, q.get("as") === "story")}</div><div class='stack c2'>${blocks.join("")}</div><div class='stack c3'>${right.join("")}</div></div>`;
+  const writing = open_(jobs.caption) && !s.caption;
+  const refresh = cls === "busy" || publishing(row, p.now) ? 15 : open_(jobs.formats) || writing || open_(jobs.track) ? 5 : null;
   return shell(p, "overview", body, title, refresh);
+}
+
+const IG_HOST = ".fbcdn.net"; // Instagram's CDN: the only place a song or a cover is taken from (in step with spine/tracks.py ig_url)
+const IG_TTL_MS = 6 * 3600_000; // spine/tracks.py IG_TTL
+const IG = "ig:"; // spine/tracks.py IG_PREFIX
+
+/** An https link on Instagram's CDN, or "". */
+function igUrl(v: unknown): string {
+  try {
+    const u = new URL(String(v ?? ""));
+    return u.protocol === "https:" && u.hostname.endsWith(IG_HOST) ? u.href : "";
+  } catch {
+    return "";
+  }
+}
+
+function songLocked(s: Slot): boolean {
+  return locked(s) || publishing(s.row, s.p.now);
+}
+
+/** One row of the picker, spine/tracks.py's shape. */
+interface Track { id: string; title: string; artist?: string | null; mood?: string | null; duration?: number | null; cover?: string | null; preview?: string | null; file?: string | null; audio_id?: string; link?: string | null }
+
+/** The PC's library as it sent it up (spine/worker.py sync_music): tracks.json in R2. */
+async function library(p: Page): Promise<{ tracks: Track[]; ig_queries: string[] }> {
+  const o = await p.env.MEDIA.get(`${p.client.id}/music/tracks.json`);
+  if (!o) return { tracks: [], ig_queries: [] };
+  try {
+    const j = JSON.parse(await o.text()) as { tracks?: Track[]; ig_queries?: string[] };
+    return { tracks: Array.isArray(j.tracks) ? j.tracks : [], ig_queries: Array.isArray(j.ig_queries) ? j.ig_queries.map(String) : [] };
+  } catch {
+    return { tracks: [], ig_queries: [] };
+  }
+}
+
+/** spine/tracks.py _ig_parse(). */
+function igParse(rows: Json[]): Track[] {
+  const out: Track[] = [];
+  for (const r of rows) {
+    const aid = String(r.audio_id ?? r.id ?? "");
+    if (!/^\d+$/.test(aid)) continue;
+    const ms = Number(r.duration_in_ms);
+    out.push({ id: IG + aid, audio_id: aid, title: String(r.title || "Untitled"), artist: String(r.display_artist ?? r.ig_username ?? "") || null, mood: null,
+      cover: igUrl(r.cover_artwork_thumbnail_uri ?? r.profile_picture_url) || null, duration: ms > 0 ? Math.round(ms / 100) / 10 : null,
+      preview: igUrl(r.download_url) || null, link: String(r.on_platform_audio_preview_link ?? "") || null });
+  }
+  return out;
+}
+
+type IgCache = Record<string, { at: number; tracks: Track[] }>;
+
+async function igCache(p: Page): Promise<IgCache> {
+  const o = await p.env.MEDIA.get(`${p.client.id}/music/ig-cache.json`);
+  try {
+    return o ? (JSON.parse(await o.text()) as IgCache) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** spine/tracks.py ig_tracks(): trending (no query) or a search, cached IG_TTL. */
+async function igTracks(p: Page, graph: Graph, cache: IgCache, query: string | null): Promise<Track[]> {
+  const key = (query ?? "").trim().toLowerCase() || "trending:";
+  const hit = cache[key];
+  if (hit && p.now - hit.at < IG_TTL_MS) return hit.tracks;
+  const params: Record<string, string> = { audio_type: "music", user_id: String(p.client.ig_user_id ?? "") };
+  if (query) params.search_query = query;
+  const res = await graph.get("ig_audio", params);
+  const tracks = igParse(((res.audio ?? res.data ?? []) as Json[]) || []);
+  cache[key] = { at: p.now, tracks };
+  return tracks;
+}
+
+/** The picker's Instagram list: a search, else the client's searches interleaved (ig_picks), else trending. */
+async function igList(p: Page, graph: Graph, q: string, queries: string[]): Promise<Track[]> {
+  const cache = await igCache(p);
+  let out: Track[];
+  if (q) out = await igTracks(p, graph, cache, q);
+  else if (!queries.length) out = await igTracks(p, graph, cache, null);
+  else {
+    const lists = [];
+    for (const one of queries) lists.push(await igTracks(p, graph, cache, one));
+    const seen = new Map<string, Track>();
+    for (let i = 0; i < Math.max(...lists.map((l) => l.length)); i++) for (const l of lists) if (l[i] && !seen.has(l[i]!.id)) seen.set(l[i]!.id, l[i]!);
+    out = [...seen.values()];
+  }
+  await p.env.MEDIA.put(`${p.client.id}/music/ig-cache.json`, JSON.stringify(cache), { httpMetadata: { contentType: "application/json" } });
+  return out;
+}
+
+/** An Instagram song seen in any cached list (for the pick: the form carries only its id). */
+async function igKnown(p: Page, id: string): Promise<Track | null> {
+  for (const v of Object.values(await igCache(p))) for (const t of v.tracks ?? []) if (t.id === id) return t;
+  return null;
+}
+
+/** spine/tracks.py current_track(). */
+function currentTrack(s: Slot, lib: Track[]): string | null {
+  if (s.meta.track) return String(s.meta.track);
+  const music = String(((s.meta.film ?? {}) as Json).music ?? "");
+  return lib.find((t) => t.file && music.endsWith(t.file))?.id ?? null;
+}
+
+/** app.py music_card(): Library | Instagram, the rows, In use. `wait`: the Instagram rows load after the page (?rows=1). */
+async function musicCard(s: Slot, cls: string, src: string, q: string, wait: boolean, fetcher: Fetcher | null): Promise<string> {
+  if (cls === "live") return "";
+  const ig = src === "ig" || src === "instagram";
+  const base = path(s.p.client.id, s.slot);
+  const { tracks: lib, ig_queries } = await library(s.p);
+  const cur = currentTrack(s, lib);
+  const mix = s.jobs.track;
+  const seg = `<div class=seg><a href='${base}' class='${ig ? "" : "on"}'>Library</a><a href='${base}?music=ig' class='${ig ? "on" : ""}'>Instagram</a></div>`;
+  let search = "";
+  if (ig) {
+    const picked = ig_queries.length ? `Picked for ${esc(display(s.p.client).name)}: ${esc(ig_queries.join(", "))}` : "Trending on Instagram";
+    search = `<form method=get action='${base}' class=srch id=igq><input type=hidden name=music value=ig>${icon("search", 16)}<input name=q value='${esc(q)}' placeholder='Search Instagram music' autocomplete=off aria-label='Search Instagram music'></form><p class=hint style='margin:8px 0 0'>${q ? `Results for “${esc(q)}”` : picked}. The track is attached on Instagram when it publishes; here it plays with the video so you can hear the mix.</p>`;
+  }
+  let list: Track[] = [];
+  let err = "";
+  if (!ig) list = lib.map((t) => ({ ...t, preview: t.file ? `/${encodeURIComponent(s.p.client.id)}/track/${encodeURIComponent(t.id)}` : null }));
+  else if (!wait && fetcher) {
+    try {
+      list = await igList(s.p, await graphFor(s.p, fetcher), q, ig_queries);
+    } catch (e) {
+      err = e instanceof HttpError ? e.detail ?? e.message : String(e);
+    }
+  }
+  const locked_ = songLocked(s) || open_(mix);
+  const rows = list.map((t) => {
+    const on = t.id === cur;
+    const prev = t.preview ? `<button type=button class=pl data-src='${esc(t.preview)}' aria-label='Play ${esc(t.title)}'>${icon("play", 16)}</button>` : `<span class='pl off' title='No preview available'>${icon("music", 14)}</span>`;
+    const art = t.cover ? `<img class=art src='${esc(t.cover)}' alt=''>` : "";
+    const mood = t.mood ? ` · ${esc(t.mood)}` : "";
+    const dur = t.duration ? ` · ${Math.floor(t.duration / 60)}:${String(Math.floor(t.duration) % 60).padStart(2, "0")}` : "";
+    const btn = on ? "<span class='btn sec inuse'><i></i>In use</span>" : `<button class='btn sec' name=track value='${esc(t.id)}'${locked_ ? " disabled" : ""}>Use</button>`;
+    return `<div class='trk${on ? " on" : ""}'>${prev}${art}<div class=tn><b>${esc(t.title)}</b><small>${esc(t.artist ?? "")}${mood}${dur}</small></div>${btn}</div>`;
+  });
+  if (wait && ig) rows.push("<p class='muted igwait' role=status><i class=spin></i>Loading Instagram music…</p>");
+  else if (!rows.length) rows.push(`<p class=muted style='margin:6px 0 0'>${err ? `Instagram music is not reachable right now: ${esc(err)}` : ig ? "Nothing found." : "The library is not here yet: a PC sends it up when its host loop runs."}</p>`);
+  const want = mix ? String(((parseJson(mix.payload).track ?? {}) as Json).title ?? "the song") : "";
+  const status = open_(mix) ? `<p class=hint style='margin:12px 0 0'><i class=spin></i>Mixing &ldquo;${esc(want)}&rdquo; into the video on a PC.</p>`
+    : mix?.state === "failed" ? `<p class=hint style='margin:12px 0 0;color:#b42318'>Could not mix &ldquo;${esc(want)}&rdquo;: ${esc(jobResult(mix).slice(-200))}</p>` : "";
+  const icons = `<template id=i-play>${icon("play", 16)}</template><template id=i-pause>${icon("pause", 16)}</template>`;
+  return `<section class=card id=music><div class=row><h2>Music</h2>${seg}</div>${search}<form method=post action='${base}/track' class=tracks${wait && ig ? " data-wait" : ""}><input type=hidden name=src value='${ig ? "instagram" : "file"}'>${rows.join("")}</form>${status}${icons}<script>${AUDIO_JS}</script></section>`;
+}
+
+/** GET /<client>/track/<id>: a library track's file, from R2 (the PC sent it up). */
+export async function trackFile(p: Page, id: string, req: Request): Promise<Response> {
+  const t = (await library(p)).tracks.find((x) => x.id === id);
+  if (!t?.file) throw new HttpError(404, "track", "no such track");
+  const o = await p.env.MEDIA.get(`${p.client.id}/music/${t.file}`, { range: req.headers });
+  if (!o) throw new HttpError(404, "track", "the file is not here yet");
+  const h = new Headers({ "Content-Type": "audio/mpeg", "Accept-Ranges": "bytes", "Cache-Control": "private, max-age=3600" });
+  if (req.headers.has("Range") && o.range && "offset" in o.range) { // R2 reports a range even when none was asked
+    const off = o.range.offset ?? 0;
+    const len = o.range.length ?? o.size - off;
+    h.set("Content-Range", `bytes ${off}-${off + len - 1}/${o.size}`);
+    h.set("Content-Length", String(len));
+    return new Response(o.body, { status: 206, headers: h });
+  }
+  h.set("Content-Length", String(o.size));
+  return new Response(o.body, { headers: h });
 }
 
 /** Recent posts on the account that no slot is linked to yet, newest first. */
@@ -403,6 +592,24 @@ export async function act(p: Page, slot: string, action: string, form: FormData,
       if (!HAND_FROM.has(row.state)) throw new HttpError(400, "state", `${slot} is ${row.state}; only unpublished slots can be linked`);
       await linkByHand(p.c, slot, cand);
       return redirect(back);
+    }
+    case "track": {
+      if (songLocked(s)) throw new HttpError(409, "locked", LOCKED);
+      if (open_(s.jobs.track)) throw new HttpError(409, "busy", "a PC is mixing a song into it: wait for it to finish");
+      const id = field(form, "track");
+      let track: Json;
+      if (id.startsWith(IG)) {
+        const t = await igKnown(p, id);
+        if (!t || !t.audio_id) throw new HttpError(400, "track", "that Instagram song is no longer in the list: search for it again");
+        if (!t.preview) throw new HttpError(400, "track", "this song has no file Instagram lets us download");
+        track = { id: t.id, audio_id: t.audio_id, title: t.title, artist: t.artist ?? "", cover: t.cover ?? "", duration: t.duration ?? null, link: t.link ?? "", preview: t.preview };
+      } else {
+        const t = (await library(p)).tracks.find((x) => x.id === id);
+        if (!t) throw new HttpError(400, "track", "no such track in the library");
+        track = { id: t.id, title: t.title, artist: t.artist ?? "" };
+      }
+      await enqueue(s, "track", { slot: s.slot, track }); // the slot in the payload: ONCE_KINDS dedupes on it
+      return redirect(`${back}${id.startsWith(IG) ? "?music=ig" : ""}`);
     }
     case "formats": {
       const ratios = form.getAll("r").filter((r): r is string => typeof r === "string" && r in RATIOS);

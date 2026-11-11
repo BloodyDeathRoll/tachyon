@@ -65,7 +65,8 @@ Only on the Tachyon account (not Rosa's, not OneShot's). Use a scoped API token
 
 1. `npx wrangler d1 create tachyon` → put the id in `wrangler.toml`.
 2. `npx wrangler r2 bucket create tachyon-media`.
-3. `npm run db:remote` (the schema is idempotent).
+3. `npm run db:remote` (the schema is idempotent). A D1 created before PR #63 also needs
+   `npx wrangler d1 execute tachyon --remote --file migrations-0002-story.sql` once.
 4. `npx wrangler secret put SESSION_SECRET` (32+ random bytes),
    `npx wrangler secret put GOOGLE_CLIENT_SECRET`; set `GOOGLE_CLIENT_ID` in
    `wrangler.toml` from the Tachyon Google OAuth client.
