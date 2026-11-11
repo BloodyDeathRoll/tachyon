@@ -1,4 +1,4 @@
-// A new video on an open calendar slot (app.py add_new_box and _upload, spine/manual.py
+// A new video on an open calendar slot (the box is calendar.ts addNewBox; app.py _upload, spine/manual.py
 // add_prompt and add_upload, port): a prompt books the slot and asks a PC for a `produce` job;
 // an upload streams the browser's file into R2 through the API's PUT (src/index.ts media),
 // lands in Needs approval and asks a PC for the spec check (a `spec` job: approve waits for
@@ -17,17 +17,11 @@ import { insertJob } from "../jobs.ts";
 import { newSlotId, walked } from "../pickup.ts";
 import { dropVideo } from "../publish.ts";
 import { slots, takenSlots } from "./schedule.ts";
-import { ENGINES, esc, parse, path, redirect, type Page } from "./shell.ts";
+import { ENGINES, parse, path, redirect, type Page } from "./shell.ts";
 import { field } from "./video.ts";
 
 const VIDEO_EXT = new Set([".mp4", ".mov", ".m4v", ".webm", ".mkv"]);
 const TO_APPROVAL = ["BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL"];
-// the file as the request body (a form would wrap it in multipart), then the video page or the refusal's text
-const UP_JS = `(()=>{const f=document.getElementById('addup'),p=document.getElementById('addprog'),b=f.querySelector('button');
-f.addEventListener('submit',async e=>{e.preventDefault();const x=f.file.files[0];if(!x)return;b.disabled=true;p.textContent='Uploading…';
-const r=await fetch(f.action+'&name='+encodeURIComponent(x.name),{method:'POST',body:x});if(r.ok){location.href=r.url;return}
-b.disabled=false;p.textContent=new DOMParser().parseFromString(await r.text(),'text/html').querySelector('.card p')?.textContent||('error '+r.status);});})();`;
-
 /** The slot must be a future, free publishing slot (as the calendar showed it); its ISO form. */
 async function checkSlot(p: Page, at: string): Promise<string> {
   const ms = parse(at);
@@ -37,22 +31,6 @@ async function checkSlot(p: Page, at: string): Promise<string> {
   if (!slots(p.client.grants).includes(s.slice(11, 16)) || s.slice(17, 19) !== "00") throw new HttpError(400, "at", "that is not one of the publishing slots");
   if ((await takenSlots(p.c)).has(s)) throw new HttpError(400, "taken", "that slot is taken");
   return s;
-}
-
-/** The Add-a-video card under the calendar for `?add=<iso>`: upload a file, or describe one. */
-export function addBox(p: Page, at: string | null): string {
-  const ms = parse(at);
-  if (ms === null || ms <= p.now) return "";
-  const base = path(p.client.id);
-  const engines = Object.entries(ENGINES).map(([k, v]) => `<label class=chk><input type=radio name=engine value=${k}${k === "html" ? " checked" : ""}>${esc(v)}</label>`).join("");
-  return `<section class=card id=addnew style='margin-top:24px'><h2>Add a video <span class=muted style='font-weight:500;font-size:15px'><time datetime='${new Date(ms).toISOString()}'>${iso(ms)}</time></span></h2>
-<form id=addup method=post action='${base}/new/upload?at=${encodeURIComponent(iso(ms))}' style='margin-top:16px'><label>Your video<input type=file name=file accept='video/*' required></label>
-<p class=hint style='margin:0'>Goes to Instagram as it is (9:16, H.264). A PC checks the file before it can be approved.</p>
-<div class=btns><button class='btn pri small'>Upload</button><span class=muted id=addprog></span></div></form>
-<form method=post action='${base}/new' style='margin-top:24px'><input type=hidden name=at value='${iso(ms)}'><fieldset class=engines><legend>Animate with</legend>${engines}</fieldset>
-<label>What should the video be?<textarea name=prompt rows=5 placeholder='e.g. A light, airy reel on the swell chart: the particles rising behind the phone, ending on rosa.surf'></textarea></label>
-<p class=hint style='margin:0'>Leave it empty and Claude comes up with the idea. Claude plans it, then makes it like a week video on a PC with the files; it lands in Needs approval.</p>
-<div class=btns><button class='btn pri small'>Generate</button></div></form><script>${UP_JS}</script></section>`;
 }
 
 /** POST /<client>/new: book the slot, BRIEFED, a `produce` job with the prompt (manual.py

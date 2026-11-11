@@ -254,3 +254,14 @@ test("the cron minute runs pickup at :17 and insights otherwise, after the publi
   out = await tick(env, T0 + 60_000, fetcher);
   assert.deepEqual(out.rosa, ["insights account"]);
 });
+
+test("the time of day and the week follow the client's zone (grants timezone), UTC without one", async () => {
+  const { wall } = await import("../src/pages/insights.ts");
+  const at = Date.UTC(2026, 10, 11, 6, 30); // 06:30 UTC on Wed 11 Nov
+  assert.equal(new Date(wall(at, "Asia/Jerusalem")).getUTCHours(), 8); // IST, +2 in November
+  assert.equal(new Date(wall(Date.UTC(2026, 6, 1, 6, 30), "Asia/Jerusalem")).getUTCHours(), 9); // IDT, +3 in July
+  assert.equal(wall(at, "UTC"), at);
+  assert.equal(wall(at, "Not/AZone"), at);
+  const late = Date.UTC(2026, 10, 15, 22, 30); // Sunday 22:30 UTC is Monday 00:30 in Israel: the next week
+  assert.equal(new Date(wall(late, "Asia/Jerusalem")).getUTCDay(), 1);
+});

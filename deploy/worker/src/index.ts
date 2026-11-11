@@ -527,6 +527,21 @@ async function avatarUpload(req: Request, env: Env, user: UserRow, client: strin
   return json(200, { ok: true });
 }
 
+// ── a client's music library: the PC's tracks.json and mp3s, for the video page's Library tab ──
+const MUSIC_MAX = 25 * 1024 * 1024;
+const MUSIC_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.(mp3|json)$/;
+
+async function musicUpload(req: Request, env: Env, user: UserRow, client: string, name: string): Promise<Response> {
+  await member(env, user, client);
+  if (!MUSIC_NAME.test(name) || (name.endsWith(".json") && name !== "tracks.json")) throw new HttpError(400, "name", "an mp3, or tracks.json");
+  const len = Number(req.headers.get("Content-Length"));
+  if (!req.body || !Number.isInteger(len) || len <= 0) throw new HttpError(411, "length");
+  if (len > MUSIC_MAX) throw new HttpError(413, "size");
+  if (!(await roomFor(env.MEDIA, len))) throw new HttpError(507, "storage");
+  await env.MEDIA.put(`${client}/music/${name}`, req.body, { httpMetadata: { contentType: name.endsWith(".json") ? "application/json" : "audio/mpeg" } });
+  return json(200, { ok: true });
+}
+
 // ── router ────────────────────────────────────────────────────────────────────
 
 async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -581,6 +596,7 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   if (path === "/api/hosts" && req.method === "POST") return registerHost(req, env, user, now);
   if (p[0] === "static" && p[1] === "avatar" && p.length === 3 && req.method === "GET") return avatarImage(env, user, p[2]!.replace(/\.png$/, ""));
   if (p[0] === "api" && p[1] === "avatar" && p.length === 3 && req.method === "PUT") return avatarUpload(req, env, user, p[2]!);
+  if (p[0] === "api" && p[1] === "music" && p.length === 4 && req.method === "PUT") return musicUpload(req, env, user, p[2]!, p[3]!);
   if (path === "/api/jobs/next" && req.method === "GET") return nextJob(url, env, ctx, user, now);
   if (path === "/api/jobs" && req.method === "GET") return listJobs(url, env, user);
   if (path === "/api/jobs" && req.method === "POST") return enqueue(req, env, user, now);

@@ -2,11 +2,16 @@
 // judged on its 24 h snapshot, the groups by topic, engine and time of day with how certain a
 // gap is, the three recommendations (the Overview's line too), the weeks. No LLM, no writes.
 // Left out from app.py: the account refresh on render (the cron measures). The time of day
-// and the week are UTC: app.py used the machine's zone, the Worker has none and the grants
-// carry no zone, and the browser cannot reformat a grouping.
+// and the week are in the client's zone (grants `timezone`, as the PC's machine zone was
+// for app.py), UTC when the grants name none.
 
 import { posts, type Ctx, type PostRow } from "../db.ts";
 import { esc, header, num, parse, parseJson, path, shell, titleOf, type Json, type Page } from "./shell.ts";
+
+/** The client's zone (grants `timezone`, an IANA name), else UTC. */
+export function zoneOf(p: Page): string {
+  return typeof p.client.grants.timezone === "string" && p.client.grants.timezone ? p.client.grants.timezone : "UTC";
+}
 
 export const MIN_N = 3; // PLAN §7: fewer samples than this on a side is a hint, not a result
 const ITER = 2000; // shortcut: at most 2000 seeded draws per test, fewer past 30 ranks a draw (draws × ranks ≤ 60000), never the exact enumeration insights.py does up to 20000 groups; raise both if a page's CPU time allows
@@ -22,6 +27,7 @@ export interface Video {
   slot: string;
   title: string;
   at: number;
+  local?: number; // `at` on the client's wall clock (wall()): the time of day and the week; absent, UTC
   pillar: string;
   engine: string;
   part: string;
@@ -53,8 +59,19 @@ export async function metas(c: Ctx): Promise<Map<string, Json>> {
   return new Map(rows.map((r) => [r.slot_id, parseJson(r.text)]));
 }
 
-/** One Video per published post with a 24 h snapshot, oldest first (insights.py videos). */
-export async function videos(c: Ctx, all: PostRow[], meta: Map<string, Json>): Promise<Video[]> {
+/** `ms` moved by `zone`'s offset at that instant: its UTC fields read as the zone's wall clock. */
+export function wall(ms: number, zone: string): number {
+  try {
+    const f = new Intl.DateTimeFormat("en-US", { timeZone: zone, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" });
+    const q = Object.fromEntries(f.formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
+    return Date.UTC(+q.year!, +q.month! - 1, +q.day!, +q.hour!, +q.minute!, +q.second!) + (ms % 1000);
+  } catch {
+    return ms; // no such zone: UTC
+  }
+}
+
+/** One Video per published post with a 24 h snapshot, oldest first (insights.py videos). `zone`: the client's (grants timezone). */
+export async function videos(c: Ctx, all: PostRow[], meta: Map<string, Json>, zone = "UTC"): Promise<Video[]> {
   const rows = (await c.env.DB.prepare("SELECT post_id, metrics FROM metric_snapshots WHERE client = ? AND source = 'ig_media' AND window = '24h'").bind(c.client).all<{ post_id: string; metrics: string }>()).results;
   const snaps = new Map(rows.map((r) => [r.post_id, parseJson(r.metrics)]));
   const out: Video[] = [];
@@ -62,10 +79,11 @@ export async function videos(c: Ctx, all: PostRow[], meta: Map<string, Json>): P
     const at = parse(r.published_at);
     const m = snaps.get(r.slot_id);
     if (at === null || !m) continue;
-    const hour = new Date(at).getUTCHours();
+    const local = wall(at, zone);
+    const hour = new Date(local).getUTCHours();
     const n = (k: string) => Number(m[k]) || 0;
     out.push({
-      slot: r.slot_id, title: titleOf(r, meta.get(r.slot_id) ?? {}), at,
+      slot: r.slot_id, title: titleOf(r, meta.get(r.slot_id) ?? {}), at, local,
       pillar: (typeof r.pillar === "string" && r.pillar) || "No pillar", engine: (typeof r.engine === "string" && r.engine) || "Unknown",
       part: hour < 12 ? "Morning" : hour < 17 ? "Afternoon" : "Evening",
       views: n("views"), reach: n("reach"), skip: typeof m.reels_skip_rate === "number" ? m.reels_skip_rate : null, inter: n("total_interactions"),
@@ -174,7 +192,7 @@ function isoWeek(ms: number): string {
 export function weeks(vs: Video[]): { week: string; n: number; views: number; total: number }[] {
   const by = new Map<string, number[]>();
   for (const v of vs) {
-    const w = isoWeek(v.at);
+    const w = isoWeek(v.local ?? v.at);
     by.set(w, [...(by.get(w) ?? []), v.views]);
   }
   return [...by].sort(([a], [b]) => (a < b ? -1 : 1)).map(([week, g]) => ({ week, n: g.length, views: mean(g), total: g.reduce((a, x) => a + x, 0) }));
@@ -192,14 +210,14 @@ export function findings(vs: Video[], tables: Partial<Tables>): { text: string; 
     for (const r of rows) {
       if (r.vs === null || r.n < 2 || r.name === "No pillar" || r.name === "Unknown" || !(r.vs >= 1.5 || r.vs <= 0.67)) continue;
       const pct = certainty(vs, KEY[label], r.name, rows.length, r.vs < 1);
-      out.push([Math.abs(r.vs - 1) * r.n, { text: `${subject(label, r.name)}: ${r.vs.toFixed(1)}x the views of a typical video, over ${r.n} videos.`, pct }]);
+      out.push([Math.abs(r.vs - 1) * r.n, { text: `${subject(label, r.name)}: ${fixed(r.vs, 1)}x the views of a typical video, over ${r.n} videos.`, pct }]);
     }
   }
   const skips = vs.filter((v) => v.skip !== null);
   if (skips.length >= 2 * MIN_N) {
     const lo = [...skips].sort((a, b) => a.views - b.views).slice(0, MIN_N);
     const hi = [...skips].sort((a, b) => b.views - a.views).slice(0, MIN_N);
-    out.push([1, { text: `The ${MIN_N} best videos lost ${mean(hi.map((v) => v.skip!)).toFixed(0)}% of viewers straight away; the ${MIN_N} weakest lost ${mean(lo.map((v) => v.skip!)).toFixed(0)}%.`, pct: skipCertainty(vs) }]);
+    out.push([1, { text: `The ${MIN_N} best videos lost ${fixed(mean(hi.map((v) => v.skip!)), 0)}% of viewers straight away; the ${MIN_N} weakest lost ${fixed(mean(lo.map((v) => v.skip!)), 0)}%.`, pct: skipCertainty(vs) }]);
   }
   return out.sort((a, b) => b[0] - a[0]).slice(0, 5).map(([, t]) => t);
 }
@@ -237,13 +255,21 @@ async function accountDays(c: Ctx): Promise<Json[]> {
 
 // ── html ──────────────────────────────────────────────────────────────────────
 
+/** x with d decimals as Python's format(x, ".df"): toFixed rounds an exact tie up, Python to even (36.5 is "36"). */
+export function fixed(x: number, d: number): string {
+  const e = Math.abs(x).toFixed(100).split(".")[1]!.slice(d); // the exact decimal digits past the d-th
+  if (!/^50*$/.test(e)) return x.toFixed(d);
+  const t = Math.trunc(x * 10 ** d); // exact: a tie is k + 0.5
+  return t % 2 ? x.toFixed(d) : (t / 10 ** d).toFixed(d);
+}
+
 const day = (ms: number): string => `${new Date(ms).getUTCDate()} ${MON[new Date(ms).getUTCMonth()]}`;
 
 function delta(nowV: number | null, before: number | null): string {
   if (nowV === null || !before) return "";
   const p = ((nowV - before) / before) * 100;
   if (Math.abs(p) > 500) return `${p > 0 ? "up" : "down"} from ${num(before)} the week before`;
-  return `<span class='${p >= 0 ? "up" : "down"}'>${p >= 0 ? "+" : ""}${p.toFixed(0)}%</span> vs the week before`;
+  return `<span class='${p >= 0 ? "up" : "down"}'>${p >= 0 ? "+" : ""}${fixed(p, 0)}%</span> vs the week before`;
 }
 
 function chart(vs: Video[], typical: number, width = 600, H = 170): string {
@@ -252,7 +278,7 @@ function chart(vs: Video[], typical: number, width = 600, H = 170): string {
   const [L, B, T] = [30, 24, 10];
   const bw = (width - L) / n;
   const y = (v: number) => H - B - ((H - B - T) * v) / top;
-  const f = (x: number) => x.toFixed(1);
+  const f = (x: number) => fixed(x, 1);
   let out = `<svg viewBox='0 0 ${width} ${H}' role=img aria-label='Views in the first day, per video' font-size='11' fill='#888'><line x1=${L} x2=${width} y1=${f(y(typical))} y2=${f(y(typical))} stroke='#111' stroke-dasharray='4 4'/><text x=0 y=${f(y(typical) + 4)}>${num(typical)}</text>`;
   vs.forEach((v, i) => {
     const x = L + i * bw;
@@ -264,13 +290,13 @@ function chart(vs: Video[], typical: number, width = 600, H = 170): string {
 }
 
 function groupTable(rows: Group[]): string {
-  const body = rows.map((r) => `<tr><td>${esc(r.name)}${r.n >= MIN_N ? "" : " <span class=few>few videos</span>"}</td><td>${r.n}</td><td>${r.views.toFixed(0)}</td><td>${
-    r.vs === null ? "" : `<span class=${r.vs >= 1 ? "up" : "down"}>${r.vs.toFixed(1)}x</span>`}</td><td>${r.skip === null ? "–" : `${r.skip.toFixed(0)}%`}</td></tr>`).join("");
+  const body = rows.map((r) => `<tr><td>${esc(r.name)}${r.n >= MIN_N ? "" : " <span class=few>few videos</span>"}</td><td>${r.n}</td><td>${fixed(r.views, 0)}</td><td>${
+    r.vs === null ? "" : `<span class=${r.vs >= 1 ? "up" : "down"}>${fixed(r.vs, 1)}x</span>`}</td><td>${r.skip === null ? "–" : `${fixed(r.skip, 0)}%`}</td></tr>`).join("");
   return `<table class=ins-tab><tr><th></th><th>Videos</th><th>Avg views</th><th>vs typical</th><th>Skipped</th></tr>${body}</table>`;
 }
 
 const vidLi = (v: Video): string =>
-  `<li><span>${esc(v.title)}<small>${day(v.at)} · ${v.reach} reached${v.skip === null ? "" : ` · ${v.skip.toFixed(0)}% skipped`} · ${v.inter} interaction${v.inter === 1 ? "" : "s"}</small></span><b>${v.views}</b></li>`;
+  `<li><span>${esc(v.title)}<small>${day(v.at)} · ${v.reach} reached${v.skip === null ? "" : ` · ${fixed(v.skip, 0)}% skipped`} · ${v.inter} interaction${v.inter === 1 ? "" : "s"}</small></span><b>${v.views}</b></li>`;
 
 const pct = (p: number | null): string => (p === null ? "<b>–</b>" : `<b class='${p >= 90 ? "hi" : ""}'>${p}%</b>`);
 
@@ -280,7 +306,7 @@ function rows(items: [string, string, number | null][], empty: string, plain = f
 }
 
 function recsCard(recs: ReturnType<typeof recommendations>): string {
-  return `<section class=card><h2>Recommendations</h2>${rows(recs.map((r) => [r.title, `${r.vs.toFixed(1)}x views`, r.pct]), "Nothing beats the typical video yet.")}</section>`;
+  return `<section class=card><h2>Recommendations</h2>${rows(recs.map((r) => [r.title, `${fixed(r.vs, 1)}x views`, r.pct]), "Nothing beats the typical video yet.")}</section>`;
 }
 
 function patternsCard(found: ReturnType<typeof findings>): string {
@@ -289,13 +315,13 @@ function patternsCard(found: ReturnType<typeof findings>): string {
 
 /** The Overview's line under the numbers (app.py recs_line): the recommendations, then the link. */
 export async function recsLine(p: Page, all: PostRow[], meta: Map<string, Json>): Promise<string> {
-  const vs = await videos(p.c, all, meta);
+  const vs = await videos(p.c, all, meta, zoneOf(p));
   const recs = vs.length >= 3 ? recommendations(vs, tablesOf(vs, median(vs.map((v) => v.views)))) : [];
   return `<p class=recsline>${[...recs.map((r) => esc(r.title)), `<a href='${path(p.client.id)}/insights'>View full insights</a>`].join(" <i>|</i> ")}</p>`;
 }
 
 export async function renderInsights(p: Page): Promise<Response> {
-  const vs = await videos(p.c, await posts(p.c, null), await metas(p.c));
+  const vs = await videos(p.c, await posts(p.c, null), await metas(p.c), zoneOf(p));
   const days = await accountDays(p.c);
   const [viewsW, viewsP] = accountWeek(days, "views", p.now);
   const [reachW, reachP] = accountWeek(days, "reach", p.now);
@@ -316,7 +342,7 @@ export async function renderInsights(p: Page): Promise<Response> {
   const ranked = [...vs].sort((a, b) => b.views - a.views);
   const k = Math.min(3, Math.floor(vs.length / 2));
   const tables = tablesOf(vs, typical);
-  const wk = weeks(vs).reverse().map((w) => `<tr><td>${w.week}</td><td>${w.n}</td><td>${w.views.toFixed(0)}</td><td>${w.total}</td></tr>`).join("");
+  const wk = weeks(vs).reverse().map((w) => `<tr><td>${w.week}</td><td>${w.n}</td><td>${fixed(w.views, 0)}</td><td>${w.total}</td></tr>`).join("");
   const perf = `<section class='card perf'><div class=perfin><div><h2>Performance</h2><div class=stats>${stats}</div></div><div><h3>First day, per video</h3><p class=muted style='margin:2px 0 8px;font-size:13px'>Green beats the typical video (dashed). Every video is judged on its first 24 hours.</p>${chart(vs, typical)}</div></div></section>`;
   const list = (xs: Video[]) => `<div class='irow head'><span></span><em>Views, first day</em></div><ul class=ins-list>${xs.map(vidLi).join("")}</ul>`;
   const main = `${perf}<div class=ins-cols><section class=card><h3>What works</h3>${list(ranked.slice(0, k))}</section><section class=card><h3>What does not</h3>${list([...ranked].reverse().slice(0, k))}</section></div>
