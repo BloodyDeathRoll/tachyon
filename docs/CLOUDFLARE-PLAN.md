@@ -1,7 +1,8 @@
 # Cloudflare conversion — plan (not started)
 
-Written 2026-10-29, revised 2026-11-04 (operator decisions below). Nothing here is built.
-Execute later, phase by phase.
+Written 2026-10-29, revised 2026-11-04 (operator decisions below). Built so far: the
+Worker skeleton in `deploy/worker/` (schema, sign-in, members, jobs, R2 upload; tests run
+locally, nothing deployed, see its README). Everything else is executed later, phase by phase.
 
 ## Goal
 

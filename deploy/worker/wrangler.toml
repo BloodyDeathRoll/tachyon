@@ -1,0 +1,23 @@
+# Tachyon Worker - sign-in, members, job queue, R2 upload (docs/CLOUDFLARE-PLAN.md).
+# Deploys to the Tachyon Cloudflare account only, never to the Rosa or OneShot ones
+# (README.md). Until that account exists: `npm test` and `npx wrangler dev` (local).
+name = "tachyon"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+[observability]
+enabled = true
+
+[vars]
+# Public OAuth client id of the Tachyon Google project. Empty until the account exists.
+GOOGLE_CLIENT_ID = ""
+# Secrets, NOT here: `npx wrangler secret put SESSION_SECRET`, `... GOOGLE_CLIENT_SECRET`.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tachyon"
+database_id = ""   # from `npx wrangler d1 create tachyon`
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "tachyon-media"
