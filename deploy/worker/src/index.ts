@@ -15,6 +15,7 @@
 //                                                     not a member of are dropped
 //   GET  /login                                    -> the sign-in page: Google, then the session
 //                                                     token to paste into `spine.worker login`
+//   GET  /manifest.webmanifest, /icon.svg          -> the web-app manifest, public
 //   GET  /api/jobs/next?host=<id>                  -> job | 204  claim the oldest open job for
 //                                                     the host's clients (5 min lease)
 //   GET  /api/jobs?client=<c>[&slot=<s>]           -> the client's last 50 jobs, newest first
@@ -40,6 +41,7 @@ import { HttpError, json } from "./http.ts";
 import { insertJob, JOB_KINDS } from "./jobs.ts";
 import { clientsOf, member, type UserRow } from "./members.ts";
 import { pages } from "./pages/index.ts";
+import { roomFor } from "./quota.ts";
 import { mint, SESSION_TTL_MS, verify } from "./session.ts";
 
 export { HttpError };
@@ -71,6 +73,11 @@ const MEDIA = {
   video: { ext: "mp4", type: "video/mp4", column: "r2_key" },
   cover: { ext: "jpg", type: "image/jpeg", column: "cover_key" },
 } as const;
+// slice c: the web-app manifest (docs/CLOUDFLARE-PLAN.md, "Dashboard") and its icon, the only
+// static files here. Colours are the shell's --side and --ground. Public: a manifest is fetched
+// without the cookie unless the link says use-credentials (MDN, crossorigin), and it holds nothing.
+const MANIFEST = JSON.stringify({ name: "Tachyon", short_name: "Tachyon", start_url: "/app", display: "standalone", background_color: "#F8F8F8", theme_color: "#111111", icons: [{ src: "/icon.svg", sizes: "192x192 512x512", type: "image/svg+xml" }, { src: "/icon.svg", sizes: "any", type: "image/svg+xml" }] });
+const ICON = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='#111'/><text x='32' y='45' text-anchor='middle' font-family='system-ui,sans-serif' font-weight='800' font-size='38' fill='#8DF000'>T</text></svg>";
 
 interface HostRow {
   id: string;
@@ -433,6 +440,7 @@ export async function media(req: Request, env: { DB: D1Database; MEDIA: R2Bucket
   const len = Number(req.headers.get("Content-Length"));
   if (!req.body || !Number.isInteger(len) || len <= 0) throw new HttpError(411, "length");
   if (len > MAX_UPLOAD_BYTES) throw new HttpError(413, "size");
+  if (!(await roomFor(env.MEDIA, len))) throw new HttpError(507, "storage"); // stay inside R2's free tier; check-then-put is not atomic, the cap's 2 GB margin absorbs a race
   const key = `${client}/${slot}/${hex32()}.${kind.ext}`;
   await env.MEDIA.put(key, req.body, { httpMetadata: { contentType: kind.type } });
   const guard = name === "video" ? " AND ig_media_id IS NULL" : "";
@@ -461,6 +469,9 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
 
   if (path === "/") return json(200, { ok: true, service: "tachyon" });
   if (path === "/login" && req.method === "GET") return loginPage(env);
+  // slice c
+  if (path === "/manifest.webmanifest" && req.method === "GET") return new Response(MANIFEST, { headers: { "Content-Type": "application/manifest+json" } });
+  if (path === "/icon.svg" && req.method === "GET") return new Response(ICON, { headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=86400" } });
   if (path === "/auth/google" && req.method === "POST") return signIn(req, env, now);
   // back from Facebook: the signed state, not a session, says who this is
   if (path === "/connect/callback" && req.method === "GET") return callback(env, url, now);

@@ -1,12 +1,13 @@
 // The Overview (app.py render_overview, port): the account's numbers, every video as a card
 // with one tag, the schedule, next week, the followers who dropped, the sync card.
-// Left out from app.py: the views chart and the recommendations line (the Insights slice),
-// the live Instagram pulls on render (the cron measures), the audience export upload (a
-// browser upload to D1, later), the schedule editor (a grants write: the Settings slice),
-// the auto-prepare toggle (the same), the client-side filter script (the filter is a link).
+// Left out from app.py: the views chart (the Insights page has it), the live Instagram pulls
+// on render (the cron measures), the schedule editor (a grants write: the Settings slice),
+// the auto-prepare toggle (the same), the client-side filter script (the filter is a link),
+// the upload's progress script (the form posts and comes back with the result).
 
 import { OPS, posts, type Ctx } from "../db.ts";
 import { insertJob, latestJobs, type JobRow } from "../jobs.ts";
+import { metas, recsLine } from "./insights.ts";
 import { slots, takenSlots } from "./schedule.ts";
 import { ago, ENGINES, esc, header, icon, jobLine, mediaLatest, num, ORDER, parse, parseJson, path, redirect, shell, slotNo, tagFor, titleOf, when as whenText, whenTime, type Page, type Json } from "./shell.ts";
 import type { PostRow } from "../db.ts";
@@ -54,11 +55,6 @@ async function accountStats(c: Ctx): Promise<string> {
   const folNote = roll?.followers_count != null ? "now" : last ? `as of ${esc(String(last.date))}` : "no data yet";
   const stats: [string, unknown, string][] = [["Views", total("views"), "last 7 days"], ["Reached", total("reach"), "last 7 days"], ["Followers", followers, folNote], ["Link taps", total("profile_links_taps"), "last 7 days"]];
   return stats.map(([lab, v, note]) => `<div class=stat><span>${lab}</span><strong>${num(v)}</strong><small>${note}</small></div>`).join("");
-}
-
-/** One line under the numbers; the recommendations come with the Insights slice. */
-function recsLine(client: string): string {
-  return `<p class=recsline><a href='${path(client)}/insights'>View full insights</a></p>`;
 }
 
 async function videoCard(p: Page, row: PostRow, tag: [string, string], meta: Json): Promise<string> {
@@ -123,20 +119,24 @@ async function weekCard(p: Page, jobs: Map<string, Record<string, JobRow>>): Pro
   return `<section class=card><div class=row><h2>Next week</h2><span class=muted>${span}</span></div><div style='margin-top:16px'>${body}</div>${auto}</section>`;
 }
 
-/** Followers who dropped between the last two Instagram exports (the follower_dropped op). */
-async function droppedCard(p: Page): Promise<string> {
+/** Followers who dropped between the last two Instagram exports (the follower_dropped op); the
+    upload form (src/pages/audience.ts) and, back from it, the result (`up`). */
+async function droppedCard(p: Page, up: string | null): Promise<string> {
   const r = (await OPS.follower_dropped!(p.c, {})) as { snapshots: number; since: string | null; at: string | null; followers: number | null; dropped: string[] };
+  const form = `<form method=post enctype=multipart/form-data action='${path(p.client.id)}/audience/upload' class=btns style='margin:0'><input type=file name=file accept='.json,application/json' required aria-label='Export file'><button class='btn sec small'>Upload export</button></form>`;
   let body: string;
-  if (!r.snapshots) body = "<div class=crow><p>Upload your Instagram export (JSON, Followers and following) from a PC to start.</p></div>";
-  else if (r.snapshots === 1) body = "<div class=crow><p><b class=dnum>0</b> dropped.</p></div>";
+  if (!r.snapshots) body = `<div class=crow><p>Upload your Instagram export (the followers JSON file inside it) to start.</p>${form}</div>`;
+  else if (r.snapshots === 1) body = `<div class=crow><p><b class=dnum>0</b> dropped.</p>${form}</div>`;
   else {
     const n = r.dropped.length;
     const names = r.dropped.map((u) => `<li><a href='https://www.instagram.com/${encodeURIComponent(u)}/' target=_blank rel=noopener>@${esc(u)}</a></li>`).join("");
     const list = n ? `<details><summary class=lnk>View</summary><ul class=drops>${names}</ul></details>` : "";
-    body = `<div class=crow><p><b class=dnum>${n}</b> dropped since ${whenText(r.since)}.</p>${list}</div>`;
+    body = `<div class=crow><p><b class=dnum>${n}</b> dropped since ${whenText(r.since)}.</p>${list}${form}</div>`;
   }
+  const note = up === "same" ? "This export was already in: nothing changed." : up === "ok" ? `Export read: ${num(r.followers)} followers${r.snapshots < 2 ? "" : `, ${r.dropped.length} dropped`}.` : "";
+  const done = note ? `<p class=upok>${icon("check", 15)}${note}</p>` : "";
   const last = r.at ? `<p class=hint>Last export ${whenText(r.at)} · ${num(r.followers)} followers.</p>` : "";
-  return `<section class=card id=dropped><h2>Followers who dropped</h2>${body}${last}</section>`;
+  return `<section class=card id=dropped><h2>Followers who dropped</h2>${body}${done}${last}</section>`;
 }
 
 /** Sync: the cron picks reels up at :17 every hour (src/pickup.ts); the button runs it now
@@ -156,7 +156,7 @@ async function syncCard(p: Page, synced: string | null): Promise<string> {
 export async function renderOverview(p: Page, q: URLSearchParams): Promise<Response> {
   const jobs = await latestJobs(p.c.env.DB, p.client.id);
   const all = await posts(p.c, null);
-  const metas = new Map((await p.c.env.DB.prepare("SELECT slot_id, text FROM post_files WHERE client = ? AND name = 'meta.json'").bind(p.c.client).all<{ slot_id: string; text: string }>()).results.map((r) => [r.slot_id, parseJson(r.text)]));
+  const meta = await metas(p.c);
   let rows = all.map((r): [PostRow, [string, string] | null] => [r, tagFor(r, jobs.get(r.slot_id))]).filter((x): x is [PostRow, [string, string]] => x[1] !== null);
   const key = (r: PostRow) => parse(r.published_at || r.scheduled_at || String(r.updated_at)) ?? 0;
   rows.sort((a, b) => ORDER[a[1][1]]! - ORDER[b[1][1]]! || (["sched", "busy"].includes(a[1][1]) ? key(a[0]) - key(b[0]) : key(b[0]) - key(a[0])));
@@ -169,12 +169,12 @@ export async function renderOverview(p: Page, q: URLSearchParams): Promise<Respo
     .filter(([k, , n]) => k === "all" || n)
     .map(([k, lab, n]) => `<a href='${base}?f=${k}' class='${k === f ? "on" : ""}'>${lab}<i>${n}</i></a>`)
     .join("");
-  const cards = (await Promise.all(rows.filter((x) => f === "all" || x[1][1] === f).map(([r, t]) => videoCard(p, r, t, metas.get(r.slot_id) ?? {})))).join("")
+  const cards = (await Promise.all(rows.filter((x) => f === "all" || x[1][1] === f).map(([r, t]) => videoCard(p, r, t, meta.get(r.slot_id) ?? {})))).join("")
     || "<div class=empty>No videos yet. Prepare next week to fill this.</div>";
-  const perf = `<section class='card perf'><h2>Performance</h2><div class=stats>${await accountStats(p.c)}</div>${recsLine(p.client.id)}</section>`;
+  const perf = `<section class='card perf'><h2>Performance</h2><div class=stats>${await accountStats(p.c)}</div>${await recsLine(p, all, meta)}</section>`;
   const need = cnt("need");
   const vids = `<div class='row vhead'><h2>Videos${need ? ` <span class=tdo>${need} to approve</span>` : ""}</h2><div class=seg role=group aria-label='Show'>${filt}</div></div><div class=grid>${cards}</div>`;
-  const side = `${scheduleCard(p)}${await weekCard(p, jobs)}${await droppedCard(p)}${await syncCard(p, q.get("synced"))}`;
+  const side = `${scheduleCard(p)}${await weekCard(p, jobs)}${await droppedCard(p, q.get("up"))}${await syncCard(p, q.get("synced"))}`;
   const body = `${header(p, "Overview")}<div class=ovgrid><div class=maincol>${perf}${vids}</div><div class=side>${side}</div></div>`;
   const planning = jobs.get("")?.plan?.state === "running";
   return shell(p, "overview", body, "Overview", busy || planning ? 30 : null);
