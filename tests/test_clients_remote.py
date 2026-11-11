@@ -65,6 +65,17 @@ def test_pull_writes_the_markdown_and_grants(remote, monkeypatch):
     assert C.pull("rosa") == []
 
 
+
+def test_pull_refuses_a_path_and_leaves_no_temp_file(remote, monkeypatch):
+    import pytest
+    with pytest.raises(ValueError, match="client id"):
+        C.pull("../rosa")
+    fake(monkeypatch, (200, {"result": [{"name": "brand.md", "text": "# Rosa\n", "version": 1, "updated_by": 1, "updated_at": 5}]}),
+         (200, {"result": ROW}))
+    C.pull("rosa")
+    assert not list((remote / "clients" / "rosa").glob("*.tmp"))
+
+
 def test_a_job_pulls_first_and_tries_again_over_the_network(remote, monkeypatch):
     import urllib.error
     monkeypatch.setenv("TACHYON_HOME", str(remote / "home"))
@@ -85,7 +96,7 @@ def test_a_job_pulls_first_and_tries_again_over_the_network(remote, monkeypatch)
     monkeypatch.setattr(C, "pull", flaky)
     slept = []
     W.run_job(job, R.config(), runner=ok, sleep=slept.append)
-    assert len(tries) == 3 and slept == [W.POLL, W.POLL] and len(ran) == 2
+    assert len(tries) == 3 and slept == [W.PULL_WAIT, W.PULL_WAIT] and len(ran) == 2
     for status in (403, 404):   # not a member any more, or no such client: no retry, the job fails
         monkeypatch.setattr(C, "pull", lambda name, s=status: (_ for _ in ()).throw(R.RemoteError(s, "x")))
         with pytest.raises(RuntimeError, match="could not pull"):

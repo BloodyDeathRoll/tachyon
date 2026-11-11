@@ -123,15 +123,24 @@ async function newSlot(c: Ctx, env: { MEDIA: R2Bucket }, r: Json, fetcher: Fetch
     ]);
     if (res[1]!.meta.changes !== 1) throw new HttpError(409, "changed", `${slot} moved on under the import`); // the catch cleans up
   } catch (e) {
-    const live = ["PUBLISHED", "MEASURING"].includes((await post(c, slot)).state);
-    if (!live) {
-      // nothing half-made stays behind: the rows, their history, the cover
-      await c.env.DB.batch([
-        c.env.DB.prepare("DELETE FROM posts WHERE client = ? AND slot_id = ?").bind(c.client, slot),
-        c.env.DB.prepare("DELETE FROM post_files WHERE client = ? AND slot_id = ?").bind(c.client, slot),
-        c.env.DB.prepare("DELETE FROM journal WHERE client = ? AND target = ?").bind(c.client, slot),
-      ]);
-      if (coverKey) await env.MEDIA.delete(coverKey).catch(() => {}); // the sweep gets it otherwise
+    try {
+      const now = await post(c, slot);
+      if (now.state === "IDEA" && now.version === 0) {
+        // still the row this import made, untouched: nothing half-made stays behind
+        await c.env.DB.batch([
+          c.env.DB.prepare("DELETE FROM posts WHERE client = ? AND slot_id = ? AND state = 'IDEA' AND version = 0").bind(c.client, slot),
+          c.env.DB.prepare("DELETE FROM post_files WHERE client = ? AND slot_id = ? AND changes() = 1").bind(c.client, slot),
+          c.env.DB.prepare("DELETE FROM journal WHERE client = ? AND target = ? AND NOT EXISTS (SELECT 1 FROM posts WHERE client = ? AND slot_id = ?)").bind(c.client, slot, c.client, slot),
+        ]);
+      } else if (!["PUBLISHED", "MEASURING"].includes(now.state)) {
+        // someone else's write moved it on: theirs stays, only this import's two files go
+        await c.env.DB.prepare("DELETE FROM post_files WHERE client = ? AND slot_id = ? AND updated_by IS NULL AND updated_at = ? AND name IN ('caption.txt', 'meta.json')")
+          .bind(c.client, slot, c.now)
+          .run();
+      }
+      if (coverKey && !["PUBLISHED", "MEASURING"].includes(now.state)) await env.MEDIA.delete(coverKey).catch(() => {}); // the sweep gets it otherwise
+    } catch (cleanup) {
+      console.error("pickup cleanup", slot, cleanup); // the import's own error is the one to report
     }
     throw e;
   }
