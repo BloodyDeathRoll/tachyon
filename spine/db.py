@@ -515,3 +515,13 @@ class RemoteDB:
     def client_row(self) -> dict:
         """The clients row (grants, publisher, connected, ...), never the token."""
         return self._op("client")
+
+    def set_grants(self, grants: dict, emergency_stop: bool | None = None) -> None:
+        self._op("set_grants", grants=grants, emergency_stop=emergency_stop)
+
+    def client_files(self) -> list[dict]:
+        """clients/<c>/*.md as rows: name, text, version, updated_by, updated_at."""
+        return self._op("client_files")
+
+    def set_client_file(self, name: str, text: str) -> None:
+        self._op("set_client_file", name=name, text=text)

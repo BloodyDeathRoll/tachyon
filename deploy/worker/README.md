@@ -67,4 +67,14 @@ Only on the Tachyon account (not Rosa's, not OneShot's). Use a scoped API token
    `wrangler.toml` from the Tachyon Google OAuth client.
 5. Seed the first admin:
    `npx wrangler d1 execute tachyon --remote --command "INSERT INTO users (email, admin, created_at) VALUES ('you@example.com', 1, strftime('%s','now') * 1000)"`.
+   Every later user, membership and client goes through `/api/admin/*` (`src/admin.ts`; the
+   pages come with phase 6), with the admin's session token:
+   `curl -H "Authorization: Bearer $T" -H "Content-Type: application/json" -d '{"email":"them@example.com"}' <url>/api/admin/users`.
 6. `npm run deploy`.
+7. A client's brand text lives online once migrated (`client_files`); a PC gets it back with
+   `python -c "from spine import clients as C; print(C.pull('rosa'))"`, and the host loop
+   does that before every job.
+   No page edits that text online yet, and a job's `pull` overwrites a local edit of
+   `brand.md` (and the other markdown). Send one edited file up with
+   `python -c "from spine.db import DB; DB.for_client('clients/rosa').set_client_file('brand.md', open('clients/rosa/brand.md').read())"`.
+   Never re-run `spine/migrate_d1.py` for that: it replaces every table's rows for the client.

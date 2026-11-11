@@ -41,6 +41,7 @@ ID = re.compile(r"[^\w-]+")
 ARGV = {"plan": ("spine.week", "prepare"), "auto": ("spine.week", "auto"), "produce": ("spine.manual", "produce"),
         "revise": ("spine.revise", "run"), "formats": ("spine.formats", "make"), "caption": ("spine.caption", "write")}
 NO_SLOT = {"plan", "auto"}
+PULL_WAIT = 5   # seconds between pull tries: a blip, not a minute
 MAKES_VIDEO = {"produce", "revise", "formats"}   # kinds after which the slot's video.mp4 is reported
 
 
@@ -155,7 +156,7 @@ def _refused(job: dict, argv: list[str], why: str):
     raise ValueError(why)
 
 
-def run_job(job: dict, cfg: dict, *, runner=subprocess.run) -> dict:
+def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) -> dict:
     """Run one claimed job; the result for `done`. Raises with the reason for `fail`."""
     payload = json.loads(job.get("payload") or "{}") if isinstance(job.get("payload"), str) else (job.get("payload") or {})
     client, slot = job["client"], job.get("slot_id")
@@ -174,6 +175,15 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run) -> dict:
         _refused(job, argv, f"refused: a {job['kind']} job for {client} cannot run {' '.join(argv)}")
     if job["kind"] not in NO_SLOT and argv[3] != slot:
         _refused(job, argv, f"refused: the job is for slot {slot}, the command for {argv[3]}")
+    for i in range(REPORT_TRIES):   # the brand text and grants as they are online, before the prompts read them
+        try:
+            C.pull(client)
+            break
+        except (OSError, R.RemoteError) as e:
+            passing = isinstance(e, OSError) or e.status >= 500   # the network or the Worker down: worth another try
+            if i == REPORT_TRIES - 1 or not passing:
+                raise RuntimeError(f"could not pull {client}'s files: {e}") from e   # the job fails before it starts: stale text makes wrong films
+            sleep(PULL_WAIT)
     log = log_dir() / f"job-{job['id']}.log"
     with log.open("a") as out:
         r = runner([sys.executable, "-m", *argv], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT)
@@ -206,7 +216,7 @@ def once(cfg: dict, *, runner=subprocess.run, sleep=time.sleep) -> bool:
     t = threading.Thread(target=_beat, args=(job["id"], cfg, stop), daemon=True)
     t.start()
     try:
-        result = run_job(job, cfg, runner=runner)
+        result = run_job(job, cfg, runner=runner, sleep=sleep)
         action, body = "done", result
     except Exception as e:  # noqa: BLE001 — the job failed; the queue hears why
         action, body = "fail", str(e)[-TAIL - 100:]

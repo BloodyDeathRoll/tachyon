@@ -19,6 +19,7 @@ from spine import worker as W
 from tests.fakes import FakeWorker
 
 CFG = {"api": "http://w", "token": "t", "host": "pc-a"}
+REAL_PULL = C.pull   # a job pulls the client's files first (tests/test_clients_remote.py); the scripted tests skip it
 
 
 @pytest.fixture
@@ -28,6 +29,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setenv("TACHYON_TOKEN", "t")
     monkeypatch.setenv("TACHYON_HOST", "pc-a")
     monkeypatch.setattr(C, "CLIENTS", tmp_path / "clients")
+    monkeypatch.setattr(C, "pull", lambda name: [])
     for name, assets in (("rosa", True), ("acme", False)):
         d = tmp_path / "clients" / name
         (d / "posts").mkdir(parents=True)
@@ -277,6 +279,7 @@ def test_end_to_end_a_job_round_trip(worker, env, monkeypatch):
     monkeypatch.setenv("TACHYON_API", worker["url"])
     monkeypatch.setenv("TACHYON_TOKEN", worker["token"])
     monkeypatch.setenv("TACHYON_HOST", "pc-e2e")
+    monkeypatch.setattr(C, "pull", REAL_PULL)   # the real pull against the real Worker: grants.yaml from the row
     cfg = R.config()
     sd = env / "clients" / "rosa" / "posts" / "e2e-1"
     sd.mkdir()
@@ -292,4 +295,5 @@ def test_end_to_end_a_job_round_trip(worker, env, monkeypatch):
     job = R.call("GET", "/api/jobs?client=rosa&slot=e2e-1", cfg=cfg)["jobs"][0]
     assert job["state"] == "done" and job["holder"] == "pc-e2e"
     assert json.loads(job["result"])["media"]["sha"] == hashlib.sha256(b"vid").hexdigest()
+    assert "ig_user_id" in (env / "clients" / "rosa" / "grants.yaml").read_text()   # pulled from the row before the job
     assert W.once(cfg) is False

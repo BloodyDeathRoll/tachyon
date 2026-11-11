@@ -275,6 +275,8 @@ async function followerDropped(c: Ctx): Promise<Args> {
 }
 
 const POST_FILES = new Set(["caption.txt", "first_comment.txt", "meta.json"]); // posts/<slot>/ text the publisher reads
+const CLIENT_COLUMNS = new Set(["page_id", "ig_user_id", "ig_username", "emergency_stop", "display_name"]); // grants.yaml keys that are clients columns (display_name: `name`)
+const CLIENT_FILE = /^[\w-]{1,64}\.md$/;
 
 /** posts/<slot>/'s text files from post_files: {name: text}. */
 export async function files(c: Ctx, slot: string): Promise<Record<string, string>> {
@@ -325,6 +327,32 @@ export const OPS: Record<string, (c: Ctx, a: Args) => Promise<unknown>> = {
   },
   async client(c) {
     return clientRow(c);
+  },
+  /** grants.yaml's keys (not the columns beside them) and the emergency stop. Any member: a
+      member does everything for the client (docs/CLOUDFLARE-PLAN.md, "Access"), the stop
+      included, as on the local settings page. The request body's 64 KB cap bounds the size. */
+  async set_grants(c, a) {
+    const given = obj(a.grants, "grants");
+    const grants = Object.fromEntries(Object.entries(given).filter(([k]) => !CLIENT_COLUMNS.has(k)));
+    if (a.emergency_stop != null && typeof a.emergency_stop !== "boolean") throw new HttpError(400, "value", "emergency_stop must be true or false");
+    await c.env.DB.prepare("UPDATE clients SET grants = ?, emergency_stop = COALESCE(?, emergency_stop) WHERE id = ?")
+      .bind(JSON.stringify(grants), a.emergency_stop == null ? null : a.emergency_stop === true ? 1 : 0, c.client)
+      .run();
+    return true;
+  },
+  /** clients/<c>/*.md: brand.md, strategy.md, ... (docs/CLOUDFLARE-PLAN.md, "What moves where"). */
+  async client_files(c) {
+    return (await c.env.DB.prepare("SELECT name, text, version, updated_by, updated_at FROM client_files WHERE client = ? ORDER BY name").bind(c.client).all()).results;
+  },
+  async set_client_file(c, a) {
+    const name = str(a.name, "name");
+    if (!CLIENT_FILE.test(name)) throw new HttpError(400, "name", "a client file is <name>.md");
+    await c.env.DB.prepare(
+      "INSERT INTO client_files (client, name, text, version, updated_by, updated_at) VALUES (?, ?, ?, 1, ?, ?) ON CONFLICT(client, name) DO UPDATE SET text = excluded.text, version = client_files.version + 1, updated_by = excluded.updated_by, updated_at = excluded.updated_at",
+    )
+      .bind(c.client, name, str(a.text, "text"), c.by, c.now)
+      .run();
+    return true;
   },
   async set_permalink(c, a) {
     await c.env.DB.prepare("UPDATE posts SET permalink = ? WHERE client = ? AND slot_id = ? AND ig_media_id IS NOT NULL AND permalink IS NULL")

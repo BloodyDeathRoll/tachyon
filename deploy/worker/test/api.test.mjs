@@ -148,6 +148,28 @@ test("the sign-in page carries the Google client id and needs no session", async
   assert.match(r.data, /spine\.worker login/);
 });
 
+test("an admin invites, adds members and clients; a member cannot", async () => {
+  assert.equal((await call("GET", "/api/admin/users", { as: 1 })).status, 403);
+  const carol = (await call("POST", "/api/admin/users", { as: 3, body: { email: " Carol@Example.com ", admin: "false" } })).data.id; // only `true` makes an admin
+  assert.equal((await call("POST", "/api/admin/users", { as: 3, body: { email: "carol@example.com" } })).status, 409);
+  assert.equal((await call("POST", "/api/admin/users", { as: 3, body: { email: "nope" } })).status, 400);
+  assert.equal((await call("POST", "/api/admin/clients", { as: 3, body: { id: "zed", name: "Zed Surf" } })).status, 200);
+  assert.equal((await call("POST", "/api/admin/clients", { as: 3, body: { id: "zed" } })).status, 409);
+  assert.equal((await call("POST", "/api/admin/memberships", { as: 3, body: { user: carol, client: "nope" } })).status, 404);
+  assert.equal((await call("POST", "/api/admin/memberships", { as: 3, body: { user: carol, client: "zed" } })).status, 200);
+  const users = (await call("GET", "/api/admin/users", { as: 3 })).data.users;
+  assert.deepEqual(users.find((u) => u.id === carol), { id: carol, email: "carol@example.com", name: null, admin: false, signed_in: false, last_seen_at: null, clients: ["zed"] });
+  assert.equal((await call("GET", "/me", { as: carol })).data.clients[0], "zed");
+  const zed = (await call("GET", "/api/admin/clients", { as: 3 })).data.clients.find((c) => c.id === "zed");
+  assert.equal(zed.publisher, "worker");
+  assert.equal(zed.token_enc, undefined);
+  assert.equal((await call("DELETE", "/api/admin/memberships", { as: 3, body: { user: carol, client: "zed" } })).status, 200);
+  assert.deepEqual((await call("GET", "/me", { as: carol })).data.clients, []);
+  assert.equal((await call("DELETE", "/api/admin/users/3", { as: 3 })).status, 400); // not themself
+  assert.equal((await call("DELETE", `/api/admin/users/${carol}`, { as: 3 })).status, 200);
+  assert.equal((await call("GET", "/me", { as: carol })).status, 401);
+});
+
 test("logout bumps the epoch: every token dies", async () => {
   assert.equal((await call("POST", "/auth/logout", { as: 2 })).status, 200);
   assert.equal((await call("GET", "/me", { as: 2 })).status, 401);
