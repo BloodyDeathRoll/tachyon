@@ -13,7 +13,7 @@ moves a client's `tachyon.db` and files online (its docstring has the two comman
 ## A PC as a host (phase 2)
 
 A new PC: `deploy/setup-pc.sh <worker url>` does the steps below after installing the
-venvs, Remotion and the service (its header says what it needs first). A client's
+venvs, Remotion and the service (its header says what it needs first). Run it again after a node upgrade: the service's PATH names node's folder. A client's
 `assets/` folder comes from its creator as a zip, by hand; the rest is pulled.
 
 1. `python -m spine.worker login https://tachyon.<account>.workers.dev`: opens nothing

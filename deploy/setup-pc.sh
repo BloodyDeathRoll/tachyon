@@ -77,13 +77,15 @@ fi
 say "the service"
 mkdir -p "$HOME/.config/systemd/user"
 # the checkout's path and its venv's python, whatever the template says
-# a user unit gets a minimal PATH: jobs run claude, node and npx (often under nvm or ~/.local/bin)
+# a user unit gets a minimal PATH: jobs run claude, node and npx (often under nvm or ~/.local/bin).
+# nvm's folder names the node version: after a node upgrade, run this script again.
 UNIT_PATH="$(dirname "$(command -v claude)"):$(dirname "$(command -v node)"):/usr/local/bin:/usr/bin:/bin"
-sed -e "s#%h/Projects/tachyon#$ROOT#" -e "s#/usr/bin/python3#$PY#" -e "/^\[Service\]/a Environment=PATH=$UNIT_PATH" \
+sed -e "s#%h/Projects/tachyon#$ROOT#" -e "s#/usr/bin/python3#$PY#" -e "/^\[Service\]/a Environment=\"PATH=$UNIT_PATH\"" \
   deploy/tachyon-worker.service > "$HOME/.config/systemd/user/tachyon-worker.service"
-if systemctl --user daemon-reload 2>/dev/null; then
+if err=$(systemctl --user daemon-reload 2>&1); then
   echo "start it with: systemctl --user enable --now tachyon-worker  (and loginctl enable-linger $USER to keep it up without a session)"
 else
-  echo "no user session for systemctl (SSH without linger?): the unit is written; run \`loginctl enable-linger $USER\`, log in once, then systemctl --user enable --now tachyon-worker"
+  echo "systemctl --user daemon-reload failed: $err"
+  echo "the unit is written; with no user session (SSH without linger), run \`loginctl enable-linger $USER\`, log in once, then systemctl --user enable --now tachyon-worker"
 fi
 echo "done"
