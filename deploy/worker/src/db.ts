@@ -120,7 +120,7 @@ export async function journal(c: Ctx, action: string, target: string | null, int
 }
 
 export async function journalOutcome(c: Ctx, id: number, outcome: unknown): Promise<void> {
-  await c.env.DB.prepare("UPDATE journal SET outcome = ? WHERE client = ? AND id = ?").bind(dumps(outcome), c.client, id).run();
+  await c.env.DB.prepare("UPDATE journal SET outcome = ? WHERE client = ? AND id = ? AND outcome IS NULL").bind(dumps(outcome), c.client, id).run(); // write-once
 }
 
 /** How many times the slot went to FAILED (the publisher hands off after the second). */
