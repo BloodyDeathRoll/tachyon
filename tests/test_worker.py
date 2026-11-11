@@ -345,8 +345,8 @@ def test_login_checks_the_session_and_saves_it(env, monkeypatch):
 
 
 def test_run_stops_when_the_session_is_dead(env, monkeypatch):
-    # an idle poll, then the video sync's two reads (approved, queued: nothing), then the dead session
-    fake(monkeypatch, (200, {"clients": ["rosa"], "dropped": []}), (204, None), (200, {"result": []}), (200, {"result": []}), (401, {"error": "auth"}))
+    # an idle poll, then the video sync's read (nothing), then the dead session
+    fake(monkeypatch, (200, {"clients": ["rosa"], "dropped": []}), (204, None), (200, {"result": []}), (401, {"error": "auth"}))
     slept = []
     assert W.run(CFG, sleep=slept.append) == 3
     assert slept == [W.POLL]
@@ -425,18 +425,40 @@ def test_sync_videos_sends_a_new_or_changed_cut_and_nothing_else(env, monkeypatc
     for slot, data in (("s1", b"new"), ("s2", b"same"), ("s3", b"recut"), ("s5", b"live"), ("s6", b"old"), ("s7", b"big")):
         (posts / slot).mkdir()
         (posts / slot / "video.mp4").write_bytes(data)
+    (posts / "s1" / "cover.jpg").write_bytes(b"c1")   # goes with s1's new cut
+    (posts / "s5" / "cover.jpg").write_bytes(b"c5")   # published, no cover online: the thumbnail
+    (posts / "s2" / "cover.jpg").write_bytes(b"c2")   # its cover is online already
+    (posts / "s7" / "cover.jpg").write_bytes(b"c7")   # its video was refused (R2 full): the cover waits too
     same = W.sha256(posts / "s2" / "video.mp4")
-    approved = [
-        {"slot_id": "s1", "r2_key": None, "r2_sha": None, "ig_media_id": None},       # never sent
-        {"slot_id": "s2", "r2_key": "k2", "r2_sha": same, "ig_media_id": None},       # the cut in R2
-        {"slot_id": "s3", "r2_key": "k3", "r2_sha": "0" * 64, "ig_media_id": None},   # re-rendered since
-        {"slot_id": "s4", "r2_key": None, "r2_sha": None, "ig_media_id": None},       # no file on this PC
-        {"slot_id": "s6", "r2_key": "k6", "r2_sha": None, "ig_media_id": None},       # sent from a browser
-        {"slot_id": "s7", "r2_key": None, "r2_sha": None, "ig_media_id": None},       # R2 full: the others still go
+    row = lambda slot, state="APPROVED", **kw: {"slot_id": slot, "state": state, "r2_key": None, "r2_sha": None, "ig_media_id": None, "cover_key": None, **kw}
+    rows = [
+        row("s1"),                                          # never sent
+        row("s2", r2_key="k2", r2_sha=same, cover_key="c"),  # the cut in R2
+        row("s3", "QUEUED", r2_key="k3", r2_sha="0" * 64),   # re-rendered since
+        row("s4"),                                          # no file on this PC
+        row("s5", "PUBLISHED", ig_media_id="123"),           # published: its cover only
+        row("s6", r2_key="k6"),                              # sent from a browser
+        row("s7"),                                          # R2 full: the others still go
     ]
-    queued = [{"slot_id": "s5", "r2_key": None, "r2_sha": None, "ig_media_id": "123"}]   # published
-    f = fake(monkeypatch, (200, {"result": approved}), (200, {"key": "x"}), (409, {"error": "changed"}), (507, {"error": "storage"}), (200, {"result": queued}))
-    assert W.sync_videos(["rosa"], CFG) == ["rosa/s1"]   # s3's PUT was refused (publishing): next round
-    puts = [c for c in f.calls if c[0] == "PUT"]
-    assert [c[1] for c in puts] == ["http://w/api/media/rosa/s1/video", "http://w/api/media/rosa/s3/video", "http://w/api/media/rosa/s7/video"]
-    assert puts[0][2] == b"new" and puts[0][3]["X-sha256"] == W.sha256(posts / "s1" / "video.mp4")
+    f = fake(monkeypatch, (200, {"result": rows}), (200, {"key": "v1"}), (200, {"key": "c1"}), (409, {"error": "changed"}),
+             (200, {"key": "c5"}), (507, {"error": "storage"}))
+    assert W.sync_videos(["rosa"], CFG) == ["rosa/s1", "rosa/s5 cover"]   # s3 refused (publishing): next round
+    puts = [c[1].removeprefix("http://w/api/media/rosa/") for c in f.calls if c[0] == "PUT"]
+    assert puts == ["s1/video", "s1/cover", "s3/video", "s5/cover", "s7/video"]
+    first = [c for c in f.calls if c[0] == "PUT"][0]
+    assert first[2] == b"new" and first[3]["X-sha256"] == W.sha256(posts / "s1" / "video.mp4")
+
+
+def test_sync_videos_a_refused_cover_is_retried_and_logged_once(env, monkeypatch):
+    sd = env / "clients" / "rosa" / "posts" / "s5"
+    sd.mkdir()
+    (sd / "cover.jpg").write_bytes(b"c5")
+    rows = [{"slot_id": "s5", "state": "PUBLISHED", "ig_media_id": "1", "r2_key": None, "r2_sha": None, "cover_key": None}]
+    said = []
+    monkeypatch.setattr(W, "say", said.append)
+    W._warned.clear()
+    fake(monkeypatch, (200, {"result": rows}), (409, {"error": "changed"}), (200, {"result": rows}), (409, {"error": "changed"}),
+         (200, {"result": rows}), (200, {"key": "c"}))
+    assert W.sync_videos(["rosa"], CFG) == [] and W.sync_videos(["rosa"], CFG) == []
+    assert len(said) == 1 and "cover not sent" in said[0]
+    assert W.sync_videos(["rosa"], CFG) == ["rosa/s5 cover"] and not W._warned
