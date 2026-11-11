@@ -180,6 +180,12 @@ def test_a_refused_job_marks_its_status_failed(env, monkeypatch):
     with pytest.raises(ValueError, match="refused"):
         W.run_job({"id": 3, "kind": "caption", "client": "rosa", "slot_id": "w01-s1", "payload": {"argv": ["spine.caption", "write", "rosa", "w09-s9"]}}, CFG)
     assert not (env / "clients" / "rosa" / "posts" / "w01-s1" / "caption.writing").exists()
+    evil = env / "clients" / "rosa" / "evil" / "caption.writing"   # where posts/../evil would land
+    evil.parent.mkdir()
+    evil.touch()   # a slot that is a path marks nothing
+    with pytest.raises(ValueError, match="refused"):
+        W.run_job({"id": 4, "kind": "caption", "client": "rosa", "slot_id": "../evil", "payload": {"argv": ["spine.caption", "write", "rosa", "w09-s9"]}}, CFG)
+    assert evil.exists()
 
 
 def test_upload_puts_the_video_the_cover_and_the_text_files(env, monkeypatch):
@@ -239,7 +245,7 @@ def test_pull_slot_writes_the_online_files(env, monkeypatch):
     monkeypatch.setattr(W, "pull_slot", lambda c, s: (_ for _ in ()).throw(R.RemoteError(403, "x")))
     with pytest.raises(RuntimeError, match="could not pull"):
         W.pull("rosa", "s", sleep=slept.append)
-    assert slept == [W.POLL]
+    assert slept == [W.PULL_WAIT]
 
 
 def test_push_changed_sends_only_what_the_job_wrote(env, monkeypatch):

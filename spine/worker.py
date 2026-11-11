@@ -217,6 +217,8 @@ def _refused(job: dict, argv: list[str], why: str):
     "running" as failed, as a failed start does, then raise for the queue."""
     from . import formats, revise, week
     client, slot, kind = job["client"], job.get("slot_id"), job["kind"]
+    if slot is not None and not re.fullmatch(r"[\w-]{1,64}", slot):   # it names a folder: never a path
+        slot = None
     try:
         if kind == "plan" and len(argv) > 3 and re.fullmatch(r"\d{4}-W\d{2}", argv[3]):
             week._status(client, argv[3], state="failed", error=why)
