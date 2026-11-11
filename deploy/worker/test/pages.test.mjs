@@ -134,6 +134,16 @@ test("the video page: the caption, the R2 player until publish, the permalink af
   assert.match(r.text, /value=approve/);
   assert.match(r.text, /Save text/);
   assert.match(r.text, /<time datetime="/); // the preview slot, in the browser's zone
+  assert.doesNotMatch(r.text, /class='seg fmtseg'/); // no story cut: no Reel/Story switch
+  assert.match(r.text, /Download reel/);
+  await env.DB.prepare("UPDATE posts SET story_key = 'rosa/a1/s.mp4' WHERE slot_id = 'a1'").run();
+  const reel = await call("GET", "/rosa/v/a1");
+  assert.match(reel.text, /class='seg fmtseg'><a href='\/rosa\/v\/a1' class='on'>Reel<\/a><a href='\/rosa\/v\/a1\?as=story' class=''>Story/);
+  const story = await call("GET", "/rosa/v/a1?as=story");
+  assert.match(story.text, /src='\/m\/rosa\/a1\/story'/);
+  assert.match(story.text, /Download story/);
+  assert.match(story.text, /Story UI/);
+  await env.DB.prepare("UPDATE posts SET story_key = NULL WHERE slot_id = 'a1'").run();
   const live = await call("GET", "/rosa/v/p1");
   assert.match(live.text, /https:\/\/instagram\.com\/reel\/m1/);
   assert.doesNotMatch(live.text, /\/m\/rosa\/p1\/video/);

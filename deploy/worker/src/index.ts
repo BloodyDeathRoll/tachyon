@@ -486,8 +486,8 @@ export async function media(req: Request, env: { DB: D1Database; MEDIA: R2Bucket
   if (!(await roomFor(env.MEDIA, len))) throw new HttpError(507, "storage"); // stay inside R2's free tier; check-then-put is not atomic, the cap's 2 GB margin absorbs a race
   const key = `${client}/${slot}/${hex32()}.${kind.ext}`;
   await env.MEDIA.put(key, req.body, { httpMetadata: { contentType: kind.type } });
-  // a video is not replaced while Instagram may be fetching it (a container in flight)
-  const guard = name === "video" ? " AND ig_media_id IS NULL AND state != 'PUBLISHING'" : "";
+  // a video (and its story, dropped with it at publish) is not replaced while Instagram may be fetching it
+  const guard = name !== "cover" ? " AND ig_media_id IS NULL AND state != 'PUBLISHING'" : "";
   // the file's sha256, as the host computed it: what it compares its cut against next time
   const sha = /^[0-9a-f]{64}$/.exec(req.headers.get("X-Sha256") ?? "")?.[0] ?? null;
   const shaSet = SHA_COLUMN[name] ? `, ${SHA_COLUMN[name]} = ?` : "";

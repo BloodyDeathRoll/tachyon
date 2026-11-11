@@ -565,3 +565,20 @@ def test_sync_music_skips_what_the_worker_refuses_and_keys_by_worker(env, monkey
     other = {**CFG, "api": "http://other"}
     f = fake(monkeypatch, (200, {"ok": True}), (200, {"ok": True}))
     assert W.sync_music(["rosa"], other) == ["rosa/tracks.json", "rosa/ok.mp3"]   # another Worker gets it all
+
+
+def test_sync_videos_sends_the_story_cut_once(env, monkeypatch):
+    sd = env / "clients" / "rosa" / "posts" / "s1"
+    sd.mkdir(parents=True)
+    (sd / "video-story.mp4").write_bytes(b"story")
+    old = time.time() - W.SETTLE - 5
+    os.utime(sd / "video-story.mp4", (old, old))
+    sha = W.sha256(sd / "video-story.mp4")
+    row = {"slot_id": "s1", "state": "APPROVED", "r2_key": None, "r2_sha": None, "ig_media_id": None, "cover_key": "c", "story_sha": None}
+    f = fake(monkeypatch, (200, {"result": [row]}), (200, {"key": "st"}))
+    assert W.sync_videos(["rosa"], CFG) == ["rosa/s1 story"]
+    put = [c for c in f.calls if c[0] == "PUT"][0]
+    assert put[1].endswith("/s1/story") and put[2] == b"story" and put[3]["X-sha256"] == sha
+    f = fake(monkeypatch, (200, {"result": [row | {"story_sha": sha}]}))   # the same cut is in R2: nothing goes
+    assert W.sync_videos(["rosa"], CFG) == []
+    assert not [c for c in f.calls if c[0] == "PUT"]

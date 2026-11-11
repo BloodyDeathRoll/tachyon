@@ -70,6 +70,7 @@ Only on the Tachyon account (not Rosa's, not OneShot's). Use a scoped API token
    `npx wrangler secret put GOOGLE_CLIENT_SECRET`; set `GOOGLE_CLIENT_ID` in
    `wrangler.toml` from the Tachyon Google OAuth client.
 5. Seed the first admin:
+   An existing D1 from before PR #63 also needs `npx wrangler d1 execute tachyon --remote --file migrations-0002-story.sql`.
    `npx wrangler d1 execute tachyon --remote --command "INSERT INTO users (email, admin, created_at) VALUES ('you@example.com', 1, strftime('%s','now') * 1000)"`.
    Every later user, membership and client goes through `/api/admin/*` (`src/admin.ts`; the
    pages come with phase 6), with the admin's session token:

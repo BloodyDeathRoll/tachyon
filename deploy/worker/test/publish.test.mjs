@@ -7,7 +7,7 @@ import { Budget } from "../src/budget.ts";
 import { DAY_MS, enqueueAuto, sweep, takeLease, tick } from "../src/cron.ts";
 import { open, seal } from "../src/crypto.ts";
 import { iso, OPS, setState } from "../src/db.ts";
-import { containerParams, publishClient } from "../src/publish.ts";
+import { containerParams, dropVideo, publishClient } from "../src/publish.ts";
 import { start } from "./harness.mjs";
 
 const T0 = Date.parse("2030-01-01T06:30:00Z");
@@ -219,10 +219,17 @@ test("the cron: a lease per client, the sweep, the daily auto job", async () => 
   // the sweep: a day-old object nobody names goes, a referenced or young one stays
   await env.MEDIA.put("rosa/old/zzz.mp4", "x");
   await env.MEDIA.put("rosa/w2/abc.mp4", "x"); // referenced by w2 (FAILED keeps its file)
+  await env.MEDIA.put("rosa/w2/sto.mp4", "x"); // w2's story cut, referenced too
+  await env.DB.prepare("UPDATE posts SET story_key = 'rosa/w2/sto.mp4' WHERE client = 'rosa' AND slot_id = 'w2'").run();
   const later = Date.now() + 2 * 24 * 60 * 60 * 1000;
   const swept = await sweep(env, later);
   assert.ok(swept.deleted.includes("rosa/old/zzz.mp4"));
   assert.ok(!swept.deleted.includes("rosa/w2/abc.mp4"));
+  assert.ok(!swept.deleted.includes("rosa/w2/sto.mp4"));
+  // dropVideo takes the story with the reel
+  assert.equal(await dropVideo(env, "rosa", "w2"), true);
+  assert.equal(await env.MEDIA.head("rosa/w2/sto.mp4"), null);
+  assert.equal((await env.DB.prepare("SELECT story_key FROM posts WHERE client = 'rosa' AND slot_id = 'w2'").first()).story_key, null);
   assert.equal(await env.MEDIA.head("rosa/old/zzz.mp4"), null);
   await env.MEDIA.put("rosa/young/yyy.mp4", "x");
   assert.deepEqual((await sweep(env, Date.now())).deleted, []);

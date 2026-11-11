@@ -132,7 +132,7 @@ export async function dropVideo(env: { DB: D1Database; MEDIA: R2Bucket }, client
     await env.MEDIA.delete(row.story_key);
     await env.DB.prepare("UPDATE posts SET story_key = NULL, story_sha = NULL WHERE client = ? AND slot_id = ? AND story_key = ?").bind(client, slot, row.story_key).run();
   }
-  if (!row?.r2_key) return false;
+  if (!row?.r2_key) return !!row?.story_key;
   await env.MEDIA.delete(row.r2_key);
   await env.DB.prepare("UPDATE posts SET r2_key = NULL, r2_sha = NULL WHERE client = ? AND slot_id = ? AND r2_key = ?").bind(client, slot, row.r2_key).run();
   return true;
