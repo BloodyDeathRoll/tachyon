@@ -187,7 +187,6 @@ def test_a_refused_job_marks_its_status_failed(env, monkeypatch):
         W.run_job({"id": 4, "kind": "caption", "client": "rosa", "slot_id": "../evil", "payload": {"argv": ["spine.caption", "write", "rosa", "w09-s9"]}}, CFG)
     assert evil.exists()
     # a client that is a path: refused, and no status is written anywhere
-    from spine import week as WK2
     before = sorted(str(x) for x in env.rglob("*"))
     with pytest.raises(ValueError, match="refused"):
         W.run_job({"id": 5, "kind": "plan", "client": "../x", "slot_id": None, "payload": {"argv": ["spine.week", "prepare", "rosa", "2026-W10"]}}, CFG)
