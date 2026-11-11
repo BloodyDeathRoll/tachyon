@@ -26,7 +26,9 @@ def icons() -> dict[str, str]:
     import ast
     import inspect
     fn = ast.parse(inspect.getsource(A.icon)).body[0]
-    d = next(n.value for n in ast.walk(fn) if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "paths")
+    d = next((n.value for n in ast.walk(fn) if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "paths"), None)
+    if d is None:
+        raise RuntimeError("app.icon() no longer assigns its icons to `paths`: update spine/review/export_ui.py icons()")
     return ast.literal_eval(d)
 
 

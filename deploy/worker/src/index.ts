@@ -511,7 +511,7 @@ const AVATAR_MAX = 512 * 1024;
 async function avatarImage(env: Env, user: UserRow, client: string): Promise<Response> {
   await member(env, user, client);
   const obj = await env.MEDIA.get(`${client}/avatar.png`);
-  if (obj) return new Response(obj.body, { headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=3600" } });
+  if (obj) return new Response(obj.body, { headers: { "Content-Type": "image/png", "Cache-Control": "private, max-age=60" } }); // a new icon shows within the minute
   const row = await env.DB.prepare("SELECT name FROM clients WHERE id = ?").bind(client).first<{ name: string | null }>();
   const letter = esc((row?.name || client).slice(0, 1).toUpperCase());
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="20" fill="#84E01B"/><text x="20" y="26" text-anchor="middle" font-family="Inter,system-ui,sans-serif" font-weight="700" font-size="17" fill="#111">${letter}</text></svg>`;
@@ -523,7 +523,11 @@ async function avatarUpload(req: Request, env: Env, user: UserRow, client: strin
   const len = Number(req.headers.get("Content-Length"));
   if (!req.body || !Number.isInteger(len) || len <= 0) throw new HttpError(411, "length");
   if (len > AVATAR_MAX) throw new HttpError(413, "size");
-  await env.MEDIA.put(`${client}/avatar.png`, req.body, { httpMetadata: { contentType: "image/png" } });
+  const put = await env.MEDIA.put(`${client}/avatar.png`, req.body, { httpMetadata: { contentType: "image/png" } });
+  if (put && put.size > AVATAR_MAX) { // Content-Length lied: the stream is not capped by it
+    await env.MEDIA.delete(`${client}/avatar.png`);
+    throw new HttpError(413, "size");
+  }
   return json(200, { ok: true });
 }
 
@@ -538,7 +542,11 @@ async function musicUpload(req: Request, env: Env, user: UserRow, client: string
   if (!req.body || !Number.isInteger(len) || len <= 0) throw new HttpError(411, "length");
   if (len > MUSIC_MAX) throw new HttpError(413, "size");
   if (!(await roomFor(env.MEDIA, len))) throw new HttpError(507, "storage");
-  await env.MEDIA.put(`${client}/music/${name}`, req.body, { httpMetadata: { contentType: name.endsWith(".json") ? "application/json" : "audio/mpeg" } });
+  const put = await env.MEDIA.put(`${client}/music/${name}`, req.body, { httpMetadata: { contentType: name.endsWith(".json") ? "application/json" : "audio/mpeg" } });
+  if (put && put.size > MUSIC_MAX) { // Content-Length lied: the stream is not capped by it
+    await env.MEDIA.delete(`${client}/music/${name}`);
+    throw new HttpError(413, "size");
+  }
   return json(200, { ok: true });
 }
 

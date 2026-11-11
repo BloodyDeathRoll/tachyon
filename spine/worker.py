@@ -205,6 +205,7 @@ def upload(client: str, slot: str, cfg: dict) -> dict:
 
 
 OUT = ("PUBLISHING", "PUBLISHED", "MEASURING", "ANALYZED", "REMOVED", "MANUAL_HANDOFF")   # on Instagram, or going
+MUSIC_MAX = 25 * 1024 * 1024   # the Worker's limit for one track (deploy/worker/src/index.ts)
 SETTLE = 120   # seconds a video file must sit unchanged before it is sent (a render writes it in steps)
 _shas: dict[str, tuple[float, int, str]] = {}   # path -> (mtime, size, sha): a cut is hashed once
 
@@ -278,27 +279,35 @@ def sync_music(clients: list[str], cfg: dict) -> list[str]:
     client's Instagram searches) and each track's mp3 for the preview, and the client's icon
     (the sidebar), sent when new or changed (~/.tachyon/music-sent.json remembers what went
     up). Names sent."""
+    from urllib.parse import quote
+
     from . import tracks as T
     try:
-        sent = json.loads(_music_sent().read_text())
+        state = json.loads(_music_sent().read_text())
     except (OSError, ValueError):
-        sent = {}
+        state = {}
+    sent = state.setdefault(cfg["api"], {})   # per Worker: another Worker (or a wiped bucket) gets it all again
     out = []
     for client in clients:
         d = C.client_dir(client) / "assets" / "music"
-        rows = [{k: t.get(k) for k in ("id", "title", "artist", "mood", "duration")} | {"file": Path(t["path"]).name if t.get("path", "") and str(t["path"]).endswith(".mp3") else None}
+
+        def sendable(t: dict) -> str | None:   # what the Worker takes (MUSIC_NAME, MUSIC_MAX): else no preview
+            f = Path(t["path"]).name if t.get("path") and str(t["path"]).endswith(".mp3") else ""
+            ok = re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.mp3", f) and (d / f).is_file() and (d / f).stat().st_size <= MUSIC_MAX
+            return f if ok else None
+        rows = [{k: t.get(k) for k in ("id", "title", "artist", "mood", "duration")} | {"file": sendable(t)}
                 for t in T.list_tracks(client, source="file")]
         body = json.dumps({"tracks": rows, "ig_queries": T.ig_queries(client)}, ensure_ascii=False, sort_keys=True).encode()
         items = [(f"/api/music/{client}/tracks.json", "tracks.json", body, "application/json")]
-        items += [(f"/api/music/{client}/{r['file']}", r["file"], d / r["file"], "audio/mpeg") for r in rows if r["file"] and (d / r["file"]).is_file()]
+        items += [(f"/api/music/{quote(client)}/{quote(r['file'])}", r["file"], d / r["file"], "audio/mpeg") for r in rows if r["file"]]
         icon = C.client_dir(client) / "assets" / "icon.png"   # the sidebar's avatar
         if icon.is_file():
-            items.append((f"/api/avatar/{client}", "icon.png", icon, "image/png"))
+            items.append((f"/api/avatar/{quote(client)}", "icon.png", icon, "image/png"))
         for url, name, src, ctype in items:
             data = src if isinstance(src, bytes) else None
             key = f"{client}/{name}"
             sha = hashlib.sha256(data).hexdigest() if data is not None else _sha(src)
-            if sent.get(key) == sha:
+            if sent.get(key) in (sha, f"refused:{sha}"):
                 continue
             try:
                 R.call("PUT", url, raw=data if data is not None else src.read_bytes(), cfg=cfg, headers={"Content-Type": ctype}, timeout=600)
@@ -306,12 +315,15 @@ def sync_music(clients: list[str], cfg: dict) -> list[str]:
                 if e.status == 401 or (e.status >= 500 and e.status != 507):
                     raise
                 say(f"{key}: not sent ({e})")
+                if e.status != 507:   # refused for what it is: not again until the file changes; R2 full: next round
+                    sent[key] = f"refused:{sha}"
+                    out.append(f"{key} refused")
                 continue
             sent[key] = sha
             out.append(key)
     if out:
         _music_sent().parent.mkdir(parents=True, exist_ok=True)
-        _music_sent().write_text(json.dumps(sent, indent=1))
+        _music_sent().write_text(json.dumps(state, indent=1))
     return out
 
 

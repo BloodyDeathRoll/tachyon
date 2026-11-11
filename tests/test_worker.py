@@ -543,3 +543,20 @@ def test_sync_music_sends_the_library_its_mp3s_and_the_icon_once(env, monkeypatc
     (d / "a.mp3").write_bytes(b"mp3 v2")
     fake(monkeypatch, (200, {"ok": True}))
     assert W.sync_music(["rosa"], CFG) == ["rosa/a.mp3"]
+
+
+def test_sync_music_skips_what_the_worker_refuses_and_keys_by_worker(env, monkeypatch):
+    from spine import tracks as T
+    d = env / "clients" / "rosa" / "assets" / "music"
+    d.mkdir(parents=True)
+    (d / "my song.mp3").write_bytes(b"x")   # a space: not a name the Worker takes, so no preview
+    (d / "ok.mp3").write_bytes(b"ok")
+    (d / "tracks.yaml").write_text("tracks:\n- {id: s, title: S, file: my song.mp3}\n- {id: o, title: O, file: ok.mp3}\n")
+    monkeypatch.setattr(T, "ROOT", env)
+    f = fake(monkeypatch, (200, {"ok": True}), (400, {"error": "name"}))
+    assert W.sync_music(["rosa"], CFG) == ["rosa/tracks.json", "rosa/ok.mp3 refused"]
+    assert [r["file"] for r in f.calls[0][2]["tracks"]] == [None, "ok.mp3"]
+    assert W.sync_music(["rosa"], CFG) == [] and len(f.calls) == 2   # refused: not again until the file changes
+    other = {**CFG, "api": "http://other"}
+    f = fake(monkeypatch, (200, {"ok": True}), (200, {"ok": True}))
+    assert W.sync_music(["rosa"], other) == ["rosa/tracks.json", "rosa/ok.mp3"]   # another Worker gets it all

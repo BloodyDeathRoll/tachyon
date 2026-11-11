@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { Budget } from "../src/budget.ts";
-import { enqueueAuto, sweep, takeLease, tick } from "../src/cron.ts";
+import { DAY_MS, enqueueAuto, sweep, takeLease, tick } from "../src/cron.ts";
 import { open, seal } from "../src/crypto.ts";
 import { iso, OPS, setState } from "../src/db.ts";
 import { containerParams, publishClient } from "../src/publish.ts";
@@ -240,4 +240,11 @@ test("the token seal round-trips and refuses another secret", async () => {
   assert.equal(await open(s, "k1"), "EAAB...");
   await assert.rejects(open(s, "k2"));
   await assert.rejects(open("junk", "k1"));
+});
+
+test("the sweep keeps a client's avatar and music library, whatever their age", async () => {
+  for (const k of ["rosa/avatar.png", "rosa/music/tracks.json", "rosa/music/a.mp3", "rosa/gone/avatar.png.mp4"]) await env.MEDIA.put(k, "x");
+  const { deleted } = await sweep(env, Date.now() + 3 * DAY_MS);
+  assert.ok(deleted.includes("rosa/gone/avatar.png.mp4")); // a video key that only looks like one
+  for (const k of ["rosa/avatar.png", "rosa/music/tracks.json", "rosa/music/a.mp3"]) assert.ok(await env.MEDIA.head(k), k);
 });

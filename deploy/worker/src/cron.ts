@@ -47,7 +47,7 @@ export async function sweep(env: { DB: D1Database; MEDIA: R2Bucket }, now: numbe
   );
   // shortcut: one list() page of 1,000 objects; past that, keep the cursor in the sweep lease row and go on next minute
   const page = await env.MEDIA.list({ limit: 1000 });
-  const gone = page.objects.filter((o) => !referenced.has(o.key) && !o.key.endsWith("/avatar.png") && !o.key.includes("/music/") && o.uploaded.getTime() < now - GRACE_MS).map((o) => o.key);
+  const gone = page.objects.filter((o) => !referenced.has(o.key) && !/^[^/]+\/(avatar\.png$|music\/)/.test(o.key) && o.uploaded.getTime() < now - GRACE_MS).map((o) => o.key);
   if (gone.length) await env.MEDIA.delete(gone);
   await env.DB.prepare("DELETE FROM pending_connects WHERE expires < ?").bind(now).run();
   return { deleted: gone, kept: page.objects.length - gone.length };
