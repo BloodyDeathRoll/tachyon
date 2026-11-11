@@ -150,6 +150,49 @@ def test_a_lost_lease_drops_the_result_and_a_flaky_report_is_tried_again(env, mo
     assert calls["n"] == 2 and slept == [W.POLL, W.POLL] and f.answers == [] and first[1] == (200, {"ok": True})
 
 
+def test_a_5xx_report_is_tried_again_and_a_revoked_beat_stops(env, monkeypatch):
+    job = {"id": 11, "kind": "plan", "client": "rosa", "slot_id": None, "payload": {"argv": ["spine.week", "prepare", "rosa", "2026-W10"]}}
+    ok = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0)  # noqa: E731
+    f = fake(monkeypatch, (200, job), (502, {"error": "upstream"}), (200, {"ok": True}))
+    slept = []
+    assert W.once(CFG, runner=ok, sleep=slept.append) is True
+    assert slept == [W.POLL] and f.answers == []
+    beats = fake(monkeypatch, (401, {"error": "auth"}), (200, {"ok": True}))
+    import threading
+    stop = threading.Event()
+    monkeypatch.setattr(W, "HEARTBEAT", 0)
+    W._beat(11, CFG, stop)   # returns on the 401 instead of beating forever
+    assert beats.answers == [(200, {"ok": True})]
+
+
+def test_a_refused_job_marks_its_status_failed(env, monkeypatch):
+    from spine import revise, week as WK
+    WK._status("rosa", "2026-W10", state="running")
+    with pytest.raises(ValueError, match="refused"):
+        W.run_job({"id": 1, "kind": "plan", "client": "rosa", "slot_id": None, "payload": {"argv": ["spine.publisher", "publish", "rosa", "2026-W10"]}}, CFG)
+    assert WK.status("rosa", "2026-W10")["state"] == "failed"
+    (env / "clients" / "rosa" / "posts" / "w01-s1").mkdir()
+    revise._write_status("rosa", "w01-s1", state="running")
+    with pytest.raises(ValueError, match="refused"):
+        W.run_job({"id": 2, "kind": "revise", "client": "rosa", "slot_id": "w01-s1", "payload": {"argv": ["spine.revise", "run", "rosa", "w09-s9"]}}, CFG)
+    assert revise.status("rosa", "w01-s1")["state"] == "failed"
+    (env / "clients" / "rosa" / "posts" / "w01-s1" / "caption.writing").touch()
+    with pytest.raises(ValueError, match="refused"):
+        W.run_job({"id": 3, "kind": "caption", "client": "rosa", "slot_id": "w01-s1", "payload": {"argv": ["spine.caption", "write", "rosa", "w09-s9"]}}, CFG)
+    assert not (env / "clients" / "rosa" / "posts" / "w01-s1" / "caption.writing").exists()
+    evil = env / "clients" / "rosa" / "evil" / "caption.writing"   # where posts/../evil would land
+    evil.parent.mkdir()
+    evil.touch()   # a slot that is a path marks nothing
+    with pytest.raises(ValueError, match="refused"):
+        W.run_job({"id": 4, "kind": "caption", "client": "rosa", "slot_id": "../evil", "payload": {"argv": ["spine.caption", "write", "rosa", "w09-s9"]}}, CFG)
+    assert evil.exists()
+    # a client that is a path: refused, and no status is written anywhere
+    before = sorted(str(x) for x in env.rglob("*"))
+    with pytest.raises(ValueError, match="refused"):
+        W.run_job({"id": 5, "kind": "plan", "client": "../x", "slot_id": None, "payload": {"argv": ["spine.week", "prepare", "rosa", "2026-W10"]}}, CFG)
+    assert sorted(str(x) for x in env.rglob("*")) == before
+
+
 def test_upload_puts_the_video_the_cover_and_the_text_files(env, monkeypatch):
     sd = env / "clients" / "rosa" / "posts" / "w01-s1"
     sd.mkdir()
@@ -203,11 +246,11 @@ def test_pull_slot_writes_the_online_files(env, monkeypatch):
     monkeypatch.setattr(W, "pull_slot", flaky)
     slept = []
     W.pull("rosa", "s", sleep=slept.append)
-    assert pulled == ["rosa", "s", "rosa", "s"] and slept == [W.POLL]
+    assert pulled == ["rosa", "s", "rosa", "s"] and slept == [W.PULL_WAIT]
     monkeypatch.setattr(W, "pull_slot", lambda c, s: (_ for _ in ()).throw(R.RemoteError(403, "x")))
     with pytest.raises(RuntimeError, match="could not pull"):
         W.pull("rosa", "s", sleep=slept.append)
-    assert slept == [W.POLL]
+    assert slept == [W.PULL_WAIT]
 
 
 def test_push_changed_sends_only_what_the_job_wrote(env, monkeypatch):

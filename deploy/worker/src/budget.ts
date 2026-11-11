@@ -8,12 +8,18 @@ export const BUDGET = 40; // the plan's margin under 50
 
 export class Budget {
   used = 0;
+  private warned = false;
   readonly limit: number;
   constructor(limit = BUDGET) {
     this.limit = limit;
   }
   spend(n = 1): void {
     this.used += n;
+    // never thrown: stopping mid-step could leave a half-made post; the log says it ran over
+    if (!this.warned && this.used > this.limit) {
+      this.warned = true;
+      console.warn(`subrequest budget passed: ${this.used} > ${this.limit}`);
+    }
   }
   get left(): number {
     return this.limit - this.used;
@@ -25,8 +31,11 @@ export class Budget {
 
 const RUNS = new Set(["run", "first", "all", "raw"]);
 
+// the real statement behind each counting proxy: batch() hands D1 its own objects
+const RAW = new WeakMap<object, D1PreparedStatement>();
+
 function statement(s: D1PreparedStatement, b: Budget): D1PreparedStatement {
-  return new Proxy(s, {
+  const p = new Proxy(s, {
     get(t, k: string) {
       const v = Reflect.get(t, k) as unknown;
       if (k === "bind") return (...args: unknown[]) => statement((v as (...a: unknown[]) => D1PreparedStatement).apply(t, args), b);
@@ -39,6 +48,8 @@ function statement(s: D1PreparedStatement, b: Budget): D1PreparedStatement {
       return typeof v === "function" ? (v as (...a: unknown[]) => unknown).bind(t) : v;
     },
   });
+  RAW.set(p, s);
+  return p;
 }
 
 /** The D1 binding, every statement run and every batch counted as one. */
@@ -50,7 +61,7 @@ export function countedDB(db: D1Database, b: Budget): D1Database {
       if (k === "batch") {
         return (stmts: D1PreparedStatement[]) => {
           b.spend();
-          return t.batch(stmts);
+          return t.batch(stmts.map((x) => RAW.get(x) ?? x));
         };
       }
       return typeof v === "function" ? (v as (...a: unknown[]) => unknown).bind(t) : v;
