@@ -5,7 +5,9 @@
 #   systemctl --user daemon-reload && systemctl --user enable --now tachyon-worker
 #   loginctl enable-linger $USER                    # keeps it running with no session open
 #
-# Edit WorkingDirectory and ExecStart for another checkout path or a venv's python. The crontab's
+# Edit WorkingDirectory and ExecStart for another checkout path or a venv's python. A user unit
+# has a minimal PATH: add `Environment=PATH=...` with the folders of `claude` and `node` under
+# [Service] (deploy/setup-pc.sh writes it). The crontab's
 # `week auto` and publish entries stay until phase 4 (docs/CLOUDFLARE-PLAN.md). Logs:
 # ~/.tachyon/logs/worker.log and job-<id>.log. Exit 3 is a dead session: it is not restarted;
 # run `login` again, then `systemctl --user start tachyon-worker`.

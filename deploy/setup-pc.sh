@@ -36,7 +36,8 @@ need claude "Claude Code: https://claude.com/claude-code, then \`claude login\`"
 command -v nvidia-smi >/dev/null 2>&1 || echo "note: no nvidia-smi; the Dia voice-over needs CUDA (tools/dia_tts.py)"
 if [ "$MISSING" != 0 ]; then echo "install the missing tools, then run this again"; exit 1; fi
 python3 -c 'import sys; assert sys.version_info >= (3, 12), sys.version' || { echo "python 3.12+ needed"; exit 1; }
-python3 -m venv --help >/dev/null 2>&1 || { echo "python3-venv is missing (apt install python3-venv)"; exit 1; }
+# `venv --help` works without python3-venv on Debian/Ubuntu; ensurepip is what it lacks
+python3 -c 'import ensurepip' 2>/dev/null || { echo "python3-venv is missing (apt install python3-venv)"; exit 1; }
 
 say "the spine's venv (.venv): pyyaml, playwright (HTML films), kokoro, soundfile"
 cd "$ROOT"
@@ -76,7 +77,10 @@ fi
 say "the service"
 mkdir -p "$HOME/.config/systemd/user"
 # the checkout's path and its venv's python, whatever the template says
-sed -e "s#%h/Projects/tachyon#$ROOT#" -e "s#/usr/bin/python3#$PY#" deploy/tachyon-worker.service > "$HOME/.config/systemd/user/tachyon-worker.service"
+# a user unit gets a minimal PATH: jobs run claude, node and npx (often under nvm or ~/.local/bin)
+UNIT_PATH="$(dirname "$(command -v claude)"):$(dirname "$(command -v node)"):/usr/local/bin:/usr/bin:/bin"
+sed -e "s#%h/Projects/tachyon#$ROOT#" -e "s#/usr/bin/python3#$PY#" -e "/^\[Service\]/a Environment=PATH=$UNIT_PATH" \
+  deploy/tachyon-worker.service > "$HOME/.config/systemd/user/tachyon-worker.service"
 if systemctl --user daemon-reload 2>/dev/null; then
   echo "start it with: systemctl --user enable --now tachyon-worker  (and loginctl enable-linger $USER to keep it up without a session)"
 else
