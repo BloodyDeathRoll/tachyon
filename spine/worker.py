@@ -131,6 +131,23 @@ def spec(client: str, slot: str, cfg: dict) -> dict:
         return {"issues": spec_check.check_file(p)}
 
 
+def _refused(job: dict, argv: list[str], why: str):
+    """A job that never runs writes no status of its own: mark the one the dashboard set to
+    "running" as failed, as a failed start does, then raise for the queue."""
+    from . import formats, revise, week
+    client, slot, kind = job["client"], job.get("slot_id"), job["kind"]
+    try:
+        if kind == "plan" and len(argv) > 3 and re.fullmatch(r"\d{4}-W\d{2}", argv[3]):
+            week._status(client, argv[3], state="failed", error=why)
+        elif kind in ("produce", "revise") and slot:
+            revise._write_status(client, slot, state="failed", error=why, failed_at=revise.now())
+        elif kind == "formats" and slot:
+            formats._status(client, slot, state="failed", error=why)
+    except Exception as e:  # noqa: BLE001 — the queue still hears the refusal
+        say(f"job {job['id']}: could not mark the refusal: {e}")
+    raise ValueError(why)
+
+
 def run_job(job: dict, cfg: dict, *, runner=subprocess.run) -> dict:
     """Run one claimed job; the result for `done`. Raises with the reason for `fail`."""
     payload = json.loads(job.get("payload") or "{}") if isinstance(job.get("payload"), str) else (job.get("payload") or {})
@@ -146,9 +163,9 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run) -> dict:
     # client must not run work for another, nor the publisher
     want = ARGV.get(job["kind"])
     if not want or tuple(argv[:2]) != want or len(argv) < 4 or argv[2] != client:
-        raise ValueError(f"refused: a {job['kind']} job for {client} cannot run {' '.join(argv)}")
+        _refused(job, argv, f"refused: a {job['kind']} job for {client} cannot run {' '.join(argv)}")
     if job["kind"] != "plan" and argv[3] != slot:
-        raise ValueError(f"refused: the job is for slot {slot}, the command for {argv[3]}")
+        _refused(job, argv, f"refused: the job is for slot {slot}, the command for {argv[3]}")
     log = log_dir() / f"job-{job['id']}.log"
     with log.open("a") as out:
         r = runner([sys.executable, "-m", *argv], cwd=ROOT, stdout=out, stderr=subprocess.STDOUT)

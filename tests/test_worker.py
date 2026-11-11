@@ -156,6 +156,19 @@ def test_a_5xx_report_is_tried_again_and_a_revoked_beat_stops(env, monkeypatch):
     assert beats.answers == [(200, {"ok": True})]
 
 
+def test_a_refused_job_marks_its_status_failed(env, monkeypatch):
+    from spine import revise, week as WK
+    WK._status("rosa", "2026-W10", state="running")
+    with pytest.raises(ValueError, match="refused"):
+        W.run_job({"id": 1, "kind": "plan", "client": "rosa", "slot_id": None, "payload": {"argv": ["spine.publisher", "publish", "rosa", "2026-W10"]}}, CFG)
+    assert WK.status("rosa", "2026-W10")["state"] == "failed"
+    (env / "clients" / "rosa" / "posts" / "w01-s1").mkdir()
+    revise._write_status("rosa", "w01-s1", state="running")
+    with pytest.raises(ValueError, match="refused"):
+        W.run_job({"id": 2, "kind": "revise", "client": "rosa", "slot_id": "w01-s1", "payload": {"argv": ["spine.revise", "run", "rosa", "w09-s9"]}}, CFG)
+    assert revise.status("rosa", "w01-s1")["state"] == "failed"
+
+
 def test_upload_puts_the_video_and_the_cover(env, monkeypatch):
     sd = env / "clients" / "rosa" / "posts" / "w01-s1"
     sd.mkdir()
