@@ -4,6 +4,7 @@ against the real one in Miniflare (the `worker` fixture, conftest.py)."""
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import subprocess
 import sys
@@ -488,3 +489,26 @@ def test_a_track_job_mixes_the_song_picked_online_and_sends_the_meta(env, monkey
     (sd / "video.mp4").unlink()
     with pytest.raises(FileNotFoundError):
         W.run_job(job, CFG)
+
+
+def test_an_instagram_song_is_taken_only_from_instagram(env):
+    from spine import tracks as T
+    ok = {"audio_id": "5", "preview": "https://video.xx.fbcdn.net/a.m4a", "cover": "https://evil.example/c.jpg",
+          "link": "https://www.instagram.com/reels/audio/5"}
+    t = T.ig_track(ok)
+    assert t["cover"] is None and t["link"] == ok["link"] and t["preview"] == ok["preview"]
+    assert T.ig_track({**ok, "link": "https://evil.example/x"})["link"] is None
+    for bad in ({**ok, "preview": ""}, {**ok, "preview": "https://fbcdn.net.evil.example/a"}):
+        with pytest.raises(ValueError):
+            T.ig_track(bad)
+    (env / "clients" / "rosa" / "posts" / "s").mkdir()
+
+    class Resp(io.BytesIO):
+        def __init__(self, data, final): super().__init__(data); self.final = final
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def geturl(self): return self.final
+    away = lambda u, timeout: Resp(b"x", "https://evil.example/a.m4a")  # noqa: E731
+    assert T.fetch_ig_preview("rosa", "s", ok["preview"], opener=away) is None
+    stay = lambda u, timeout: Resp(b"song", "https://video-2.xx.fbcdn.net/a.m4a")  # noqa: E731
+    assert T.fetch_ig_preview("rosa", "s", ok["preview"], opener=stay).read_bytes() == b"song"

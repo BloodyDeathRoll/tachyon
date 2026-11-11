@@ -322,7 +322,7 @@ export async function renderVideo(p: Page, slot: string): Promise<Response> {
   return shell(p, "overview", body, title, refresh);
 }
 
-const IG_HOST = ".fbcdn.net"; // Instagram's CDN: the only place a song or a cover is taken from
+const IG_HOST = ".fbcdn.net"; // Instagram's CDN: the only place a song or a cover is taken from (in step with spine/tracks.py ig_url)
 
 /** An https link on Instagram's CDN, or "". */
 function igUrl(v: unknown): string {
@@ -484,7 +484,8 @@ export async function act(p: Page, slot: string, action: string, form: FormData,
         audio_id: id, title: field(form, "title").slice(0, 200) || "Untitled", artist: field(form, "artist").slice(0, 200),
         cover: igUrl(field(form, "cover")), duration: dur > 0 ? dur : null, link: field(form, "link").slice(0, 500), preview,
       };
-      await enqueue(s, "track", { track });
+      await enqueue(s, "track", { slot: s.slot, track }); // the slot in the payload: ONCE_KINDS dedupes on it
+
       return redirect(back);
     }
     case "formats": {

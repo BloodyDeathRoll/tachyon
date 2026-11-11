@@ -439,6 +439,7 @@ test("music: Instagram's songs online, a pick is a track job a PC mixes, locked 
   assert.equal((await call("POST", "/rosa/v/mu1/track", { form: pick })).status, 303);
   const job = await env.DB.prepare("SELECT kind, payload FROM jobs WHERE slot_id = 'mu1' ORDER BY id DESC").first();
   assert.equal(job.kind, "track");
+  assert.equal(JSON.parse(job.payload).slot, "mu1");
   assert.deepEqual(JSON.parse(job.payload).track, { audio_id: "111", title: "A Big Mess", artist: "TrackTribe", cover: "", duration: 211, link: "", preview: pick.preview });
   r = await call("GET", "/rosa/v/mu1");
   assert.match(r.text, /Mixing &ldquo;A Big Mess&rdquo;/);
