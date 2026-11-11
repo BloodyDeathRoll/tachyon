@@ -35,6 +35,11 @@ need git "apt install git"
 need claude "Claude Code: https://claude.com/claude-code, then \`claude login\`"
 command -v nvidia-smi >/dev/null 2>&1 || echo "note: no nvidia-smi; the Dia voice-over needs CUDA (tools/dia_tts.py)"
 if [ "$MISSING" != 0 ]; then echo "install the missing tools, then run this again"; exit 1; fi
+# a user unit gets a minimal PATH: jobs run claude, node and npx (often under nvm or ~/.local/bin).
+# nvm's folder names the node version: after a node upgrade, run this script again. Checked
+# here, before the long installs: a " or \ would break the unit's quoted PATH.
+UNIT_PATH="$(dirname "$(command -v claude)"):$(dirname "$(command -v node)"):/usr/local/bin:/usr/bin:/bin"
+case "$UNIT_PATH" in *'"'*|*'\'*) echo "the folders of claude or node contain a \" or \\ (the unit's quoted PATH cannot): move them"; exit 1;; esac
 python3 -c 'import sys; assert sys.version_info >= (3, 12), sys.version' || { echo "python 3.12+ needed"; exit 1; }
 # `venv --help` works without python3-venv on Debian/Ubuntu; ensurepip is what it lacks
 python3 -c 'import ensurepip' 2>/dev/null || { echo "python3-venv is missing (apt install python3-venv)"; exit 1; }
@@ -77,10 +82,6 @@ fi
 say "the service"
 mkdir -p "$HOME/.config/systemd/user"
 # the checkout's path and its venv's python, whatever the template says
-# a user unit gets a minimal PATH: jobs run claude, node and npx (often under nvm or ~/.local/bin).
-# nvm's folder names the node version: after a node upgrade, run this script again.
-UNIT_PATH="$(dirname "$(command -v claude)"):$(dirname "$(command -v node)"):/usr/local/bin:/usr/bin:/bin"
-case "$UNIT_PATH" in *'"'*) echo "the folders of claude or node contain a \" (the unit's quoted PATH cannot): move them"; exit 1;; esac
 # safe in a sed replacement (& # \) and in a unit file (% is a specifier there)
 unit_text() { printf '%s' "$1" | sed -e 's/%/%%/g' -e 's/[&#\\]/\\&/g'; }
 sed -e "s#%h/Projects/tachyon#$(unit_text "$ROOT")#" -e "s#/usr/bin/python3#$(unit_text "$PY")#" \
