@@ -74,3 +74,6 @@ Only on the Tachyon account (not Rosa's, not OneShot's). Use a scoped API token
 7. A client's brand text lives online once migrated (`client_files`); a PC gets it back with
    `python -c "from spine import clients as C; print(C.pull('rosa'))"`, and the host loop
    does that before every job.
+   No page edits that text online yet: `spine/migrate_d1.py` is the only way in, and a job's
+   `pull` overwrites a local edit of `brand.md` (and the other markdown). Edit the online copy,
+   for now by re-running the migration for that client.
