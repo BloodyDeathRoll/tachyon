@@ -158,6 +158,8 @@ test("journal outcome, permalink backfill, experiments, engage, costs, conversio
   const j = (await op("journal", { action: "meta.container.create", target: "w01-s1", intent: { a: 1 } })).result;
   await op("journal_outcome", { id: j, outcome: { id: "c1" } });
   assert.equal((await env.DB.prepare("SELECT outcome FROM journal WHERE id = ?").bind(j).first()).outcome, '{"id":"c1"}');
+  await op("journal_outcome", { id: j, outcome: { id: "c2" } }); // write-once: the first stays
+  assert.equal((await env.DB.prepare("SELECT outcome FROM journal WHERE id = ?").bind(j).first()).outcome, '{"id":"c1"}');
   await env.DB.prepare("UPDATE posts SET permalink = NULL WHERE slot_id = 'w01-s1'").run();
   await op("set_permalink", { slot_id: "w01-s1", permalink: "https://p" });
   assert.equal((await op("post", { slot_id: "w01-s1" })).result.permalink, "https://p");
@@ -184,6 +186,12 @@ test("the clients row: grants in, columns out; the brand markdown with versions"
   assert.equal(row.token_enc, undefined);
   await op("set_grants", { grants: { slots: ["18:30"] } });
   assert.equal((await op("client")).result.emergency_stop, 1); // left alone when not given
+  // every grants.yaml key that is a column stays out of the grants JSON
+  await op("set_grants", { grants: { slots: ["06:30"], page_id: "p", ig_user_id: "u", ig_username: "n", emergency_stop: false, display_name: "R" } });
+  assert.deepEqual((await op("client")).result.grants, { slots: ["06:30"] });
+  // the stop is a boolean or nothing: "false" as a string is refused, not read as true
+  assert.equal((await op("set_grants", { grants: {}, emergency_stop: "false" })).status, 400);
+  assert.equal((await op("client")).result.emergency_stop, 1);
   assert.equal((await op("set_client_file", { name: "../brand.md", text: "x" })).status, 400);
   await op("set_client_file", { name: "brand.md", text: "# One" });
   await op("set_client_file", { name: "brand.md", text: "# Two" });

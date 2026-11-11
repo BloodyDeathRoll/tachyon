@@ -5,6 +5,7 @@ in Miniflare (the `worker` fixture in conftest.py; skipped without node_modules)
 from __future__ import annotations
 
 import json
+import sqlite3
 
 import pytest
 
@@ -20,6 +21,7 @@ def test_errors_map_to_the_local_exceptions(monkeypatch):
     fake = Fake((404, {"error": "slot", "detail": "no post s"}),
                 (409, {"error": "transition", "detail": "IDEA -> PUBLISHED is not allowed"}),
                 (400, {"error": "fields", "detail": 'unknown post fields ["colour"]'}),
+                (409, {"error": "exists", "detail": "ig_media_id 1 is another post's"}),
                 (401, {"error": "auth"}))
     monkeypatch.setattr(R, "opener", fake)
     db = RemoteDB("rosa", CFG)
@@ -29,6 +31,8 @@ def test_errors_map_to_the_local_exceptions(monkeypatch):
         db.set_state("s", "PUBLISHED")
     with pytest.raises(ValueError, match="colour"):
         db.create_post("s", "rosa", colour="blue")
+    with pytest.raises(sqlite3.IntegrityError, match="another post"):
+        db.set_state("s", "PUBLISHED", ig_media_id="1")
     with pytest.raises(R.RemoteError) as e:
         db.posts()
     assert e.value.status == 401
@@ -133,6 +137,7 @@ def test_qa_rounds_note_and_journal(db):
     assert db.post("q")["note"].startswith("hook")
     j = db.journal("meta.container.create", "q", {"a": 1})
     db.journal_outcome(j, {"id": "c1"})
+    db.journal_outcome(j, {"id": "c2"})   # write-once: the first outcome stays
     assert isinstance(j, int)
 
 
@@ -166,3 +171,16 @@ def test_snapshots_and_followers(db):
     db.import_followers({"written": "2026-02-01T00:00:00+00:00", "sha": "b", "followers": {"ann"}, "following": {"z"}}, "b.zip")
     assert db.follower_dropped() == {"snapshots": 2, "since": "2026-01-01T00:00:00+00:00", "at": "2026-02-01T00:00:00+00:00",
                                      "followers": 1, "dropped": ["bo"]}
+
+
+def test_local_journal_outcome_is_write_once(monkeypatch, tmp_path):
+    monkeypatch.delenv("TACHYON_API", raising=False)
+    monkeypatch.delenv("TACHYON_TOKEN", raising=False)
+    (tmp_path / "rosa").mkdir()
+    d = DB.for_client(tmp_path / "rosa")
+    assert not isinstance(d, RemoteDB)
+    j = d.journal("meta.container.create", "q", {"a": 1})
+    d.journal_outcome(j, {"id": "c1"})
+    d.journal_outcome(j, {"id": "c2"})
+    assert d.conn.execute("SELECT outcome FROM journal WHERE id=?", (j,)).fetchone()[0] == '{"id": "c1"}'
+    d.close()
