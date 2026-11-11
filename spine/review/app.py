@@ -857,11 +857,8 @@ def account_days(db: DB) -> list[dict]:
 
 
 def media_latest(db: DB, slot: str) -> tuple[dict | None, str | None]:
-    snaps = [s for s in db.snapshots(slot) if s["source"] == "ig_media"]
-    if not snaps:
-        return None, None
-    s = max(snaps, key=lambda x: x["collected_at"])
-    return s["metrics"], s["collected_at"]
+    s = db.latest_snapshot(slot, "ig_media")   # one row, not the video's whole history
+    return (s["metrics"], s["collected_at"]) if s else (None, None)
 
 
 _TRIED: dict[tuple[str, str], datetime] = {}   # (client, slot or "") -> last pull attempt
@@ -1078,6 +1075,11 @@ def views_series(db: DB, slot: str | None, g: str, start: datetime, end: datetim
     slot=None sums every video."""
     posts = [db.post(slot)] if slot else [r for r in db.posts() if r["published_at"]]
     gains: dict[datetime, int] = {}
+    if not slot:   # every video: the hourly sums (db.view_gains), ~one row an hour instead of every video's history
+        for h, gain in db.view_gains((start - timedelta(days=1)).astimezone(timezone.utc).strftime("%Y-%m-%dT%H")):
+            k = _bucket(datetime.fromisoformat(h + ":00:00+00:00").astimezone(LOCAL), g)
+            gains[k] = gains.get(k, 0) + gain
+        posts = []
     for r in posts:
         if not r["published_at"]:
             continue

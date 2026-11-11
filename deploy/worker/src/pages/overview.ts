@@ -77,8 +77,15 @@ async function accountStats(c: Ctx): Promise<string> {
 /** Views gained per snapshot step, summed over every published video (app.py views_series):
     [unix seconds, gain], from `since` on. The browser buckets them. */
 async function viewGains(c: Ctx, all: PostRow[], since: number): Promise<[number, number][]> {
-  const rows = (await c.env.DB.prepare("SELECT post_id, collected_at, json_extract(metrics, '$.views') AS v FROM metric_snapshots WHERE client = ? AND source = 'ig_media' ORDER BY post_id, collected_at")
-    .bind(c.client).all<{ post_id: string; collected_at: string; v: number | null }>()).results;
+  if (all.length !== 1) { // every video: the hourly sums putSnapshot keeps, ~one row an hour
+    const g = (await c.env.DB.prepare("SELECT hour, gain FROM view_gains WHERE client = ? AND hour >= ? ORDER BY hour")
+      .bind(c.client, new Date(since).toISOString().slice(0, 13)).all<{ hour: string; gain: number }>()).results;
+    return g.map((r) => [Math.round(Date.parse(`${r.hour}:00:00Z`) / 1000), r.gain]);
+  }
+  // a video page: that video's whole history (snaps_post, at most ~730 rows: hourly for 30 days), so every point has its base
+  const one = all[0]!.slot_id;
+  const rows = (await c.env.DB.prepare("SELECT post_id, collected_at, json_extract(metrics, '$.views') AS v FROM metric_snapshots WHERE client = ? AND post_id = ? AND source = 'ig_media' ORDER BY collected_at").bind(c.client, one)
+    .all<{ post_id: string; collected_at: string; v: number | null }>()).results;
   const by = new Map<string, [number, number][]>();
   for (const r of rows) {
     const t = parse(r.collected_at);

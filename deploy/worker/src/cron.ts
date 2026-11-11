@@ -75,6 +75,10 @@ function nextAutoAt(now: number): number {
   return d.getTime();
 }
 
+// the measuring check reads ~300 D1 rows; every minute that is ~450k of the free tier's 5M a day.
+// Every 5th minute still takes each hourly row and each window within minutes of its time.
+export const INSIGHTS_EVERY = 5;
+
 export async function tick(raw: CronEnv, now: number, fetcher: Fetcher = fetch, budget = new Budget()): Promise<Json> {
   const env: CronEnv = { ...raw, DB: countedDB(raw.DB, budget), MEDIA: countedR2(raw.MEDIA, budget) };
   const counted = countedFetch(fetcher, budget);
@@ -102,7 +106,7 @@ export async function tick(raw: CronEnv, now: number, fetcher: Fetcher = fetch, 
         if (new Date(now).getUTCMinutes() === PICKUP_MINUTE) {
           if (budget.has(PICKUP_COST)) for (const r of await pickup(env, client, token, now, counted, budget)) lines.push(`pickup ${JSON.stringify(r)}`);
           else lines.push("pickup: budget"); // next hour
-        } else {
+        } else if (new Date(now).getUTCMinutes() % INSIGHTS_EVERY === 0) {
           lines.push(...(await insights(env, client, token, now, counted, budget)).map((l) => `insights ${l}`));
         }
       }
