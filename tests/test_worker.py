@@ -235,7 +235,7 @@ def test_pull_slot_writes_the_online_files(env, monkeypatch):
     monkeypatch.setattr(W, "pull_slot", flaky)
     slept = []
     W.pull("rosa", "s", sleep=slept.append)
-    assert pulled == ["rosa", "s", "rosa", "s"] and slept == [W.POLL]
+    assert pulled == ["rosa", "s", "rosa", "s"] and slept == [W.PULL_WAIT]
     monkeypatch.setattr(W, "pull_slot", lambda c, s: (_ for _ in ()).throw(R.RemoteError(403, "x")))
     with pytest.raises(RuntimeError, match="could not pull"):
         W.pull("rosa", "s", sleep=slept.append)
