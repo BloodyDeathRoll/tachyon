@@ -4,7 +4,9 @@
 
 export const STORAGE_CAP = 8 * 1024 ** 3;
 
-/** Bytes in the bucket now: one Class A list per 1000 objects. */
+/** Bytes in the bucket now: one Class A list (and one subrequest) per 1000 objects.
+ *  shortcut: lists the whole bucket per upload, fine while published media is deleted;
+ *  keep a running total in D1 if the bucket ever holds thousands of objects. */
 export async function bucketBytes(bucket: R2Bucket): Promise<number> {
   let total = 0;
   let cursor: string | undefined;
