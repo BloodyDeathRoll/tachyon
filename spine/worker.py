@@ -162,6 +162,11 @@ def _beat(job_id: int, cfg: dict, stop: threading.Event) -> None:
     while not stop.wait(HEARTBEAT):
         try:
             R.call("POST", f"/api/jobs/{job_id}/heartbeat", {"host": host_id(cfg)}, cfg=cfg)
+        except R.RemoteError as e:
+            if e.status == 401:   # revoked: beating again cannot help; the report says so when the job ends
+                say(f"job {job_id}: session revoked, heartbeats stopped")
+                return
+            say(f"job {job_id}: heartbeat failed: {e}")
         except Exception as e:  # noqa: BLE001 — a missed beat is not a reason to stop the job
             say(f"job {job_id}: heartbeat failed: {e}")
 
@@ -188,6 +193,10 @@ def once(cfg: dict, *, runner=subprocess.run, sleep=time.sleep) -> bool:
             R.call("POST", f"/api/jobs/{job['id']}/{action}", {"host": host_id(cfg), "result": body}, cfg=cfg)
             break
         except R.RemoteError as e:
+            if e.status >= 500 and i < REPORT_TRIES - 1:   # the Worker's own trouble: worth another try
+                say(f"job {job['id']}: report failed ({e}), trying again")
+                sleep(POLL)
+                continue
             if e.status != 409:
                 raise
             say(f"job {job['id']}: lease lost, result dropped")   # another host has it now

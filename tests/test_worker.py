@@ -141,6 +141,21 @@ def test_a_lost_lease_drops_the_result_and_a_flaky_report_is_tried_again(env, mo
     assert calls["n"] == 2 and slept == [W.POLL, W.POLL] and f.answers == [] and first[1] == (200, {"ok": True})
 
 
+def test_a_5xx_report_is_tried_again_and_a_revoked_beat_stops(env, monkeypatch):
+    job = {"id": 11, "kind": "plan", "client": "rosa", "slot_id": None, "payload": {"argv": ["spine.week", "prepare", "rosa", "2026-W10"]}}
+    ok = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0)  # noqa: E731
+    f = fake(monkeypatch, (200, job), (502, {"error": "upstream"}), (200, {"ok": True}))
+    slept = []
+    assert W.once(CFG, runner=ok, sleep=slept.append) is True
+    assert slept == [W.POLL] and f.answers == []
+    beats = fake(monkeypatch, (401, {"error": "auth"}), (200, {"ok": True}))
+    import threading
+    stop = threading.Event()
+    monkeypatch.setattr(W, "HEARTBEAT", 0)
+    W._beat(11, CFG, stop)   # returns on the 401 instead of beating forever
+    assert beats.answers == [(200, {"ok": True})]
+
+
 def test_upload_puts_the_video_and_the_cover(env, monkeypatch):
     sd = env / "clients" / "rosa" / "posts" / "w01-s1"
     sd.mkdir()
