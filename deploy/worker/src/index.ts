@@ -360,6 +360,17 @@ async function listJobs(url: URL, env: Env, user: UserRow): Promise<Response> {
   return json(200, { jobs: (await q.all<JobRow>()).results });
 }
 
+/** Where sign-in goes next: a path on this site only (`/\\evil.com` and `//evil.com` are other
+    sites to a browser), else /app. Runs in the page too: loginPage inlines its source. */
+export function safeNext(next: string | null, origin: string): string {
+  try {
+    const u = new URL(next || "/app", origin);
+    return u.origin === origin ? u.pathname + u.search + u.hash : "/app";
+  } catch {
+    return "/app";
+  }
+}
+
 /** The sign-in page: Google's button, then the session token for `python -m spine.worker login`. */
 function loginPage(env: Env): Response {
   const setup = env.GOOGLE_CLIENT_ID
@@ -373,8 +384,7 @@ window.onload = () => {
     if (!x.ok) { m.textContent = "Refused: " + j.error + (j.error === "invite" ? " (ask an admin to invite this email)" : ""); return; }
     const q = new URLSearchParams(location.search);
     if (q.get("pc") !== "1") {
-      const next = q.get("next") || "";
-      location.replace(next.startsWith("/") && !next.startsWith("//") ? next : "/app"); // same site only
+      location.replace((${safeNext.toString()})(q.get("next"), location.origin)); // same site only
       return;
     }
     m.textContent = "Signed in as " + j.profile.email + ". Copy the token into: python -m spine.worker login " + location.origin;
