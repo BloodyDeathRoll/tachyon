@@ -37,9 +37,9 @@ command -v nvidia-smi >/dev/null 2>&1 || echo "note: no nvidia-smi; the Dia voic
 if [ "$MISSING" != 0 ]; then echo "install the missing tools, then run this again"; exit 1; fi
 # a user unit gets a minimal PATH: jobs run claude, node and npx (often under nvm or ~/.local/bin).
 # nvm's folder names the node version: after a node upgrade, run this script again. Checked
-# here, before the long installs: a " or \ would break the unit's quoted PATH.
+# here, before the long installs: a " or \ would break the unit's quoted PATH and ExecStart.
 UNIT_PATH="$(dirname "$(command -v claude)"):$(dirname "$(command -v node)"):/usr/local/bin:/usr/bin:/bin"
-case "$UNIT_PATH" in *'"'*|*'\'*) echo "the folders of claude or node contain a \" or \\ (the unit's quoted PATH cannot): move them"; exit 1;; esac
+case "$UNIT_PATH$ROOT" in *'"'*|*'\'*) echo "the checkout or the folders of claude or node contain a \" or \\ (the unit quotes them): move them"; exit 1;; esac
 python3 -c 'import sys; assert sys.version_info >= (3, 12), sys.version' || { echo "python 3.12+ needed"; exit 1; }
 # `venv --help` works without python3-venv on Debian/Ubuntu; ensurepip is what it lacks
 python3 -c 'import ensurepip' 2>/dev/null || { echo "python3-venv is missing (apt install python3-venv)"; exit 1; }
