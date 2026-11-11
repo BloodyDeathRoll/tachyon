@@ -157,7 +157,7 @@ class DB:
                           (permalink, slot_id))
 
     def journal_outcome(self, journal_id: int, outcome: dict) -> None:
-        self.conn.execute("UPDATE journal SET outcome=? WHERE id=?", (json.dumps(outcome), journal_id))
+        self.conn.execute("UPDATE journal SET outcome=? WHERE id=? AND outcome IS NULL", (json.dumps(outcome), journal_id))   # write-once, as on the Worker
 
     # ── posts ────────────────────────────────────────────────────────────────
     def create_post(self, slot_id: str, client: str, **fields) -> sqlite3.Row:
@@ -388,7 +388,7 @@ class RemoteDB:
     post, state.IllegalTransition for a refused transition, ValueError for bad fields; anything
     else is a remote.RemoteError."""
 
-    RETRIES = 3   # on "changed": the post moved under a write; the Worker reads it again and decides again
+    RETRIES = 3   # on "changed": the post moved under a write; every op reads it again and decides again (set_state, move, set_scheduled)
 
     def __init__(self, client: str, cfg: dict | None = None):
         self.client = client
@@ -410,6 +410,8 @@ class RemoteDB:
                     raise KeyError(args.get("slot_id")) from None
                 if e.status == 409 and e.error == "transition":
                     raise S.IllegalTransition(e.detail or e.error) from None
+                if e.status == 409 and e.error == "exists":   # what the SQLite backend raises for the same row
+                    raise sqlite3.IntegrityError(e.detail or e.error) from None
                 if e.status == 400 and e.error in ("fields", "move", "value"):
                     raise ValueError(e.detail or e.error) from None
                 raise

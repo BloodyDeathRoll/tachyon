@@ -158,6 +158,8 @@ test("journal outcome, permalink backfill, experiments, engage, costs, conversio
   const j = (await op("journal", { action: "meta.container.create", target: "w01-s1", intent: { a: 1 } })).result;
   await op("journal_outcome", { id: j, outcome: { id: "c1" } });
   assert.equal((await env.DB.prepare("SELECT outcome FROM journal WHERE id = ?").bind(j).first()).outcome, '{"id":"c1"}');
+  await op("journal_outcome", { id: j, outcome: { id: "c2" } }); // write-once: the first stays
+  assert.equal((await env.DB.prepare("SELECT outcome FROM journal WHERE id = ?").bind(j).first()).outcome, '{"id":"c1"}');
   await env.DB.prepare("UPDATE posts SET permalink = NULL WHERE slot_id = 'w01-s1'").run();
   await op("set_permalink", { slot_id: "w01-s1", permalink: "https://p" });
   assert.equal((await op("post", { slot_id: "w01-s1" })).result.permalink, "https://p");

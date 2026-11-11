@@ -257,7 +257,7 @@ export const OPS: Record<string, (c: Ctx, a: Args) => Promise<unknown>> = {
     return r.meta.last_row_id;
   },
   async journal_outcome(c, a) {
-    await c.env.DB.prepare("UPDATE journal SET outcome = ? WHERE client = ? AND id = ?").bind(dumps(a.outcome), c.client, num(a.id, "id")).run();
+    await c.env.DB.prepare("UPDATE journal SET outcome = ? WHERE client = ? AND id = ? AND outcome IS NULL").bind(dumps(a.outcome), c.client, num(a.id, "id")).run();
     return true;
   },
   async fail_count(c, a) {
