@@ -27,5 +27,5 @@ test("the login page carries a working copy of safeNext", async (t) => {
   const src = /location\.replace\(\((function safeNext[\s\S]*?\n\})\)\(q\.get/.exec(html)?.[1];
   assert.ok(src, "safeNext is inlined in the page");
   const inPage = new Function(`return (${src})`)();
-  for (const n of ["/rosa", "//evil.com", "/.//evil.com", null]) assert.equal(inPage(n, "https://t.example"), safeNext(n, "https://t.example"), String(n));
+  for (const n of ["/rosa", "//evil.com", "/.//evil.com", "/\\evil.com", "https://evil.com", null]) assert.equal(inPage(n, "https://t.example"), safeNext(n, "https://t.example"), String(n));
 });
