@@ -262,6 +262,12 @@ def sync_videos(clients: list[str], cfg: dict) -> list[str]:
                 if not _put(client, slot, "video", p, cfg, {"Content-Type": "video/mp4", "X-Sha256": sha}):
                     continue
                 sent.append(f"{client}/{slot}")
+            st = sd / "video-story.mp4"   # the story cut: the page's Reel/Story switch, deleted at publish too
+            if (row["state"] not in OUT and not row.get("ig_media_id") and st.is_file()
+                    and time.time() - st.stat().st_mtime > SETTLE):
+                ssha = _sha(st)
+                if row.get("story_sha") != ssha and _put(client, slot, "story", st, cfg, {"Content-Type": "video/mp4", "X-Sha256": ssha}):
+                    sent.append(f"{client}/{slot} story")
             # a new cut goes with its cover; otherwise only a missing one is sent: a cover changed on
             # its own (no new cut) stays as it is online
             if cover.is_file() and (video or not row.get("cover_key")):

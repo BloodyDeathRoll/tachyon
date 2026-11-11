@@ -43,6 +43,8 @@ export interface PostRow {
   r2_key: string | null;
   r2_sha: string | null;
   cover_key: string | null;
+  story_key?: string | null;
+  story_sha?: string | null;
   container_id: string | null;
   publishing_at: string | null;
   [k: string]: unknown;

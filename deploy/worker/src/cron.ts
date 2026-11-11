@@ -42,7 +42,7 @@ export async function releaseLease(env: { DB: D1Database }, name: string, holder
 export async function sweep(env: { DB: D1Database; MEDIA: R2Bucket }, now: number): Promise<{ deleted: string[]; kept: number }> {
   const referenced = new Set(
     (
-      await env.DB.prepare("SELECT r2_key AS k FROM posts WHERE r2_key IS NOT NULL UNION SELECT cover_key FROM posts WHERE cover_key IS NOT NULL").all<{ k: string }>()
+      await env.DB.prepare("SELECT r2_key AS k FROM posts WHERE r2_key IS NOT NULL UNION SELECT cover_key FROM posts WHERE cover_key IS NOT NULL UNION SELECT story_key FROM posts WHERE story_key IS NOT NULL").all<{ k: string }>()
     ).results.map((r) => r.k),
   );
   // shortcut: one list() page of 1,000 objects; past that, keep the cursor in the sweep lease row and go on next minute

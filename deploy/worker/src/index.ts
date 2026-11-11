@@ -74,7 +74,9 @@ const JOBS_LIST = 50;
 const MEDIA = {
   video: { ext: "mp4", type: "video/mp4", column: "r2_key" },
   cover: { ext: "jpg", type: "image/jpeg", column: "cover_key" },
+  story: { ext: "mp4", type: "video/mp4", column: "story_key" },
 } as const;
+const SHA_COLUMN: Record<string, string> = { video: "r2_sha", story: "story_sha" };
 // slice c: the web-app manifest (docs/CLOUDFLARE-PLAN.md, "Dashboard") and its icon, the only
 // static files here. Colours are the shell's --side and --ground. Public: a manifest is fetched
 // without the cookie unless the link says use-credentials (MDN, crossorigin), and it holds nothing.
@@ -477,7 +479,7 @@ export async function media(req: Request, env: { DB: D1Database; MEDIA: R2Bucket
     return serve(req, env.MEDIA, post.key, kind.type);
   }
   if (req.method !== "PUT") throw new HttpError(405, "method");
-  if (name === "video" && post.ig_media_id) throw new HttpError(409, "published");
+  if (name !== "cover" && post.ig_media_id) throw new HttpError(409, "published");
   const len = Number(req.headers.get("Content-Length"));
   if (!req.body || !Number.isInteger(len) || len <= 0) throw new HttpError(411, "length");
   if (len > MAX_UPLOAD_BYTES) throw new HttpError(413, "size");
@@ -488,13 +490,13 @@ export async function media(req: Request, env: { DB: D1Database; MEDIA: R2Bucket
   const guard = name === "video" ? " AND ig_media_id IS NULL AND state != 'PUBLISHING'" : "";
   // the file's sha256, as the host computed it: what it compares its cut against next time
   const sha = /^[0-9a-f]{64}$/.exec(req.headers.get("X-Sha256") ?? "")?.[0] ?? null;
-  const shaSet = name === "video" ? ", r2_sha = ?" : "";
+  const shaSet = SHA_COLUMN[name] ? `, ${SHA_COLUMN[name]} = ?` : "";
   let changes = 0;
   try {
     const r = await env.DB.prepare(
       `UPDATE posts SET ${kind.column} = ?${shaSet} WHERE client = ? AND slot_id = ? AND ${kind.column} IS ?${guard}`,
     )
-      .bind(key, ...(name === "video" ? [sha] : []), client, slot, post.key)
+      .bind(key, ...(SHA_COLUMN[name] ? [sha] : []), client, slot, post.key)
       .run();
     changes = r.meta.changes;
   } finally {

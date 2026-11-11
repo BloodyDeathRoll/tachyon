@@ -91,7 +91,7 @@ async function previewSlot(p: Page, slot: string): Promise<string | null> {
   return previewSlots(await takenSlots(p.c), unslotted, p.client.grants, p.now)[slot] ?? null;
 }
 
-function mediaUrl(s: Slot, name: "video" | "cover"): string {
+function mediaUrl(s: Slot, name: "video" | "cover" | "story"): string {
   return `/m/${encodeURIComponent(s.p.client.id)}/${encodeURIComponent(s.slot)}/${name}`;
 }
 
@@ -114,12 +114,19 @@ function formatsButton(s: Slot): string {
   return popup(`<button type=button class='btn plain' data-open>Generate new version</button>`, box);
 }
 
-/** app.py's player block: the reel, the safe-zone overlay, Generate new version, Download, Show what Instagram covers. */
-function player(s: Slot): string {
-  const ui = "<div class=ui><i style='top:0;height:14%'></i><i style='bottom:0;height:35%'></i><b style='left:0;right:0;top:14.84%;bottom:14.84%'></b><span style='top:15.4%'>Feed 4:5 crop</span><span style='top:1%'>Reel UI</span><span style='bottom:1%'>Caption · buttons</span></div>";
+/** app.py's player block: the Reel/Story switch, the cut, the safe-zone overlay, Generate new version, Download, Show what Instagram covers. */
+function player(s: Slot, asStory: boolean): string {
+  const story = asStory && !!s.row.story_key;
+  const ui = "<div class=ui><i style='top:0;height:14%'></i><i style='bottom:0;height:35%'></i>"
+    + (story ? "" : "<b style='left:0;right:0;top:14.84%;bottom:14.84%'></b><span style='top:15.4%'>Feed 4:5 crop</span>")
+    + `<span style='top:1%'>${story ? "Story" : "Reel"} UI</span><span style='bottom:1%'>${story ? "Reply bar" : "Caption · buttons"}</span></div>`;
   const poster = s.row.cover_key ? ` poster='${mediaUrl(s, "cover")}'` : "";
+  const base = path(s.p.client.id, s.slot);
+  const seg = s.row.story_key ? `<div class='seg fmtseg'><a href='${base}' class='${story ? "" : "on"}'>Reel</a><a href='${base}?as=story' class='${story ? "on" : ""}'>Story</a></div>` : "";
   let frame: string;
-  if (s.row.r2_key) {
+  if (story) {
+    frame = `<div class=frame id=frame><video controls playsinline preload=metadata${poster} style='aspect-ratio:9/16' src='${mediaUrl(s, "story")}'></video>${ui}</div>`;
+  } else if (s.row.r2_key) {
     frame = `<div class=frame id=frame><video controls playsinline preload=metadata${poster} style='aspect-ratio:9/16' src='${mediaUrl(s, "video")}'></video>${ui}</div>`;
   } else if (s.row.cover_key && (s.meta.source === "instagram" || s.row.published_at)) {
     frame = `<div class=frame id=frame><img src='${mediaUrl(s, "cover")}' alt='' style='aspect-ratio:9/16;width:100%;object-fit:cover;display:block'>${s.row.published_at ? "" : "<p class=muted style='margin:8px 0 0;font-size:13px'>Instagram does not share this reel's file (licensed song): cover only.</p>"}</div>`;
@@ -129,9 +136,10 @@ function player(s: Slot): string {
     // the file is on a PC until it is approved (app.py had it on disk): say where
     frame = `<div class=empty>${s.host ? `The video is on ${esc(s.host)}; it comes here when it is approved.` : "No video file yet."}</div>`;
   }
-  const dls = s.row.r2_key ? `<a class='btn sec' href='${mediaUrl(s, "video")}' download>${icon("download", 16)}Download reel</a>` : "";
+  const dls = story ? `<a class='btn sec' href='${mediaUrl(s, "story")}' download>${icon("download", 16)}Download story</a>`
+    : s.row.r2_key ? `<a class='btn sec' href='${mediaUrl(s, "video")}' download>${icon("download", 16)}Download reel</a>` : "";
   const canFmt = !(s.meta.upload && !((s.meta.film ?? {}) as Json).source); // an upload until its first edit
-  return `${frame}<div class=pctl><span>${canFmt ? formatsButton(s) : ""}</span>${dls}</div><hr class=pdiv><label class='chk big'><input type=checkbox onchange="document.getElementById('frame').classList.toggle('showui',this.checked)">Show what Instagram covers</label>`;
+  return `${seg}${frame}<div class=pctl><span>${canFmt ? formatsButton(s) : ""}</span>${dls}</div><hr class=pdiv><label class='chk big'><input type=checkbox onchange="document.getElementById('frame').classList.toggle('showui',this.checked)">Show what Instagram covers</label>`;
 }
 
 /** app.py motion_pill(): the reel's motion style by name. */
@@ -333,7 +341,7 @@ export async function renderVideo(p: Page, slot: string, q: URLSearchParams = ne
   else if (LIVE.has(row.state) && row.ig_media_id) links.push(removeCard(s, title));
   right.push(`<div class=links>${links.join("")}</div>`);
 
-  const body = `<a class=back href='${path(p.client.id)}'>${icon("back", 16)}Overview</a><h1>${esc(title)} <span class=hno>${esc(slotNo(slot).filter(Boolean).join(" · "))}</span></h1><p class=sub>${whenLine}</p><div class=vpage><div class=player>${player(s)}</div><div class='stack c2'>${blocks.join("")}</div><div class='stack c3'>${right.join("")}</div></div>`;
+  const body = `<a class=back href='${path(p.client.id)}'>${icon("back", 16)}Overview</a><h1>${esc(title)} <span class=hno>${esc(slotNo(slot).filter(Boolean).join(" · "))}</span></h1><p class=sub>${whenLine}</p><div class=vpage><div class=player>${player(s, q.get("as") === "story")}</div><div class='stack c2'>${blocks.join("")}</div><div class='stack c3'>${right.join("")}</div></div>`;
   const writing = open_(jobs.caption) && !s.caption;
   const refresh = cls === "busy" || publishing(row, p.now) ? 15 : open_(jobs.formats) || writing || open_(jobs.track) ? 5 : null;
   return shell(p, "overview", body, title, refresh);

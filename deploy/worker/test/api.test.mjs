@@ -169,6 +169,14 @@ test("/ig/<key> serves a waiting video without sign-in, and nothing else", async
   assert.equal((await env.DB.prepare("SELECT r2_sha FROM posts WHERE slot_id = 'w45-1'").first()).r2_sha, sha);
   await call("PUT", "/api/media/rosa/w45-1/video", { as: 1, raw: bytes, headers: { "Content-Length": "10", "X-Sha256": "nope" } });
   assert.equal((await env.DB.prepare("SELECT r2_sha FROM posts WHERE slot_id = 'w45-1'").first()).r2_sha, null);
+  // the story cut: its own key and sha, served to members, never on the public address
+  const story = await call("PUT", "/api/media/rosa/w45-1/story", { as: 1, raw: bytes, headers: { "Content-Length": "10", "X-Sha256": sha } });
+  assert.equal(story.status, 200);
+  const srow = await env.DB.prepare("SELECT story_key, story_sha FROM posts WHERE slot_id = 'w45-1'").first();
+  assert.equal(srow.story_key, story.data.key);
+  assert.equal(srow.story_sha, sha);
+  assert.equal((await call("GET", "/api/media/rosa/w45-1/story", { as: 1 })).status, 200);
+  assert.equal((await call("GET", `/ig/${story.data.key}`)).status, 404);
   // while Instagram may be fetching it, the video stays as it is
   await env.DB.prepare("UPDATE posts SET state = 'PUBLISHING' WHERE slot_id = 'w45-1'").run();
   assert.equal((await call("PUT", "/api/media/rosa/w45-1/video", { as: 1, raw: bytes, headers: { "Content-Length": "10" } })).status, 409);
