@@ -92,8 +92,16 @@ test("jobs: members enqueue, a host claims the oldest, a lease that ran out is c
   // only the holding host may report
   assert.equal((await call("POST", `/api/jobs/${j1}/heartbeat`, { as: 2, body: { host: "pc-b" } })).status, 409);
   assert.equal((await call("POST", `/api/jobs/${j1}/heartbeat`, { as: 1, body: { host: "pc-a" } })).status, 200);
-  assert.equal((await call("POST", `/api/jobs/${j1}/done`, { as: 1, body: { host: "pc-a", result: { ok: 1 } } })).status, 200);
+  const done = { host: "pc-a", result: { ok: 1, media: { path: "/home/a/posts/w45-1/video.mp4", sha: "ab", size: 3 } } };
+  assert.equal((await call("POST", `/api/jobs/${j1}/done`, { as: 1, body: done })).status, 200);
+  assert.deepEqual(await env.DB.prepare("SELECT * FROM media WHERE slot_id = 'w45-1'").first(), {
+    client: "rosa", slot_id: "w45-1", host: "pc-a", path: "/home/a/posts/w45-1/video.mp4", sha: "ab", size: 3,
+  });
   assert.equal((await call("POST", `/api/jobs/${j1}/done`, { as: 1, body: { host: "pc-a" } })).status, 409); // already done
+  const list = await call("GET", "/api/jobs?client=rosa", { as: 1 });
+  assert.deepEqual(list.data.jobs.map((j) => [j.id, j.state]), [[j2, "running"], [j1, "done"]]);
+  assert.equal((await call("GET", "/api/jobs?client=rosa&slot=w45-1", { as: 1 })).data.jobs.length, 2);
+  assert.equal((await call("GET", "/api/jobs?client=rosa", { as: 2 })).status, 403);
   await env.DB.prepare("UPDATE jobs SET until = ? WHERE id = ?").bind(NOW - 1, j2).run();
   assert.equal((await call("GET", "/api/jobs/next?host=pc-a", { as: 1 })).data.id, j2);
   assert.equal((await call("POST", `/api/jobs/${j2}/fail`, { as: 1, body: { host: "pc-a", result: "boom" } })).status, 200);
@@ -123,6 +131,14 @@ test("media: a video uploads under a random key, a replacement deletes the old o
   assert.equal((await call("GET", "/api/media/rosa/w45-1/cover", { as: 1 })).status, 404);
   assert.equal((await call("PUT", "/api/media/rosa/w45-1/video", { as: 1 })).status, 411);
   assert.equal((await put(1, "w45-2", "cover")).status, 200); // a cover may change after publish
+});
+
+test("the sign-in page carries the Google client id and needs no session", async () => {
+  const r = await call("GET", "/login");
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get("Content-Type"), /text\/html/);
+  assert.match(r.data, /client_id: "x"/);
+  assert.match(r.data, /spine\.worker login/);
 });
 
 test("logout bumps the epoch: every token dies", async () => {

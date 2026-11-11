@@ -56,9 +56,10 @@ opener = urllib.request.urlopen   # swapped by the tests
 
 
 def call(method: str, path: str, body=None, *, cfg: dict | None = None, raw: bytes | None = None,
-         headers: dict | None = None, timeout: int = TIMEOUT):
-    """One request to the Worker; the parsed JSON answer (None for 204). A non-2xx answer
-    raises RemoteError; a network failure raises the OSError (URLError) as is."""
+         headers: dict | None = None, timeout: int = TIMEOUT, parse: bool = True):
+    """One request to the Worker; the parsed JSON answer (None for 204), or the bytes with
+    parse=False. A non-2xx answer raises RemoteError; a network failure raises the OSError
+    (URLError) as is."""
     cfg = cfg or config()
     if not cfg:
         raise RemoteError(0, "config", "no Worker configured: run `python -m spine.worker login`")
@@ -81,6 +82,8 @@ def call(method: str, path: str, body=None, *, cfg: dict | None = None, raw: byt
         except ValueError:
             err = {}
         raise RemoteError(e.code, err.get("error") or text[:200].decode(errors="replace"), err.get("detail")) from None
+    if not parse:
+        return text
     if status == 204 or not text:
         return None
     return json.loads(text)

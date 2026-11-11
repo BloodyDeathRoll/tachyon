@@ -25,7 +25,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import clients as C
+from . import jobs as J
 from .db import DB
+from .remote import RemoteError
 
 ROOT = Path(__file__).resolve().parent.parent
 REMOTION = ROOT / "engines" / "remotion"
@@ -99,9 +101,11 @@ def start(client: str, slot: str, notes: str) -> None:
 
 
 def _spawn(client: str, slot: str) -> None:
-    log = (C.client_dir(client) / "posts" / slot / "revise.log").open("a")
-    subprocess.Popen([sys.executable, "-m", "spine.revise", "run", client, slot], cwd=ROOT,
-                     stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    try:
+        J.spawn("revise", client, slot, ["spine.revise", "run", client, slot], C.client_dir(client) / "posts" / slot / "revise.log")
+    except (OSError, RemoteError) as e:   # nothing is running: the page must not say so
+        _write_status(client, slot, state="failed", error=f"could not start: {e}", failed_at=now())
+        raise
 
 
 def failed(client: str, slot: str) -> bool:
