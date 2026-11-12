@@ -89,13 +89,18 @@ test("a non-member gets 403; signed out, a page sends you to sign in and back", 
   assert.equal((await call("GET", "/rosa/nothing")).status, 404);
 });
 
-test("/app: straight to the first client's dashboard; no client, the who-you-are page; sign out in the side menu", async () => {
+test("/app: straight to the first client's dashboard; no client, the who-you-are page; the user at the sidebar's foot opens the account page", async () => {
   const home = await call("GET", "/app");
   assert.equal(home.status, 302);
   assert.equal(new URL(home.headers.get("Location"), "http://t").pathname, "/rosa");
   const dash = await call("GET", "/rosa");
-  assert.match(dash.text, /<form method=post action='\/auth\/logout' class=out><button>/);
-  assert.match(dash.text, /href='\/login\?pc=1'/);
+  assert.match(dash.text, /<a class='me' href='\/account' title='Your account'>/);
+  const acct = await call("GET", "/account");
+  assert.equal(acct.status, 200);
+  assert.match(acct.text, /<a class='me on' href='\/account'/);
+  assert.match(acct.text, /<form method=post action='\/auth\/logout'/);
+  assert.match(acct.text, /href='\/login\?pc=1'/);
+  assert.match(acct.text, /href='\/connect\/rosa'/);
   const none = await call("GET", "/app", { as: 2 });
   assert.match(none.text, /No clients yet/);
   const bye = await call("POST", "/auth/logout", { as: 2, form: {} });
@@ -489,4 +494,19 @@ test("music: app.py's card, Library and Instagram; a pick is a track job a PC mi
   await waiting("mu2", { file: true });
   await env.DB.prepare("UPDATE posts SET state = 'PUBLISHING' WHERE slot_id = 'mu2'").run();
   assert.equal((await call("POST", "/rosa/v/mu2/track", { form: { src: "file", track: "lib1" } })).status, 409);
+});
+
+test("account: Disconnect forgets the client's Instagram, a member's own clients only", async () => {
+  const before = await env.DB.prepare("SELECT token_enc, page_id, ig_user_id FROM clients WHERE id = 'rosa'").first();
+  assert.ok(before.token_enc);
+  assert.match((await call("GET", "/account")).text, />Disconnect<\/button>/);
+  assert.equal((await call("POST", "/account/disconnect", { as: 2, form: { client: "rosa" } })).status, 403); // not a member of rosa
+  const r = await call("POST", "/account/disconnect", { form: { client: "rosa" } });
+  assert.equal(r.status, 303);
+  assert.equal(r.headers.get("Location"), "/account");
+  const after = await env.DB.prepare("SELECT token_enc, page_id, ig_user_id, ig_username FROM clients WHERE id = 'rosa'").first();
+  assert.deepEqual({ ...after }, { token_enc: null, page_id: null, ig_user_id: null, ig_username: null });
+  assert.ok(await env.DB.prepare("SELECT 1 FROM journal WHERE client = 'rosa' AND action = 'meta.disconnect'").first());
+  assert.match((await call("GET", "/account")).text, />Connect Instagram<\/a>/);
+  await env.DB.prepare("UPDATE clients SET token_enc = ?, page_id = ?, ig_user_id = ? WHERE id = 'rosa'").bind(before.token_enc, before.page_id, before.ig_user_id).run(); // as it was for anything after
 });

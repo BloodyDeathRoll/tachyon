@@ -51,7 +51,7 @@ async function membership(env: { DB: D1Database }, body: Body, add: boolean): Pr
 
 // first path segments index.ts (and pages/index.ts's /admin) route before a client's pages; paths
 // compare case-sensitively there, so `App` is a plain client. api.test.mjs checks the list against index.ts.
-export const RESERVED = new Set(["app", "me", "m", "ig", "static", "api", "auth", "login", "connect", "admin"]);
+export const RESERVED = new Set(["app", "me", "m", "ig", "static", "api", "auth", "login", "connect", "admin", "account"]);
 
 async function createClient(env: { DB: D1Database }, body: Body, by: number, now: number): Promise<Response> {
   const id = typeof body.id === "string" && ID.test(body.id) ? body.id : "";
