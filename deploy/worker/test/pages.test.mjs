@@ -89,13 +89,13 @@ test("a non-member gets 403; signed out, a page sends you to sign in and back", 
   assert.equal((await call("GET", "/rosa/nothing")).status, 404);
 });
 
-test("/app: your clients with a link each, your role and what it allows, sign out", async () => {
+test("/app: straight to the first client's dashboard; no client, the who-you-are page; sign out in the side menu", async () => {
   const home = await call("GET", "/app");
-  assert.equal(home.status, 200);
-  assert.match(home.text, /href='\/rosa'/);
-  assert.match(home.text, /Instagram connected/);
-  assert.match(home.text, /<b>Member<\/b>/);
-  assert.doesNotMatch(home.text, /\/admin\/members/);
+  assert.equal(home.status, 302);
+  assert.equal(new URL(home.headers.get("Location"), "http://t").pathname, "/rosa");
+  const dash = await call("GET", "/rosa");
+  assert.match(dash.text, /<form method=post action='\/auth\/logout' class=out><button>/);
+  assert.match(dash.text, /href='\/login\?pc=1'/);
   const none = await call("GET", "/app", { as: 2 });
   assert.match(none.text, /No clients yet/);
   const bye = await call("POST", "/auth/logout", { as: 2, form: {} });

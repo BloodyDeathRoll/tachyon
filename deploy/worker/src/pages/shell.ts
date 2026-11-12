@@ -176,6 +176,8 @@ export const CSS = LOCAL_CSS + `
  .stats{grid-template-columns:repeat(2,1fr);row-gap:18px}.stat:nth-child(3){border-left:0;padding-left:0}
  .grid{grid-template-columns:repeat(2,1fr);gap:12px}.card{padding:20px 16px}h1{font-size:24px}.tiles{grid-template-columns:repeat(2,1fr)}}
 .frame.mixing video{opacity:.2}.mixspin{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+form.out{margin:0}form.out button{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;height:48px;padding:0 16px;gap:14px;border-radius:8px;color:#888;font-size:14px;cursor:pointer}form.out button:hover{color:#fff;background:#1C1C1C}
+@media (max-width:900px){form.out button{height:auto;min-height:40px;padding:0 12px;white-space:nowrap}}
 .mixspin i{width:56px;height:56px;border:5px solid var(--lime);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite}`;
 
 // the times in the browser's zone in app.py's formats: when() "%a %-d %b, %H:%M", a slot time "%H:%M"
@@ -198,6 +200,9 @@ export function display(client: ClientInfo): { name: string; handle: string | nu
   };
 }
 
+// sign out: a POST (a link could be fired by any page), drawn as a nav link; its icon added here
+// as calendar.ts adds its own, since ICONS is generated from app.py (export_ui)
+const OUT = icon("").replace("</svg>", '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>');
 /** app.py's avatar: the client's icon (GET /static/avatar/<id>.png answers its first letter when none was sent up). */
 function avatar(id: string): string {
   return `<img class=av src='/static/avatar/${encodeURIComponent(id)}.png' alt=''>`;
@@ -216,7 +221,7 @@ export function shell(p: Page, active: string, body: string, title: string, refr
 ${refresh ? `<meta http-equiv=refresh content=${refresh}>` : ""}<title>${esc(title)} · ${esc(d.name)} · Tachyon</title><link rel=icon href='/static/icon.svg'><style>${CSS}</style>
 <div class=shell><aside><a class=brand href='/app'><img src='/static/logo.svg' alt='Tachyon'></a>
 <details class=proj><summary>${avatar(p.client.id)}<span><b>${esc(d.name)}</b>${d.handle ? `<small>@${esc(d.handle)}</small>` : ""}</span><span class=chev>${icon("chev", 16)}</span></summary><ul>${others}</ul></details>
-<nav>${nav}${adminNav}</nav><div class=foot>${status}</div></aside><main>${body}</main></div>
+<nav>${nav}${adminNav}<a href='/login?pc=1'>${icon("link")}Link a PC</a><form method=post action='/auth/logout' class=out><button>${OUT}Sign out</button></form></nav><div class=foot>${status}</div></aside><main>${body}</main></div>
 <div class=pvm id=pvm hidden><div class=pvbox><video controls playsinline></video><div class=pvbar><a class='btn sec small' id=pvopen href='#'>Open the video page</a><button class='btn dark small' id=pvx>Close</button></div></div></div>
 <script>${TIME_JS}${PV_JS}${SEG_JS}${LOCK_JS}${DTP_JS}</script></html>`;
   return page(html, 200);
