@@ -297,6 +297,12 @@ def test_set_track_marks_and_clears_preview(client_dir, monkeypatch):
     T.set_track("demo", "w01-s1", "f:1")
     assert not (sd / T.IG_PREVIEW).exists()
 
+    # a song sent by the Worker: its fresh link wins over the cached one (expired, a 403)
+    urls = []
+    monkeypatch.setattr(T, "fetch_ig_preview", lambda c, s, url: urls.append(url))
+    T.set_track("demo", "w01-s1", "ig:7", dict(ig, preview="https://x/fresh.m4a"))
+    assert urls == ["https://x/fresh.m4a"]
+
 
 def test_edit_twice_and_from_queued(server, client_dir):
     req(server, "POST", "/demo/v/w01-s1/decide", {"action": "approve", "notes": ""})
