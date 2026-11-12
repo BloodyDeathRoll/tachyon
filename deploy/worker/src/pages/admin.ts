@@ -12,7 +12,7 @@
 import { admin } from "../admin.ts";
 import { HttpError } from "../http.ts";
 import type { UserRow } from "../members.ts";
-import { ago, esc, redirect, shell, when, type Json, type Page } from "./shell.ts";
+import { ago, esc, icon, redirect, shell, when, type Json, type Page } from "./shell.ts";
 
 interface User {
   id: number;
@@ -48,29 +48,32 @@ async function api(p: Page, method: string, tail: string[], body: Json = {}): Pr
 async function members(p: Page): Promise<string> {
   const users = (await api(p, "GET", ["users"])).users as User[];
   const clients = (await api(p, "GET", ["clients"])).clients as Client[];
-  const post = (fields: Record<string, string | number>, button: string) =>
-    `<form method=post style='display:inline'>${Object.entries(fields).map(([k, v]) => `<input type=hidden name=${k} value='${esc(v)}'>`).join("")}<button class='btn sec small'>${button}</button></form>`;
+  const names = new Map(clients.map((c) => [c.id, c.name]));
+  const hidden = (fields: Record<string, string | number>) => Object.entries(fields).map(([k, v]) => `<input type=hidden name=${k} value='${esc(v)}'>`).join("");
   const rows = users.map((u) => {
-    const mine = u.clients.map((c) => `<span class='tag sched'>${esc(c)} ${post({ action: "drop", user: u.id, client: c }, "×")}</span>`).join(" ");
+    // a client the user manages: its name and an x that drops the membership
+    const mine = u.clients.map((c) => `<form method=post class=chip>${hidden({ action: "drop", user: u.id, client: c })}<i></i>${esc(names.get(c) ?? c)}<button aria-label='Remove from ${esc(names.get(c) ?? c)}'>${icon("x", 16)}</button></form>`).join("");
     const free = clients.filter((c) => !u.clients.includes(c.id));
+    // Add: picking a client adds it at once (the button is the fallback without script)
     const add = free.length
-      ? `<form method=post style='display:inline'><input type=hidden name=action value=add><input type=hidden name=user value=${u.id}><select name=client>${free.map((c) => `<option value='${esc(c.id)}'>${esc(c.name)}</option>`).join("")}</select> <button class='btn sec small'>Add</button></form>`
+      ? `<form method=post class=addc>${hidden({ action: "add", user: u.id })}<select name=client class=dd onchange='this.form.submit()' aria-label='Add a client'><option value='' selected disabled>Add</option>${free.map((c) => `<option value='${esc(c.id)}'>${esc(c.name)}</option>`).join("")}</select><noscript><button class=rm>Add</button></noscript></form>`
       : "";
     const seen = u.last_seen_at ? ago(new Date(u.last_seen_at).toISOString(), p.now) : u.signed_in ? "" : "not signed in yet";
-    return `<tr><td>${esc(u.email)}${u.admin ? " <span class='tag need'>admin</span>" : ""}</td><td>${esc(u.name ?? "")}</td><td>${seen}</td><td>${mine} ${add}</td><td>${u.id === p.user.id ? "" : post({ action: "remove", id: u.id }, "Remove")}</td></tr>`;
+    const remove = u.id === p.user.id ? "" : `<form method=post>${hidden({ action: "remove", id: u.id })}<button class='rm red'>Remove</button></form>`;
+    return `<tr><td><span class=em>${esc(u.email)}</span>${u.admin ? "<span class='tag need'>admin</span>" : ""}</td><td>${esc(u.name ?? "")}</td><td${u.last_seen_at ? "" : " class=muted"}>${seen}</td><td><span class=clis>${mine}${add}</span></td><td class=act>${remove}</td></tr>`;
   }).join("");
-  return `<h1>Members</h1><p class=sub>Who may sign in and which clients they manage. A member does everything for the client.</p>
-<section class=card><h2>Invite</h2><form method=post class=btns><input type=hidden name=action value=invite><input type=email name=email required placeholder='them@example.com' aria-label=Email><label class=chk><input type=checkbox name=admin value=1>Admin</label><button class='btn pri small'>Invite</button></form>
+  return `<div class=adm><h1>Members</h1><p class=sub>Who may sign in and which clients they manage. A member does everything for the client.</p>
+<section class=card><h2>Invite</h2><form method=post class=btns><input type=hidden name=action value=invite><input type=email name=email required placeholder='them@example.com' aria-label=Email class=w567><label class=chk><input type=checkbox name=admin value=1>Admin</label><button class='btn pri'>Invite</button></form>
 <p class=hint>They sign in with that Google account at /login.</p></section>
-<section class=card style='margin-top:20px'><h2>Users</h2><div class=wide><table class=jobs><tr><th>Email</th><th>Name</th><th>Seen</th><th>Clients</th><th></th></tr>${rows}</table></div></section>`;
+<section class=card style='margin-top:20px'><h2>Users</h2><div class=tw><table class='full mem'><tr><th>Email</th><th>Name</th><th>Seen</th><th>Clients</th><th class=act></th></tr>${rows}</table></div></section></div>`;
 }
 
 async function clientsPage(p: Page): Promise<string> {
   const clients = (await api(p, "GET", ["clients"])).clients as Client[];
-  const rows = clients.map((c) => `<tr><td><a href='/${encodeURIComponent(c.id)}'>${esc(c.name)}</a></td><td>${esc(c.id)}</td><td>${c.ig_username ? `@${esc(c.ig_username)}` : c.connected ? "connected" : "not connected"}</td><td>${esc(c.publisher)}</td><td>${when(new Date(c.created_at).toISOString())}</td></tr>`).join("");
-  return `<h1>Clients</h1><p class=sub>Every client the Worker publishes for. A new one is connected to Instagram from its Overview.</p>
-<section class=card><h2>New client</h2><form method=post class=btns><input type=hidden name=action value=create><input type=text name=id required pattern='[\\w-]{1,64}' placeholder='id (letters, digits, - and _)' aria-label=Id><input type=text name=name placeholder='Name' aria-label=Name><button class='btn pri small'>Create</button></form></section>
-<section class=card style='margin-top:20px'><h2>Clients</h2><div class=wide><table class=jobs><tr><th>Name</th><th>Id</th><th>Instagram</th><th>Publisher</th><th>Created</th></tr>${rows}</table></div></section>`;
+  const rows = clients.map((c) => `<tr><td><a href='/${encodeURIComponent(c.id)}'>${esc(c.name)}</a></td><td>${esc(c.id)}</td><td${c.ig_username || c.connected ? "" : " class=muted"}>${c.ig_username ? `@${esc(c.ig_username)}` : c.connected ? "connected" : "not connected"}</td><td>${esc(c.publisher)}</td><td class=act>${when(new Date(c.created_at).toISOString())}</td></tr>`).join("");
+  return `<div class=adm><h1>Clients</h1><p class=sub>Every client the Worker publishes for. A new one is connected to Instagram from its Overview.</p>
+<section class=card><h2>New client</h2><form method=post class=btns><input type=hidden name=action value=create><input type=text name=id required pattern='[\\w-]{1,64}' placeholder='id (letters, digits, - and _)' aria-label=Id class=w280><input type=text name=name placeholder='Name' aria-label=Name class=w280><button class='btn pri'>Create</button></form></section>
+<section class=card style='margin-top:20px'><h2>Clients</h2><div class=tw><table class='full cli'><tr><th>Name</th><th>Id</th><th>Instagram</th><th>Publisher</th><th class=act>Created</th></tr>${rows}</table></div></section></div>`;
 }
 
 export async function renderAdmin(p: Page, kind: "members" | "clients", req: Request): Promise<Response> {
