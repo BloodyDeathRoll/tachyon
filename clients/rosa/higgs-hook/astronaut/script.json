@@ -1,13 +1,15 @@
 {
   "title": "The astronaut at Punta de Lobos",
   "slug": "astronaut",
-  "joke": "Houston, it's pumping.",
+  "joke": "Houston, we have a swell.",
   "joke_lines": [
-    "Houston,",
-    "it's pumping."
+    "Houston, we have a",
+    "swell."
   ],
   "lock": {
     "9x16": 3.0,
     "16x9": 3.0
-  }
+  },
+  "joke_white": true,
+  "app_dir": "app"
 }

@@ -26,7 +26,7 @@ import { Particles } from "./Particles";
 */
 
 export type FilmProps = { variant: Variant; clips: string; s1: number; s5: number; joke: string[][]; lock: number; app?: string; jokeLow?: boolean;
-  appScreen?: string; appOneLine?: boolean; jokeWhite?: boolean; textShadow?: number };
+  appScreen?: string; appDir?: string; appOneLine?: boolean; jokeWhite?: boolean; textShadow?: number };
 export const FILM_DEFAULTS: FilmProps = { variant: "reel", clips: "higgs/samurai", s1: 5.056, s5: 5.0,
   joke: [["Preparing", "for"], ["a", "fight?"]], lock: 2.4 };
 const APP = "higgs/app";   // the app section's frames, shared by every film
@@ -68,9 +68,9 @@ const Slam: React.FC<{ t: number; a: number; z: number; lines: string[][]; blue:
 /** the app: home is 60 fps stills (a smooth card swipe Topanga to Sunset Point, built from two settled
     screenshots: the recorder's snap scroll stutters); the spot page is the 30 fps recording from 3.4 s,
     held on its first frame through the flip, then playing */
-const recFrame = (T: Times, t: number, spot: boolean) => spot
-  ? `${APP}/scr/${String(Math.min(299, Math.floor((3.4 + Math.max(0, t - (T.spin + 0.9))) * 30) + 1)).padStart(4, "0")}.jpg`
-  : `${APP}/home/${String(Math.max(1, Math.min(186, Math.round((t - T.home0) * 60) + 1))).padStart(4, "0")}.jpg`;
+const recFrame = (T: Times, t: number, spot: boolean, dir = APP) => spot
+  ? `${dir}/scr/${String(Math.min(299, Math.floor((3.4 + Math.max(0, t - (T.spin + 0.9))) * 30) + 1)).padStart(4, "0")}.jpg`
+  : `${dir}/home/${String(Math.max(1, Math.min(186, Math.round((t - T.home0) * 60) + 1))).padStart(4, "0")}.jpg`;
 
 const Globe: React.FC<{ t: number; T: Times }> = ({ t, T }) => {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -119,7 +119,7 @@ const Globe: React.FC<{ t: number; T: Times }> = ({ t, T }) => {
   return <canvas ref={ref} width={width} height={height} style={{ position: "absolute", left: 0, top: 0 }} />;
 };
 
-export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5, joke, lock, app, jokeLow, appScreen, appOneLine, jokeWhite, textShadow = 1 }) => {
+export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5, joke, lock, app, jokeLow, appScreen, appDir, appOneLine, jokeWhite, textShadow = 1 }) => {
   const sh = shadow(textShadow);
   useInter();
   const t = useT();
@@ -208,7 +208,7 @@ export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5,
         <div style={{ position: "absolute", inset: 0, clipPath: `circle(${lerp(0, 75, reveal)}% at 50% 50%)`, background: "#f4f3f3" }}>
           {/* home until the phone is edge-on in the flip, then the spot page; on the back half it is un-mirrored */}
           {t >= T.pour && t < T.globe + 0.6 &&
-            <Img src={staticFile(spin < 0.25 && appScreen ? appScreen : recFrame(T, t, spin >= 0.25))} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
+            <Img src={staticFile(spin < 0.25 && appScreen ? appScreen : recFrame(T, t, spin >= 0.25, appDir))} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
               transform: `${Math.cos((pose.ry * Math.PI) / 180) < 0 ? "scaleX(-1) " : ""}${spin < 0.25 && appScreen ? `scale(${lerp(1, 1.08, inOut(seg(t, T.pour, T.spin)))})` : ""}` || undefined }} />}
         </div>
       </Phone>

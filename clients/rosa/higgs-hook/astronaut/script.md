@@ -30,12 +30,12 @@ Image-to-video, 5 seconds. An astronaut in a full white spacesuit with a gold mi
 Image-to-video, 5 seconds. An astronaut in a full white spacesuit with a gold mirrored visor, a life-support backpack, thick white gloves and white boots, a hard, rounded, pale-cream bar of surf wax as big as a fist in one glove. The astronaut is INSIDE the space station, never outside; the camera is inside the module too, behind the astronaut, facing the window. 0–2 s the astronaut floats up to a big round window and stops, looking out at Earth; 2–4 s he waxes the inside of the window with the bar of surf wax in three or four slow, lazy strokes, exactly like waxing a surfboard, and a matte, chalky, opaque layer of surf wax with small raised wax bumps, like the wax on a surfboard deck, builds up on the glass, clearly visible, not foamy, not soapy, no bubbles; 4–5 s he stops and looks out at Earth through the waxed window, the wax still in his glove, deadpan. All motion slow and calm, real-time speed, never sped up. Setting: inside a space station module, white padded walls, cables and handrails around a big round window; through the glass, blue Earth and white clouds turning outside, cool white light; the matte, bumpy wax on the glass catches the light. Camera: horizontal 16:9, 28 mm lens behind the astronaut, inside the module, facing the window, slow lateral track, the astronaut on the left third with his back to camera, the window, the wax on the glass and Earth beyond filling the right two thirds. Natural light from the window, real and documentary, deadpan, no one reacts. Sound: the soft hum of the station, wax on glass, suit fabric creaking, a radio static click; no music, no speech. No text, no logos, no watermark.
 
 ## Joke (on scene 1, from 2 s)
-Line 1, white: "Houston," · Line 2, blue: "it's pumping."
+Line 1, white: "Houston, we have a" · Line 2, white: "swell."
 Two lines, left-aligned, top of the frame; each word pops in on its own.
 
 ## App section (the same in every film)
 No voice-over, no hook card, no music. The film's own template, nothing to write here:
-"Location is everything." with the home screen (swipe Topanga to Sunset Point) · the phone flips into the Sunset Point spot page: "16 days forecast." · "No ads, no paywall." · the globe: "+4,500 spots and growing."
+"Location is everything." with the home screen in Peniche, Portugal (swipe Praia da Consolação to Supertubos) · the phone flips into the Supertubos spot page: "16 days forecast." · "No ads, no paywall." · the globe: "+4,500 spots and growing."
 16:9: phone on the left, text on the right.
 
 ## Scene 5 (last 5 s)
