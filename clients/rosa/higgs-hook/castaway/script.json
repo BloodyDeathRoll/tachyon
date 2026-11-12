@@ -1,0 +1,14 @@
+{
+  "title": "The castaway in the desert",
+  "slug": "castaway",
+  "joke": "Never ask for directions.",
+  "joke_lines": [
+    "Never ask",
+    "for directions."
+  ],
+  "app_line": "Rosa has a map.",
+  "lock": {
+    "9x16": 2.5,
+    "16x9": 2.5
+  }
+}
