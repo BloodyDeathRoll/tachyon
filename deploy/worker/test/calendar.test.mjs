@@ -158,6 +158,10 @@ test("the grid in the viewer's zone (the tz cookie): days, rows and a drop on a 
   const utc = await call("GET", "/rosa/calendar?w=2099-W03", { headers: { Cookie: "tz=UTC" } });
   assert.equal(cols(utc.text).find((r) => r.includes("z1")).indexOf("z1"), 0); // Monday in UTC
   assert.match((await call("GET", "/rosa/calendar?w=2099-W03", { headers: { Cookie: "tz=Nope%2FNope" } })).text, /data-zone='UTC'/); // a bad zone: the client's (none here: UTC)
+  // the month: z1 on the 13th, local
+  const mo = await call("GET", "/rosa/calendar?view=month&m=2099-01", tz);
+  assert.match(mo.text, /<b>13<\/b><div class=mcells>(?:(?!<b>).)*href='\/rosa\/v\/z1'/s);
+  assert.doesNotMatch((await call("GET", "/rosa/calendar?view=month&m=2099-01", { headers: { Cookie: "tz=UTC" } })).text, /<b>13<\/b><div class=mcells>(?:(?!<b>).)*href='\/rosa\/v\/z1'/s);
   // a drop on Thursday 15 Jan (local): its first open row is 00:30 local (z1's row that week),
   // 22:30 UTC the day before
   await call("POST", "/rosa/move", { form: { slot: "z1", day: "2099-01-15" }, ...tz });

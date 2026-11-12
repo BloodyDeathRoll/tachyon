@@ -53,7 +53,7 @@ export function viewZone(p: Page, req: Request): string {
 function slotsOn(p: Page, k: Clock, day: number): number[] {
   const from = k.back(day), to = k.back(day + DAY_MS);
   const utc0 = dayOf(from);
-  return [0, 1].flatMap((i) => slots(p.client.grants).map((t) => utc0 + i * DAY_MS + minutes(t) * 60_000)).filter((ms) => ms >= from && ms < to).sort((a, b) => a - b);
+  return [0, 1, 2].flatMap((i) => slots(p.client.grants).map((t) => utc0 + i * DAY_MS + minutes(t) * 60_000)).filter((ms) => ms >= from && ms < to).sort((a, b) => a - b);
 }
 const time = (ms: number): string => `<time datetime='${new Date(ms).toISOString()}' data-fmt=time>${hm(ms)} UTC</time>`;
 // app.py's icons shell.ts does not have
