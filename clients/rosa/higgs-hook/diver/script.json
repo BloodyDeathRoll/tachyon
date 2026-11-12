@@ -8,6 +8,7 @@
   ],
   "joke_low": true,
   "app_line": "Check in depth.",
+  "app_one_line": true,
   "lock": {
     "9x16": 2.5,
     "16x9": 2.5
