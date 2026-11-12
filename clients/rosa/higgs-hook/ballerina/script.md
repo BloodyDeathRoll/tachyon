@@ -42,7 +42,7 @@ Big-wave day. Allegedly.
 
 When it's flat, Rosa has a swim mode. Same app, same spots, for every ocean lover.
 
-3,000+ spots, four updates a day, free.
+4,500+ spots, four updates a day, free.
 rosa.surf, link in bio.
 .
 .

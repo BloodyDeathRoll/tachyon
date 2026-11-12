@@ -35,7 +35,7 @@ Two lines, left-aligned, top of the frame; each word pops in on its own.
 
 ## App section (the same in every film)
 No voice-over, no hook card, no music. The film's own template, nothing to write here:
-"Location is everything." with the home screen (swipe Topanga to Sunset Point) · the phone flips into the Sunset Point spot page: "16 days forecast." · "No ads, no paywall." · the globe: "+4,000 spots and growing."
+"Location is everything." with the home screen (swipe Topanga to Sunset Point) · the phone flips into the Sunset Point spot page: "16 days forecast." · "No ads, no paywall." · the globe: "+4,500 spots and growing."
 16:9: phone on the left, text on the right.
 
 ## Scene 5 (last 5 s)
@@ -55,7 +55,7 @@ Key moment: 9:16 at about 3 s into scene 5 (the astronaut leans into the bottom 
 ```
 Houston, we have a swell.
 
-Rosa is a free surf forecast app with over 4,000 surf spots and growing. 16 days out, no ads, no paywall.
+Rosa is a free surf forecast app with over 4,500 surf spots and growing. 16 days out, no ads, no paywall.
 
 Punta de Lobos, El Gringo, or wherever your orbit takes you.
 

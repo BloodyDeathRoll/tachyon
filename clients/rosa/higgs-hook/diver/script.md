@@ -42,7 +42,7 @@ Some people check the cam. He checks in person.
 
 Coxos today, Mundaka next week. Plan the trip off the 16-day forecast, not a hunch.
 
-3,000+ spots, four updates a day, free.
+4,500+ spots, four updates a day, free.
 rosa.surf, link in bio.
 .
 .

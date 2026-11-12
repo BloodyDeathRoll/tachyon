@@ -42,7 +42,7 @@ She said yes to the long left.
 
 Watch the swell cross the planet on the map, then pick the spot it lands on.
 
-3,000+ spots, 16 days out, free.
+4,500+ spots, 16 days out, free.
 rosa.surf, link in bio.
 .
 .

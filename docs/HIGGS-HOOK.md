@@ -15,7 +15,7 @@ change.
 | # | Time | What | Source |
 |---|------|------|--------|
 | 1 | 0–5 s | Weird, funny scene: a character with no business at a surf break does a surf thing, deadpan. The joke on top from 2 s: two lines, left-aligned, line 2 blue, each word pops in. | Higgsfield (Seedance) + template |
-| 2 | +0–10 s | App section, the same in every film: "Location is everything." with the home screen (swipe Topanga to Sunset Point) · the phone flips into the spot page, "16 days forecast." · "No ads, no paywall." · the globe, "+4,000 spots and growing." 16:9: phone left, text right. | Template (shared frames in `public/higgs/app`) |
+| 2 | +0–10 s | App section, the same in every film: "Location is everything." with the home screen (swipe Topanga to Sunset Point) · the phone flips into the spot page, "16 days forecast." · "No ads, no paywall." · the globe, "+4,500 spots and growing." 16:9: phone left, text right. | Template (shared frames in `public/higgs/app`) |
 | 3 | last 5 s | Callback: same character, a funny payoff. The app icon zooms in as the globe shrinks; at the clip's key moment it rises to the top third with `rosa.surf` and "Find my wave", clear of the action. | Higgsfield + template |
 
 Sound: the clips' own only. No music, no voice-over, no hook card, no end line (operator,

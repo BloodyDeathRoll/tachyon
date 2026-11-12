@@ -42,7 +42,7 @@ He reads the news to the ocean. The ocean replies.
 
 Bells and Snapper, refreshed four times a day, 16 days out.
 
-3,000+ spots, free.
+4,500+ spots, free.
 rosa.surf, link in bio.
 .
 .

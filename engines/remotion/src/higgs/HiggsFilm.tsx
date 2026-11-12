@@ -14,7 +14,7 @@ import { Particles } from "./Particles";
   4 The phone spins once into a spot page (w45-10), "16 days forecast." then "No ads, no paywall.";
     the stream flows past it to the pin on the coast.
   5 The showreel globe (real land points, Rosa's spots lighting up in the order they were added),
-    "+4,000 spots and growing." (operator's wording; product.md counts 3,056 on 2026-11-09).
+    "+4,500 spots and growing." (Rosa origin/main counts 4,558 on 2026-11-12).
   6 As the globe shrinks away the app icon zooms in, centre screen, and stays on top of Higgsfield scene 5.
     At the clip's key moment (`lock` s into scene 5, per format) the icon rises to the line between the top and
     middle thirds and rosa.surf + "Find my wave" come in under it, clear of the action.
@@ -245,7 +245,7 @@ export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5,
         <Particles t={t} o={1} w={width} band={W ? 1080 : 1250} alpha={0.75} density={3.5} />
       </AbsoluteFill>}
       <Globe t={t} T={T} />
-      <Slam shade={sh} t={t} a={T.globe + 0.6} z={T.s5} lines={[["+4,000", "spots"], ["and", "growing."]]} blue={[2, 3]} size={W ? 104 : 124} gap={0.24} align={W ? "left" : "center"}
+      <Slam shade={sh} t={t} a={T.globe + 0.6} z={T.s5} lines={[["+4,500", "spots"], ["and", "growing."]]} blue={[2, 3]} size={W ? 104 : 124} gap={0.24} align={W ? "left" : "center"}
         style={W ? { left: 1150, top: 540 - 1.08 * 104, width: 740 } : { left: B.x, top: 1320, width: B.w }} />
 
       {/* 6 ── closing: scene 5, then the lockup on it ── */}

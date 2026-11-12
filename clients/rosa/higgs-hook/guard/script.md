@@ -42,7 +42,7 @@ He never leaves his post. Unless it's pumping.
 
 Thurso was cold and firing, then the alert came in for Arugam Bay. Rosa pings you when your spot turns on.
 
-3,000+ spots, 16 days out, four updates a day, free.
+4,500+ spots, 16 days out, four updates a day, free.
 rosa.surf, link in bio.
 .
 .

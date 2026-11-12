@@ -56,7 +56,7 @@ result through the dashboard (Calendar → Add new). Run from the main checkout 
   characters a line (`spine.higgs check` refuses longer).
 - Between the clips, the app section is the same in every film (the template): "Location is
   everything." with the home screen · the phone flips into a spot page, "16 days forecast." ·
-  "No ads, no paywall." · the globe, "+4,000 spots and growing." Nothing to write for it.
+  "No ads, no paywall." · the globe, "+4,500 spots and growing." Nothing to write for it.
 - Scene 5 is a callback: same character, a payoff to scene 1 that is funny on its own, any
   place. The joke continues; it does not repeat. It has one key moment (the peak of the action,
   about 1.5–3 s in): the lockup (app icon, rosa.surf, "Find my wave") rises then, in the top

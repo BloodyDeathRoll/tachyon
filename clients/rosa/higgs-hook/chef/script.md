@@ -42,7 +42,7 @@ Table for one, Muizenberg. Hold the reservation.
 
 Tide curve and first light on every spot page, so you paddle out at the right time, not just the right day.
 
-3,000+ spots, four updates a day, free.
+4,500+ spots, four updates a day, free.
 rosa.surf, link in bio.
 .
 .

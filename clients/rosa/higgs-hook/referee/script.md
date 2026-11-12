@@ -42,7 +42,7 @@ That one's a foul. The next one's a goal.
 
 Feet or metres, your pick. Switch it once in settings and every spot, every day of the 16-day forecast, reads the way you think.
 
-3,000+ spots, four updates a day, free.
+4,500+ spots, four updates a day, free.
 rosa.surf, link in bio.
 .
 .

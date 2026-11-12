@@ -42,7 +42,7 @@ Some days you have to imagine the board. Never the forecast.
 
 Imsouane and Killer Point, 16 days out, no sign-up, no paywall.
 
-3,000+ spots, four updates a day, free.
+4,500+ spots, four updates a day, free.
 rosa.surf, link in bio.
 .
 .
