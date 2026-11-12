@@ -167,3 +167,17 @@ test("the grid in the viewer's zone (the tz cookie): days, rows and a drop on a 
   await call("POST", "/rosa/move", { form: { slot: "z1", day: "2099-01-15" }, ...tz });
   assert.equal((await post("z1")).scheduled_at, "2099-01-14T22:30:00+00:00");
 });
+
+test("a DST week: one daily slot falls on two local rows; a bad grants zone falls back to UTC", async () => {
+  // Jerusalem leaves DST on Sun 25 Oct 2099: 06:30 UTC is 09:30 until Saturday, 08:30 on Sunday
+  const r = await call("GET", "/rosa/calendar?w=2099-W43", { headers: { Cookie: "tz=Asia%2FJerusalem" } });
+  assert.equal(r.text.match(/<div class=th>/g).length, 4); // 08:30, 09:30, 20:30, 21:30
+  assert.match(r.text, /data-at='2099-10-24T06:30:00\+00:00'/);
+  assert.match(r.text, /data-at='2099-10-25T06:30:00\+00:00'/);
+  await env.DB.prepare("UPDATE clients SET grants = json_set(grants, '$.timezone', 'Nope/Nope') WHERE id = 'rosa'").run();
+  try {
+    assert.match((await call("GET", "/rosa/calendar?w=2099-W43")).text, /data-zone='UTC'/);
+  } finally {
+    await env.DB.prepare("UPDATE clients SET grants = json_remove(grants, '$.timezone') WHERE id = 'rosa'").run();
+  }
+});

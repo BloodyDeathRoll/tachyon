@@ -40,14 +40,20 @@ function clock(zone: string): Clock {
 }
 /** The viewer's zone: the browser's (`tz` cookie, set by shell.ts), else the client's, else UTC. */
 export function viewZone(p: Page, req: Request): string {
+  const ok = (z: string): boolean => {
+    try {
+      return !!z && !!new Intl.DateTimeFormat("en-US", { timeZone: z });
+    } catch {
+      return false;
+    }
+  };
   let z = "";
   try {
     z = decodeURIComponent(/(?:^|;\s*)tz=([^;]*)/.exec(req.headers.get("Cookie") ?? "")?.[1] ?? "");
-    new Intl.DateTimeFormat("en-US", { timeZone: z });
   } catch {
     z = "";
   }
-  return z || zoneOf(p);
+  return ok(z) ? z : ok(zoneOf(p)) ? zoneOf(p) : "UTC";
 }
 /** The daily slots (UTC "HH:MM") that fall on the wall-clock day `day`, as instants. */
 function slotsOn(p: Page, k: Clock, day: number): number[] {

@@ -59,8 +59,8 @@ export async function metas(c: Ctx): Promise<Map<string, Json>> {
   return new Map(rows.map((r) => [r.slot_id, parseJson(r.text)]));
 }
 
-/** `ms` moved by `zone`'s offset at that instant: its UTC fields read as the zone's wall clock. */
 const FMT = new Map<string, Intl.DateTimeFormat>(); // one formatter per zone: the calendar calls wall() per cell
+/** `ms` moved by `zone`'s offset at that instant: its UTC fields read as the zone's wall clock. */
 export function wall(ms: number, zone: string): number {
   try {
     let f = FMT.get(zone);
