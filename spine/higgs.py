@@ -13,7 +13,9 @@ Film (Remotion `HiggsFilm`, one template for every script): scene 1 clip with th
 (two lines, from 2 s), the app section (the same in every film), scene 5 clip with the lockup
 rising at the clip's key moment. Sound: the clips' own, no music, no voice-over.
 script.json: title, joke_lines [line 1, line 2 (the punch)], lock {"9x16": s, "16x9": s} (seconds
-into scene 5), optional app_line (replaces "Location is everything."), optional joke_low (joke at the bottom). The script itself (prompts, caption) lives in Notion. `screens` re-records the app (the shared frames in public/higgs/app).
+into scene 5), optional app_line (replaces "Location is everything."), optional joke_low (joke at the bottom),
+optional app_screen (an image in the script folder shown instead of the home screen), app_one_line (9:16),
+joke_white (the punch line white too), joke_shadow (joke text-shadow strength, 1 = default). The script itself (prompts, caption) lives in Notion. `screens` re-records the app (the shared frames in public/higgs/app).
 """
 
 from __future__ import annotations
@@ -60,6 +62,8 @@ def check(client: str, slug: str, fmt: str = "both") -> list[str]:
         issues += [f"joke line '{l}' is over {JOKE_MAX} characters" for l in lines if len(l) > JOKE_MAX]
     if fmt not in FORMATS:
         issues.append(f"format must be one of {sorted(FORMATS)}")
+    if s.get("app_screen") and not (d / s["app_screen"]).exists():
+        issues.append(f"missing app_screen {s['app_screen']}")
     for ratio in FORMATS.get(fmt, ()):
         lk = (s.get("lock") or {}).get(ratio) if isinstance(s.get("lock"), dict) else None
         if s.get("lock") and not (isinstance(lk, (int, float)) and not isinstance(lk, bool) and 0 < lk < 5):
@@ -218,7 +222,11 @@ def props(s: dict, slug: str, ratio: str, variant: str, s1: float, s5: float) ->
     return {"variant": variant, "clips": f"higgs/{slug}", "s1": round(s1, 3), "s5": round(s5, 3),
             "joke": [l.split() for l in s["joke_lines"]], "lock": s["lock"][ratio],
             **({"app": s["app_line"]} if s.get("app_line") else {}),
-            **({"jokeLow": True} if s.get("joke_low") else {})}
+            **({"jokeLow": True} if s.get("joke_low") else {}),
+            **({"appScreen": f"higgs/{slug}/{s['app_screen']}"} if s.get("app_screen") else {}),
+            **({"appOneLine": True} if s.get("app_one_line") else {}),
+            **({"jokeWhite": True} if s.get("joke_white") else {}),
+            **({"jokeShadow": s["joke_shadow"]} if s.get("joke_shadow") is not None else {})}
 
 
 def render(client: str, slug: str, fmt: str) -> list[Path]:
@@ -232,6 +240,8 @@ def render(client: str, slug: str, fmt: str) -> list[Path]:
     pub.mkdir(parents=True, exist_ok=True)
     out = d / "out"
     out.mkdir(exist_ok=True)
+    if s.get("app_screen"):
+        shutil.copy2(d / s["app_screen"], pub / s["app_screen"])
     made = []
     for ratio in FORMATS[fmt]:
         for sc in ("s1", "s5"):

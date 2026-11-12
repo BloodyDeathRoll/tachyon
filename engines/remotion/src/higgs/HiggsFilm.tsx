@@ -21,9 +21,12 @@ import { Particles } from "./Particles";
   16:9 (same timeline, the 16:9 Higgsfield clips): phone on the left, the lines on the right, the globe on the
     left with its line on the right.
   Type: the w45-10 slam (each word scales in from 1.6, no masks, so no letter is ever clipped).
+  Per-script looks (script.json, all optional): app_screen (a still shown instead of the home screen, slow push-in),
+  app_one_line (the app line on one line on 9:16), joke_white (no blue line), joke_shadow (text-shadow strength, 1 = default).
 */
 
-export type FilmProps = { variant: Variant; clips: string; s1: number; s5: number; joke: string[][]; lock: number; app?: string; jokeLow?: boolean };
+export type FilmProps = { variant: Variant; clips: string; s1: number; s5: number; joke: string[][]; lock: number; app?: string; jokeLow?: boolean;
+  appScreen?: string; appOneLine?: boolean; jokeWhite?: boolean; jokeShadow?: number };
 export const FILM_DEFAULTS: FilmProps = { variant: "reel", clips: "higgs/samurai", s1: 5.056, s5: 5.0,
   joke: [["Preparing", "for"], ["a", "fight?"]], lock: 2.4 };
 const APP = "higgs/app";   // the app section's frames, shared by every film
@@ -35,12 +38,13 @@ type Times = ReturnType<typeof times>;
 export const filmSeconds = (p: FilmProps) => times(p.s1).s5 + p.s5;
 
 const BLUES = [C.acc, "#6fd8ff", "#ffffff", "#2f7bff", C.acc];
-const SHADOW = "0 10px 60px rgba(0,0,0,.85)";
+const shadow = (k = 1) => `0 10px 60px rgba(0,0,0,${0.85 * k})`;
+const SHADOW = shadow();
 const N = 240;
 
 /** words that slam in one after another; lines are arrays of words, `blue` marks words by index */
 const Slam: React.FC<{ t: number; a: number; z: number; lines: string[][]; blue: number[]; size: number; gap?: number;
-  align?: "center" | "right" | "left"; style?: React.CSSProperties }> = ({ t, a, z, lines, blue, size, gap = 0.2, align = "center", style }) => {
+  align?: "center" | "right" | "left"; style?: React.CSSProperties; shade?: string }> = ({ t, a, z, lines, blue, size, gap = 0.2, align = "center", style, shade = SHADOW }) => {
   if (t < a || t > z) return null;
   const out = seg(t, z - 0.22, z);
   let k = 0;
@@ -51,7 +55,7 @@ const Slam: React.FC<{ t: number; a: number; z: number; lines: string[][]; blue:
           {ws.map((w) => {
             const i = k++, at = a + gap * i;
             return (
-              <H1 key={i} size={size} style={{ lineHeight: 1.08, color: blue.includes(i) ? C.acc : "#fff", textShadow: SHADOW, whiteSpace: "nowrap",
+              <H1 key={i} size={size} style={{ lineHeight: 1.08, color: blue.includes(i) ? C.acc : "#fff", textShadow: shade, whiteSpace: "nowrap",
                 opacity: t >= at ? 1 : 0, transform: `scale(${lerp(1.6, 1, outExpo(seg(t, at, at + 0.25)))})` }}>{w}</H1>
             );
           })}
@@ -115,7 +119,7 @@ const Globe: React.FC<{ t: number; T: Times }> = ({ t, T }) => {
   return <canvas ref={ref} width={width} height={height} style={{ position: "absolute", left: 0, top: 0 }} />;
 };
 
-export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5, joke, lock, app, jokeLow }) => {
+export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5, joke, lock, app, jokeLow, appScreen, appOneLine, jokeWhite, jokeShadow }) => {
   useInter();
   const t = useT();
   const { fps, width, height } = useVideoConfig();
@@ -126,7 +130,7 @@ export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5,
   // joke: line 2 is the punch (blue); the size shrinks so the longest line fits the safe width
   const jokeW = W ? 1000 : B.w, jokeChars = Math.max(...joke.map((l) => l.join(" ").length));
   const jokeSize = Math.min(W ? 130 : 128, Math.floor(jokeW / (0.56 * jokeChars)));
-  const jokeBlue = joke.slice(1).flat().map((_, i) => joke[0].length + i);
+  const jokeBlue = jokeWhite ? [] : joke.slice(1).flat().map((_, i) => joke[0].length + i);
 
   // ── phone (w45-10): lands centre as the particles pour in, then spins once into the spot page ──
   const cx = W ? 560 : 540, cy = W ? 540 : 960;
@@ -191,7 +195,7 @@ export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5,
       </Sequence>
       {t < S1 && <AbsoluteFill style={{ opacity: seg(t, T.joke - 0.2, T.joke + 0.3) * (1 - seg(t, S1 - 0.25, S1)),
         background: W ? "linear-gradient(90deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.1) 35%, rgba(0,0,0,0) 55%)" : `linear-gradient(${jokeLow ? 0 : 180}deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.1) 38%, rgba(0,0,0,0) 55%)` }} />}
-      <Slam t={t} a={T.joke} z={S1} lines={joke} blue={jokeBlue} size={jokeSize} gap={0.12} align="left"
+      <Slam t={t} a={T.joke} z={S1} lines={joke} blue={jokeBlue} size={jokeSize} gap={0.12} align="left" shade={shadow(jokeShadow)}
         // jokeLow (script.json joke_low): sits on the bottom of the safe area, off a face at the top of the clip
         style={jokeLow ? (W ? { left: 110, bottom: 110, width: 900 } : { left: B.x, bottom: height - B.y - B.h, width: B.w })
           : W ? { left: 110, top: 110, width: 900 } : { left: B.x, top: B.y + 10, width: B.w }} />
@@ -203,8 +207,8 @@ export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5,
         <div style={{ position: "absolute", inset: 0, clipPath: `circle(${lerp(0, 75, reveal)}% at 50% 50%)`, background: "#f4f3f3" }}>
           {/* home until the phone is edge-on in the flip, then the spot page; on the back half it is un-mirrored */}
           {t >= T.pour && t < T.globe + 0.6 &&
-            <Img src={staticFile(recFrame(T, t, spin >= 0.25))} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
-              transform: Math.cos((pose.ry * Math.PI) / 180) < 0 ? "scaleX(-1)" : undefined }} />}
+            <Img src={staticFile(spin < 0.25 && appScreen ? appScreen : recFrame(T, t, spin >= 0.25))} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
+              transform: `${Math.cos((pose.ry * Math.PI) / 180) < 0 ? "scaleX(-1) " : ""}${spin < 0.25 && appScreen ? `scale(${lerp(1, 1.08, inOut(seg(t, T.pour, T.spin)))})` : ""}` || undefined }} />}
         </div>
       </Phone>
       {t >= S1 && t < T.globe + 0.2 && (
@@ -222,7 +226,8 @@ export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5,
 
       {app
         // a script's own line is set like "16 days forecast."
-        ? <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[appWs.slice(0, -1), appWs.slice(-1)]} blue={appBlue} size={130} align="left" gap={0.22}
+        ? <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={appOneLine && !W ? [appWs] : [appWs.slice(0, -1), appWs.slice(-1)]} blue={appBlue}
+            size={appOneLine && !W ? Math.min(130, Math.floor(B.w / (0.56 * app.length))) : 130} align="left" gap={0.22}
             style={W ? { left: 1060, top: 540 - 1.08 * 130, width: 780 } : { left: B.x, top: B.y + 20, width: B.w }} />
         : W
         ? <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[appWs.slice(0, -1), appWs.slice(-1)]} blue={appBlue} size={120} align="left"

@@ -10,5 +10,9 @@
   "lock": {
     "9x16": 2.4,
     "16x9": 2.2
-  }
+  },
+  "app_screen": "map.png",
+  "app_one_line": true,
+  "joke_white": true,
+  "joke_shadow": 0.5
 }
