@@ -178,12 +178,14 @@ export const CSS = LOCAL_CSS + `
 .frame.mixing video{opacity:.2}.mixspin{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
 .mixspin i{width:56px;height:56px;border:5px solid var(--lime);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite}`;
 
-// the times in the browser's zone; the custom-time form's local value and the offset it posts back
-// the browser's zone in app.py's formats: when() "%a %-d %b, %H:%M", a slot time "%H:%M"
+// the times in the browser's zone in app.py's formats: when() "%a %-d %b, %H:%M", a slot time "%H:%M"
+// the custom-time form's local value and the offset it posts back; the browser's zone in the `tz`
+// cookie for the calendar's grid (one reload if it was laid out in another)
 const TIME_JS = `(()=>{const p=n=>String(n).padStart(2,'0'),D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 for(const t of document.querySelectorAll('time[datetime]')){const d=new Date(t.dateTime),hm=p(d.getHours())+':'+p(d.getMinutes());t.textContent=t.dataset.fmt==='time'?hm:D[d.getDay()]+' '+d.getDate()+' '+M[d.getMonth()]+', '+hm;}
 for(const i of document.querySelectorAll('input[type=datetime-local][data-utc]')){const d=new Date(i.dataset.utc);i.value=d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());}
-for(const i of document.querySelectorAll('input[name=tz]'))i.value=new Date().getTimezoneOffset();})();`;
+for(const i of document.querySelectorAll('input[name=tz]'))i.value=new Date().getTimezoneOffset();
+try{const z=Intl.DateTimeFormat().resolvedOptions().timeZone;if(z){document.cookie='tz='+encodeURIComponent(z)+';path=/;max-age=31536000;samesite=lax';const c=document.querySelector('[data-zone]');if(c&&c.dataset.zone!==z&&sessionStorage.tzr!==z){sessionStorage.tzr=z;location.reload();}}}catch(e){}})();`;
 
 const NAV: [string, string, string, string][] = [["overview", "", "grid", "Overview"], ["calendar", "/calendar", "cal", "Calendar"], ["insights", "/insights", "chart", "Insights"], ["settings", "/settings", "sliders", "Settings"]];
 
