@@ -200,9 +200,10 @@ export function display(client: ClientInfo): { name: string; handle: string | nu
   };
 }
 
-/** app.py's avatar: the client's icon (GET /static/avatar/<id>.png answers its first letter when none was sent up). */
-// sign out: a POST (a link could be fired by any page), drawn as a nav link
+// sign out: a POST (a link could be fired by any page), drawn as a nav link; its icon added here
+// as calendar.ts adds its own, since ICONS is generated from app.py (export_ui)
 const OUT = icon("").replace("</svg>", '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>');
+/** app.py's avatar: the client's icon (GET /static/avatar/<id>.png answers its first letter when none was sent up). */
 function avatar(id: string): string {
   return `<img class=av src='/static/avatar/${encodeURIComponent(id)}.png' alt=''>`;
 }
