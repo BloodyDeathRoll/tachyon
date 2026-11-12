@@ -176,6 +176,8 @@ export const CSS = LOCAL_CSS + `
  .stats{grid-template-columns:repeat(2,1fr);row-gap:18px}.stat:nth-child(3){border-left:0;padding-left:0}
  .grid{grid-template-columns:repeat(2,1fr);gap:12px}.card{padding:20px 16px}h1{font-size:24px}.tiles{grid-template-columns:repeat(2,1fr)}}
 .frame.mixing video{opacity:.2}.mixspin{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.accts{list-style:none;margin:14px 0 0;padding:0}.accts li{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--rule)}.accts li:first-child{border-top:0}
+.accts li>span{flex:1;min-width:0}.accts b,.accts small{display:block}.accts small{color:var(--ink3);font-size:13px}.accts .btns{margin:0}.acctpage form{margin:0}.acctpage .card>.btns{margin-top:14px}
 aside a.me{margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px 12px;background:#222;border-radius:10px;color:#fff;font-weight:600;font-size:14px;min-width:0}aside a.me:hover,aside a.me.on{background:#2A2A2A}aside a.me span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}aside a.me .av{width:28px;height:28px;border-radius:50%;font-size:13px}
 @media (max-width:900px){aside a.me{margin-top:0}}
 .mixspin i{width:56px;height:56px;border:5px solid var(--lime);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite}`;
@@ -211,14 +213,14 @@ export function shell(p: Page, active: string, body: string, title: string, refr
   const others = p.nav.map((c) => `<li><a href='${path(c.id)}'>${avatar(c.id)}${esc(c.name)}</a></li>`).join("");
   const nav = NAV.map(([key, href, ic, label]) => `<a href='${base}${href}' class='${key === active ? "on" : ""}'>${icon(ic)}${label}</a>`).join("");
   // the signed-in user at the bottom (the Figma): their Google picture, else their first letter
-  const me = p.user.picture ? `<img class=av src='${esc(p.user.picture)}' alt='' referrerpolicy=no-referrer>` : `<span class=av>${esc((p.user.name || p.user.email).slice(0, 1).toUpperCase())}</span>`;
+  const me = p.user.picture ? `<img class=av src='${esc(p.user.picture)}' alt='' referrerpolicy=no-referrer>` : `<span class=av>${esc((p.user.name?.trim() || p.user.email).slice(0, 1).toUpperCase())}</span>`;
   const html = `<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>
 <link rel=manifest href=/manifest.webmanifest>
 <meta name=theme-color content='#111'>
 ${refresh ? `<meta http-equiv=refresh content=${refresh}>` : ""}<title>${esc(title)} · ${esc(d.name)} · Tachyon</title><link rel=icon href='/static/icon.svg'><style>${CSS}</style>
 <div class=shell><aside><a class=brand href='/app'><img src='/static/logo.svg' alt='Tachyon'></a>
 <details class=proj><summary>${avatar(p.client.id)}<span><b>${esc(d.name)}</b>${d.handle ? `<small>@${esc(d.handle)}</small>` : ""}</span><span class=chev>${icon("chev", 16)}</span></summary><ul>${others}</ul></details>
-<nav>${nav}</nav><a class='me${active === "account" ? " on" : ""}' href='/account' title='Your account'>${me}<span>${esc(p.user.name || p.user.email.split("@")[0]!)}</span></a></aside><main>${body}</main></div>
+<nav>${nav}</nav><a class='me${active === "account" ? " on" : ""}' href='/account' title='Your account'>${me}<span>${esc(p.user.name?.trim() || p.user.email.split("@")[0]!)}</span></a></aside><main>${body}</main></div>
 <div class=pvm id=pvm hidden><div class=pvbox><video controls playsinline></video><div class=pvbar><a class='btn sec small' id=pvopen href='#'>Open the video page</a><button class='btn dark small' id=pvx>Close</button></div></div></div>
 <script>${TIME_JS}${PV_JS}${SEG_JS}${LOCK_JS}${DTP_JS}</script></html>`;
   return page(html, 200);

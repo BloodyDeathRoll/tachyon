@@ -34,6 +34,7 @@ test("admins only; the account page links the two pages for an admin alone", asy
   assert.doesNotMatch((await call("GET", "/account", { as: 1 })).text, /\/admin\//);
   assert.match((await call("GET", "/account")).text, /href='\/admin\/members'/);
   assert.match((await call("GET", "/account")).text, /href='\/admin\/clients'/);
+  assert.match((await call("GET", "/account")).text, /Another account: add a client in <a href='\/admin\/clients'>Clients<\/a>/);
 });
 
 test("Members: the users with their clients; invite, add and drop a membership, remove", async () => {

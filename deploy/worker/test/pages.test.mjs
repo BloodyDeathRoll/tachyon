@@ -499,14 +499,32 @@ test("music: app.py's card, Library and Instagram; a pick is a track job a PC mi
 test("account: Disconnect forgets the client's Instagram, a member's own clients only", async () => {
   const before = await env.DB.prepare("SELECT token_enc, page_id, ig_user_id FROM clients WHERE id = 'rosa'").first();
   assert.ok(before.token_enc);
-  assert.match((await call("GET", "/account")).text, />Disconnect<\/button>/);
+  const acct = (await call("GET", "/account")).text;
+  assert.match(acct, />Reconnect<\/a>/);
+  assert.match(acct, />Disconnect<\/button>/);
+  assert.doesNotMatch(acct, /add a client in/); // the hint is an admin's
+  const none = await call("GET", "/account", { as: 2 }); // no client: the page on the stand-in shell
+  assert.equal(none.status, 200);
+  assert.match(none.text, /No clients yet/);
   assert.equal((await call("POST", "/account/disconnect", { as: 2, form: { client: "rosa" } })).status, 403); // not a member of rosa
+  // a video going out right now keeps the token
+  const flying = (await env.DB.prepare("SELECT slot_id FROM posts WHERE client = 'rosa' AND state = 'PUBLISHING'").all()).results.map((x) => x.slot_id);
+  if (!flying.length) await env.DB.prepare("INSERT INTO posts (client, slot_id, state, created_at, updated_at) VALUES ('rosa', 'fly', 'PUBLISHING', '', '')").run();
+  assert.equal((await call("POST", "/account/disconnect", { form: { client: "rosa" } })).status, 409);
+  await env.DB.prepare("UPDATE posts SET state = 'QUEUED' WHERE client = 'rosa' AND state = 'PUBLISHING'").run();
   const r = await call("POST", "/account/disconnect", { form: { client: "rosa" } });
   assert.equal(r.status, 303);
   assert.equal(r.headers.get("Location"), "/account");
   const after = await env.DB.prepare("SELECT token_enc, page_id, ig_user_id, ig_username FROM clients WHERE id = 'rosa'").first();
   assert.deepEqual({ ...after }, { token_enc: null, page_id: null, ig_user_id: null, ig_username: null });
-  assert.ok(await env.DB.prepare("SELECT 1 FROM journal WHERE client = 'rosa' AND action = 'meta.disconnect'").first());
-  assert.match((await call("GET", "/account")).text, />Connect Instagram<\/a>/);
+  const count = async () => (await env.DB.prepare("SELECT COUNT(*) AS n FROM journal WHERE client = 'rosa' AND action = 'meta.disconnect'").first()).n;
+  assert.equal(await count(), 1);
+  assert.equal((await call("POST", "/account/disconnect", { form: { client: "rosa" } })).status, 303);
+  assert.equal(await count(), 1); // nothing was connected: no second row
+  const page = (await call("GET", "/account")).text;
+  assert.match(page, />Connect Instagram<\/a>/);
+  assert.doesNotMatch(page, />Reconnect<\/a>/);
   await env.DB.prepare("UPDATE clients SET token_enc = ?, page_id = ?, ig_user_id = ? WHERE id = 'rosa'").bind(before.token_enc, before.page_id, before.ig_user_id).run(); // as it was for anything after
+  await env.DB.prepare("DELETE FROM posts WHERE client = 'rosa' AND slot_id = 'fly'").run();
+  for (const s of flying) await env.DB.prepare("UPDATE posts SET state = 'PUBLISHING' WHERE client = 'rosa' AND slot_id = ?").bind(s).run();
 });
