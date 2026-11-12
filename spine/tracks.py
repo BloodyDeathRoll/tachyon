@@ -360,8 +360,9 @@ def ig_track(given: dict) -> dict:
 def set_track(client: str, slot: str, track_id: str, given: dict | None = None) -> None:
     """Pick a track for the slot and re-mix its videos. `given`: an Instagram song found online
     (the Worker's music page), not in this PC's search cache."""
-    track = (next((t for t in _library(client) if t["id"] == track_id), None) or _ig_known(client).get(track_id)
-             or (given if given and given.get("id") == track_id else None))
+    # `given` first: its link is fresh, a cached one may have expired (Instagram's links last days)
+    track = ((given if given and given.get("id") == track_id else None)
+             or next((t for t in _library(client) if t["id"] == track_id), None) or _ig_known(client).get(track_id))
     if not track:
         raise KeyError(f"no track {track_id}")
     p, m = _meta(client, slot)
