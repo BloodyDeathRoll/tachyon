@@ -43,10 +43,12 @@ test("admins only; the account page links the two pages for an admin alone", asy
 
 test("Members: the users with their clients; invite, add and drop a membership, remove", async () => {
   let r = await call("GET", "/admin/members");
-  assert.match(r.text, /alice@example\.com<\/td>/);
-  assert.match(r.text, /alice@example\.com[\s\S]*?<span class='tag sched'>rosa /);
-  assert.match(r.text, /root@example\.com <span class='tag need'>admin<\/span>/);
-  assert.match(r.text, /bob@example\.com<\/td><td><\/td><td>not signed in yet<\/td>/);
+  assert.match(r.text, /<span class=em>alice@example\.com<\/span><\/td>/);
+  assert.match(r.text, /alice@example\.com[\s\S]*?<form method=post class=chip><input type=hidden name=action value='drop'>[\s\S]*?<i><\/i>Rosa<button aria-label='Remove from Rosa'>/); // the client's name, an x that drops it
+  assert.match(r.text, /<select name=client class=dd onchange='this.form.submit\(\)' aria-label='Add a client'><option value='' selected disabled>Add<\/option>/); // Add: picking a client adds it
+  assert.match(r.text, /<noscript><button class=rm>Add<\/button><\/noscript>/);
+  assert.match(r.text, /root@example\.com<\/span><span class='tag need'>admin<\/span>/);
+  assert.match(r.text, /bob@example\.com<\/span><\/td><td><\/td><td class=muted>not signed in yet<\/td>/);
   assert.doesNotMatch(r.text, /value='3'><button class='btn sec small'>Remove/); // not themself
   // invite
   r = await call("POST", "/admin/members", { form: { action: "invite", email: " Carol@Example.com ", admin: "1" } });
@@ -54,7 +56,7 @@ test("Members: the users with their clients; invite, add and drop a membership, 
   assert.equal(r.location, "/admin/members");
   const carol = await env.DB.prepare("SELECT * FROM users WHERE email = 'carol@example.com'").first();
   assert.equal(carol.admin, 1);
-  assert.match((await call("GET", "/admin/members")).text, /carol@example\.com <span class='tag need'>admin/);
+  assert.match((await call("GET", "/admin/members")).text, /carol@example\.com<\/span><span class='tag need'>admin/);
   r = await call("POST", "/admin/members", { form: { action: "invite", email: "carol@example.com" } });
   assert.equal(r.status, 409);
   assert.match(r.text, /carol@example\.com is invited already/);
@@ -63,7 +65,7 @@ test("Members: the users with their clients; invite, add and drop a membership, 
   r = await call("POST", "/admin/members", { form: { action: "add", user: "2", client: "acme" } });
   assert.equal(r.status, 303);
   assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM memberships WHERE user = 2 AND client = 'acme'").first()).n, 1);
-  assert.match((await call("GET", "/admin/members")).text, /bob@example\.com[\s\S]*?<span class='tag sched'>acme /);
+  assert.match((await call("GET", "/admin/members")).text, /bob@example\.com[\s\S]*?<i><\/i>Acme<button aria-label='Remove from Acme'>/);
   assert.equal((await call("POST", "/admin/members", { form: { action: "add", user: "2", client: "zzz" } })).status, 404);
   assert.equal((await call("POST", "/admin/members", { form: { action: "add", user: "x", client: "acme" } })).status, 400);
   assert.equal((await call("POST", "/admin/members", { form: { action: "drop", user: "2", client: "acme" } })).status, 303);
@@ -81,7 +83,7 @@ test("Members: the users with their clients; invite, add and drop a membership, 
 test("Clients: the rows, create one as the cron's", async () => {
   let r = await call("GET", "/admin/clients");
   assert.equal(r.status, 200);
-  assert.match(r.text, /<a href='\/rosa'>Rosa<\/a><\/td><td>rosa<\/td><td>not connected<\/td><td>local<\/td>/);
+  assert.match(r.text, /<a href='\/rosa'>Rosa<\/a><\/td><td>rosa<\/td><td class=muted>not connected<\/td><td>local<\/td>/);
   r = await call("POST", "/admin/clients", { form: { action: "create", id: "zed", name: " Zed Surf " } });
   assert.equal(r.status, 303);
   assert.equal(r.location, "/admin/clients");
