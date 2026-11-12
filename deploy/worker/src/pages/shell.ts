@@ -224,7 +224,7 @@ export function page(html: string, status: number): Response {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store",
-      "Content-Security-Policy": "default-src 'none'; img-src 'self' https: data:; media-src 'self'; style-src 'unsafe-inline'; font-src 'self'; script-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'",
+      "Content-Security-Policy": "default-src 'none'; img-src 'self' https: data:; media-src 'self' https://*.fbcdn.net; style-src 'unsafe-inline'; font-src 'self'; script-src 'unsafe-inline'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'",
     },
   });
 }
