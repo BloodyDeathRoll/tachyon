@@ -33,8 +33,9 @@ const end=async e=>{if(!st||e.pointerId!==st.id)return;clearTimeout(st.timer);co
  if(!t){s.g.remove();s.el.classList.remove('dragging');return;}
  const b=new URLSearchParams({slot:s.el.dataset.slot});
  if(t.dataset.slot)b.set('swap',t.dataset.slot);else if(t.dataset.at)b.set('at',t.dataset.at);else b.set('day',t.dataset.day);
- const r=await fetch('/__C__/move',{method:'POST',body:b});
+ const r=await fetch('/__C__/move',{method:'POST',body:b}).catch(()=>null);
  s.g.remove();s.el.classList.remove('dragging');
+ if(!r){say('Could not move it: no connection',3000);return;}
  if(!r.ok){say(msg(await r.text()),3000);return;}
  const tgt=t.dataset.day?t.querySelector('.cell.open[data-at]')||t:t;
  const A=s.el.getBoundingClientRect(),B=tgt.getBoundingClientRect(),ease='transform .5s cubic-bezier(.2,.8,.2,1)';
