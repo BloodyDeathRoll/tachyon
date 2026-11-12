@@ -56,6 +56,7 @@ test("the week view: the video on its slot, open slots with Add new, the nav, th
   assert.match(r.text, /href='\/rosa\/calendar\?w=2099-W03'/);
   assert.equal(r.text.match(/class='dh/g).length, 7);
   assert.match(r.headers.get("Content-Security-Policy"), /connect-src 'self'/); // the drag's fetch to /move
+  assert.match(r.headers.get("Content-Security-Policy"), /media-src 'self' https:\/\/\*\.fbcdn\.net;/); // Instagram song previews (shared page header)
   assert.match(r.headers.get("Set-Cookie"), /^cal_rosa=%3Fw%3D2099-W02; Path=\/; Max-Age=31536000; SameSite=Lax$/);
   // no query: the cookie's view
   const back = await call("GET", "/rosa/calendar", { headers: { Cookie: "cal_rosa=%3Fw%3D2099-W02" } });
