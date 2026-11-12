@@ -498,6 +498,12 @@ def test_a_track_job_mixes_the_song_picked_online_and_sends_the_meta(env, monkey
     # the new cut goes up inside the job (no settle wait): the page waiting on the job then plays it
     puts = [(c[1], c[2]) for c in f.calls if c[0] == "PUT"]
     assert puts == [("http://w/api/media/rosa/w01-s1/video", b"vid")]
+    # a cut first sent from a browser (no sha) is replaced by the mix too; a failed send does not fail the mix
+    f = fake(monkeypatch, (200, {"result": True}), (200, {"result": [{**row("w01-s1"), "r2_key": "k"}]}), (200, {"key": "v"}))
+    W.run_job(job, CFG)
+    assert [c[1] for c in f.calls if c[0] == "PUT"] == ["http://w/api/media/rosa/w01-s1/video"]
+    f = fake(monkeypatch, (200, {"result": True}), (500, {"error": "internal"}))
+    assert W.run_job(job, CFG)["track"] == "ig:123"
     for bad in ({**song, "preview": "https://evil.example/a.m4a"}, {**song, "preview": "http://video.xx.fbcdn.net/a"}, {**song, "audio_id": "1;rm"}):
         with pytest.raises(ValueError):
             W.run_job({**job, "payload": json.dumps({"track": bad})}, CFG)

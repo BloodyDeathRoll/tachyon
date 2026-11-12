@@ -256,8 +256,8 @@ def sync_videos(clients: list[str], cfg: dict, slot: str | None = None) -> list[
             # SETTLE seconds may still be rendering: next round
             video = (row["state"] not in OUT and not row.get("ig_media_id") and p.is_file()
                      and time.time() - p.stat().st_mtime >= settle)
-            if video and row.get("r2_key") and not row.get("r2_sha"):
-                video = False   # sent from a browser (no sha): that file is the cut, not this PC's
+            if video and row.get("r2_key") and not row.get("r2_sha") and not only:
+                video = False   # sent from a browser (no sha): that file is the cut, not this PC's (unless a job just re-cut it)
             if video:
                 sha = _sha(p)
                 video = not (row.get("r2_key") and row.get("r2_sha") == sha)
@@ -391,8 +391,12 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) ->
         T.set_track(client, slot, tid, song)
         song = song or {"id": tid}
         files = sorted(J.push_files(client, slot, ("meta.json",)))
-        # the new cut goes up now, so the page that waits on this job plays it when the job is done
-        sync_videos([client], cfg, slot)
+        # the new cut goes up now, so the page that waits on this job plays it when the job is done;
+        # if it cannot, the loop's sync sends it later: the mix itself is done
+        try:
+            sync_videos([client], cfg, slot)
+        except Exception as e:  # noqa: BLE001
+            say(f"{client}/{slot}: the new cut not sent yet ({e})")
         return {"track": song["id"], "media": media_of(client, slot, cfg), "files": files}
     argv = payload.get("argv")
     if not isinstance(argv, list) or not all(isinstance(a, str) for a in argv):
