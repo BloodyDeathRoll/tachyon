@@ -236,15 +236,15 @@ def _put(client: str, slot: str, name: str, p: Path, cfg: dict, headers: dict) -
         return False
 
 
-def sync_videos(clients: list[str], cfg: dict, slot: str | None = None) -> list[str]:
+def sync_videos(clients: list[str], cfg: dict, only: str | None = None) -> list[str]:
     """Every post, one read per client. An unpublished video whose cut on this PC is not the one
     in R2 (none there yet, or re-rendered since) is sent up with its cover. The Worker deletes the file it replaces, and the
     published one after it publishes: R2 holds one file per waiting video. A cover is kept for
     every post (the calendar's thumbnail): one this PC has and R2 does not goes up too.
-    `slot`: only that post, sent at once (a job just wrote its cut, nothing is mid-render).
+    `only`: that post alone, sent at once (a job just wrote its cut, nothing is mid-render).
     "client/slot" sent."""
     from .db import RemoteDB
-    sent, only, settle = [], slot, 0 if slot else SETTLE
+    sent, settle = [], 0 if only else SETTLE
     for client in clients:
         for row in RemoteDB(client).posts():
             if only and row["slot_id"] != only:
