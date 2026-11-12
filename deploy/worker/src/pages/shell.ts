@@ -174,7 +174,9 @@ export const CSS = LOCAL_CSS + `
  nav{flex-direction:row;overflow-x:auto;max-width:100%;flex:1 1 100%;padding:4px 0 0}nav a{padding:0 12px;white-space:nowrap;min-height:40px}
  main{padding:16px 16px 48px}.vpage{grid-template-columns:1fr}.player{position:static}.vpage .c3{grid-column:auto}
  .stats{grid-template-columns:repeat(2,1fr);row-gap:18px}.stat:nth-child(3){border-left:0;padding-left:0}
- .grid{grid-template-columns:repeat(2,1fr);gap:12px}.card{padding:20px 16px}h1{font-size:24px}.tiles{grid-template-columns:repeat(2,1fr)}}`;
+ .grid{grid-template-columns:repeat(2,1fr);gap:12px}.card{padding:20px 16px}h1{font-size:24px}.tiles{grid-template-columns:repeat(2,1fr)}}
+.frame.mixing video{opacity:.2}.mixspin{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
+.mixspin i{width:56px;height:56px;border:5px solid var(--lime);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite}`;
 
 // the times in the browser's zone; the custom-time form's local value and the offset it posts back
 // the browser's zone in app.py's formats: when() "%a %-d %b, %H:%M", a slot time "%H:%M"
