@@ -49,7 +49,8 @@ test("Members: the users with their clients; invite, add and drop a membership, 
   assert.match(r.text, /<noscript><button class=rm>Add<\/button><\/noscript>/);
   assert.match(r.text, /root@example\.com<\/span><span class='tag need'>admin<\/span>/);
   assert.match(r.text, /bob@example\.com<\/span><\/td><td><\/td><td class=muted>not signed in yet<\/td>/);
-  assert.doesNotMatch(r.text, /value='3'><button class='btn sec small'>Remove/); // not themself
+  assert.match(r.text, /name=id value='1'><button class='rm red'>Remove<\/button>/); // another user's Remove
+  assert.doesNotMatch(r.text, /name=id value='3'><button class='rm red'>Remove/); // not themself
   // invite
   r = await call("POST", "/admin/members", { form: { action: "invite", email: " Carol@Example.com ", admin: "1" } });
   assert.equal(r.status, 303);

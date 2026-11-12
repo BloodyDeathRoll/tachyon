@@ -177,7 +177,7 @@ export const CSS = LOCAL_CSS + `
  .grid{grid-template-columns:repeat(2,1fr);gap:12px}.card{padding:20px 16px}h1{font-size:24px}.tiles{grid-template-columns:repeat(2,1fr)}}
 .frame.mixing video{opacity:.2}.mixspin{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none}
 /* Members and Clients (the Figma screens "members screen" and "clients screen") */
-.adm .card{padding:30px;border-radius:18px;border-color:#E5E7EB}.adm .card>h2+*{margin-top:16px}.adm .card>.hint{margin:16px 0 0}
+.adm .card{padding:30px;border-radius:18px;border-color:#E5E7EB}@media (max-width:900px){.adm .card{padding:20px 16px}}.adm .card>h2+*{margin-top:16px}.adm .card>.hint{margin:16px 0 0}
 .adm .tw{overflow-x:auto}.adm table.full{width:100%;border-collapse:collapse;font-size:14px}.adm table.full th,.adm table.full td{text-align:left;padding:14px 12px 14px 0;vertical-align:middle;border-bottom:1px solid #DEDEDE;white-space:nowrap}.adm table.full th{padding-top:8px;padding-bottom:8px;color:var(--ink3);font-weight:500;font-size:12.5px}.adm table.full :is(th,td):last-child{padding-right:0}.adm table.full .act{text-align:right}.adm table.full .muted{color:var(--ink3)}
 .adm table.cli td{padding-top:16px;padding-bottom:16px}.adm table.cli td:first-child{font-weight:500}.adm table.cli th:nth-child(1){width:420px}.adm table.cli th:nth-child(2){width:300px}.adm table.cli th:nth-child(3){width:420px}.adm table.cli th:nth-child(5){width:240px}
 .adm table.mem th:nth-child(1){width:520px}.adm table.mem th:nth-child(2),.adm table.mem th:nth-child(3){width:260px}.adm table.mem th:nth-child(5){width:140px}
