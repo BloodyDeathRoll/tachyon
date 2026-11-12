@@ -502,7 +502,7 @@ async function musicCard(s: Slot, cls: string, src: string, q: string, wait: boo
   if (wait && ig) rows.push("<p class='muted igwait' role=status><i class=spin></i>Loading Instagram music…</p>");
   else if (!rows.length) rows.push(`<p class=muted style='margin:6px 0 0'>${err ? `Instagram music is not reachable right now: ${esc(err)}` : ig ? "Nothing found." : "The library is not here yet: a PC sends it up when its host loop runs."}</p>`);
   const want = mix ? String(((parseJson(mix.payload).track ?? {}) as Json).title ?? "the song") : "";
-  const status = open_(mix) ? `<p class=hint style='margin:12px 0 0'><i class=spin></i>Mixing &ldquo;${esc(want)}&rdquo; into the video on a PC.</p>`
+  const status = open_(mix) ? `<p class='hint igwait' style='margin:12px 0 0' role=status><i class=spin></i>Mixing &ldquo;${esc(want)}&rdquo; into the video on a PC.</p>`
     : mix?.state === "failed" ? `<p class=hint style='margin:12px 0 0;color:#b42318'>Could not mix &ldquo;${esc(want)}&rdquo;: ${esc(jobResult(mix).slice(-200))}</p>` : "";
   const icons = `<template id=i-play>${icon("play", 16)}</template><template id=i-pause>${icon("pause", 16)}</template>`;
   return `<section class=card id=music><div class=row><h2>Music</h2>${seg}</div>${search}<form method=post action='${base}/track' class=tracks${wait && ig ? " data-wait" : ""}><input type=hidden name=src value='${ig ? "instagram" : "file"}'>${rows.join("")}</form>${status}${icons}<script>${AUDIO_JS}</script></section>`;

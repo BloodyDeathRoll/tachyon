@@ -463,7 +463,7 @@ test("music: app.py's card, Library and Instagram; a pick is a track job a PC mi
   assert.equal(job.kind, "track");
   assert.deepEqual(JSON.parse(job.payload), { slot: "mu1", track: { id: "ig:111", audio_id: "111", title: "A Big Mess", artist: "TrackTribe", cover: "", duration: 211, link: "", preview: "https://video-lga3-1.xx.fbcdn.net/a.m4a" } });
   r = await call("GET", "/rosa/v/mu1");
-  assert.match(r.text, /Mixing &ldquo;A Big Mess&rdquo;/);
+  assert.match(r.text, /<p class='hint igwait' style='margin:12px 0 0' role=status><i class=spin><\/i>Mixing &ldquo;A Big Mess&rdquo;/);
   assert.match(r.text, /name=track value='lib1' disabled>Use/); // one mix at a time
   // while it mixes: the cut dimmed, no controls, a spinner; no meta refresh, the page asks /mixing and reloads once
   assert.match(r.text, /<div class='frame mixing' id=frame><video playsinline /);
