@@ -382,7 +382,7 @@ export function safeNext(next: string | null, origin: string): string {
 function loginPage(env: Env): Response {
   const setup = env.GOOGLE_CLIENT_ID
     ? `<div id="g"></div>
-<script src="https://accounts.google.com/gsi/client" async></script>
+<script src="https://accounts.google.com/gsi/client?hl=en" async></script>
 <script>
 window.onload = () => {
   google.accounts.id.initialize({ client_id: ${JSON.stringify(env.GOOGLE_CLIENT_ID)}, callback: async (r) => {
@@ -397,20 +397,29 @@ window.onload = () => {
     m.textContent = "Signed in as " + j.profile.email + ". Copy the token into: python -m spine.worker login " + location.origin;
     t.hidden = false; t.value = j.token;
   } });
-  google.accounts.id.renderButton(g, { theme: "outline", size: "large" });
+  google.accounts.id.renderButton(g, { theme: "filled_black", size: "large", shape: "rectangular", text: "signin_with", width: Math.min(400, g.parentElement.clientWidth) });
 };
 </script>`
     : "<p>Not configured yet: GOOGLE_CLIENT_ID is empty (wrangler.toml).</p>";
+  // the design (login.png): the logo on dark at the left, the sign-in on the light right; Google's
+  // own button (its rules allow no restyle), so no passwords
   const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tachyon sign-in</title>
-<style>body{font:16px system-ui,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem;color:#111}textarea{width:100%;height:8rem;font:13px monospace}</style>
-<h1>Tachyon</h1>
-<p>Sign in with the Google account an admin invited.</p>
+<title>Tachyon sign-in</title><link rel="icon" href="/static/icon.svg">
+<style>@font-face{font-family:Inter;font-weight:100 900;font-display:swap;src:url(/static/inter.woff2) format("woff2")}
+html,body{margin:0;height:100%}body{display:grid;grid-template-columns:1fr 1fr;font:14px/1.5 Inter,system-ui,sans-serif;color:#111;background:#F8F8F8}
+.brand{background:#111;display:flex;align-items:flex-end;padding:0 4vw 6vh}.brand img{width:min(440px,60%);height:auto}
+.form{display:flex;align-items:center;justify-content:center;padding:32px 16px}.box{width:min(400px,100%);display:flex;flex-direction:column;align-items:flex-end;gap:16px}
+.box p{margin:0;align-self:stretch;color:#4A4A4A}#m:empty,#pc[hidden]{display:none}#m{color:#B42318}
+textarea{width:100%;height:8rem;font:13px monospace;border:1px solid #E8E8E8;border-radius:8px;padding:8px}
+@media (max-width:760px){body{grid-template-columns:1fr;grid-template-rows:auto 1fr}.brand{padding:24px 16px}.brand img{width:200px}.box{align-items:stretch}}</style>
+<div class="brand"><img src="/static/logo.svg" alt="Tachyon"></div>
+<main class="form"><div class="box">
 <p id="pc" hidden>Linking a PC: sign in, then copy the token below into the PC.</p>
 <script>if (new URLSearchParams(location.search).get("pc") === "1") document.getElementById("pc").hidden = false;</script>
 ${setup}
 <p id="m"></p>
 <textarea id="t" readonly hidden></textarea>
+</div></main>
 </html>`;
   return new Response(html, {
     headers: {
