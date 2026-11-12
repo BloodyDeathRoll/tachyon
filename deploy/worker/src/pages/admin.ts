@@ -54,23 +54,23 @@ async function members(p: Page): Promise<string> {
     const mine = u.clients.map((c) => `<span class='tag sched'>${esc(c)} ${post({ action: "drop", user: u.id, client: c }, "×")}</span>`).join(" ");
     const free = clients.filter((c) => !u.clients.includes(c.id));
     const add = free.length
-      ? `<form method=post style='display:inline'><input type=hidden name=action value=add><input type=hidden name=user value=${u.id}><select name=client>${free.map((c) => `<option value='${esc(c.id)}'>${esc(c.name)}</option>`).join("")}</select> <button class='btn sec small'>Add</button></form>`
+      ? `<form method=post style='display:inline'><input type=hidden name=action value=add><input type=hidden name=user value=${u.id}><select name=client class=dd>${free.map((c) => `<option value='${esc(c.id)}'>${esc(c.name)}</option>`).join("")}</select> <button class='btn sec small'>Add</button></form>`
       : "";
     const seen = u.last_seen_at ? ago(new Date(u.last_seen_at).toISOString(), p.now) : u.signed_in ? "" : "not signed in yet";
     return `<tr><td>${esc(u.email)}${u.admin ? " <span class='tag need'>admin</span>" : ""}</td><td>${esc(u.name ?? "")}</td><td>${seen}</td><td>${mine} ${add}</td><td>${u.id === p.user.id ? "" : post({ action: "remove", id: u.id }, "Remove")}</td></tr>`;
   }).join("");
-  return `<h1>Members</h1><p class=sub>Who may sign in and which clients they manage. A member does everything for the client.</p>
+  return `<div class=adm><h1>Members</h1><p class=sub>Who may sign in and which clients they manage. A member does everything for the client.</p>
 <section class=card><h2>Invite</h2><form method=post class=btns><input type=hidden name=action value=invite><input type=email name=email required placeholder='them@example.com' aria-label=Email><label class=chk><input type=checkbox name=admin value=1>Admin</label><button class='btn pri small'>Invite</button></form>
 <p class=hint>They sign in with that Google account at /login.</p></section>
-<section class=card style='margin-top:20px'><h2>Users</h2><div class=wide><table class=jobs><tr><th>Email</th><th>Name</th><th>Seen</th><th>Clients</th><th></th></tr>${rows}</table></div></section>`;
+<section class=card style='margin-top:20px'><h2>Users</h2><table class=full><tr><th>Email</th><th>Name</th><th>Seen</th><th>Clients</th><th></th></tr>${rows}</table></section></div>`;
 }
 
 async function clientsPage(p: Page): Promise<string> {
   const clients = (await api(p, "GET", ["clients"])).clients as Client[];
   const rows = clients.map((c) => `<tr><td><a href='/${encodeURIComponent(c.id)}'>${esc(c.name)}</a></td><td>${esc(c.id)}</td><td>${c.ig_username ? `@${esc(c.ig_username)}` : c.connected ? "connected" : "not connected"}</td><td>${esc(c.publisher)}</td><td>${when(new Date(c.created_at).toISOString())}</td></tr>`).join("");
-  return `<h1>Clients</h1><p class=sub>Every client the Worker publishes for. A new one is connected to Instagram from its Overview.</p>
+  return `<div class=adm><h1>Clients</h1><p class=sub>Every client the Worker publishes for. A new one is connected to Instagram from its Overview.</p>
 <section class=card><h2>New client</h2><form method=post class=btns><input type=hidden name=action value=create><input type=text name=id required pattern='[\\w-]{1,64}' placeholder='id (letters, digits, - and _)' aria-label=Id><input type=text name=name placeholder='Name' aria-label=Name><button class='btn pri small'>Create</button></form></section>
-<section class=card style='margin-top:20px'><h2>Clients</h2><div class=wide><table class=jobs><tr><th>Name</th><th>Id</th><th>Instagram</th><th>Publisher</th><th>Created</th></tr>${rows}</table></div></section>`;
+<section class=card style='margin-top:20px'><h2>Clients</h2><table class=full><tr><th>Name</th><th>Id</th><th>Instagram</th><th>Publisher</th><th>Created</th></tr>${rows}</table></section></div>`;
 }
 
 export async function renderAdmin(p: Page, kind: "members" | "clients", req: Request): Promise<Response> {
