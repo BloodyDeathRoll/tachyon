@@ -15,7 +15,7 @@ rising at the clip's key moment. Sound: the clips' own, no music, no voice-over.
 script.json: title, joke_lines [line 1, line 2 (the punch)], lock {"9x16": s, "16x9": s} (seconds
 into scene 5), optional app_line (replaces "Location is everything."), optional joke_low (joke at the bottom),
 optional app_screen (an image in the script folder shown instead of the home screen), app_one_line (9:16),
-joke_white (the punch line white too), joke_shadow (joke text-shadow strength, 1 = default). The script itself (prompts, caption) lives in Notion. `screens` re-records the app (the shared frames in public/higgs/app).
+joke_white (the punch line white too), text_shadow (every text's shadow strength, 1 = default). The script itself (prompts, caption) lives in Notion. `screens` re-records the app (the shared frames in public/higgs/app).
 """
 
 from __future__ import annotations
@@ -226,7 +226,7 @@ def props(s: dict, slug: str, ratio: str, variant: str, s1: float, s5: float) ->
             **({"appScreen": f"higgs/{slug}/{s['app_screen']}"} if s.get("app_screen") else {}),
             **({"appOneLine": True} if s.get("app_one_line") else {}),
             **({"jokeWhite": True} if s.get("joke_white") else {}),
-            **({"jokeShadow": s["joke_shadow"]} if s.get("joke_shadow") is not None else {})}
+            **({"textShadow": s["text_shadow"]} if s.get("text_shadow") is not None else {})}
 
 
 def render(client: str, slug: str, fmt: str) -> list[Path]:

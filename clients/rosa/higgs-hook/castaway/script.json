@@ -14,5 +14,5 @@
   "app_screen": "map.png",
   "app_one_line": true,
   "joke_white": true,
-  "joke_shadow": 0.5
+  "text_shadow": 0.2
 }

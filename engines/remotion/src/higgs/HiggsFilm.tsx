@@ -22,11 +22,11 @@ import { Particles } from "./Particles";
     left with its line on the right.
   Type: the w45-10 slam (each word scales in from 1.6, no masks, so no letter is ever clipped).
   Per-script looks (script.json, all optional): app_screen (a still shown instead of the home screen, slow push-in),
-  app_one_line (the app line on one line on 9:16), joke_white (no blue line), joke_shadow (text-shadow strength, 1 = default).
+  app_one_line (the app line on one line on 9:16), joke_white (no blue line), text_shadow (every text's shadow strength, 1 = default).
 */
 
 export type FilmProps = { variant: Variant; clips: string; s1: number; s5: number; joke: string[][]; lock: number; app?: string; jokeLow?: boolean;
-  appScreen?: string; appOneLine?: boolean; jokeWhite?: boolean; jokeShadow?: number };
+  appScreen?: string; appOneLine?: boolean; jokeWhite?: boolean; textShadow?: number };
 export const FILM_DEFAULTS: FilmProps = { variant: "reel", clips: "higgs/samurai", s1: 5.056, s5: 5.0,
   joke: [["Preparing", "for"], ["a", "fight?"]], lock: 2.4 };
 const APP = "higgs/app";   // the app section's frames, shared by every film
@@ -119,7 +119,8 @@ const Globe: React.FC<{ t: number; T: Times }> = ({ t, T }) => {
   return <canvas ref={ref} width={width} height={height} style={{ position: "absolute", left: 0, top: 0 }} />;
 };
 
-export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5, joke, lock, app, jokeLow, appScreen, appOneLine, jokeWhite, jokeShadow }) => {
+export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5, joke, lock, app, jokeLow, appScreen, appOneLine, jokeWhite, textShadow = 1 }) => {
+  const sh = shadow(textShadow);
   useInter();
   const t = useT();
   const { fps, width, height } = useVideoConfig();
@@ -195,7 +196,7 @@ export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5,
       </Sequence>
       {t < S1 && <AbsoluteFill style={{ opacity: seg(t, T.joke - 0.2, T.joke + 0.3) * (1 - seg(t, S1 - 0.25, S1)),
         background: W ? "linear-gradient(90deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.1) 35%, rgba(0,0,0,0) 55%)" : `linear-gradient(${jokeLow ? 0 : 180}deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.1) 38%, rgba(0,0,0,0) 55%)` }} />}
-      <Slam t={t} a={T.joke} z={S1} lines={joke} blue={jokeBlue} size={jokeSize} gap={0.12} align="left" shade={shadow(jokeShadow)}
+      <Slam shade={sh} t={t} a={T.joke} z={S1} lines={joke} blue={jokeBlue} size={jokeSize} gap={0.12} align="left"
         // jokeLow (script.json joke_low): sits on the bottom of the safe area, off a face at the top of the clip
         style={jokeLow ? (W ? { left: 110, bottom: 110, width: 900 } : { left: B.x, bottom: height - B.y - B.h, width: B.w })
           : W ? { left: 110, top: 110, width: 900 } : { left: B.x, top: B.y + 10, width: B.w }} />
@@ -226,17 +227,17 @@ export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5,
 
       {app
         // a script's own line is set like "16 days forecast."
-        ? <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={appOneLine && !W ? [appWs] : [appWs.slice(0, -1), appWs.slice(-1)]} blue={appBlue}
+        ? <Slam shade={sh} t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={appOneLine && !W ? [appWs] : [appWs.slice(0, -1), appWs.slice(-1)]} blue={appBlue}
             size={appOneLine && !W ? Math.min(130, Math.floor(B.w / (0.56 * app.length))) : 130} align="left" gap={0.22}
             style={W ? { left: 1060, top: 540 - 1.08 * 130, width: 780 } : { left: B.x, top: B.y + 20, width: B.w }} />
         : W
-        ? <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[appWs.slice(0, -1), appWs.slice(-1)]} blue={appBlue} size={120} align="left"
+        ? <Slam shade={sh} t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[appWs.slice(0, -1), appWs.slice(-1)]} blue={appBlue} size={120} align="left"
             style={{ left: 1060, top: 540 - 1.08 * 120, width: 780 }} />
-        : <Slam t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[appWs]} blue={appBlue} size={84}
+        : <Slam shade={sh} t={t} a={T.pour + 0.15} z={T.spin + 0.1} lines={[appWs]} blue={appBlue} size={84}
             style={{ left: B.x, top: B.y + 20, width: B.w }} />}
-      <Slam t={t} a={T.spin + 0.45} z={T.noads} lines={[["16", "days"], ["forecast."]]} blue={[2]} size={130} align={W ? "left" : "right"} gap={0.22}
+      <Slam shade={sh} t={t} a={T.spin + 0.45} z={T.noads} lines={[["16", "days"], ["forecast."]]} blue={[2]} size={130} align={W ? "left" : "right"} gap={0.22}
         style={W ? { left: 1060, top: 540 - 1.08 * 130, width: 780 } : { left: B.x, top: B.y + 20, width: B.w }} />
-      <Slam t={t} a={T.noads + 0.05} z={T.globe} lines={[["No", "ads,"], ["no", "paywall."]]} blue={[2, 3]} size={130} align={W ? "left" : "right"} gap={0.2}
+      <Slam shade={sh} t={t} a={T.noads + 0.05} z={T.globe} lines={[["No", "ads,"], ["no", "paywall."]]} blue={[2, 3]} size={130} align={W ? "left" : "right"} gap={0.2}
         style={W ? { left: 1060, top: 540 - 1.08 * 130, width: 780 } : { left: B.x, top: B.y + 20, width: B.w }} />
 
       {/* 5 ── the showreel globe ── */}
@@ -244,7 +245,7 @@ export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5,
         <Particles t={t} o={1} w={width} band={W ? 1080 : 1250} alpha={0.75} density={3.5} />
       </AbsoluteFill>}
       <Globe t={t} T={T} />
-      <Slam t={t} a={T.globe + 0.6} z={T.s5} lines={[["+4,000", "spots"], ["and", "growing."]]} blue={[2, 3]} size={W ? 104 : 124} gap={0.24} align={W ? "left" : "center"}
+      <Slam shade={sh} t={t} a={T.globe + 0.6} z={T.s5} lines={[["+4,000", "spots"], ["and", "growing."]]} blue={[2, 3]} size={W ? 104 : 124} gap={0.24} align={W ? "left" : "center"}
         style={W ? { left: 1150, top: 540 - 1.08 * 104, width: 740 } : { left: B.x, top: 1320, width: B.w }} />
 
       {/* 6 ── closing: scene 5, then the lockup on it ── */}
@@ -262,7 +263,7 @@ export const HiggsFilm: React.FC<FilmProps> = ({ variant, clips, s1: S1, s5: S5,
             transform: `scale(${zin}) rotate(${lerp(-20, 0, zin)}deg)`, boxShadow: "0 20px 70px rgba(3,42,250,.55)" }} />
           {t >= LK + 0.35 && (
             <div style={{ position: "absolute", left: 0, width, top: IY + ISZ / 2 + 30, display: "flex", flexDirection: "column", alignItems: "center", gap: 30 }}>
-              <div style={{ ...font, fontWeight: 800, fontSize: 76, letterSpacing: "-.03em", lineHeight: 1.15, opacity: url, transform: `translateY(${lerp(30, 0, url)}px)`, textShadow: "0 4px 30px rgba(0,0,0,.5)" }}>rosa.surf</div>
+              <div style={{ ...font, fontWeight: 800, fontSize: 76, letterSpacing: "-.03em", lineHeight: 1.15, opacity: url, transform: `translateY(${lerp(30, 0, url)}px)`, textShadow: `0 4px 30px rgba(0,0,0,${0.5 * textShadow})` }}>rosa.surf</div>
               <div style={{ ...font, fontWeight: 800, fontSize: 52, lineHeight: 1.2, color: "#fff", background: "#032afa", padding: "22px 60px", borderRadius: 999,
                 transform: `scale(${btn * pulse})`, boxShadow: "0 16px 48px rgba(3,42,250,.6), 0 0 0 2px rgba(255,255,255,.12) inset" }}>Find my wave</div>
             </div>
