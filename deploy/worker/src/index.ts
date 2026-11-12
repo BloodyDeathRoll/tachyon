@@ -402,7 +402,7 @@ window.onload = () => {
 </script>`
     : "<p>Not configured yet: GOOGLE_CLIENT_ID is empty (wrangler.toml).</p>";
   // the design (login.png): the logo on dark at the left, the sign-in on the light right; Google's
-  // own button (its rules allow no restyle), so no passwords
+  // own button (its rules allow no restyle); Google only, no passwords
   const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tachyon sign-in</title><link rel="icon" href="/static/icon.svg">
 <style>@font-face{font-family:Inter;font-weight:100 900;font-display:swap;src:url(/static/inter.woff2) format("woff2")}
