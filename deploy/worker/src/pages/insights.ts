@@ -59,10 +59,12 @@ export async function metas(c: Ctx): Promise<Map<string, Json>> {
   return new Map(rows.map((r) => [r.slot_id, parseJson(r.text)]));
 }
 
+const FMT = new Map<string, Intl.DateTimeFormat>(); // one formatter per zone: the calendar calls wall() per cell
 /** `ms` moved by `zone`'s offset at that instant: its UTC fields read as the zone's wall clock. */
 export function wall(ms: number, zone: string): number {
   try {
-    const f = new Intl.DateTimeFormat("en-US", { timeZone: zone, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" });
+    let f = FMT.get(zone);
+    if (!f) FMT.set(zone, (f = new Intl.DateTimeFormat("en-US", { timeZone: zone, hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" })));
     const q = Object.fromEntries(f.formatToParts(new Date(ms)).map((x) => [x.type, x.value]));
     return Date.UTC(+q.year!, +q.month! - 1, +q.day!, +q.hour!, +q.minute!, +q.second!) + (ms % 1000);
   } catch {

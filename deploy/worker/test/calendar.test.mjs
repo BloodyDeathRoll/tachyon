@@ -142,3 +142,42 @@ test("move: a swap, an open slot, a day; taken, past and live refused", async ()
   assert.doesNotMatch((await call("GET", "/rosa/calendar?w=2099-W02")).text, /data-slot='c5'/);
   assert.equal((await call("POST", "/rosa/move", { form: { slot: "zzz", at: "2099-01-11T06:30:00+00:00" } })).status, 404);
 });
+
+test("the grid in the viewer's zone (the tz cookie): days, rows and a drop on a day are local", async () => {
+  // 22:30 UTC on Mon 2099-W03 is 00:30 Tuesday in Jerusalem (UTC+2 in January)
+  await waiting("z1", "2099-01-12T22:30:00+00:00");
+  const tz = { headers: { Cookie: "tz=Asia%2FJerusalem" } };
+  const cols = (t) => t.slice(t.indexOf("class=cal")).split(/<div class=th>/).slice(1).map((r) => r.split(/<(?:a|div) class='cell/).slice(1).map((c) => (/href='\/rosa\/v\/(\w+)'/.exec(c) ?? [])[1] ?? null));
+  const local = await call("GET", "/rosa/calendar?w=2099-W03", tz);
+  assert.match(local.text, /data-zone='Asia\/Jerusalem'/);
+  const row = cols(local.text).find((r) => r.includes("z1"));
+  assert.equal(row.indexOf("z1"), 1); // Tuesday
+  assert.equal(cols(local.text)[0].indexOf("z1"), 1); // 00:30 is the first row
+  // the 06:30 UTC slot is 08:30 local on the same day: an open cell for it on Wednesday
+  assert.match(local.text, /class='cell open' data-at='2099-01-14T06:30:00\+00:00'/);
+  const utc = await call("GET", "/rosa/calendar?w=2099-W03", { headers: { Cookie: "tz=UTC" } });
+  assert.equal(cols(utc.text).find((r) => r.includes("z1")).indexOf("z1"), 0); // Monday in UTC
+  assert.match((await call("GET", "/rosa/calendar?w=2099-W03", { headers: { Cookie: "tz=Nope%2FNope" } })).text, /data-zone='UTC'/); // a bad zone: the client's (none here: UTC)
+  // the month: z1 on the 13th, local
+  const mo = await call("GET", "/rosa/calendar?view=month&m=2099-01", tz);
+  assert.match(mo.text, /<b>13<\/b><div class=mcells>(?:(?!<b>).)*href='\/rosa\/v\/z1'/s);
+  assert.doesNotMatch((await call("GET", "/rosa/calendar?view=month&m=2099-01", { headers: { Cookie: "tz=UTC" } })).text, /<b>13<\/b><div class=mcells>(?:(?!<b>).)*href='\/rosa\/v\/z1'/s);
+  // a drop on Thursday 15 Jan (local): its first open row is 00:30 local (z1's row that week),
+  // 22:30 UTC the day before
+  await call("POST", "/rosa/move", { form: { slot: "z1", day: "2099-01-15" }, ...tz });
+  assert.equal((await post("z1")).scheduled_at, "2099-01-14T22:30:00+00:00");
+});
+
+test("a DST week: one daily slot falls on two local rows; a bad grants zone falls back to UTC", async () => {
+  // Jerusalem leaves DST on Sun 25 Oct 2099: 06:30 UTC is 09:30 until Saturday, 08:30 on Sunday
+  const r = await call("GET", "/rosa/calendar?w=2099-W43", { headers: { Cookie: "tz=Asia%2FJerusalem" } });
+  assert.equal(r.text.match(/<div class=th>/g).length, 4); // 08:30, 09:30, 20:30, 21:30
+  assert.match(r.text, /data-at='2099-10-24T06:30:00\+00:00'/);
+  assert.match(r.text, /data-at='2099-10-25T06:30:00\+00:00'/);
+  await env.DB.prepare("UPDATE clients SET grants = json_set(grants, '$.timezone', 'Nope/Nope') WHERE id = 'rosa'").run();
+  try {
+    assert.match((await call("GET", "/rosa/calendar?w=2099-W43")).text, /data-zone='UTC'/);
+  } finally {
+    await env.DB.prepare("UPDATE clients SET grants = json_remove(grants, '$.timezone') WHERE id = 'rosa'").run();
+  }
+});
