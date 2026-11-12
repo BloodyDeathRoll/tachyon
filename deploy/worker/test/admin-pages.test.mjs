@@ -35,6 +35,10 @@ test("admins only; the account page links the two pages for an admin alone", asy
   assert.match((await call("GET", "/account")).text, /href='\/admin\/members'/);
   assert.match((await call("GET", "/account")).text, /href='\/admin\/clients'/);
   assert.match((await call("GET", "/account")).text, /Another account: add a client in <a href='\/admin\/clients'>Clients<\/a>/);
+  // an unknown client is refused, an admin too, and journals nothing
+  const before = (await env.DB.prepare("SELECT COUNT(*) AS n FROM journal").first()).n;
+  assert.equal((await call("POST", "/account/disconnect", { form: { client: "nosuch" } })).status, 403);
+  assert.equal((await env.DB.prepare("SELECT COUNT(*) AS n FROM journal").first()).n, before);
 });
 
 test("Members: the users with their clients; invite, add and drop a membership, remove", async () => {
