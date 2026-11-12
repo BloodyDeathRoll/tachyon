@@ -236,25 +236,28 @@ def _put(client: str, slot: str, name: str, p: Path, cfg: dict, headers: dict) -
         return False
 
 
-def sync_videos(clients: list[str], cfg: dict) -> list[str]:
+def sync_videos(clients: list[str], cfg: dict, only: str | None = None) -> list[str]:
     """Every post, one read per client. An unpublished video whose cut on this PC is not the one
     in R2 (none there yet, or re-rendered since) is sent up with its cover. The Worker deletes the file it replaces, and the
     published one after it publishes: R2 holds one file per waiting video. A cover is kept for
     every post (the calendar's thumbnail): one this PC has and R2 does not goes up too.
+    `only`: that post alone, sent at once (a job just wrote its cut, nothing is mid-render).
     "client/slot" sent."""
     from .db import RemoteDB
-    sent = []
+    sent, settle = [], 0 if only else SETTLE
     for client in clients:
         for row in RemoteDB(client).posts():
+            if only and row["slot_id"] != only:
+                continue
             slot = row["slot_id"]
             sd = C.client_dir(client) / "posts" / slot
             p, cover = sd / "video.mp4", sd / "cover.jpg"
             # every unpublished cut, so the online page plays it; a file touched in the last
             # SETTLE seconds may still be rendering: next round
             video = (row["state"] not in OUT and not row.get("ig_media_id") and p.is_file()
-                     and time.time() - p.stat().st_mtime > SETTLE)
-            if video and row.get("r2_key") and not row.get("r2_sha"):
-                video = False   # sent from a browser (no sha): that file is the cut, not this PC's
+                     and time.time() - p.stat().st_mtime >= settle)
+            if video and row.get("r2_key") and not row.get("r2_sha") and not only:
+                video = False   # sent from a browser (no sha): that file is the cut, not this PC's (unless a job just re-cut it)
             if video:
                 sha = _sha(p)
                 video = not (row.get("r2_key") and row.get("r2_sha") == sha)
@@ -264,7 +267,7 @@ def sync_videos(clients: list[str], cfg: dict) -> list[str]:
                 sent.append(f"{client}/{slot}")
             st = sd / "video-story.mp4"   # the story cut: the page's Reel/Story switch, deleted at publish too
             if (row["state"] not in OUT and not row.get("ig_media_id") and st.is_file()
-                    and time.time() - st.stat().st_mtime > SETTLE):
+                    and time.time() - st.stat().st_mtime >= settle):
                 ssha = _sha(st)
                 if row.get("story_sha") != ssha and _put(client, slot, "story", st, cfg, {"Content-Type": "video/mp4", "X-Sha256": ssha}):
                     sent.append(f"{client}/{slot} story")
@@ -387,8 +390,14 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) ->
             raise FileNotFoundError(f"{slot}'s video is not on this PC")
         T.set_track(client, slot, tid, song)
         song = song or {"id": tid}
-        # the new cut goes up with the next sync (sync_videos) once the video is approved
-        return {"track": song["id"], "media": media_of(client, slot, cfg), "files": sorted(J.push_files(client, slot, ("meta.json",)))}
+        files = sorted(J.push_files(client, slot, ("meta.json",)))
+        # the new cut goes up now, so the page that waits on this job plays it when the job is done;
+        # if it cannot, the loop's sync sends it later: the mix itself is done
+        try:
+            sync_videos([client], cfg, slot)
+        except Exception as e:  # noqa: BLE001
+            say(f"{client}/{slot}: the new cut not sent yet ({e})")
+        return {"track": song["id"], "media": media_of(client, slot, cfg), "files": files}
     argv = payload.get("argv")
     if not isinstance(argv, list) or not all(isinstance(a, str) for a in argv):
         raise ValueError("the job has no argv")

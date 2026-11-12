@@ -465,6 +465,19 @@ test("music: app.py's card, Library and Instagram; a pick is a track job a PC mi
   r = await call("GET", "/rosa/v/mu1");
   assert.match(r.text, /Mixing &ldquo;A Big Mess&rdquo;/);
   assert.match(r.text, /name=track value='lib1' disabled>Use/); // one mix at a time
+  // while it mixes: the cut dimmed, no controls, a spinner; no meta refresh, the page asks /mixing and reloads once
+  assert.match(r.text, /<div class='frame mixing' id=frame><video playsinline /);
+  assert.match(r.text, /class=mixspin role=status/);
+  assert.match(r.text, /'\/mixing'/);
+  assert.doesNotMatch(r.text, /http-equiv=refresh/);
+  let mx = await call("GET", "/rosa/v/mu1/mixing");
+  assert.deepEqual([mx.status, JSON.parse(mx.text)], [200, { open: true }]);
+  await env.DB.prepare("UPDATE jobs SET state = 'done' WHERE slot_id = 'mu1' AND kind = 'track'").run();
+  assert.deepEqual(JSON.parse((await call("GET", "/rosa/v/mu1/mixing")).text), { open: false });
+  r = await call("GET", "/rosa/v/mu1");
+  assert.match(r.text, /<div class=frame id=frame><video controls playsinline /);
+  assert.doesNotMatch(r.text, /class=mixspin|'\/mixing'/);
+  await env.DB.prepare("UPDATE jobs SET state = 'queued' WHERE slot_id = 'mu1' AND kind = 'track'").run();
   assert.equal((await call("POST", "/rosa/v/mu1/track", { form: { src: "file", track: "lib1" } })).status, 409);
   // a library pick, on another slot; an unknown one refused
   await waiting("mu3", { file: true });
