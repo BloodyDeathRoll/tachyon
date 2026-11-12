@@ -3,8 +3,9 @@
 // of mini cells, a video waiting for approval on the slot approve would give it (the video page
 // shows the same), "+ Add new" on an open publishing slot (add_new_box). Moving is app.py's drag
 // and drop (CAL_JS): a video onto another swaps them, onto an open slot or a day moves it. The
-// grid is UTC and the times reformat in the browser's zone, as everywhere in shell.ts (the Python
-// laid the grid out in the machine's zone). The `cal_<client>` cookie brings the last view back.
+// grid is laid out in the viewer's zone: the `tz` cookie shell.ts's script sets from the browser,
+// else the client's (grants `timezone`), else UTC; days, rows, today and a drop on a day all
+// follow it. The `cal_<client>` cookie brings the last view back.
 //
 //   GET  /<client>/calendar[?w=YYYY-Www | ?view=month&m=YYYY-MM][&hl=<slot>]
 //   POST /<client>/move     slot, swap | at | day
@@ -17,6 +18,7 @@ import { nextWeek, prepareForm } from "./overview.ts";
 import { ACTIVE, previewSlots, slots, takenSlots } from "./schedule.ts";
 import { ENGINES, esc, header, icon, MOVABLE, parse, parseJson, path, redirect, shell, slotNo, tagFor, titleOf, type Json, type Page } from "./shell.ts";
 import { field } from "./video.ts";
+import { wall, zoneOf } from "./insights.ts";
 
 const DAY_MS = 86400_000;
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -28,6 +30,31 @@ const ym = (ms: number): string => new Date(ms).toISOString().slice(0, 7);
 const hm = (ms: number): string => new Date(ms).toISOString().slice(11, 16);
 const minutes = (t: string): number => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 const dayOf = (ms: number): number => Math.floor(ms / DAY_MS) * DAY_MS;
+// the grid's clock: `wall` moves an instant to the zone's wall clock (its UTC fields read as local
+// time), `back` returns a wall-clock time to the instant (twice, so a DST edge lands right)
+interface Clock { w: (ms: number) => number; back: (ms: number) => number; zone: string }
+function clock(zone: string): Clock {
+  const w = (ms: number) => wall(ms, zone);
+  const back = (lw: number) => { const g = lw - (w(lw) - lw); return lw - (w(g) - g); };
+  return { w, back, zone };
+}
+/** The viewer's zone: the browser's (`tz` cookie, set by shell.ts), else the client's, else UTC. */
+export function viewZone(p: Page, req: Request): string {
+  let z = "";
+  try {
+    z = decodeURIComponent(/(?:^|;\s*)tz=([^;]*)/.exec(req.headers.get("Cookie") ?? "")?.[1] ?? "");
+    new Intl.DateTimeFormat("en-US", { timeZone: z });
+  } catch {
+    z = "";
+  }
+  return z || zoneOf(p);
+}
+/** The daily slots (UTC "HH:MM") that fall on the wall-clock day `day`, as instants. */
+function slotsOn(p: Page, k: Clock, day: number): number[] {
+  const from = k.back(day), to = k.back(day + DAY_MS);
+  const utc0 = dayOf(from);
+  return [0, 1].flatMap((i) => slots(p.client.grants).map((t) => utc0 + i * DAY_MS + minutes(t) * 60_000)).filter((ms) => ms >= from && ms < to).sort((a, b) => a - b);
+}
 const time = (ms: number): string => `<time datetime='${new Date(ms).toISOString()}' data-fmt=time>${hm(ms)} UTC</time>`;
 // app.py's icons shell.ts does not have
 const PATHS: Record<string, string> = {
@@ -97,9 +124,9 @@ function cell(p: Page, it: Item, meta: Json, past: boolean, hl: string | null, m
 }
 
 /** app.py _cal_head: the title, Week | Month, the status filter, the nav and the hint. */
-function head(p: Page, view: string, title: string, prev: string, today: string, next: string, label: string): string {
+function head(p: Page, k: Clock, view: string, title: string, prev: string, today: string, next: string, label: string): string {
   const base = `${path(p.client.id)}/calendar`;
-  const seg = `<div class=seg><a href='${base}?w=${weekOf(p.now)}' class='${view === "week" ? "on" : ""}'>Week</a><a href='${base}?view=month&m=${ym(p.now)}' class='${view === "month" ? "on" : ""}'>Month</a></div>`;
+  const seg = `<div class=seg><a href='${base}?w=${weekOf(k.w(p.now))}' class='${view === "week" ? "on" : ""}'>Week</a><a href='${base}?view=month&m=${ym(k.w(p.now))}' class='${view === "month" ? "on" : ""}'>Month</a></div>`;
   const filt = [["all", "All"], ["need", "Needs approval"], ["busy", "In production"], ["sched", "Scheduled"], ["live", "Live"]].map(([k, lab]) => `<button type=button data-f='${k}' class='${k === "all" ? "on" : ""}'>${lab}</button>`).join("");
   return `<div class=row style='margin-bottom:12px;flex-wrap:wrap'><div class=row style='gap:16px;flex-wrap:wrap'><h2>${title}</h2>${seg}<div class='seg filt calfilt' role=group aria-label='Show'>${filt}</div></div><div class=calnav>`
     + `<a href='${base}?${prev}' aria-label='Previous'>${ic("prev", 16)}</a><a class=txt href='${base}?${today}' title='Back to today'>${esc(label)}</a><a href='${base}?${next}' aria-label='Next'>${ic("next", 16)}</a></div></div>`
@@ -123,65 +150,65 @@ function addNewBox(p: Page): string {
     + `</div></div><script>${ADD_JS}</script>`;
 }
 
-async function week(p: Page, wk: string, hl: string | null): Promise<string> {
-  const monday = mondayOf(wk);
-  const today = dayOf(p.now);
+async function week(p: Page, k: Clock, wk: string, hl: string | null): Promise<string> {
+  const monday = mondayOf(wk); // on the wall clock, as every day below
+  const today = dayOf(k.w(p.now));
   const { items, metas, planned } = await placed(p);
-  const times = new Set(slots(p.client.grants));
-  const rows = new Set(times);
+  const days = [...Array(7).keys()].map((d) => monday + d * DAY_MS);
+  const times = new Set(days.flatMap((day) => slotsOn(p, k, day)).map((ms) => iso(ms)));
+  const rows = new Set([...times].map((s) => hm(k.w(parse(s)!))));
   const cells = new Map<string, Item>();
   for (const it of items) {
-    const d = Math.floor((it.at - monday) / DAY_MS);
+    const d = Math.floor((k.w(it.at) - monday) / DAY_MS);
     if (d < 0 || d > 6) continue;
-    rows.add(hm(it.at)); // published or scheduled off-slot: its own row
-    if (!cells.has(`${d}|${hm(it.at)}`)) cells.set(`${d}|${hm(it.at)}`, it);
+    rows.add(hm(k.w(it.at))); // published or scheduled off-slot: its own row
+    if (!cells.has(`${d}|${hm(k.w(it.at))}`)) cells.set(`${d}|${hm(k.w(it.at))}`, it);
   }
-  const days = [...Array(7).keys()].map((d) => monday + d * DAY_MS);
   const g = ["<div class=cal style='grid-template-columns:56px repeat(7,minmax(0,1fr))'><div></div>"];
   for (const [d, day] of days.entries()) {
     const drop = day >= today ? ` data-day='${iso(day).slice(0, 10)}'` : "";
     g.push(`<div class='dh${day === today ? " today" : ""}'${drop}>${DAYS[d]}<b>${new Date(day).getUTCDate()}</b></div>`);
   }
   for (const t of [...rows].sort()) {
-    g.push(`<div class=th>${time(monday + minutes(t) * 60_000)}</div>`);
+    g.push(`<div class=th>${time(k.back(monday + minutes(t) * 60_000))}</div>`);
     for (const [d, day] of days.entries()) {
-      const ms = day + minutes(t) * 60_000;
+      const ms = k.back(day + minutes(t) * 60_000);
       const past = ms <= p.now;
       const it = cells.get(`${d}|${t}`);
       if (it) g.push(cell(p, it, metas.get(it.row.slot_id) ?? {}, past, hl));
       else if (past) g.push("<div class='cell open past'></div>");
-      else g.push(`<div class='cell open' data-at='${iso(ms)}'><span>Open slot</span>${times.has(t) ? `<button type=button class=addnew data-add='${iso(ms)}'>+ Add new</button>` : ""}</div>`);
+      else g.push(`<div class='cell open' data-at='${iso(ms)}'><span>Open slot</span>${times.has(iso(ms)) ? `<button type=button class=addnew data-add='${iso(ms)}'>+ Add new</button>` : ""}</div>`);
     }
   }
   g.push("</div>");
   const dm = (ms: number) => `${new Date(ms).getUTCDate()} ${MONTHS[new Date(ms).getUTCMonth()]}`;
-  const h = head(p, "week", `${dm(monday)} – ${dm(monday + 6 * DAY_MS)} ${new Date(monday + 6 * DAY_MS).getUTCFullYear()}`, `w=${weekOf(monday - 7 * DAY_MS)}`, `w=${weekOf(p.now)}`, `w=${weekOf(monday + 7 * DAY_MS)}`, `${DAYS[0]} ${dm(monday)}`);
+  const h = head(p, k, "week", `${dm(monday)} – ${dm(monday + 6 * DAY_MS)} ${new Date(monday + 6 * DAY_MS).getUTCFullYear()}`, `w=${weekOf(monday - 7 * DAY_MS)}`, `w=${weekOf(k.w(p.now))}`, `w=${weekOf(monday + 7 * DAY_MS)}`, `${DAYS[0]} ${dm(monday)}`);
   const note = wk === nextWeek(p.now) && !planned.has(wk) ? `<div style='margin-top:20px'>${prepareForm(path(p.client.id), wk, "Prepare this week")}</div>` : "";
   return `${h}${g.join("")}${note}`;
 }
 
-async function month(p: Page, m: string, hl: string | null): Promise<string> {
+async function month(p: Page, k: Clock, m: string, hl: string | null): Promise<string> {
   const [y, mo] = m.split("-").map(Number) as [number, number];
   const first = Date.UTC(y, mo - 1, 1);
   const nextM = Date.UTC(y, mo, 1);
   const start = first - ((new Date(first).getUTCDay() || 7) - 1) * DAY_MS;
   const end = nextM - DAY_MS + (7 - (new Date(nextM - DAY_MS).getUTCDay() || 7)) * DAY_MS;
-  const today = dayOf(p.now);
+  const today = dayOf(k.w(p.now));
   const { items, metas } = await placed(p);
   const byDay = new Map<number, Map<string, Item>>();
   for (const it of items) {
-    const day = Math.floor((it.at - start) / DAY_MS) * DAY_MS + start; // floor, not %: a video before the grid must not land on its first day
+    const day = Math.floor((k.w(it.at) - start) / DAY_MS) * DAY_MS + start; // floor, not %: a video before the grid must not land on its first day
     if (day < start || day > end) continue;
     const got = byDay.get(day) ?? new Map<string, Item>();
-    if (!got.has(hm(it.at))) got.set(hm(it.at), it);
+    if (!got.has(hm(k.w(it.at)))) got.set(hm(k.w(it.at)), it);
     byDay.set(day, got);
   }
-  const times = slots(p.client.grants);
   const g = ["<div class=month>", ...DAYS.map((d) => `<div class=mh>${d}</div>`)];
   for (let day = start; day <= end; day += DAY_MS) {
     const got = byDay.get(day) ?? new Map<string, Item>();
+    const times = slotsOn(p, k, day).map((ms) => hm(k.w(ms)));
     const cs = [...new Set([...times, ...got.keys()])].sort().map((t) => {
-      const ms = day + minutes(t) * 60_000;
+      const ms = k.back(day + minutes(t) * 60_000);
       const it = got.get(t);
       if (it) return cell(p, it, metas.get(it.row.slot_id) ?? {}, ms <= p.now, hl, true);
       if (ms <= p.now) return "";
@@ -191,7 +218,7 @@ async function month(p: Page, m: string, hl: string | null): Promise<string> {
     g.push(`<div class='mday${new Date(day).getUTCMonth() !== mo - 1 ? " out" : ""}${day === today ? " today" : ""}'${drop}><b>${new Date(day).getUTCDate()}</b><div class=mcells>${cs.join("")}</div></div>`);
   }
   g.push("</div>");
-  const h = head(p, "month", `${MONTHS_LONG[mo - 1]} ${y}`, `view=month&m=${ym(Date.UTC(y, mo - 2, 1))}`, `view=month&m=${ym(p.now)}`, `view=month&m=${ym(nextM)}`, `${MONTHS[mo - 1]} ${y}`);
+  const h = head(p, k, "month", `${MONTHS_LONG[mo - 1]} ${y}`, `view=month&m=${ym(Date.UTC(y, mo - 2, 1))}`, `view=month&m=${ym(k.w(p.now))}`, `view=month&m=${ym(nextM)}`, `${MONTHS[mo - 1]} ${y}`);
   return `${h}${g.join("")}`;
 }
 
@@ -208,36 +235,37 @@ export async function renderCalendar(p: Page, req: Request, url: URL): Promise<R
   if (!url.search && saved.startsWith("?") && saved.length > 1) return redirect(base + saved);
   const hl = ID.test(q.get("hl") ?? "") ? q.get("hl") : null;
   const isMonth = q.get("view") === "month";
-  const m = /^\d{4}-(0[1-9]|1[0-2])$/.test(q.get("m") ?? "") ? q.get("m")! : ym(p.now);
-  const w = /^\d{4}-W\d{2}$/.test(q.get("w") ?? "") ? q.get("w")! : weekOf(p.now);
-  const body = isMonth ? await month(p, m, hl) : await week(p, w, hl);
+  const k = clock(viewZone(p, req));
+  const m = /^\d{4}-(0[1-9]|1[0-2])$/.test(q.get("m") ?? "") ? q.get("m")! : ym(k.w(p.now));
+  const w = /^\d{4}-W\d{2}$/.test(q.get("w") ?? "") ? q.get("w")! : weekOf(k.w(p.now));
+  const body = isMonth ? await month(p, k, m, hl) : await week(p, k, w, hl);
   const js = CAL_JS.replaceAll("__C__", encodeURIComponent(p.client.id)) + (isMonth ? MINI_JS : "");
-  const res = shell(p, "calendar", `${header(p, "Calendar")}<section class=card>${body}</section><div class=toast id=toast></div><script>${js}</script>${addNewBox(p)}`, "Calendar");
+  const res = shell(p, "calendar", `${header(p, "Calendar")}<section class=card data-zone='${esc(k.zone)}'>${body}</section><div class=toast id=toast></div><script>${js}</script>${addNewBox(p)}`, "Calendar");
   res.headers.append("Set-Cookie", `cal_${p.client.id}=${encodeURIComponent(isMonth ? `?view=month&m=${m}` : `?w=${w}`)}; Path=/; Max-Age=31536000; SameSite=Lax`);
   return res;
 }
 
 /** app.py _first_free_on: a drop on a day takes its first open future slot: a daily slot, or a
     time the week view shows a row for (any video's time that week). */
-async function firstFreeOn(p: Page, day: string, exclude: string): Promise<string | null> {
-  const d0 = parse(`${day}T00:00:00Z`);
+async function firstFreeOn(p: Page, k: Clock, day: string, exclude: string): Promise<string | null> {
+  const d0 = parse(`${day}T00:00:00Z`); // the day on the viewer's wall clock
   if (d0 === null || !/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new HttpError(400, "day", "not a day");
   const taken = await takenSlots(p.c, exclude);
   const monday = d0 - ((new Date(d0).getUTCDay() || 7) - 1) * DAY_MS;
-  const wk = (await posts(p.c, null)).map((r) => parse(r.published_at || r.scheduled_at)).filter((ms): ms is number => ms !== null && ms >= monday && ms < monday + 7 * DAY_MS).map(hm);
-  const cands = [...new Set([...slots(p.client.grants), ...wk])].sort().map((t) => d0 + minutes(t) * 60_000);
+  const wk = (await posts(p.c, null)).map((r) => parse(r.published_at || r.scheduled_at)).filter((ms): ms is number => ms !== null).map(k.w).filter((lw) => lw >= monday && lw < monday + 7 * DAY_MS).map((lw) => k.back(d0 + minutes(hm(lw)) * 60_000));
+  const cands = [...new Set([...slotsOn(p, k, d0), ...wk])].sort((a, b) => a - b);
   const ms = cands.find((x) => x > p.now && !taken.has(iso(x)));
   return ms === undefined ? null : iso(ms);
 }
 
 /** POST /<client>/move: swap two videos' times, or put one on an open future slot (OPS.move);
     the calendar's script sends it and reloads on a success. */
-export async function move(p: Page, form: FormData): Promise<Response> {
+export async function move(p: Page, req: Request, form: FormData): Promise<Response> {
   const slot = field(form, "slot");
   const swap = field(form, "swap");
   if (swap) await OPS.move!(p.c, { slot_id: slot, swap_with: swap });
   else {
-    const at = field(form, "at") || (field(form, "day") ? await firstFreeOn(p, field(form, "day"), slot) : "");
+    const at = field(form, "at") || (field(form, "day") ? await firstFreeOn(p, clock(viewZone(p, req)), field(form, "day"), slot) : "");
     if (at === null) throw new HttpError(400, "day", "no open slot left that day");
     const ms = parse(at);
     if (ms === null) throw new HttpError(400, "at", "no slot given");

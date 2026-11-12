@@ -89,7 +89,7 @@ export async function pages(req: Request, env: Page["env"], _ctx: ExecutionConte
       if (b === "upload") return await newUpload(page, req, url.searchParams);
       if (b === "sync") return await sync(page, fetcher);
       const form = await formOf(req);
-      if (b === "move") return await move(page, form);
+      if (b === "move") return await move(page, req, form);
       if (b === "new") return await newPrompt(page, form);
       if (b === "schedule") return await schedule(page, form);
       return await flag(page, form);
