@@ -1,4 +1,4 @@
-// GET /app: who is signed in, the clients they can open and what they may do there.
+// GET /app: the first client's dashboard; with no client yet, who is signed in and what they may do.
 // Rights (docs/CLOUDFLARE-PLAN.md, "Access"): a member does everything for their clients;
 // an admin sees every client and also manages members and clients.
 
@@ -11,6 +11,8 @@ const ADMIN_RIGHTS = "Everything a member can, for every client, plus invite peo
 
 export async function homePage(env: { DB: D1Database }, user: UserRow): Promise<Response> {
   const ids = await clientsOf(env, user);
+  // signed in with clients: straight to the dashboard (the side menu switches clients)
+  if (ids.length) return new Response(null, { status: 302, headers: { Location: path([...ids].sort()[0]!) } });
   const rows = ids.length
     ? (
         await env.DB.prepare(

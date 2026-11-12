@@ -397,7 +397,7 @@ window.onload = () => {
     m.textContent = "Signed in as " + j.profile.email + ". Copy the token into: python -m spine.worker login " + location.origin;
     t.hidden = false; t.value = j.token;
   } });
-  google.accounts.id.renderButton(g, { theme: "filled_black", size: "large", shape: "rectangular", text: "signin_with", width: Math.min(400, g.parentElement.clientWidth) });
+  google.accounts.id.renderButton(g, { theme: "filled_black", size: "large", shape: "rectangular", text: "signin_with", locale: "en", width: Math.min(400, g.parentElement.clientWidth) });
 };
 </script>`
     : "<p>Not configured yet: GOOGLE_CLIENT_ID is empty (wrangler.toml).</p>";
