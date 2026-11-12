@@ -485,12 +485,19 @@ def test_a_track_job_mixes_the_song_picked_online_and_sends_the_meta(env, monkey
         (sd / "meta.json").write_text('{"track": "%s"}\n' % tid)
     monkeypatch.setattr(T, "set_track", set_track)
     song = {"audio_id": "123", "title": "A Big Mess", "artist": "TrackTribe", "preview": "https://video-lga3-1.xx.fbcdn.net/a.m4a"}
-    f = fake(monkeypatch, (200, {"result": True}))
+    other = env / "clients" / "rosa" / "posts" / "w01-s2"
+    other.mkdir()
+    (other / "video.mp4").write_bytes(b"other")   # not this job's: left to the loop's sync
+    row = lambda slot: {"slot_id": slot, "state": "NEEDS_APPROVAL", "r2_key": None, "r2_sha": None, "ig_media_id": None, "cover_key": "c"}
+    f = fake(monkeypatch, (200, {"result": True}), (200, {"result": [row("w01-s1"), row("w01-s2")]}), (200, {"key": "v"}))
     job = {"id": 3, "kind": "track", "client": "rosa", "slot_id": "w01-s1", "payload": json.dumps({"track": song})}
     out = W.run_job(job, CFG)
     assert picked == [("rosa", "w01-s1", "ig:123", song["preview"])]
     assert out["track"] == "ig:123" and out["files"] == ["meta.json"] and out["media"]["size"] == 3
-    assert f.calls[-1][2] == {"slot_id": "w01-s1", "files": {"meta.json": '{"track": "ig:123"}\n'}}
+    assert f.calls[0][2] == {"slot_id": "w01-s1", "files": {"meta.json": '{"track": "ig:123"}\n'}}
+    # the new cut goes up inside the job (no settle wait): the page waiting on the job then plays it
+    puts = [(c[1], c[2]) for c in f.calls if c[0] == "PUT"]
+    assert puts == [("http://w/api/media/rosa/w01-s1/video", b"vid")]
     for bad in ({**song, "preview": "https://evil.example/a.m4a"}, {**song, "preview": "http://video.xx.fbcdn.net/a"}, {**song, "audio_id": "1;rm"}):
         with pytest.raises(ValueError):
             W.run_job({**job, "payload": json.dumps({"track": bad})}, CFG)

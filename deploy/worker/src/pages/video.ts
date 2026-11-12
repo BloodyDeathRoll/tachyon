@@ -122,12 +122,17 @@ function player(s: Slot, asStory: boolean): string {
     + `<span style='top:1%'>${story ? "Story" : "Reel"} UI</span><span style='bottom:1%'>${story ? "Reply bar" : "Caption · buttons"}</span></div>`;
   const poster = s.row.cover_key ? ` poster='${mediaUrl(s, "cover")}'` : "";
   const base = path(s.p.client.id, s.slot);
+  // a song being mixed in: the old cut dimmed, not playable, under a spinner until the new one is up
+  const mix = open_(s.jobs.track);
+  const fr = mix ? "<div class='frame mixing' id=frame>" : "<div class=frame id=frame>";
+  const ctl = mix ? "" : "controls ";
+  const spin = mix ? "<div class=mixspin role=status aria-label='Mixing the song in'><i></i></div>" : "";
   const seg = s.row.story_key ? `<div class='seg fmtseg'><a href='${base}' class='${story ? "" : "on"}'>Reel</a><a href='${base}?as=story' class='${story ? "on" : ""}'>Story</a></div>` : "";
   let frame: string;
   if (story) {
-    frame = `<div class=frame id=frame><video controls playsinline preload=metadata${poster} style='aspect-ratio:9/16' src='${mediaUrl(s, "story")}'></video>${ui}</div>`;
+    frame = `${fr}<video ${ctl}playsinline preload=metadata${poster} style='aspect-ratio:9/16' src='${mediaUrl(s, "story")}'></video>${ui}${spin}</div>`;
   } else if (s.row.r2_key) {
-    frame = `<div class=frame id=frame><video controls playsinline preload=metadata${poster} style='aspect-ratio:9/16' src='${mediaUrl(s, "video")}'></video>${ui}</div>`;
+    frame = `${fr}<video ${ctl}playsinline preload=metadata${poster} style='aspect-ratio:9/16' src='${mediaUrl(s, "video")}'></video>${ui}${spin}</div>`;
   } else if (s.row.cover_key && (s.meta.source === "instagram" || s.row.published_at)) {
     frame = `<div class=frame id=frame><img src='${mediaUrl(s, "cover")}' alt='' style='aspect-ratio:9/16;width:100%;object-fit:cover;display:block'>${s.row.published_at ? "" : "<p class=muted style='margin:8px 0 0;font-size:13px'>Instagram does not share this reel's file (licensed song): cover only.</p>"}</div>`;
   } else if (s.row.cover_key && s.host) {
@@ -140,6 +145,18 @@ function player(s: Slot, asStory: boolean): string {
     : s.row.r2_key ? `<a class='btn sec' href='${mediaUrl(s, "video")}' download>${icon("download", 16)}Download reel</a>` : "";
   const canFmt = !(s.meta.upload && !((s.meta.film ?? {}) as Json).source); // an upload until its first edit
   return `${seg}${frame}<div class=pctl><span>${canFmt ? formatsButton(s) : ""}</span>${dls}</div><hr class=pdiv><label class='chk big'><input type=checkbox onchange="document.getElementById('frame').classList.toggle('showui',this.checked)">Show what Instagram covers</label>`;
+}
+
+/** While a song is mixed in: ask the light /mixing every few seconds, reload once it is done. */
+const MIX_JS = `(()=>{const u=location.pathname.replace(/\\/$/,'')+'/mixing';
+const go=async()=>{try{const r=await fetch(u,{cache:'no-store'});if(r.ok&&!(await r.json()).open){location.reload();return;}}catch(_){}setTimeout(go,4000);};
+setTimeout(go,4000);})();`;
+
+/** GET /<client>/v/<slot>/mixing: {open} — is a song still being mixed into this video (MIX_JS asks). */
+export async function mixing(p: Page, slot: string): Promise<Response> {
+  const j = await p.env.DB.prepare("SELECT state FROM jobs WHERE client = ? AND slot_id = ? AND kind = 'track' ORDER BY id DESC LIMIT 1")
+    .bind(p.client.id, slot).first<{ state: string }>();
+  return new Response(JSON.stringify({ open: j?.state === "queued" || j?.state === "running" }), { headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
 }
 
 /** app.py motion_pill(): the reel's motion style by name. */
@@ -343,8 +360,8 @@ export async function renderVideo(p: Page, slot: string, q: URLSearchParams = ne
 
   const body = `<a class=back href='${path(p.client.id)}'>${icon("back", 16)}Overview</a><h1>${esc(title)} <span class=hno>${esc(slotNo(slot).filter(Boolean).join(" · "))}</span></h1><p class=sub>${whenLine}</p><div class=vpage><div class=player>${player(s, q.get("as") === "story")}</div><div class='stack c2'>${blocks.join("")}</div><div class='stack c3'>${right.join("")}</div></div>`;
   const writing = open_(jobs.caption) && !s.caption;
-  const refresh = cls === "busy" || publishing(row, p.now) ? 15 : open_(jobs.formats) || writing || open_(jobs.track) ? 5 : null;
-  return shell(p, "overview", body, title, refresh);
+  const refresh = cls === "busy" || publishing(row, p.now) ? 15 : open_(jobs.formats) || writing ? 5 : null;
+  return shell(p, "overview", body + (open_(jobs.track) ? `<script>${MIX_JS}</script>` : ""), title, refresh);
 }
 
 const IG_HOST = ".fbcdn.net"; // Instagram's CDN: the only place a song or a cover is taken from (in step with spine/tracks.py ig_url)
