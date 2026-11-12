@@ -24,17 +24,21 @@ async function call(method, path, { as = 3, form } = {}) {
   return { status: res.status, text: await res.text(), location: res.headers.get("Location") };
 }
 
-test("admins only; the nav shows the two pages to an admin alone", async () => {
+test("admins only; the account page links the two pages for an admin alone", async () => {
   assert.equal((await call("GET", "/admin/members", { as: 1 })).status, 403);
   assert.equal((await call("POST", "/admin/clients", { as: 1, form: { action: "create", id: "x" } })).status, 403);
   assert.equal((await call("GET", "/admin/nothing")).status, 404);
   const r = await call("GET", "/admin/members");
   assert.equal(r.status, 200);
-  assert.match(r.text, /href='\/admin\/members' class='on'/);
-  assert.match(r.text, /href='\/admin\/clients' class=''/);
   assert.match(r.text, /<title>Members · Acme · Tachyon<\/title>/); // the shell on the admin's first client (by id)
-  assert.doesNotMatch((await call("GET", "/rosa", { as: 1 })).text, /\/admin\//);
-  assert.match((await call("GET", "/rosa")).text, /href='\/admin\/members'/);
+  assert.doesNotMatch((await call("GET", "/account", { as: 1 })).text, /\/admin\//);
+  assert.match((await call("GET", "/account")).text, /href='\/admin\/members'/);
+  assert.match((await call("GET", "/account")).text, /href='\/admin\/clients'/);
+  assert.match((await call("GET", "/account")).text, /Another account: add a client in <a href='\/admin\/clients'>Clients<\/a>/);
+  // an unknown client is refused, an admin too, and journals nothing
+  const before = (await env.DB.prepare("SELECT COUNT(*) AS n FROM journal").first()).n;
+  assert.equal((await call("POST", "/account/disconnect", { form: { client: "nosuch" } })).status, 403);
+  assert.equal((await env.DB.prepare("SELECT COUNT(*) AS n FROM journal").first()).n, before);
 });
 
 test("Members: the users with their clients; invite, add and drop a membership, remove", async () => {

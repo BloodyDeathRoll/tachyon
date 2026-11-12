@@ -17,11 +17,13 @@
 //   GET  /<client>/insights             src/pages/insights.ts
 //   POST /<client>/audience/upload      the followers export      src/pages/audience.ts
 //   GET|POST /admin/members | clients   admins only               src/pages/admin.ts
+//   GET /account, POST /account/disconnect  the signed-in user     src/pages/account.ts
 
 import { clientRow, type Ctx } from "../db.ts";
 import type { Fetcher } from "../graph.ts";
 import { HttpError } from "../http.ts";
 import { clientsOf, member, type UserRow } from "../members.ts";
+import { disconnect, renderAccount } from "./account.ts";
 import { noClient, renderAdmin } from "./admin.ts";
 import { upload as audienceUpload } from "./audience.ts";
 import { renderInsights } from "./insights.ts";
@@ -66,6 +68,13 @@ export async function pages(req: Request, env: Page["env"], _ctx: ExecutionConte
       throw e;
     }
   };
+  if (client === "account" && (parts.length === 1 ? req.method === "GET" : parts.length === 2 && kind === "disconnect" && req.method === "POST")) {
+    return catching("/account", async () => {
+      const first = (await clientsOf(env, user))[0];
+      const page = first ? await pageOf(env, user, first, now) : noClient(env, user, now);
+      return parts.length === 1 ? renderAccount(page) : disconnect(page, await formOf(req));
+    });
+  }
   if (client === "admin" && parts.length === 2 && (kind === "members" || kind === "clients")) {
     return catching("/app", async () => {
       if (!user.admin) throw new HttpError(403, "admin", "admins only");
