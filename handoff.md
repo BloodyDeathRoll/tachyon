@@ -76,7 +76,18 @@ Rosa videos were publishing and showing at 02:00 Israel time instead of 08:30. F
    npx wrangler d1 execute tachyon --remote --command "SELECT ts, action, intent, outcome, by FROM journal WHERE client='rosa' AND target='2026-w47-01' ORDER BY ts"
    ```
    Column names are from `deploy/worker/src/db.ts` (`journalStmt`); check `schema.sql` first. The publish
-   loop is `deploy/worker/src/publish.ts` (around line 331–343).
-3. The same query with `action='post.move'` and `ts >= '2026-11-12'` shows who moved `w47-04/06/09`.
+   loop is `publishClient()` in `deploy/worker/src/publish.ts`.
+3. The same query with `action IN ('post.move','post.scheduled_now')` and `ts >= '2026-11-12'` shows who
+   moved `w47-04/06/09`. Both actions write `scheduled_at` (`deploy/worker/src/db.ts`).
 4. Ask the user before touching anything remote: no approval from this session carries over.
 5. The three failing Python tests on `main` are unexamined.
+6. The main checkout `~/Projects/tachyon` is on `higgs-film` at `c745ef5` (main up to #74): the local
+   dashboard there does not have the #75 fix. Ask the user, then merge `main` into it.
+
+## Carried over from the 2026-10-29 handoff (checked 2026-11-13)
+- Still open: the review page (`spine/review/app.py`) does not show the post `note`. A NEEDS_APPROVAL slot
+  sent back by publish shows its reason only when Approve returns the 409.
+- Still not checked: whether editing a video after approval re-runs the approval check.
+- Still there, ask before removing: worktree `~/.superset/worktrees/tachyon/upload-color-range`.
+- Closed: the 2 timezone failures (`test_schedule_times_are_editable`,
+  `test_posts_per_day_add_and_remove`) pass on `7baf268`.
