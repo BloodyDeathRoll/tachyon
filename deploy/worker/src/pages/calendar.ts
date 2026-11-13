@@ -163,11 +163,13 @@ async function week(p: Page, k: Clock, wk: string, hl: string | null): Promise<s
   const days = [...Array(7).keys()].map((d) => monday + d * DAY_MS);
   const times = new Set(days.flatMap((day) => slotsOn(p, k, day)).map((ms) => iso(ms)));
   const rows = new Set([...times].map((s) => hm(k.w(parse(s)!))));
+  const droppable = new Set(rows);
   const cells = new Map<string, Item>();
   for (const it of items) {
     const d = Math.floor((k.w(it.at) - monday) / DAY_MS);
     if (d < 0 || d > 6) continue;
     rows.add(hm(k.w(it.at))); // published or scheduled off-slot: its own row
+    if (!it.row.published_at) droppable.add(hm(k.w(it.at))); // a row only a published video made takes no drop
     if (!cells.has(`${d}|${hm(k.w(it.at))}`)) cells.set(`${d}|${hm(k.w(it.at))}`, it);
   }
   const g = ["<div class=cal style='grid-template-columns:56px repeat(7,minmax(0,1fr))'><div></div>"];
@@ -182,7 +184,7 @@ async function week(p: Page, k: Clock, wk: string, hl: string | null): Promise<s
       const past = ms <= p.now;
       const it = cells.get(`${d}|${t}`);
       if (it) g.push(cell(p, it, metas.get(it.row.slot_id) ?? {}, past, hl));
-      else if (past) g.push("<div class='cell open past'></div>");
+      else if (past || !droppable.has(t)) g.push("<div class='cell open past'></div>");
       else g.push(`<div class='cell open' data-at='${iso(ms)}'><span>Open slot</span>${times.has(iso(ms)) ? `<button type=button class=addnew data-add='${iso(ms)}'>+ Add new</button>` : ""}</div>`);
     }
   }
@@ -258,7 +260,8 @@ async function firstFreeOn(p: Page, k: Clock, day: string, exclude: string): Pro
   if (d0 === null || !/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new HttpError(400, "day", "not a day");
   const taken = await takenSlots(p.c, exclude);
   const monday = d0 - ((new Date(d0).getUTCDay() || 7) - 1) * DAY_MS;
-  const wk = (await posts(p.c, null)).map((r) => parse(r.published_at || r.scheduled_at)).filter((ms): ms is number => ms !== null).map(k.w).filter((lw) => lw >= monday && lw < monday + 7 * DAY_MS).map((lw) => k.back(d0 + minutes(hm(lw)) * 60_000));
+  // never a published video's time: a late publish (02:01) is not a slot to schedule the next ones on
+  const wk = (await posts(p.c, null)).map((r) => (r.published_at ? null : parse(r.scheduled_at))).filter((ms): ms is number => ms !== null).map(k.w).filter((lw) => lw >= monday && lw < monday + 7 * DAY_MS).map((lw) => k.back(d0 + minutes(hm(lw)) * 60_000));
   const cands = [...new Set([...slotsOn(p, k, d0), ...wk])].sort((a, b) => a - b);
   const ms = cands.find((x) => x > p.now && !taken.has(iso(x)));
   return ms === undefined ? null : iso(ms);
