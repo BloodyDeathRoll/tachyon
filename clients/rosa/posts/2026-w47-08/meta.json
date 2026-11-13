@@ -5,7 +5,7 @@
   "angle": "A fresh glassy-line Pixabay clip plays full screen, then a big \"Epic in Santa Teresa\" in white types over it. The dark Santa Teresa spot page rises into a large phone and the size, period and wind bars fill, showing how the three add up. The Epic pill pops as the rating lands, the phone tilts toward camera. Rosa particles rise in the empty space, then the closing card.",
   "hook_formula": "Epic in Santa Teresa",
   "cta": "link in bio (rosa.surf on the end card)",
-  "audio_type": "Surf Rock Summer (BFCMUSIC), baked in",
+  "audio_type": "Island Life (feat. Carl Scharschmidt) (Tribal Global), instagram",
   "engine": "remotion 4 (engines/remotion)",
   "film": {
     "engine": "html",
@@ -13,7 +13,7 @@
     "source": "clients/rosa/posts/2026-w47-08/film/index.html",
     "music": "clients/rosa/assets/music/surf-rock-summer-325576.mp3"
   },
-  "track": "surf-rock-summer",
+  "track": "ig:181051472477454",
   "trial": false,
   "share_to_feed": true,
   "thumb_offset": 1200,
@@ -23,5 +23,18 @@
   "plan": "2026-W47",
   "motion": null,
   "theme": "dark",
-  "duration_s": 18.0
+  "duration_s": 18.0,
+  "audio_configuration": {
+    "audio_id": "181051472477454",
+    "audio_volume": 100,
+    "video_volume": 1
+  },
+  "track_info": {
+    "title": "Island Life (feat. Carl Scharschmidt)",
+    "artist": "Tribal Global",
+    "cover": "https://scontent-lhr11-1.xx.fbcdn.net/v/t39.30808-1/302276491_761601004811324_4423955863329867838_n.jpg?stp=dst-jpg_s130x130_tt6&_nc_cat=1&ccb=1-7&_nc_sid=68a4df&_nc_ohc=sIobq_BT8wAQ7kNvwFSL7KB&_nc_oc=Adqpt9wwAVOhsjruXoK8ThVhZ8pHRcGRBnCmeUML6cbyI6SSKLMVmUPQEgz3Gc_Peas&_nc_zt=24&_nc_ht=scontent-lhr11-1.xx&edm=AOP_XFkEAAAA&_nc_gid=DzbNN5i_UtV03SYUYKOqew&oh=00_AQQfJtBbav9QoOGj3t7FiJRRVJUDZMZB1mVCQd7WHAjSlA&oe=6AFAE10A",
+    "duration": 178.2,
+    "link": null,
+    "preview_of": "ig:181051472477454"
+  }
 }

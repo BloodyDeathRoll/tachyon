@@ -1,21 +1,22 @@
-page_id: '1450505061475499'
-ig_user_id: '17841452024696422'
-token_env: TACHYON_ROSA_TOKEN
-ga4_property: null
-blob_bucket: null
 auto_approve_pillars: []
 auto_reply:
   comments: true
   dm: true
-emergency_stop: false
-display_name: Rosa
-ig_username: rosasurfapp
-tagline: Free surf forecast, worldwide
 bio_link:
-  public_url: https://rosa.surf/ig
   edge_config_id: ecfg_9t46ooc6vd2at8fryihbvfzxu4ea
-  team_id: team_jeHaUEFEe9q9CoUA71Vij1Kr
   key: rosa_ig
+  public_url: https://rosa.surf/ig
+  team_id: team_jeHaUEFEe9q9CoUA71Vij1Kr
+blob_bucket: null
+display_name: Rosa
+ga4_property: null
 slots:
 - 06:30
 - '18:30'
+tagline: Free surf forecast, worldwide
+token_env: TACHYON_ROSA_TOKEN
+timezone: Asia/Jerusalem
+page_id: '1450505061475499'
+ig_user_id: '17841452024696422'
+ig_username: rosa_surf_forecast
+emergency_stop: false
