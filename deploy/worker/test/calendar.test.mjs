@@ -181,3 +181,15 @@ test("a DST week: one daily slot falls on two local rows; a bad grants zone fall
     await env.DB.prepare("UPDATE clients SET grants = json_remove(grants, '$.timezone') WHERE id = 'rosa'").run();
   }
 });
+
+test("a late publish's time is not a slot: no open cells on its row, a day drop skips it", async () => {
+  await waiting("p1", "2099-03-03T18:30:00+00:00");
+  for (const s of ["APPROVED", "QUEUED", "PUBLISHING"]) await setState(ctx(), "p1", s, null, {});
+  await setState(ctx(), "p1", "PUBLISHED", null, { ig_media_id: "mp1", published_at: "2099-03-04T00:01:21+00:00" });
+  await waiting("p2", "2099-03-06T18:30:00+00:00");
+  const r = await call("GET", "/rosa/calendar?w=2099-W10");
+  assert.match(r.text, /href='\/rosa\/v\/p1'/);
+  assert.doesNotMatch(r.text, /data-at='2099-03-0\dT00:01:00\+00:00'/);
+  await call("POST", "/rosa/move", { form: { slot: "p2", day: "2099-03-05" } });
+  assert.equal((await post("p2")).scheduled_at, "2099-03-05T06:30:00+00:00");
+});

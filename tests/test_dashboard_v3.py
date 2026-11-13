@@ -264,3 +264,20 @@ def test_move_into_a_slot_minutes_away(server, client_dir):  # noqa: F811
     db = DB.for_client(client_dir)
     assert db.post("w01-s1")["scheduled_at"] == soon
     db.close()
+
+
+def test_a_late_publish_is_not_a_slot(server, client_dir):  # noqa: F811
+    from datetime import date
+    late = app.utc_iso(date(2099, 1, 7), "02:01")   # published late, off-slot
+    db = DB.for_client(client_dir)
+    db.create_post("x1", "demo", scheduled_at=slot_on("2099-01-06", 1))
+    for st in ["BRIEFED", "SCRIPTED", "RENDERED", "QA", "NEEDS_APPROVAL", "APPROVED", "QUEUED", "PUBLISHING"]:
+        db.set_state("x1", st)
+    db.set_state("x1", "PUBLISHED", ig_media_id="m1", published_at=late)
+    db.close()
+    _, body, _ = req(server, "GET", "/demo/calendar?w=2099-W02")
+    assert f"data-at='{app.utc_iso(date(2099, 1, 8), '02:01')}'" not in body   # its row takes no drop
+    req(server, "POST", "/demo/move", {"slot": "w01-s1", "day": "2099-01-08"})
+    db = DB.for_client(client_dir)
+    assert db.post("w01-s1")["scheduled_at"] == slot_on("2099-01-08")   # the day's first real slot, not 02:01
+    db.close()
