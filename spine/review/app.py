@@ -2060,6 +2060,7 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
     try:
         cells: dict[tuple[str, str], list] = {}
         extra_times = set()
+        drop_times = set(times)
         preview = SCH.preview_slots(db, unslotted(client, db), C.load_grants(client))
         for row in db.posts():
             tag = tag_for(client, row)
@@ -2071,6 +2072,8 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
             if hm not in times:
                 # published or scheduled off-slot: put it in its own row
                 extra_times.add(hm)
+                if not row["published_at"]:
+                    drop_times.add(hm)   # a row only a published video made takes no drop
             cells.setdefault((ts.date().isoformat(), hm), []).append((row, tag))
         rows_t = sorted(set(times) | extra_times)
         prev_w = (days[0] - timedelta(days=7)).isocalendar()
@@ -2093,6 +2096,7 @@ def render_calendar(client: str, week: str | None, hl: str | None = None) -> byt
                 if items:
                     g.append(_cell(client, items[0][0], items[0][1], past, hl))
                 else:
+                    past = past or hm not in drop_times
                     drop = "" if past else f" data-at='{iso}'"
                     g.append(f"<div class='cell open{' past' if past else ''}'{drop}>"
                              + ("" if past else "<span>Open slot</span>" + (f"<button type=button class=addnew data-add='{iso}'>+ Add new</button>"
@@ -2308,7 +2312,8 @@ def _first_free_on(db: DB, day: str, grants: dict, exclude: str) -> str | None:
     lim = datetime.now(timezone.utc)
     d = date.fromisoformat(day)
     # the week view shows a row for every time used that week: those count as open slots on this day too
-    wk = {t.strftime("%H:%M") for r in db.posts() for at in (r["published_at"] or r["scheduled_at"],) if at
+    # never a published video's time: a late publish (02:01) is not a slot to schedule the next ones on
+    wk = {t.strftime("%H:%M") for r in db.posts() for at in (not r["published_at"] and r["scheduled_at"],) if at
           for t in (parse(at).astimezone(LOCAL),) if t.date().isocalendar()[:2] == d.isocalendar()[:2]}
     for iso in sorted(set(day_slots(grants, d).values()) | {utc_iso(d, hm) for hm in wk}, key=parse):
         if parse(iso) > lim and iso not in taken:
