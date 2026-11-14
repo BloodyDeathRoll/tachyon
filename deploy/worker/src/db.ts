@@ -290,7 +290,7 @@ export async function files(c: Ctx, slot: string): Promise<Record<string, string
 /** The clients row without its token. */
 export async function clientRow(c: Ctx): Promise<Record<string, unknown>> {
   const row = await c.env.DB.prepare(
-    "SELECT id, name, ig_user_id, page_id, ig_username, token_enc IS NOT NULL AS connected, token_expires, grants, emergency_stop, publisher FROM clients WHERE id = ?",
+    "SELECT id, name, ig_user_id, page_id, ig_username, token_enc IS NOT NULL AS connected, token_expires, grants, emergency_stop, publisher, status FROM clients WHERE id = ?",
   )
     .bind(c.client)
     .first<Record<string, unknown>>();

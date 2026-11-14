@@ -6,7 +6,7 @@
 
 On start the host registers with the clients whose assets/ folder it holds. It polls
 GET /api/jobs/next every 60 s; a claimed job runs here (`python -m <argv>` from the job's
-payload, checked against ARGV below, or the upload and spec jobs) with a heartbeat every
+payload, checked against ARGV below, or the upload, spec, track and learn jobs) with a heartbeat every
 60 s, then done or fail is reported. A lapsed or revoked session stops the loop (exit 3):
 run `login` again. The crontab's `week auto` entry stays until the Worker's cron enqueues
 it (phase 4).
@@ -35,6 +35,7 @@ from pathlib import Path
 from . import clients as C
 from . import formats as F
 from . import jobs as J
+from . import learn as L
 from . import manual as M
 from . import remote as R
 from . import revise as RV
@@ -374,6 +375,8 @@ def run_job(job: dict, cfg: dict, *, runner=subprocess.run, sleep=time.sleep) ->
     client, slot = job["client"], job.get("slot_id")
     if job["kind"] == "spec":
         return spec(client, slot, cfg)   # reads only the file in R2: no text files needed
+    if job["kind"] == "learn":   # a new client's industry study: its progress rides on the heartbeat
+        return L.run(client, payload, lambda p: R.call("POST", f"/api/jobs/{job['id']}/heartbeat", {"host": host_id(cfg), "result": p}, cfg=cfg), cfg)
     if job["kind"] == "upload":
         pull(client, slot, sleep)   # the operator's online edits, so the files sent up are the newest
         return {"keys": upload(client, slot, cfg)}
@@ -478,8 +481,12 @@ def once(cfg: dict, *, runner=subprocess.run, sleep=time.sleep) -> bool:
 def run(cfg: dict, *, sleep=time.sleep) -> int:
     reg = register(cfg)
     say(f"host {host_id(cfg)} registered: clients {reg['clients']}" + (f", not a member of {reg['dropped']}" if reg.get("dropped") else ""))
+    held = host_clients()
     while True:
         try:
+            if host_clients() != held:   # a learn job made a client's folder here: this PC holds it now
+                reg, held = register(cfg), host_clients()
+                say(f"registered again: clients {reg['clients']}")
             if not once(cfg, sleep=sleep):
                 for done in sync_videos(reg["clients"], cfg) + sync_music(reg["clients"], cfg):
                     say(f"{done}: sent up")

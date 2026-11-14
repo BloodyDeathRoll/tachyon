@@ -178,6 +178,7 @@ CREATE TABLE IF NOT EXISTS clients (           -- the former grants.yaml
   grants         TEXT NOT NULL DEFAULT '{}',   -- json: the former grants.yaml (slots, week_prep, auto_reply, bio_link, ...)
   emergency_stop INTEGER NOT NULL DEFAULT 0,
   publisher      TEXT NOT NULL DEFAULT 'local',  -- local (a PC's crontab) | worker (the cron here)
+  status         TEXT NOT NULL DEFAULT 'active', -- setup | learning | review | active (src/pages/setup.ts): a client made here starts at setup
   created_by     INTEGER,
   created_at     INTEGER NOT NULL
 );
@@ -190,6 +191,16 @@ CREATE TABLE IF NOT EXISTS client_files (      -- brand.md, strategy.md, ... pul
   updated_at INTEGER NOT NULL,
   PRIMARY KEY (client, name)
 );
+CREATE TABLE IF NOT EXISTS client_intake (     -- what the operator tells Tachyon about a new client (src/pages/setup.ts)
+  client     TEXT PRIMARY KEY,
+  industry   TEXT NOT NULL DEFAULT '',
+  summary    TEXT NOT NULL DEFAULT '',
+  notes      TEXT NOT NULL DEFAULT '',
+  sources    TEXT NOT NULL DEFAULT '[]',       -- json: [{type, url, note} | {type, file, key, size}]
+  answers    TEXT NOT NULL DEFAULT '{}',       -- json: an open question of the industry file -> the operator's answer
+  updated_by INTEGER,
+  updated_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS hosts (             -- a PC running spine/worker.py
   id        TEXT PRIMARY KEY,
   user      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -200,14 +211,14 @@ CREATE TABLE IF NOT EXISTS hosts (             -- a PC running spine/worker.py
 );
 CREATE TABLE IF NOT EXISTS jobs (              -- local work, claimed by a host for its clients
   id         INTEGER PRIMARY KEY,
-  kind       TEXT NOT NULL,                    -- plan | produce | revise | formats | voice | upload | spec
+  kind       TEXT NOT NULL,                    -- plan | produce | revise | formats | voice | upload | spec | learn
   client     TEXT NOT NULL,
   slot_id    TEXT,
   state      TEXT NOT NULL DEFAULT 'queued',   -- queued | running | done | failed
   holder     TEXT,                             -- hosts.id while running
   until      INTEGER,                          -- lease end. A running job past it is claimable again
   payload    TEXT,                             -- json
-  result     TEXT,                             -- json, or the error text
+  result     TEXT,                             -- json, or the error text. A running learn job: its progress (heartbeat)
   by         INTEGER,                          -- users.id that asked
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
