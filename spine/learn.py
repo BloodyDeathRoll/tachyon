@@ -218,6 +218,13 @@ def run(client: str, payload: dict, report, cfg: dict | None = None, *, runner=c
         t.join(timeout=10)
     if stop.is_set():
         raise Stopped("stopped")
+    try:   # asked once more before anything is sent: a job stopped online after claude ended uploads nothing
+        report(progress(d, since, seen, len(sources)))
+    except R.RemoteError as e:
+        if e.status == 409:
+            raise Stopped("stopped") from e
+    except OSError:
+        pass
     long, short = assemble(client, grants.get("display_name") or client)
     home = C.CLIENTS / client
     (home / "industry.md").write_text(long)

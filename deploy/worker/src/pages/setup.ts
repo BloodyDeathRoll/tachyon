@@ -374,6 +374,7 @@ export async function setupPost(p: Page, req: Request): Promise<Response> {
     return redirect(back);
   }
   if (st === "review" && action === "approve") {
+    if (!(await fileText(p, LONG))) throw new HttpError(400, "file", "there is no industry file to approve: learn again");
     await answer(p, form, i, true);
     await p.env.DB.prepare("UPDATE clients SET status = 'active' WHERE id = ? AND status = 'review'").bind(p.client.id).run();
     return redirect(p.user.admin ? `/admin/clients?active=${encodeURIComponent(p.client.id)}` : path(p.client.id));

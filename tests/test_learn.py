@@ -134,6 +134,19 @@ def test_a_stopped_job_kills_the_run(env, monkeypatch):
         L.run("nomad", {**PAYLOAD, "sources": []}, report, CFG, runner=run, watch=0.05)
 
 
+def test_a_job_stopped_after_claude_ended_sends_nothing(env, monkeypatch):
+    f = FakeWorker()
+    monkeypatch.setattr(R, "opener", f)
+
+    def report(p):
+        raise R.RemoteError(409, "lease")
+
+    with pytest.raises(L.Stopped):
+        L.run("nomad", {**PAYLOAD, "sources": []}, report, CFG, runner=writer(L.work_dir("nomad")), watch=60)
+    assert not [c for c in f.calls if "set_client_file" in c[1]]
+    assert not (env / "clients" / "nomad" / "industry.md").exists()
+
+
 def test_the_host_runs_a_learn_job_and_reports_progress_on_the_heartbeat(env, monkeypatch):
     monkeypatch.setenv("TACHYON_HOME", str(env / "home"))
     got = {}

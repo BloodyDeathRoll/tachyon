@@ -216,6 +216,8 @@ test("stop and retry while learning; ask for changes and learn again from review
   assert.equal((await api("POST", `/api/jobs/${first.id}/heartbeat`, { host: "pc-ai", result: { done: [] } })).status, 409);
   assert.equal((await api("POST", `/api/jobs/${first.id}/done`, { host: "pc-ai", result: {} })).status, 409);
   assert.equal(await status("atlas"), "setup");
+  // no work is queued through the API for a client that is not active
+  assert.equal((await api("POST", "/api/jobs", { kind: "plan", client: "atlas", slot_id: "2026-W47" })).status, 409);
   // started again, the PC fails: the page says why and offers another try
   await page("POST", "/atlas/setup", { form: { ...form, action: "start" } });
   const second = (await api("GET", "/api/jobs/next?host=pc-ai")).data;
@@ -234,6 +236,12 @@ test("stop and retry while learning; ask for changes and learn again from review
   const fourth = (await api("GET", "/api/jobs/next?host=pc-ai")).data;
   assert.equal(JSON.parse(fourth.payload).changes, "Look at e-bikes too.");
   await api("POST", `/api/jobs/${fourth.id}/done`, { host: "pc-ai", result: {} });
+  // at review with the file gone (a hand-made request): nothing to approve
+  const held = await env.DB.prepare("SELECT * FROM client_files WHERE client = 'atlas' AND name = 'industry.md'").first();
+  await env.DB.prepare("DELETE FROM client_files WHERE client = 'atlas' AND name = 'industry.md'").run();
+  assert.equal((await page("POST", "/atlas/setup", { form: { action: "approve" } })).status, 400);
+  assert.equal(await status("atlas"), "review");
+  await api("POST", "/api/db/atlas/set_client_file", { name: "industry.md", text: held.text });
   assert.equal((await page("POST", "/atlas/setup", { form: { action: "again" } })).status, 303);
   assert.equal(await status("atlas"), "learning");
   // a member who is no admin lands on the client after approving

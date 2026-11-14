@@ -317,6 +317,9 @@ async function enqueue(req: Request, env: Env, user: UserRow, now: number): Prom
   if (typeof kind !== "string" || !JOB_KINDS.has(kind)) throw new HttpError(400, "kind");
   const client = id(body.client, "client");
   await member(env, user, client);
+  // a client still being set up has no work but its study, and that starts on its setup page (src/pages/setup.ts)
+  const st = await env.DB.prepare("SELECT status FROM clients WHERE id = ?").bind(client).first<{ status: string }>();
+  if (st && st.status !== "active") throw new HttpError(409, "setup", "the client is not active yet");
   const slot = body.slot_id == null ? null : id(body.slot_id, "slot_id");
   const payload = body.payload == null ? null : JSON.stringify(body.payload);
   // two hosts, or the cron and a button, asking for the same week while it is still open: one job
