@@ -7,7 +7,8 @@
 //   POST   /api/admin/memberships {user, client} -> {ok}
 //   DELETE /api/admin/memberships {user, client} -> {ok}
 //   GET    /api/admin/clients                    -> {clients: [...]}  the rows without their tokens
-//   POST   /api/admin/clients {id, name}         -> {id}        publisher 'worker': the cron posts for it
+//   POST   /api/admin/clients {id, name}         -> {id}        publisher 'worker': the cron posts for it; status 'setup':
+//                                                               active once its industry file is approved (src/pages/setup.ts)
 
 import { HttpError, json } from "./http.ts";
 
@@ -59,7 +60,7 @@ async function createClient(env: { DB: D1Database }, body: Body, by: number, now
   if (!id) throw new HttpError(400, "id");
   if (RESERVED.has(id)) throw new HttpError(400, "reserved", `${id} is a path of the Worker's own`);
   try {
-    await env.DB.prepare("INSERT INTO clients (id, name, publisher, created_by, created_at) VALUES (?, ?, 'worker', ?, ?)").bind(id, name, by, now).run();
+    await env.DB.prepare("INSERT INTO clients (id, name, publisher, status, created_by, created_at) VALUES (?, ?, 'worker', 'setup', ?, ?)").bind(id, name, by, now).run();
   } catch (e) {
     if (String(e).includes("UNIQUE")) throw new HttpError(409, "exists", `client ${id} exists`);
     throw e;
@@ -81,7 +82,7 @@ export async function admin(req: Request, env: { DB: D1Database }, p: string[], 
   }
   if (p[2] === "memberships" && p.length === 3 && (m === "POST" || m === "DELETE")) return membership(env, await body(), m === "POST");
   if (p[2] === "clients" && p.length === 3 && m === "GET") {
-    const rows = (await env.DB.prepare("SELECT id, name, ig_user_id, page_id, ig_username, token_enc IS NOT NULL AS connected, token_expires, emergency_stop, publisher, created_at FROM clients ORDER BY id").all()).results;
+    const rows = (await env.DB.prepare("SELECT id, name, ig_user_id, page_id, ig_username, token_enc IS NOT NULL AS connected, token_expires, emergency_stop, publisher, status, created_at FROM clients ORDER BY id").all()).results;
     return json(200, { clients: rows });
   }
   if (p[2] === "clients" && p.length === 3 && m === "POST") return createClient(env, await body(), by, now);

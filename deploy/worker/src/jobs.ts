@@ -2,8 +2,8 @@
 // "Jobs and routing"). The API (src/index.ts) and the dashboard pages insert through here.
 // A job's payload carries the exact `python -m` argv spine/worker.py ARGV allows for its kind.
 
-export const JOB_KINDS = new Set(["plan", "auto", "produce", "revise", "formats", "caption", "voice", "upload", "spec", "track"]); // track: mix an Instagram song picked online (spine/worker.py)
-export const ONCE_KINDS = new Set(["plan", "auto", "produce", "revise", "track"]); // the same command already waiting or running is the same job (a double click)
+export const JOB_KINDS = new Set(["plan", "auto", "produce", "revise", "formats", "caption", "voice", "upload", "spec", "track", "learn"]); // learn: the industry study of a new client (spine/learn.py). track: mix an Instagram song picked online (spine/worker.py)
+export const ONCE_KINDS = new Set(["plan", "auto", "produce", "revise", "track", "learn"]); // the same command already waiting or running is the same job (a double click)
 export const ONCE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface JobRow {

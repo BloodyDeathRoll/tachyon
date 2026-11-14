@@ -12,7 +12,8 @@ next step. Copy this file to `clients/<name>/PLAYBOOK.md` and tick as you go.
 - [ ] **Intake session** (Claude, station 0). `product.md`, `brand.md`, `audience.md`,
       `strategy.md`, `funnel.md`, `competitors.yaml`, `profile.md`. Every number in
       `product.md` measured. Voice copied to `~/.claude/instagram/voice.md`.
-- [ ] **Industry study** (Claude, station 0, `skills/intake` §Industry study).
+- [ ] **Industry study** (Claude, station 0, `skills/intake` §Industry study). Online: the
+      client's setup page (`/<client>/setup`): the business, Start learning, approve the file.
       `industry.md`: the ecosystem, the rules, the vocabulary, the video formats that win
       in this industry and the ones that are worn out, the raw material we can film from.
       Every line has a URL and a date. No script is written before this file exists.
