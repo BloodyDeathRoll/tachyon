@@ -12,8 +12,12 @@ next step. Copy this file to `clients/<name>/PLAYBOOK.md` and tick as you go.
 - [ ] **Intake session** (Claude, station 0). `product.md`, `brand.md`, `audience.md`,
       `strategy.md`, `funnel.md`, `competitors.yaml`, `profile.md`. Every number in
       `product.md` measured. Voice copied to `~/.claude/instagram/voice.md`.
+- [ ] **Industry study** (Claude, station 0, `skills/intake` §Industry study).
+      `industry.md`: the ecosystem, the rules, the vocabulary, the video formats that win
+      in this industry and the ones that are worn out, the raw material we can film from.
+      Every line has a URL and a date. No script is written before this file exists.
 - [ ] **Assets** with `provenance.yaml` each.
-- [ ] **CP1** (operator). Approve `strategy.md`, `funnel.md`, `profile.md`. Apply the
+- [ ] **CP1** (operator). Approve `industry.md`, `strategy.md`, `funnel.md`, `profile.md`. Apply the
       profile rewrite by hand.
 - [ ] **Link in bio** set once to the client's fixed redirect (Rosa: `rosa.surf/ig`); `grants.bio_link` filled so `publish.py` moves its target at each publish. Conversion events confirmed firing in GA4. No links in comments (not clickable).
 - [ ] **Swipe file** from Business Discovery (`swipe.md`).

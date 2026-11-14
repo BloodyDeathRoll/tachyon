@@ -72,6 +72,8 @@ Outputs in `clients/<name>/`:
   said, positions, off-limits, proof it may use, the CTA forms allowed) + visual identity + banned
   words. Also copied to `~/.claude/instagram/voice.md` so the `ig-*` skills read it.
 - `audience.md` personas, trigger states, verbatim pains, language pack.
+- `industry.md` the client's ecosystem and its video practices, researched and cited
+  before `strategy.md` is written (`skills/intake` §Industry study). Plan reads it weekly.
 - `strategy.md` tension, play, positioning, pillars, cadence, KPIs, kill criteria.
 - `funnel.md` conversion events, UTM scheme, link in bio, landing pages.
 - `competitors.yaml` 6–12 professional accounts within ~10× our size. Business Discovery
@@ -227,7 +229,7 @@ tachyon/
                     review/ listen/
   tools/            hookscore.py beats.py caption.py humanize.py detect.py swipe.py
   data/             hooks.json (26 formulas + ours) slop.json rubric.json
-  clients/<name>/   product.md brand.md audience.md strategy.md funnel.md competitors.yaml
+  clients/<name>/   product.md brand.md audience.md industry.md strategy.md funnel.md competitors.yaml
                     profile.md grants.yaml assets/ films/ calendar.yaml engage/ swipe.md
                     lessons.yaml log.md posts/<slot>/ reports/ CHANGELOG.md tachyon.db
   docs/             PLAN.md PLAYBOOK.md RESEARCH-*.md history/
