@@ -131,7 +131,7 @@ void main() {
   /** The pattern drawn as the page's background draws it (cover, from the top), then read back:
       the picture is the crisp layer, its coloured pixels are where the particles settle. */
   function build(img) {
-    const dpr = Math.min(devicePixelRatio || 1, innerWidth < 760 ? 1.5 : 2); // a phone's GPU: fewer pixels
+    const dpr = Math.min(devicePixelRatio || 1, matchMedia("(max-width:760px)").matches ? 1.5 : 2); // a phone's GPU: fewer pixels
     const W = Math.round(host.clientWidth * dpr), H = Math.round(host.clientHeight * dpr);
     if (!W || !H) return false;
     cv.width = W; cv.height = H;
@@ -205,51 +205,51 @@ void main() {
   }
 
   const stop = () => { cancelAnimationFrame(raf); raf = 0; cv.classList.remove("on"); };
+  /** Everything the context holds. Made again after a lost context comes back. */
+  function setup() {
+    points = program(POINT_VS, POINT_FS);
+    quad = program(QUAD_VS, QUAD_FS);
+    uni = {
+      aP: gl.getAttribLocation(quad, "aP"), uA: gl.getUniformLocation(quad, "uA"), uArt: gl.getUniformLocation(quad, "uArt"),
+      aB: gl.getAttribLocation(points, "aB"), aC: gl.getAttribLocation(points, "aC"), aR: gl.getAttribLocation(points, "aR"),
+      uRes: gl.getUniformLocation(points, "uRes"), uT: gl.getUniformLocation(points, "uT"),
+      uSize: gl.getUniformLocation(points, "uSize"), uCrisp: gl.getUniformLocation(points, "uCrisp"),
+    };
+    quadBuf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    pointBuf = gl.createBuffer();
+    tex = gl.createTexture();
+    gl.disable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // colours leave the shaders multiplied by their alpha
+  }
   const img = new Image();
   img.onload = () => {
-    try {
-      points = program(POINT_VS, POINT_FS);
-      quad = program(QUAD_VS, QUAD_FS);
-      uni = {
-        aP: gl.getAttribLocation(quad, "aP"), uA: gl.getUniformLocation(quad, "uA"), uArt: gl.getUniformLocation(quad, "uArt"),
-        aB: gl.getAttribLocation(points, "aB"), aC: gl.getAttribLocation(points, "aC"), aR: gl.getAttribLocation(points, "aR"),
-        uRes: gl.getUniformLocation(points, "uRes"), uT: gl.getUniformLocation(points, "uT"),
-        uSize: gl.getUniformLocation(points, "uSize"), uCrisp: gl.getUniformLocation(points, "uCrisp"),
-      };
-      quadBuf = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
-      pointBuf = gl.createBuffer();
-      tex = gl.createTexture();
-      gl.disable(gl.DEPTH_TEST);
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // colours leave the shaders multiplied by their alpha
-      let lost = false;
-      const go = () => {
-        stop();
-        if (lost || still.matches) return;
-        try {
-          if (!build(img)) return;
-        } catch (e) {
-          return; // a canvas this browser will not read: the plain background stays
-        }
-        cv.classList.add("on");
-        raf = requestAnimationFrame(frame);
-      };
-      let timer = 0;
-      const sizes = new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(go, 150); }); // fires once at the start too
-      sizes.observe(host);
-      still.addEventListener("change", go); // reduced motion turned on stops it, turned off starts it
-      cv.addEventListener("webglcontextlost", (e) => { // its programs and buffers are gone: the plain background is back for good
-        e.preventDefault();
-        lost = true;
-        clearTimeout(timer);
-        sizes.disconnect();
-        stop();
-      });
-    } catch (e) {
-      stop(); // a shader this GPU refuses, or a canvas it will not read: the plain background stays
-    }
+    let ready = false;
+    // any failure (a shader this GPU refuses, a canvas the browser will not read): the plain background stays
+    const go = () => {
+      stop();
+      if (gl.isContextLost() || still.matches) return;
+      try {
+        if (!ready) setup();
+        ready = true;
+        if (!build(img)) return;
+      } catch (e) {
+        return;
+      }
+      cv.classList.add("on");
+      raf = requestAnimationFrame(frame);
+    };
+    let timer = 0;
+    new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(go, 150); }).observe(host); // fires once at the start too
+    still.addEventListener("change", go); // reduced motion turned on stops it, turned off starts it
+    cv.addEventListener("webglcontextlost", (e) => { // the plain background, until the context is back
+      e.preventDefault();
+      ready = false;
+      stop();
+    });
+    cv.addEventListener("webglcontextrestored", go);
   };
   img.src = "/static/login-art.svg";
 })();
