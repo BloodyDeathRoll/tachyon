@@ -7,7 +7,8 @@
 (() => {
   const host = document.querySelector(".brand");
   const cv = host && host.querySelector("canvas");
-  if (!cv || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const still = matchMedia("(prefers-reduced-motion: reduce)");
+  if (!cv || still.matches) return;
   const gl = cv.getContext("webgl", { alpha: false, antialias: false, preserveDrawingBuffer: true, powerPreference: "low-power" });
   if (!gl) return;
 
@@ -130,7 +131,7 @@ void main() {
   /** The pattern drawn as the page's background draws it (cover, from the top), then read back:
       the picture is the crisp layer, its coloured pixels are where the particles settle. */
   function build(img) {
-    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const dpr = Math.min(devicePixelRatio || 1, innerWidth < 760 ? 1.5 : 2); // a phone's GPU: fewer pixels
     const W = Math.round(host.clientWidth * dpr), H = Math.round(host.clientHeight * dpr);
     if (!W || !H) return false;
     cv.width = W; cv.height = H;
@@ -223,15 +224,29 @@ void main() {
       gl.disable(gl.DEPTH_TEST);
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // colours leave the shaders multiplied by their alpha
+      let lost = false;
       const go = () => {
         stop();
-        if (!build(img)) return;
+        if (lost || still.matches) return;
+        try {
+          if (!build(img)) return;
+        } catch (e) {
+          return; // a canvas this browser will not read: the plain background stays
+        }
         cv.classList.add("on");
         raf = requestAnimationFrame(frame);
       };
       let timer = 0;
-      new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(go, 150); }).observe(host); // fires once at the start too
-      cv.addEventListener("webglcontextlost", stop); // the plain background is back
+      const sizes = new ResizeObserver(() => { clearTimeout(timer); timer = setTimeout(go, 150); }); // fires once at the start too
+      sizes.observe(host);
+      still.addEventListener("change", go); // reduced motion turned on stops it, turned off starts it
+      cv.addEventListener("webglcontextlost", (e) => { // its programs and buffers are gone: the plain background is back for good
+        e.preventDefault();
+        lost = true;
+        clearTimeout(timer);
+        sizes.disconnect();
+        stop();
+      });
     } catch (e) {
       stop(); // a shader this GPU refuses, or a canvas it will not read: the plain background stays
     }
