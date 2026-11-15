@@ -3,8 +3,8 @@
 // the drawing is its own part, and each sits on the drawing's 320 grid or an inner grid of it
 // (160, 80). Squares, triangles and quarter circles turn a quarter in their cell, half shapes
 // flip, diamonds and the star spin, dots hop round a small square.
-// The parts start one after another, spread over the whole beat, so some are always moving.
-// Every part is back where it began after 8 beats, so it all loops.
+// The parts take turns, slowly: a new one starts as another lands, so two are moving at any
+// time and the rest are still. Every part is back where it began after 4 turns, so it loops.
 // At the first frame every part rests where the drawing has it: the page shows the same
 // drawing as a plain background, so nothing jumps when the canvas takes over.
 // No canvas, or reduced motion: the plain background stays.
@@ -16,7 +16,8 @@
   if (!g) return;
 
   const ART_W = 1280, ART_H = 1440; // login-art.svg
-  const BEAT = 2.6, MOVE = 0.9; // seconds: a part moves once a beat (or every second beat), for this long
+  const MOVE = 3.2; // seconds one move takes
+  const GAP = MOVE / 2; // between one part's start and the next one's: so two are moving at a time
   const TAU = Math.PI * 2;
 
   const nums = (s) => (s.match(/-?\d*\.?\d+/g) || []).map(Number);
@@ -64,13 +65,9 @@
     const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
     const w = x1 - x0, h = y1 - y0, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     if (!kind) kind = w / h > 0.85 && w / h < 1.18 ? "turn" : "flip";
-    // big parts move every second beat, and so does a third of the small ones
-    const stride = Math.max(w, h) > 300 || rnd(i, 1) < 0.35 ? 2 : 1;
-    // when it first moves: a wave down and to the right, spread over its whole period
-    const wave = (cx / ART_W) * 0.5 + cy / ART_H + rnd(i, 2) * 0.35;
-    const phase = (wave * 1.5 - Math.floor(wave * 1.5)) * stride * BEAT;
     return {
-      path, kind, cx, cy, w, h, stride, phase,
+      path, kind, cx, cy, w, h,
+      phase: Infinity, // when it first moves (set once all the parts are known)
       fill: el.getAttribute("fill"),
       soft: !!el.closest("g[style]"), // the faded repeat at the drawing's foot
       dir: rnd(i, 4) < 0.5 ? -1 : 1,
@@ -82,12 +79,12 @@
   const ease = (u) => { const c = 1.3; u *= 2; return u < 1 ? (u * u * ((c + 1) * u - c)) / 2 : ((u -= 2) * u * ((c + 1) * u + c) + 2) / 2; }; // a little back and past
   /** How many moves the part has made by time t, the one under way counted in part. 0 until its first. */
   function state(s, t) {
-    const per = s.stride * BEAT, tau = t - s.phase, m = Math.floor(tau / per), u = (tau - m * per) / MOVE;
+    const tau = t - s.phase, m = Math.floor(tau / per), u = (tau - m * per) / MOVE;
     return tau < 0 ? 0 : m + (u < 1 ? ease(u) : 1);
   }
   const CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]];
 
-  let parts = [], raf = 0, t0 = 0;
+  let parts = [], per = 0, raf = 0, t0 = 0; // per: seconds between two moves of one part
   function frame(now) {
     raf = requestAnimationFrame(frame);
     if (!t0) t0 = now;
@@ -148,6 +145,10 @@
     parts = [...doc.querySelectorAll("g rect, g ellipse, g path")].filter((el) => el.getAttribute("width") != ART_W).map(part);
     parts = parts.filter((s) => !s.soft || s.cy - s.h / 2 > 1279); // the drawing clips its faded repeat to the foot
     if (!parts.length) return;
+    // the turns, in a shuffled order. The faded repeat at the foot takes none: it hardly shows
+    const turns = parts.filter((s) => !s.soft).map((s, i) => [rnd(i, 2), s]).sort((a, b) => a[0] - b[0]);
+    turns.forEach(([, s], n) => { s.phase = n * GAP; });
+    per = turns.length * GAP;
     new ResizeObserver(go).observe(host); // fires once at the start too
     still.addEventListener("change", go); // reduced motion turned on stops it, turned off starts it
   }).catch(() => {});
