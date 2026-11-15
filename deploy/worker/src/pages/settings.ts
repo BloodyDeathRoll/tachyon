@@ -67,7 +67,9 @@ export function renderSettings(p: Page): Response {
   });
   const stop = Boolean(p.client.emergency_stop);
   rows.push(switchRow(act, "emergency_stop", stop, "Emergency stop", "Stops every publish and reply for this project. Any video can override the two reply switches on its own page (Replies, Custom for this video).", stop ? "Resume" : "Stop everything", stop ? "sec" : "pri"));
-  return shell(p, "settings", `${header(p)}<section class=card>${rows.join("")}</section>`, "Settings");
+  // the research done for the business: the industry file, shown by the setup page (src/pages/setup.ts)
+  const research = `<section class=card style='margin-top:20px'><div class=switch><div><b>Business research</b><div class=muted style='font-size:14px'>What Tachyon learned about ${esc(p.client.name)}'s industry. Every plan reads it.</div></div><a class='btn sec' href='${path(p.client.id)}/setup'>View</a></div></section>`;
+  return shell(p, "settings", `${header(p)}<section class=card>${rows.join("")}</section>${research}`, "Settings");
 }
 
 /** POST /<client>/flag: one reply switch or the emergency stop, into the grants (clients.set_flag). */
