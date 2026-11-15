@@ -389,8 +389,7 @@ export function safeNext(next: string | null, origin: string): string {
 /** The sign-in page: Google's button, then the session token for `python -m spine.worker login`. */
 function loginPage(env: Env): Response {
   const setup = env.GOOGLE_CLIENT_ID
-    ? `<p class="lbl">Login</p>
-<div id="g"></div>
+    ? `<div id="g"></div>
 <script src="https://accounts.google.com/gsi/client?hl=en" async></script>
 <script>
 window.onload = () => {
@@ -411,7 +410,7 @@ window.onload = () => {
 </script>`
     : "<p>Not configured yet: GOOGLE_CLIENT_ID is empty (wrangler.toml).</p>";
   // the design: the whole screen dark with the ring behind (login-art.js draws it); in the
-  // middle the logo, "Login", then Google's own button (its rules allow no restyle: its white
+  // middle the logo, then Google's own button (its rules allow no restyle: its white
   // pill is the nearest to the Figma screen "login"); Google only, no passwords
   const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tachyon sign-in</title><link rel="icon" href="/static/icon.svg">
@@ -419,8 +418,8 @@ window.onload = () => {
 html,body{margin:0;height:100%}body{font:14px/1.5 Inter,system-ui,sans-serif;color:#111;background:#111}
 .brand{position:fixed;inset:0;overflow:hidden}.brand canvas{position:absolute;inset:0;width:100%;height:100%}
 .form{position:relative;box-sizing:border-box;min-height:100%;display:flex;align-items:center;justify-content:center;padding:32px 16px}.box{width:min(400px,100%);display:flex;flex-direction:column;align-items:center;gap:24px}
-.box img{width:min(300px,80%);height:auto}
-.box p{margin:0;align-self:stretch;text-align:center;color:#C8C8C8}.box .lbl{color:#fff;line-height:17px}#m:empty,#pc[hidden]{display:none}#m{color:#FF9B8F}
+.box img{width:min(180px,80%);height:auto}
+.box p{margin:0;align-self:stretch;text-align:center;color:#C8C8C8}#m:empty,#pc[hidden]{display:none}#m{color:#FF9B8F}
 textarea{box-sizing:border-box;width:100%;height:8rem;font:13px monospace;border:1px solid #E8E8E8;border-radius:8px;padding:8px}</style>
 <div class="brand"><canvas aria-hidden="true"></canvas></div>
 <script src="/static/login-art.js" defer></script>
