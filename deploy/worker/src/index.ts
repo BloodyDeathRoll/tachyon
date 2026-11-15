@@ -389,7 +389,8 @@ export function safeNext(next: string | null, origin: string): string {
 /** The sign-in page: Google's button, then the session token for `python -m spine.worker login`. */
 function loginPage(env: Env): Response {
   const setup = env.GOOGLE_CLIENT_ID
-    ? `<div id="g"></div>
+    ? `<p class="lbl">Login</p>
+<div id="g"></div>
 <script src="https://accounts.google.com/gsi/client?hl=en" async></script>
 <script>
 window.onload = () => {
@@ -405,24 +406,23 @@ window.onload = () => {
     m.textContent = "Signed in as " + j.profile.email + ". Copy the token into: python -m spine.worker login " + location.origin;
     t.hidden = false; t.value = j.token;
   } });
-  google.accounts.id.renderButton(g, { theme: "filled_black", size: "large", shape: "rectangular", text: "signin_with", locale: "en", width: Math.min(400, g.parentElement.clientWidth) });
+  google.accounts.id.renderButton(g, { theme: "outline", size: "large", shape: "pill", text: "continue_with", locale: "en", width: 215 });
 };
 </script>`
     : "<p>Not configured yet: GOOGLE_CLIENT_ID is empty (wrangler.toml).</p>";
-  // the design (the Figma screen "login"): the brand pattern and the logo on dark at the left, the
-  // sign-in on the light right; Google's own button (its rules allow no restyle); Google only, no
-  // passwords. The pattern is a plain background; login-art.js animates it on a canvas over it
+  // the design (the Figma screen "login"): the line wave and the logo on dark at the left, the
+  // sign-in on white at the right; Google's own button (its rules allow no restyle: its white
+  // pill is the nearest to the design's); Google only, no passwords. login-art.js draws the wave
   const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tachyon sign-in</title><link rel="icon" href="/static/icon.svg">
 <style>@font-face{font-family:Inter;font-weight:100 900;font-display:swap;src:url(/static/inter.woff2) format("woff2")}
-html,body{margin:0;height:100%}body{display:grid;grid-template-columns:1fr 1fr;font:14px/1.5 Inter,system-ui,sans-serif;color:#111;background:#F8F8F8}
-.brand{position:relative;overflow:hidden;background:#111 url(/static/login-art.svg) top center/cover no-repeat;display:flex;align-items:flex-end;padding:0 4vw 6vh}.brand img{position:relative;z-index:1;width:min(440px,60%);height:auto}
-.brand canvas{position:absolute;inset:0;width:100%;height:100%;visibility:hidden}.brand canvas.on{visibility:visible}
-.brand:after{content:"";position:absolute;inset:44% 0 0;background:linear-gradient(rgba(17,17,17,0),#111);pointer-events:none}
-.form{display:flex;align-items:center;justify-content:center;padding:32px 16px}.box{width:min(400px,100%);display:flex;flex-direction:column;align-items:flex-end;gap:16px}
-.box p{margin:0;align-self:stretch;color:#4A4A4A}#m:empty,#pc[hidden]{display:none}#m{color:#B42318}
+html,body{margin:0;height:100%}body{display:grid;grid-template-columns:1fr 1fr;font:14px/1.5 Inter,system-ui,sans-serif;color:#111;background:#fff}
+.brand{position:relative;overflow:hidden;background:#111;display:flex;align-items:flex-end;padding:0 4.5vw 5vh}.brand img{position:relative;z-index:1;width:clamp(200px,35%,447px);height:auto}
+.brand canvas{position:absolute;inset:0;width:100%;height:100%}
+.form{display:flex;align-items:center;justify-content:center;padding:32px 16px}.box{width:min(400px,100%);display:flex;flex-direction:column;align-items:center;gap:24px}
+.box p{margin:0;align-self:stretch;color:#4A4A4A}.box .lbl{color:#000;text-align:center;line-height:17px}#m:empty,#pc[hidden]{display:none}#m{color:#B42318}
 textarea{width:100%;height:8rem;font:13px monospace;border:1px solid #E8E8E8;border-radius:8px;padding:8px}
-@media (max-width:760px){body{grid-template-columns:1fr;grid-template-rows:auto 1fr}.brand{min-height:220px;padding:24px 16px}.brand img{width:200px}.box{align-items:stretch}}</style>
+@media (max-width:760px){body{grid-template-columns:1fr;grid-template-rows:auto 1fr}.brand{min-height:220px;padding:24px 16px}.brand img{width:200px}}</style>
 <div class="brand"><canvas aria-hidden="true"></canvas><img src="/static/logo.svg" alt="Tachyon"></div>
 <script src="/static/login-art.js" defer></script>
 <main class="form"><div class="box">
