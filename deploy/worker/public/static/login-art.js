@@ -69,7 +69,7 @@
     const stride = Math.max(w, h) > 300 || rnd(i, 1) < 0.35 ? 2 : 1;
     // the wave: later down and to the right. Never past the rest before a part's first move,
     // so at time 0 every part is still (see state)
-    const phase = ((cx / ART_W) * 0.5 + cy / TILE) * 0.8 + rnd(i, 2) * 0.4 + (stride === 2 && rnd(i, 3) < 0.5 ? BEAT : 0);
+    const phase = Math.min(((cx / ART_W) * 0.5 + cy / TILE) * 0.8 + rnd(i, 2) * 0.4 + (stride === 2 && rnd(i, 3) < 0.5 ? BEAT : 0), stride * BEAT - MOVE - 0.01);
     return {
       path, kind, cx, cy, w, h, stride, phase,
       fill: el.getAttribute("fill"),
