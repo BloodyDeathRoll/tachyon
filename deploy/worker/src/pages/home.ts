@@ -1,5 +1,5 @@
 // GET /app: the first client's dashboard; with no client yet, the same shell (side menu and all)
-// around an empty state that says what to do next. Who is signed in, Link a PC and Sign out are
+// around an empty state that says what to do next (no title: the side menu marks the page). Who is signed in, Link a PC and Sign out are
 // on the Account page, at the side menu's foot.
 
 import type { UserRow } from "../members.ts";
@@ -17,5 +17,5 @@ export async function homePage(env: Page["env"], user: UserRow, now: number): Pr
   const next = user.admin
     ? `<p>Add the first client, then connect its Instagram.</p><div class=btns><a class='btn pri' href='/admin/clients'>${icon("briefcase", 16)}Add a client</a><a class='btn sec' href='/admin/members'>${icon("users", 16)}Members</a></div>`
     : "<p>Ask an admin to add you to one.</p>";
-  return shell(noClient(env, user, now), "overview", `<div class=acctpage><h1>Overview</h1><p class=sub>Nothing here yet.</p><section class=card><h2>No clients yet</h2>${next}</section></div>`, "Overview");
+  return shell(noClient(env, user, now), "overview", `<div class=acctpage><section class=card><h2>No clients yet</h2>${next}</section></div>`, "Overview");
 }

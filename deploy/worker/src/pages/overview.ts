@@ -300,7 +300,7 @@ export async function renderOverview(p: Page, q: URLSearchParams): Promise<Respo
     + "document.querySelectorAll('.filt button').forEach(b=>b.addEventListener('click',()=>set(b.dataset.f)));"
     + "let f='all';try{f=localStorage.getItem(K)||'all'}catch(_){}if(!document.querySelector(`.filt [data-f='${f}']`))f='all';set(f);})();</script>";
   const side = `${scheduleCard(p)}${await weekCard(p, jobs, all)}${await droppedCard(p, q.get("up"))}${syncCard(p, q.get("synced"))}`;
-  const body = `${header(p, "Overview")}<div class=ovgrid><div class=maincol>${perf}${vids}</div><div class=side>${side}</div></div>${PAGE_JS}`;
+  const body = `${header(p)}<div class=ovgrid><div class=maincol>${perf}${vids}</div><div class=side>${side}</div></div>${PAGE_JS}`;
   const planning = jobs.get("")?.plan?.state === "running";
   return shell(p, "overview", body, "Overview", busy || planning ? 30 : null);
 }
