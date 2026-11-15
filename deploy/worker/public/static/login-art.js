@@ -48,7 +48,9 @@
   function frame(now) {
     raf = requestAnimationFrame(frame);
     // at most 3 at once: a tab that was away does not race to catch up
-    for (let n = Math.min(3, Math.floor((now - last) / FRAME)); n > 0; n--) { step(0.07); last = now; }
+    const n = Math.min(3, Math.floor((now - last) / FRAME));
+    for (let i = 0; i < n; i++) step(0.07);
+    last = n === 3 ? now : last + n * FRAME; // the part of a frame left over counts towards the next
   }
 
   const go = () => {
