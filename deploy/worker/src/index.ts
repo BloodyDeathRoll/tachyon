@@ -614,7 +614,7 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   }
 
   if (path === "/me" && req.method === "GET") return me(env, user);
-  if (path === "/app" && req.method === "GET") return homePage(env, user);
+  if (path === "/app" && req.method === "GET") return homePage(env, user, now);
   // the pages' player: the API's GET with the cookie allowed (the path is not under /api/)
   if (p[0] === "m" && p.length === 4 && req.method === "GET") return media(req, env, user, id(p[1], "client"), id(p[2], "slot"), p[3] ?? "");
   if (p[0] === "connect" && p.length === 2 && req.method === "GET") {

@@ -250,7 +250,8 @@ export function shell(p: Page, active: string, body: string, title: string, refr
   const d = display(p.client);
   const base = path(p.client.id);
   const others = p.nav.map((c) => `<li><a href='${path(c.id)}'>${avatar(c.id)}${esc(c.name)}</a></li>`).join("");
-  const nav = NAV.map(([key, href, ic, label]) => `<a href='${base}${href}' class='${key === active ? "on" : ""}'>${icon(ic)}${label}</a>`).join("");
+  // no client (the stand-in of admin.ts noClient): the menu stays, and every item leads to /app's empty state
+  const nav = NAV.map(([key, href, ic, label]) => `<a href='${p.client.id ? base + href : "/app"}' class='${key === active ? "on" : ""}'>${icon(ic)}${label}</a>`).join("");
   // the signed-in user at the bottom (the Figma): their Google picture, else their first letter
   const me = p.user.picture ? `<img class=av src='${esc(p.user.picture)}' alt='' referrerpolicy=no-referrer>` : `<span class=av>${esc((p.user.name?.trim() || p.user.email).slice(0, 1).toUpperCase())}</span>`;
   const html = `<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>
