@@ -5,6 +5,7 @@
 // runs in Node against the same D1 (Node >= 22.18 imports the .ts source directly).
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { RESERVED } from "../src/admin.ts";
 import { bindUser, HttpError } from "../src/index.ts";
@@ -194,6 +195,16 @@ test("the sign-in page carries the Google client id and needs no session", async
   assert.match(r.headers.get("Content-Type"), /text\/html/);
   assert.match(r.data, /client_id: "x"/);
   assert.match(r.data, /spine\.worker login/);
+});
+
+test("the sign-in page carries the brand pattern, its canvas and the script that animates it", async () => {
+  const r = await call("GET", "/login");
+  assert.match(r.data, /class="brand"/);
+  assert.match(r.data, /<canvas /);
+  assert.match(r.data, /<script src="\/static\/login-art\.js" defer><\/script>/);
+  assert.match(r.data, /url\(\/static\/login-art\.svg\)/); // the plain background: no WebGL, or reduced motion
+  assert.match(r.headers.get("Content-Security-Policy"), /script-src 'self' /); // or the browser refuses the script
+  for (const f of ["login-art.js", "login-art.svg"]) assert.ok(existsSync(new URL(`../public/static/${f}`, import.meta.url)), f);
 });
 
 test("every first path segment index.ts routes is a reserved client id", async () => {
