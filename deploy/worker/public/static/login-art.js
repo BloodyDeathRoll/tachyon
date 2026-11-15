@@ -1,9 +1,10 @@
 // The sign-in page's left panel (src/index.ts loginPage; the Figma screen "login").
 // The line wave of shaharnaor.com (its js/lineWave.js, a p5 sketch), without p5 and without
-// its click: a dotted line drawn along a noise field that drifts in time, in the logo's neon
-// green; each frame veils the last a little, so the line leaves a fading trail.
+// its click, and bent into a ring: a dotted circle whose radius follows a noise field that
+// drifts in time, in the logo's neon green; each frame veils the last a little, so the ring
+// leaves a fading trail.
 // Every 6 seconds the dot spacing and the drift speed change, as in the sketch.
-// Reduced motion: one still line.
+// Reduced motion: one still ring.
 (() => {
   const host = document.querySelector(".brand");
   const cv = host && host.querySelector("canvas");
@@ -13,6 +14,7 @@
 
   const GROUND = "17,17,17"; // the panel's #111
   const LINE = "#8DF000"; // the logo's green
+  const TAU = Math.PI * 2;
   const FRAME = 1000 / 60; // the sketch runs at 60 frames a second, whatever the screen does
 
   // p5's noise(x, y): four octaves of smoothed value noise, each half the one before
@@ -36,12 +38,17 @@
 
   let W = 0, H = 0, raf = 0, last = 0, frames = 0;
   let time = 0, gap = 2, drift = 0.003; // the sketch's time, f and tf
-  /** One frame of the sketch: the veil, then the line. */
+  /** One frame of the sketch: the veil, then the ring. */
   function step(veil) {
     g.fillStyle = `rgba(${GROUND},${veil})`;
     g.fillRect(0, 0, W, H);
     g.fillStyle = LINE;
-    for (let x = 0; x < W; x += gap) g.fillRect(x, 50 + (H - 50) * noise(x / 700, time * 2), 1, 1);
+    // the ring reads the noise along a circle that travels through the field: so it closes on itself
+    const cx = W / 2, cy = H * 0.45, base = Math.min(W, H) * 0.34, turn = gap / base;
+    for (let a = 0; a < TAU; a += turn) {
+      const c = Math.cos(a), s = Math.sin(a), r = base * (0.35 + 1.3 * noise(10 + 0.9 * c + time * 2, 10 + 0.9 * s + time));
+      g.fillRect(cx + c * r, cy + s * r, 1, 1);
+    }
     time += drift;
     if (++frames % 360 === 0) { gap = 1 + Math.random() * 2; drift = 0.0008 + Math.random() * 0.0022; }
   }
