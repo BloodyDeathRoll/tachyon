@@ -1,4 +1,4 @@
-// The sign-in page's left panel (src/index.ts loginPage; the Figma screen "login").
+// The sign-in page's ground, the whole screen (src/index.ts loginPage).
 // The line wave of shaharnaor.com (its js/lineWave.js, a p5 sketch), without p5 and without
 // its click, and bent into a ring: a dotted circle whose radius follows a noise field that
 // drifts in time, in the logo's neon green; each frame veils the last a little, so the ring
@@ -12,7 +12,7 @@
   const g = cv && cv.getContext("2d", { alpha: false });
   if (!g) return;
 
-  const GROUND = "17,17,17"; // the panel's #111
+  const GROUND = "17,17,17"; // the page's #111
   const LINE = "#8DF000"; // the logo's green
   const TAU = Math.PI * 2;
   const FRAME = 1000 / 60; // the sketch runs at 60 frames a second, whatever the screen does
@@ -44,7 +44,7 @@
     g.fillRect(0, 0, W, H);
     g.fillStyle = LINE;
     // the ring reads the noise along a circle that travels through the field: so it closes on itself
-    const cx = W / 2, cy = H * 0.45, base = Math.min(W, H) * 0.34, turn = gap / base;
+    const cx = W / 2, cy = H / 2, base = Math.min(W, H) * 0.34, turn = gap / base;
     for (let a = 0; a < TAU; a += turn) {
       const c = Math.cos(a), s = Math.sin(a), r = base * (0.35 + 1.3 * noise(10 + 0.9 * c + time * 2, 10 + 0.9 * s + time));
       g.fillRect(cx + c * r, cy + s * r, 1, 1);
