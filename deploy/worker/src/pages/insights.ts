@@ -339,7 +339,7 @@ export async function renderInsights(p: Page): Promise<Response> {
     ["Typical video", vs.length ? typical : null, "views in the first day"],
   ] as [string, number | null, string][]).map(([lab, v, note]) => `<div class=stat><span>${lab}</span><strong>${num(v)}</strong><small>${note || "&nbsp;"}</small></div>`).join("");
   if (vs.length < 3) {
-    return shell(p, "insights", `${header(p, "Insights")}<section class=card><div class=stats>${stats}</div><p class=muted>Not enough videos with a full first day yet. This page fills in as videos are measured.</p></section>`, "Insights");
+    return shell(p, "insights", `${header(p)}<section class=card><div class=stats>${stats}</div><p class=muted>Not enough videos with a full first day yet. This page fills in as videos are measured.</p></section>`, "Insights");
   }
   const ranked = [...vs].sort((a, b) => b.views - a.views);
   const k = Math.min(3, Math.floor(vs.length / 2));
@@ -350,5 +350,5 @@ export async function renderInsights(p: Page): Promise<Response> {
   const main = `${perf}<div class=ins-cols><section class=card><h3>What works</h3>${list(ranked.slice(0, k))}</section><section class=card><h3>What does not</h3>${list([...ranked].reverse().slice(0, k))}</section></div>
 <div class=ins-cols>${(Object.entries(tables) as [Label, Group[]][]).map(([t, r]) => `<section class=card><h3>${esc(t)}</h3>${groupTable(r)}</section>`).join("")}<section class=card><h3>Week by week</h3><table class=ins-tab><tr><th></th><th>Videos</th><th>Avg views</th><th>Total</th></tr>${wk}</table></section></div>`;
   const side = `${recsCard(recommendations(vs, tables))}${patternsCard(findings(vs, tables))}`;
-  return shell(p, "insights", `${header(p, "Insights")}<div class=ovgrid><div class=maincol>${main}</div><div class=side>${side}</div></div>`, "Insights");
+  return shell(p, "insights", `${header(p)}<div class=ovgrid><div class=maincol>${main}</div><div class=side>${side}</div></div>`, "Insights");
 }

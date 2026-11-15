@@ -103,6 +103,9 @@ test("/app: straight to the first client's dashboard; no client, the who-you-are
   assert.match(acct.text, /href='\/connect\/rosa'/);
   const none = await call("GET", "/app", { as: 2 });
   assert.match(none.text, /No clients yet/);
+  assert.match(none.text, /<div class=shell><aside>/); // the same shell as with clients: the side menu and all
+  assert.match(none.text, /<a href='\/app' class='on'>.*Overview<\/a>/); // the menu's items lead here, not to a client that is not there
+  assert.doesNotMatch(none.text, /href='\/\//);
   const bye = await call("POST", "/auth/logout", { as: 2, form: {} });
   assert.equal(bye.status, 303);
   assert.equal(bye.headers.get("Location"), "/login");

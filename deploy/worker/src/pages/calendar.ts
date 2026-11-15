@@ -248,7 +248,7 @@ export async function renderCalendar(p: Page, req: Request, url: URL): Promise<R
   const w = /^\d{4}-W\d{2}$/.test(q.get("w") ?? "") ? q.get("w")! : weekOf(k.w(p.now));
   const body = isMonth ? await month(p, k, m, hl) : await week(p, k, w, hl);
   const js = CAL_JS.replaceAll("__C__", encodeURIComponent(p.client.id)) + (isMonth ? MINI_JS : "");
-  const res = shell(p, "calendar", `${header(p, "Calendar")}<section class=card data-zone='${esc(k.zone)}'>${body}</section><div class=toast id=toast></div><script>${js}</script>${addNewBox(p)}`, "Calendar");
+  const res = shell(p, "calendar", `${header(p)}<section class=card data-zone='${esc(k.zone)}'>${body}</section><div class=toast id=toast></div><script>${js}</script>${addNewBox(p)}`, "Calendar");
   res.headers.append("Set-Cookie", `cal_${p.client.id}=${encodeURIComponent(isMonth ? `?view=month&m=${m}` : `?w=${w}`)}; Path=/; Max-Age=31536000; SameSite=Lax`);
   return res;
 }

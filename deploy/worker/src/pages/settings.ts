@@ -67,7 +67,7 @@ export function renderSettings(p: Page): Response {
   });
   const stop = Boolean(p.client.emergency_stop);
   rows.push(switchRow(act, "emergency_stop", stop, "Emergency stop", "Stops every publish and reply for this project. Any video can override the two reply switches on its own page (Replies, Custom for this video).", stop ? "Resume" : "Stop everything", stop ? "sec" : "pri"));
-  return shell(p, "settings", `${header(p, "Settings")}<section class=card>${rows.join("")}</section>`, "Settings");
+  return shell(p, "settings", `${header(p)}<section class=card>${rows.join("")}</section>`, "Settings");
 }
 
 /** POST /<client>/flag: one reply switch or the emergency stop, into the grants (clients.set_flag). */

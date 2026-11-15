@@ -250,7 +250,8 @@ export function shell(p: Page, active: string, body: string, title: string, refr
   const d = display(p.client);
   const base = path(p.client.id);
   const others = p.nav.map((c) => `<li><a href='${path(c.id)}'>${avatar(c.id)}${esc(c.name)}</a></li>`).join("");
-  const nav = NAV.map(([key, href, ic, label]) => `<a href='${base}${href}' class='${key === active ? "on" : ""}'>${icon(ic)}${label}</a>`).join("");
+  // no client (the stand-in of admin.ts noClient): the menu stays, and every item leads to /app's empty state
+  const nav = NAV.map(([key, href, ic, label]) => `<a href='${p.client.id ? base + href : "/app"}' class='${key === active ? "on" : ""}'>${icon(ic)}${label}</a>`).join("");
   // the signed-in user at the bottom (the Figma): their Google picture, else their first letter
   const me = p.user.picture ? `<img class=av src='${esc(p.user.picture)}' alt='' referrerpolicy=no-referrer>` : `<span class=av>${esc((p.user.name?.trim() || p.user.email).slice(0, 1).toUpperCase())}</span>`;
   const html = `<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>
@@ -276,19 +277,16 @@ export function page(html: string, status: number): Response {
   });
 }
 
-/** The title line and the banners: emergency stop, an Instagram connection missing or about to lapse. */
-export function header(p: Page, title: string): string {
-  const d = display(p.client);
-  const bits = [`<b>${esc(d.name)}</b>`];
-  if (d.handle) bits.push(`@${esc(d.handle)}`);
-  if (typeof p.client.grants.tagline === "string") bits.push(esc(p.client.grants.tagline));
-  let banners = d.stop ? "<div class='banner stop'>Emergency stop is on. Nothing publishes until it is turned off in Settings.</div>" : "";
+/** The banners at a page's top: emergency stop, an Instagram connection missing or about to lapse.
+    No title and no client line: the side menu marks both. */
+export function header(p: Page): string {
+  let banners = display(p.client).stop ? "<div class='banner stop'>Emergency stop is on. Nothing publishes until it is turned off in Settings.</div>" : "";
   const connect = `<a href='/connect/${encodeURIComponent(p.client.id)}'>Connect Instagram</a>`;
   if (!p.client.connected) banners += `<div class=banner>Not connected to Instagram: nothing publishes. ${connect}.</div>`;
   else if (p.client.token_expires && p.client.token_expires - p.now <= 14 * 24 * 3600_000) {
     banners += `<div class=banner>Meta data access ends ${when(new Date(p.client.token_expires).toISOString())}. ${connect} again before then.</div>`;
   }
-  return `${banners}<h1>${esc(title)}</h1><p class=sub>${bits.join(" · ")}</p>`;
+  return banners;
 }
 
 /** A small page for a refused action: the message and a way back (app.py sent text/plain). */
