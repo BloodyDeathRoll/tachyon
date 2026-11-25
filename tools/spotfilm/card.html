@@ -22,7 +22,7 @@ body { font-family: Inter, sans-serif; color: #f5f0e8; position: relative; -webk
 .title em { font-style: normal; color: #11b7f2; }
 .sub { position: absolute; left: 65px; right: 65px; margin: 0 auto; width: fit-content; max-width: 950px; padding: 16px 26px 20px; border-radius: 26px; background: rgba(4,10,28,.66); text-align: center; font-size: 46px; font-weight: 650; line-height: 1.22; letter-spacing: -.01em; }
 #stage { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; perspective: 2200px; }
-#card { position: absolute; left: 265px; width: 550px; height: 770px; transform-style: preserve-3d; }
+#card { position: absolute; left: 265px; width: 550px; height: 700px; transform-style: preserve-3d; }
 .face { position: absolute; inset: 0; border-radius: 34px; backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow: hidden;
   background: linear-gradient(160deg, #13284f 0, #0a1733 55%, #081127 100%); border: 4px solid transparent;
   box-shadow: 0 40px 120px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06) inset; }
@@ -33,7 +33,7 @@ body { font-family: Inter, sans-serif; color: #f5f0e8; position: relative; -webk
 .head { display: flex; justify-content: space-between; align-items: center; padding: 26px 28px 0; }
 .no { font-size: 30px; font-weight: 800; color: #11b7f2; letter-spacing: .02em; }
 .lvl { padding: 5px 18px 7px; border-radius: 99px; font-size: 26px; font-weight: 800; color: #fff; }
-.art { position: relative; margin: 16px 28px 0; height: 270px; border-radius: 22px; overflow: hidden; background-repeat: no-repeat; background-color: #0a1733; filter: saturate(1.15) contrast(1.05); }
+.art { position: relative; margin: 16px 28px 0; height: 300px; border-radius: 22px; overflow: hidden; background-repeat: no-repeat; background-color: #0a1733; filter: saturate(1.15) contrast(1.05); }
 .art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, rgba(8,17,39,.65)); }
 .dot { position: absolute; left: 50%; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; background: #11b7f2; border: 4px solid #fff; box-shadow: 0 0 22px #11b7f2; z-index: 1; }
 .ring { position: absolute; left: 50%; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; border: 3px solid #11b7f2; z-index: 1; }
@@ -58,7 +58,7 @@ body { font-family: Inter, sans-serif; color: #f5f0e8; position: relative; -webk
 .wk .top img { width: 64px; height: 64px; }
 .wk h4 { font-size: 40px; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; }
 .wk h4 small { display: block; font-size: 24px; font-weight: 650; color: rgba(245,240,232,.66); letter-spacing: 0; }
-.week { display: flex; justify-content: space-between; align-items: flex-end; height: 330px; margin-top: 34px; }
+.week { display: flex; justify-content: space-between; align-items: flex-end; height: 300px; margin-top: 28px; }
 .day { width: 64px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
 .day .h { font-size: 26px; font-weight: 750; margin-bottom: 8px; }
 .day .bar { width: 46px; border-radius: 14px 14px 8px 8px; transform-origin: 50% 100%; }
@@ -123,17 +123,17 @@ $("lvl").textContent = C.level.label; $("lvl").style.background = LEVEL[C.level.
 $("nm").textContent = C.name; $("pl").textContent = C.place;
 const art = $("art"), ART_KM = C.art_km || 3.2;   // the art window shows ART_KM of the 12 km picture
 art.style.backgroundImage = `url(${S.near.src})`;
-const bw = 494 * S.near.km / ART_KM; art.style.backgroundSize = `${bw}px ${bw}px`; art.style.backgroundPosition = `${247 - bw / 2}px ${135 - bw / 2}px`;
+const bw = 494 * S.near.km / ART_KM; art.style.backgroundSize = `${bw}px ${bw}px`; art.style.backgroundPosition = `${247 - bw / 2}px ${150 - bw / 2}px`;
 const ROWS = {
   wave: ["Wave", `<b>${C.wave}</b>`],
   level: ["Level", `<div class="pips">${[1, 2, 3, 4, 5].map((n) => `<i class="${n <= C.level.n ? "on" : ""}"></i>`).join("")}</div>`],
   months: ["Season", `<div class="months">${[...MONTHS].map((m, i) => `<i class="${C.months.includes(i + 1) ? "on" : ""}">${m}</i>`).join("")}</div>`],
   tide: ["Tide", `<b>${C.tide}</b>`],
 };
-const rows = Object.fromEntries(Object.entries(ROWS).map(([k, [a, b]]) => [k, el("div", "st", `<span>${a}</span>${b}`, $("stats"))]));
+const rows = Object.fromEntries(Object.entries(ROWS).filter(([k]) => k !== "tide" || C.tide).map(([k, [a, b]]) => [k, el("div", "st", `<span>${a}</span>${b}`, $("stats"))]));
 const W = S.week;
 $("wk").innerHTML = `<div class="top"><img src="rosa-icon.svg"><h4>This week<small>${W.when}</small></h4></div>` +
-  `<div class="week">${W.days.map((d) => `<div class="day${d.best ? " best" : ""}"><div class="h">${d.h}</div><div class="bar" style="height:${Math.max(16, 210 * d.h / Math.max(...W.days.map((x) => +x.h)))}px; background:${RATING[d.bucket]}"></div><div class="n">${d.name}</div></div>`).join("")}</div>` +
+  `<div class="week">${W.days.map((d) => `<div class="day${d.best ? " best" : ""}"><div class="h">${d.h}</div><div class="bar" style="height:${Math.max(16, 190 * d.h / Math.max(...W.days.map((x) => +x.h)))}px; background:${RATING[d.bucket]}"></div><div class="n">${d.name}</div></div>`).join("")}</div>` +
   `<div class="best" style="background:${RATING[W.best.bucket]}">Best: ${W.best.day}, ${W.best.word}</div><div class="unit">Wave height, ${W.unit} · Rosa forecast</div>`;
 
 // ── words: kicker + title on top, the voice-over line near the bottom ──
@@ -173,7 +173,7 @@ function card(t) {
   let rot = lerp(q.rot, p.rot, k) + (q.rot === p.rot && b.show !== B[i - 1]?.show ? 360 * k : 0);   // week after cover: a full turn
   if (i === 0) rot = 180 + 360 * (1 - outExpo(seg(t, 0, 1.2)));                                   // it spins in
   const sc = lerp(q.scale, p.scale, k), enter = outBack(seg(t, 0, .9));
-  const from = b.kicker ? SAFE_TOP + 62 : SAFE_TOP + 4, h = 770 * sc, room = (SAFE_BOTTOM - 132) - from;   // under the kicker, over the line
+  const from = b.kicker ? SAFE_TOP + 62 : SAFE_TOP + 4, h = 700 * sc, room = (SAFE_BOTTOM - 132) - from;   // under the kicker, over the line
   const top = sc < 1 ? 1128 - h - 10 : from + (room - h) / 2;
   const sway = Math.sin(t * 1.3) * 3;
   $("card").style.top = top + (1 - enter) * 700 + "px";

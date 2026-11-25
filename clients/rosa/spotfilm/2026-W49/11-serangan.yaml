@@ -1,0 +1,115 @@
+type: explain
+spot: serangan
+name: Serangan
+place: Bali, Indonesia
+title: Serangan, explained
+pillar: Spot spotlight
+hook: This surf spot sits on its own island
+brief: Map film, spot explained. Satellite view of Bali from high up, then the camera dives to Serangan Island and its reef.
+  The island, its old name, who the reef suits and the season. A surfer's voice tells it; the closing card has the glowing
+  button.
+beats:
+- say: This surf spot sits on its own island.
+  kicker: Bali, Indonesia
+  title:
+  - Its own
+  - <em>island</em>
+  cam:
+    km: 44
+    tilt: 18
+    rot: -8
+    orbit: 3
+- say: Serangan. Joined to Bali by a causeway.
+  kicker: Serangan
+  title:
+  - Joined to Bali
+  - <em>by a causeway</em>
+  cam:
+    km: 7
+    tilt: 48
+    rot: 14
+    at:
+      km:
+      - -1.2
+      - 0.9
+  pins:
+  - name: Serangan Island
+    tag: Bali
+    at:
+      km:
+      - -1.4
+      - 0.9
+    stem: 90
+- say: It used to be called Turtle Island.
+  kicker: Its old name
+  title:
+  - Turtle
+  - <em>Island</em>
+  cam:
+    km: 5
+    tilt: 50
+    rot: -10
+    at:
+      km:
+      - -0.9
+      - 0.6
+- say: The reef has peaks, lefts and rights. For intermediates, not first-timers.
+  kicker: The wave
+  title:
+  - Reef peaks,
+  - <em>intermediates</em>
+  cam:
+    km: 3.2
+    tilt: 54
+    rot: 30
+  pins:
+  - name: Serangan
+    tag: Reef, left and right
+- say: November to April is the time.
+  kicker: When it works
+  title:
+  - November
+  - <em>to April</em>
+  cam:
+    km: 6
+    tilt: 48
+    rot: 6
+  card:
+    chips:
+    - v: Reef
+      k: peaks
+    - v: Inter.
+      k: level
+    - v: Nov-Apr
+      k: season
+- say: I check it on Rosa. It's free.
+  kicker: On Rosa
+  title:
+  - Serangan,
+  - <em>16 days out</em>
+  cam:
+    km: 4.5
+    tilt: 48
+    rot: 22
+caption: 'This surf spot sits on its own island.
+
+
+  Serangan, once called Turtle Island, is joined to Bali by a causeway. Reef peaks, lefts and rights, for intermediates rather
+  than first-timers. November to April is the season.
+
+
+  Over 5,000 spots, 16 days out, four updates a day. Free at rosa.surf, link in bio.
+
+  .
+
+  .
+
+  .
+
+  #bali #serangan #surfing
+
+  '
+sources:
+- https://thesurfatlas.com/bali-surf/serangan-surf/
+- https://www.balisurfingcamp.com/surf-spots/sanur/serangan
+- https://www.surf-forecast.com/breaks/Serangan-Bali

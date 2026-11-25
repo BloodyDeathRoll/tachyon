@@ -1,0 +1,63 @@
+type: card
+spot: sayulita
+name: Sayulita
+place: Nayarit, Mexico
+title: 'Spot card 06: Sayulita'
+pillar: Spot spotlight
+hook: Spot card number six. Sayulita, Mexico.
+brief: Spot card 06, a collectible card series. The card spins in face down, flips to Sayulita's stats over its satellite
+  picture (wave, level, season), then flips back to this week's forecast from Rosa. A surfer's voice tells it; the closing
+  card has the glowing button.
+card:
+  number: 6
+  level:
+    n: 1
+    label: Beginner
+  wave: Beach break, river right
+  months:
+  - 11
+  - 12
+  - 1
+  - 2
+  - 3
+  - 4
+beats:
+- say: Spot card number six. Sayulita, Mexico.
+  kicker: Spot card 06
+  title:
+  - Sayulita,
+  - <em>Mexico</em>
+  show: cover
+- say: A sandbar beach break, and a right at the river mouth.
+  show: front
+  focus: wave
+- say: Super friendly for beginners.
+  show: front
+  focus: level
+- say: Best in the dry season, November to April.
+  show: front
+  focus: months
+- say: Here's this week. I check it on Rosa. It's free.
+  kicker: On Rosa
+  show: week
+caption: 'A once-sleepy fishing village, now Mexico''s beginner surf town.
+
+
+  Sayulita: a sandbar beach break and a right at the river mouth. Best in the dry season, November to April. Spot card 06,
+  with this week''s forecast on the back.
+
+
+  Over 5,000 spots, 16 days out, four updates a day. Free at rosa.surf, link in bio.
+
+  .
+
+  .
+
+  .
+
+  #sayulita #mexico #surfing
+
+  '
+sources:
+- https://thesurfatlas.com/surfing-mexico/sayulita-surf/
+- https://www.rapturecamps.com/blog/surfing-in-sayulita

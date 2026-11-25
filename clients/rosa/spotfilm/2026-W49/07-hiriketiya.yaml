@@ -1,0 +1,97 @@
+type: explain
+spot: hiriketiya
+name: Hiriketiya
+place: Dikwella, Sri Lanka
+title: Hiriketiya, explained
+pillar: Spot spotlight
+hook: From nowhere to the Sri Lanka surf trail
+brief: Map film, spot explained. Satellite view of Sri Lanka's south coast from high up, then the camera dives to Hiriketiya
+  bay. The bay is marked, then who surfs where and the season. A surfer's voice tells it; the closing card has the glowing
+  button.
+beats:
+- say: Hiriketiya rose from nowhere to a must-stop on the Sri Lanka surf trail.
+  kicker: Dikwella, Sri Lanka
+  title:
+  - Hiriketiya,
+  - <em>Sri Lanka</em>
+  cam:
+    km: 44
+    tilt: 18
+    rot: -8
+    orbit: 3
+- say: A wide bay, shaped like a scythe.
+  kicker: The bay
+  title:
+  - Shaped like
+  - <em>a scythe</em>
+  cam:
+    km: 3.4
+    tilt: 52
+    rot: -14
+  pins:
+  - name: Hiriketiya
+    tag: Bay, sand and reef
+- say: Beginners ride the sand on the inside.
+  kicker: Who surfs here
+  title:
+  - Beginners
+  - <em>on the sand</em>
+  cam:
+    km: 2.6
+    tilt: 54
+    rot: 8
+- say: Intermediates take the left on the reef.
+  kicker: Who surfs here
+  title:
+  - The reef left,
+  - <em>intermediates</em>
+  cam:
+    km: 2.8
+    tilt: 54
+    rot: 28
+- say: December to March is prime time.
+  kicker: When it works
+  title:
+  - December
+  - <em>to March</em>
+  cam:
+    km: 6
+    tilt: 48
+    rot: -6
+  card:
+    chips:
+    - v: Sand
+      k: beginners
+    - v: Reef
+      k: intermediate
+    - v: Dec-Mar
+      k: prime
+- say: I check it on Rosa. It's free.
+  kicker: On Rosa
+  title:
+  - Hiriketiya,
+  - <em>16 days out</em>
+  cam:
+    km: 4.5
+    tilt: 48
+    rot: 20
+caption: 'From nowhere to the Sri Lanka surf trail.
+
+
+  Hiriketiya: a wide bay, shaped like a scythe. Beginners ride the sand inside, intermediates take the reef left. Prime time
+  is December to March.
+
+
+  Over 5,000 spots, 16 days out, four updates a day. Free at rosa.surf, link in bio.
+
+  .
+
+  .
+
+  .
+
+  #hiriketiya #srilanka #surfing
+
+  '
+sources:
+- https://thesurfatlas.com/sri-lanka-surf/hiriketiya-bay-surf/

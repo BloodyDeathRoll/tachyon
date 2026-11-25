@@ -1,0 +1,64 @@
+type: card
+spot: sabang-baler
+name: Sabang Beach
+place: Baler, Philippines
+title: 'Spot card 07: Sabang Beach'
+pillar: Spot spotlight
+hook: Spot card number seven. Sabang Beach, Baler.
+brief: Spot card 07, a collectible card series. The card spins in face down, flips to Sabang Beach's stats over its satellite
+  picture (wave, level, season), then flips back to this week's forecast from Rosa. A surfer's voice tells it; the closing
+  card has the glowing button.
+card:
+  number: 7
+  level:
+    n: 1
+    label: Beginner
+  wave: Beach break
+  months:
+  - 9
+  - 10
+  - 11
+  - 12
+  - 1
+  - 2
+  - 3
+beats:
+- say: Spot card number seven. Sabang Beach, Baler.
+  kicker: Spot card 07
+  title:
+  - Sabang Beach,
+  - <em>Baler</em>
+  show: cover
+- say: In 1976 the Apocalypse Now crew left surfboards in Baler.
+  show: front
+  focus: wave
+- say: Today it's the spot for total beginners.
+  show: front
+  focus: level
+- say: In season from September to early March.
+  show: front
+  focus: months
+- say: Here's this week. I check it on Rosa. It's free.
+  kicker: On Rosa
+  show: week
+caption: 'Surfing in Baler started with a film crew.
+
+
+  Apocalypse Now was shot here in 1976, and the crew left surfboards behind for the locals. Today Sabang Beach is the spot
+  for total beginners, in season September to early March. Spot card 07, with this week''s forecast on the back.
+
+
+  Over 5,000 spots, 16 days out, four updates a day. Free at rosa.surf, link in bio.
+
+  .
+
+  .
+
+  .
+
+  #baler #philippines #surfing
+
+  '
+sources:
+- https://thesurfatlas.com/surfing-in-philippines/surfing-in-baler/
+- https://en.wikipedia.org/wiki/Baler_Bay

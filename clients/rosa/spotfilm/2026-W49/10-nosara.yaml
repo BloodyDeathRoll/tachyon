@@ -1,0 +1,62 @@
+type: card
+spot: nosara-guiones
+name: Playa Guiones
+place: Nosara, Costa Rica
+title: 'Spot card 05: Playa Guiones'
+pillar: Spot spotlight
+hook: Spot card number five. Nosara, Costa Rica.
+brief: Spot card 05, a collectible card series. The card spins in face down, flips to Playa Guiones's stats over its satellite
+  picture (wave, level, season), then flips back to this week's forecast from Rosa. A surfer's voice tells it; the closing
+  card has the glowing button.
+card:
+  number: 5
+  level:
+    n: 1
+    label: Beginner
+  wave: Beach break, left and right
+  months:
+  - 12
+  - 1
+  - 2
+  - 3
+  - 4
+beats:
+- say: Spot card number five. Nosara, Costa Rica.
+  kicker: Spot card 05
+  title:
+  - Playa Guiones,
+  - <em>Nosara</em>
+  show: cover
+- say: One of the most consistent waves in the world. Over three hundred and thirty days a year.
+  show: front
+  focus: wave
+- say: Space to learn, and a slower pace.
+  show: front
+  focus: level
+- say: December starts the dry season. Cleaner waves.
+  show: front
+  focus: months
+- say: Here's this week. I check it on Rosa. It's free.
+  kicker: On Rosa
+  show: week
+caption: 'Over 330 surfable days a year.
+
+
+  Playa Guiones, Nosara: a sand-bottom beach break with space to learn. The dry season from December brings cleaner waves.
+  Spot card 05, with this week''s forecast on the back.
+
+
+  Over 5,000 spots, 16 days out, four updates a day. Free at rosa.surf, link in bio.
+
+  .
+
+  .
+
+  .
+
+  #nosara #costarica #surfing
+
+  '
+sources:
+- https://thesurfatlas.com/costa-rica-surf/best-surfing-in-costa-rica-for-beginners/
+- https://en.wikipedia.org/wiki/Nosara

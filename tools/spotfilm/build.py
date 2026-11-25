@@ -208,7 +208,7 @@ def imagery(spec: dict, film_dir: Path) -> dict:
     """near.jpg / near-sea.png / far.jpg in the film folder; fetched only when missing."""
     lat, lon = spec["at"]
     out = {}
-    for name, km in (("near", spec.get("near_km", 12)), ("far", spec.get("far_km", 70))):
+    for name, km in (("near", spec.get("near_km", 12)), ("far", spec.get("far_km", 70)))[: 1 if spec["type"] == "card" else 2]:   # a card shows the near picture only
         meta = film_dir / f"{name}.json"
         if not meta.exists() or json.loads(meta.read_text())["width_km"] != km:
             py = os.environ.get("SPOTFILM_SAT_PY") or sys.executable
@@ -233,7 +233,7 @@ def build(spec_path: Path, film_dir: Path, start: str | None = None, vo: Path | 
     lat, lon = spec["at"]
     film |= {"spot": {"lat": lat, "lon": lon, "name": spec["name"]},
              "near": {"src": "near.jpg", "sea": "near-sea.png", "km": im["near"]["width_km"], "lat": lat, "lon": lon, "m_per_px": im["near"]["m_per_px"]},
-             "far": {"src": "far.jpg", "km": im["far"]["width_km"], "lat": lat, "lon": lon}}
+             **({"far": {"src": "far.jpg", "km": im["far"]["width_km"], "lat": lat, "lon": lon}} if "far" in im else {})}
     if spec["type"] == "card":
         film |= {"card": {"name": spec["name"], "place": spec["place"], **spec["card"]}, "week": week_card(spec, payload, start)}
     (film_dir / "spec.js").write_text("window.SPEC = " + json.dumps(film, indent=1, ensure_ascii=False) + ";\n")

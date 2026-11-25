@@ -98,7 +98,10 @@ def film(client: str, slot: str, finish: bool = True) -> None:
     if finish:
         db = DB.for_client(C.client_dir(client))
         try:
-            if db.post(slot)["state"] in ("BRIEFED", "NEEDS_INPUT"):   # the spec is the script; a failed QA renders again
+            st = db.post(slot)["state"]
+            if st == "NEEDS_APPROVAL":   # a new film for a video waiting on approval: the old cut is set aside
+                db.set_state(slot, "REJECTED", note="replaced by a new film from its spec")
+            if st in ("BRIEFED", "NEEDS_INPUT", "NEEDS_APPROVAL"):   # the spec is the script; a failed QA renders again
                 db.set_state(slot, "SCRIPTED")
             W._finish(slot, sd, db, verdicts)
         finally:
