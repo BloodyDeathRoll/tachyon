@@ -1,0 +1,57 @@
+type: explain
+spot: teahupoo
+name: Teahupo'o
+place: Tahiti, French Polynesia
+title: Teahupo'o, explained
+pillar: Spot spotlight
+hook: The name means place of skulls
+brief: >
+  Map film, spot explained. Satellite view of Tahiti Iti from high up, then the camera dives to the
+  reef pass at Teahupo'o. The left is drawn along the reef edge into the pass, then the shallow
+  reef and the deep water outside it, the swell it wants, and the Olympics. A surfer's voice tells
+  it; the closing card has the glowing button.
+beats:
+  - say: This wave's name loosely means place of skulls.
+    kicker: Tahiti, French Polynesia
+    title: ['Teahupo''o,', <em>explained</em>]
+    cam: {km: 44, orbit: 3, rot: 6, tilt: 18}
+  - say: A left over coral reef.
+    kicker: The wave
+    title: ['A left,', <em>over coral</em>]
+    cam: {km: 3.4, rot: -24, tilt: 54}
+    ride: {a: {km: [0.42, -0.3]}, b: {km: [0.04, -0.02]}, w: 0.6}
+    pins: [{name: Teahupo'o, tag: 'Left, reef pass'}]
+  - say: The reef is half a metre down, at most.
+    kicker: The reef
+    title: [Half a metre, <em>at most</em>]
+    cam: {at: {km: [0.3, -0.15]}, km: 2.4, rot: 14, tilt: 58}
+  - say: Right outside, the ocean floor drops past a hundred metres.
+    kicker: Outside the reef
+    title: [Then it drops, <em>100 m</em>]
+    cam: {at: {km: [-0.2, -0.5]}, km: 5, rot: -8, tilt: 50}
+    pins: [{at: {km: [-0.15, -0.55]}, col: '#032afa', name: Deep water, tag: Over 100 m}]
+  - say: South to southwest swell, April to October.
+    kicker: When it works
+    title: [South-southwest, <em>swell</em>]
+    cam: {km: 8, rot: 10, tilt: 46}
+    swell: {dir: 200, period: 16}
+    card: {chips: [{k: swell, v: S-SW}, {k: period, v: 14-18 s}, {k: season, v: Apr-Oct}]}
+  - say: I watch it on Rosa. It's free.
+    kicker: On Rosa
+    title: ['Teahupo''o,', <em>16 days out</em>]
+    cam: {km: 6.5, rot: 8, tilt: 46}
+caption: |
+  The name loosely means place of skulls.
+
+  A left over coral on the southwest tip of Tahiti Iti. The reef sits half a metre down at most, and the ocean floor drops past a hundred metres right outside it. Best on south to southwest swell, April to October.
+
+  Over 5,000 spots, 16 days out, four updates a day. Free at rosa.surf, link in bio.
+  .
+  .
+  .
+  #teahupoo #tahiti #surfing
+sources:
+  - https://en.wikipedia.org/wiki/Teahupoʻo
+  - https://www.eos.surf/encyclopedia/teahupoo
+  - https://www.worldsurfleague.com/posts/266359/what-makes-teahupoo-tick
+  - https://www.worldsurfleague.com/posts/130792/break-breakdown-billabong-pro-tahiti

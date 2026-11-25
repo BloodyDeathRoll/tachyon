@@ -1,0 +1,335 @@
+<!doctype html>
+<!-- Rosa map film: one surf spot on a satellite picture, a camera flying over it, swell lines, wind,
+     pins, forecast cards and the closing card. Everything is read from spec.js (tools/spotfilm/build.py
+     writes it) and every frame is a pure function of t: window.__film.seek(t), spine/render.py. -->
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Inter; src: url(inter-latin-wght-normal.woff2) format("woff2"); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: #071225; }
+body { font-family: Inter, sans-serif; color: #f5f0e8; position: relative; -webkit-font-smoothing: antialiased; }
+#view { position: absolute; inset: 0; perspective: 1500px; perspective-origin: 540px 830px; overflow: hidden; }
+#plane { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; transform-style: flat; }
+#plane > * { position: absolute; }
+#plane img { filter: saturate(1.18) contrast(1.05); }
+#plane img.near { -webkit-mask-image: radial-gradient(closest-side, #000 84%, transparent 100%); mask-image: radial-gradient(closest-side, #000 84%, transparent 100%); }
+#plane img.far { -webkit-mask-image: radial-gradient(closest-side, #000 72%, transparent 100%); mask-image: radial-gradient(closest-side, #000 72%, transparent 100%); }
+#grade { position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(2,6,15,.94) 0, rgba(2,6,15,.8) 380px, rgba(2,6,15,.45) 620px, rgba(2,6,15,0) 880px),
+    linear-gradient(0deg, rgba(2,6,15,.8) 0, rgba(2,6,15,.3) 420px, rgba(2,6,15,0) 820px),
+    radial-gradient(120% 80% at 50% 42%, rgba(3,42,250,0) 55%, rgba(3,20,80,.38) 100%); }
+#dim { position: absolute; inset: 0; background: #02060f; opacity: 0; }
+#pins, #hud { position: absolute; inset: 0; }
+.pin { position: absolute; left: 0; top: 0; }
+.pin .dot { position: absolute; left: -13px; top: -13px; width: 26px; height: 26px; border-radius: 50%; background: var(--c); border: 4px solid #fff; box-shadow: 0 0 22px var(--c); }
+.pin .ring { position: absolute; left: -13px; top: -13px; width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--c); }
+.pin .stem { position: absolute; left: -1.5px; width: 3px; background: linear-gradient(0deg, #fff, rgba(255,255,255,.35)); bottom: 13px; transform-origin: 50% 100%; }
+.pin .lab { position: absolute; bottom: 0; white-space: nowrap; padding: 12px 22px 14px; border-radius: 20px; background: rgba(4,10,28,.78); backdrop-filter: blur(14px); border: 1.5px solid rgba(255,255,255,.16); }
+.pin .lab b { display: block; font-size: 44px; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; }
+.pin .lab i { display: block; font-style: normal; font-size: 38px; font-weight: 600; color: var(--c); line-height: 1.15; margin-top: 2px; }
+.beat { position: absolute; left: 65px; width: 950px; }
+.line { overflow: hidden; padding: 0 0 .12em; }
+.line > span { display: inline-block; will-change: transform; }
+.kick { font-size: 42px; font-weight: 700; color: #11b7f2; letter-spacing: -.005em; line-height: 1.2; }
+.title { font-size: 100px; font-weight: 800; letter-spacing: -.04em; line-height: 1.02; margin-top: 8px; text-shadow: 0 6px 40px rgba(2,6,15,.6); }
+.title em { font-style: normal; color: #11b7f2; }
+.sub { position: absolute; left: 65px; right: 65px; margin: 0 auto; width: fit-content; max-width: 950px; box-sizing: border-box; padding: 16px 26px 20px; border-radius: 26px; background: rgba(4,10,28,.66); text-align: center; font-size: 48px; font-weight: 650; line-height: 1.22; letter-spacing: -.01em; text-shadow: 0 2px 6px rgba(2,6,15,.95), 0 0 34px rgba(2,6,15,.9); }
+.card { position: absolute; left: 65px; width: 950px; border-radius: 40px; padding: 34px 40px 38px; background: rgba(4,10,28,.74); backdrop-filter: blur(22px); border: 1.5px solid rgba(255,255,255,.14); box-shadow: 0 30px 90px rgba(0,0,0,.45); }
+.card h3 { font-size: 46px; font-weight: 800; letter-spacing: -.02em; display: flex; justify-content: space-between; align-items: center; }
+.pill { display: inline-block; padding: 6px 26px 9px; border-radius: 99px; color: #fff; font-size: 42px; font-weight: 800; letter-spacing: -.01em; }
+.row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 16px; font-size: 42px; }
+.row span { color: rgba(245,240,232,.82); font-weight: 600; }
+.row b { font-weight: 750; letter-spacing: -.01em; text-align: right; }
+.chips { display: flex; justify-content: space-between; gap: 20px; }
+.chip { flex: 1; text-align: center; }
+.chip b { display: block; white-space: nowrap; font-size: 92px; font-weight: 800; letter-spacing: -.045em; line-height: 1; }
+.chip span { display: block; margin-top: 10px; font-size: 38px; font-weight: 600; color: rgba(245,240,232,.7); }
+.week { display: flex; justify-content: space-between; align-items: flex-end; height: 330px; margin-top: 26px; }
+.day { width: 112px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+.day .h { font-size: 38px; font-weight: 750; letter-spacing: -.03em; margin-bottom: 10px; }
+.day .bar { width: 76px; border-radius: 20px 20px 10px 10px; transform-origin: 50% 100%; }
+.day .n { font-size: 38px; font-weight: 650; margin-top: 12px; color: rgba(245,240,232,.72); }
+.day.best .n { color: #fff; font-weight: 800; }
+.day.best .bar { box-shadow: 0 0 0 5px #fff, 0 0 44px rgba(36,177,97,.8); }
+.why { margin-top: 22px; }
+.why .w { display: flex; align-items: center; margin-top: 18px; font-size: 42px; font-weight: 700; }
+.why .w span { width: 190px; }
+.why .w .tr { flex: 1; height: 30px; border-radius: 99px; background: rgba(255,255,255,.16); overflow: hidden; }
+.why .w .tr i { display: block; height: 100%; border-radius: 99px; }
+#pt { position: absolute; left: 0; top: 646px; mix-blend-mode: screen; pointer-events: none; }
+#end { position: absolute; left: 65px; width: 950px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+#e1 { font-size: 82px; font-weight: 800; letter-spacing: -.03em; line-height: 1.08; margin-top: 52px; }
+#btn { margin-top: 84px; padding: 30px 74px; border-radius: 999px; background: #11b7f2; color: #fff; font-weight: 800; font-size: 50px; letter-spacing: -.01em; }
+#e3 { font-size: 48px; font-weight: 600; margin-top: 46px; }
+</style></head>
+<body>
+<div id="view"><div id="plane"></div></div>
+<div id="grade"></div>
+<div id="pins"></div>
+<div id="dim"></div>
+<div id="hud"></div>
+<canvas id="pt" width="1080" height="1274"></canvas>
+<div id="end">
+  <img id="logo" src="rosa-icon.svg" style="width:190px; height:190px">
+  <div id="e1"></div>
+  <div id="btn"></div>
+  <div id="e3">link in bio</div>
+</div>
+<script src="spec.js"></script>
+<script>
+const S = window.SPEC;
+const variant = new URLSearchParams(location.search).get("variant") === "story" ? "story" : "reel";
+const SAFE_TOP = variant === "story" ? 269 : 285, SAFE_BOTTOM = 1248;
+const $ = (id) => document.getElementById(id);
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, k) => a + (b - a) * k;
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const inOut = (k) => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+const outExpo = (k) => k >= 1 ? 1 : 1 - Math.pow(2, -10 * k);
+const outBack = (k) => 1 + 2.70158 * Math.pow(k - 1, 3) + 1.70158 * Math.pow(k - 1, 2);
+function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 100000) / 100000; }
+const el = (tag, cls, html, parent) => { const d = document.createElement(tag); if (cls) d.className = cls; if (html != null) d.innerHTML = html; (parent || document.body).appendChild(d); return d; };
+const RATING = { FLAT: "#5d6880", POOR: "#92b9e8", FAIR: "#11b7f2", GOOD: "#24b161", FIRING: "#0c6733" };
+const WIND = { offshore: "#24b161", "cross-shore": "#e48022", onshore: "#d0574a" };
+
+// ── the ground: plane px = metres / M, the spot at (0,0), x east, y south ──
+const M = S.near.m_per_px, O = S.spot;
+const ground = ([lat, lon]) => [(lon - O.lon) * 111320 * Math.cos(O.lat * Math.PI / 180) / M, -(lat - O.lat) * 110540 / M];
+const plane = $("plane");
+function layer(im) {                      // a satellite picture, centred on its own point
+  const w = im.km * 1000 / M, [cx, cy] = ground([im.lat, im.lon]);
+  const i = el("img", null, null, plane); i.src = im.src;
+  i.style.cssText = `left:${cx - w / 2}px; top:${cy - w / 2}px; width:${w}px; height:${w}px`;
+  return { w, cx, cy, img: i };
+}
+if (S.far) layer(S.far).img.className = "far";
+const near = layer(S.near); near.img.className = "near";
+const CV = 1080;                          // overlay canvases: half the near picture's pixels
+const overlay = () => { const c = el("canvas", null, null, plane); c.width = c.height = CV; c.style.cssText = `left:${near.cx - near.w / 2}px; top:${near.cy - near.w / 2}px; width:${near.w}px; height:${near.w}px`; return c; };
+const swellCv = overlay(), windCv = overlay();
+const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+svg.setAttribute("viewBox", `${-near.w / 2} ${-near.w / 2} ${near.w} ${near.w}`);
+svg.style.cssText = `position:absolute; left:${-near.w / 2}px; top:${-near.w / 2}px; width:${near.w}px; height:${near.w}px; overflow:visible`;
+plane.appendChild(svg);
+const seaImg = new Image(); seaImg.src = S.near.sea;
+// compass bearing → unit vector on the plane (y points south)
+const vec = (deg) => [Math.sin(deg * Math.PI / 180), -Math.cos(deg * Math.PI / 180)];
+
+// ── camera: what it looks at, how many km fill the screen width, tilt, rotation ──
+const OX = 540, OY = 830, PERSP = 1500;
+const B = S.beats;
+const camOf = (b) => ({ at: ground(b.cam.at || [O.lat, O.lon]), km: b.cam.km, tilt: b.cam.tilt ?? 45, rot: b.cam.rot ?? 0 });
+function camera(t) {
+  let i = B.findIndex((b) => t < b.t1); if (i < 0) i = B.length - 1;
+  const b = B[i], c = camOf(b), k = seg(t, b.t0, b.t1);
+  const drift = { at: c.at, km: c.km * (1 - .07 * k), tilt: c.tilt, rot: c.rot + (b.cam.orbit ?? 5) * k };
+  if (!i) return drift;
+  const p = B[i - 1], pc = camOf(p), pe = { at: pc.at, km: pc.km * .93, tilt: pc.tilt, rot: pc.rot + (p.cam.orbit ?? 5) };
+  const m = inOut(seg(t, b.t0, b.t0 + Math.min(b.cam.move ?? 1.7, (b.t1 - b.t0) * .8)));
+  return { at: [lerp(pe.at[0], drift.at[0], m), lerp(pe.at[1], drift.at[1], m)],
+           km: Math.exp(lerp(Math.log(pe.km), Math.log(drift.km), m)), tilt: lerp(pe.tilt, drift.tilt, m), rot: lerp(pe.rot, drift.rot, m) };
+}
+let MAT = new DOMMatrix();
+function place(c) {
+  const s = 1080 / (c.km * 1000 / M);
+  MAT = new DOMMatrix().translate(OX, OY).rotateAxisAngle(1, 0, 0, c.tilt).rotateAxisAngle(0, 0, 1, -c.rot).scale(s).translate(-c.at[0], -c.at[1]);
+  plane.style.transform = MAT.toString();
+}
+function project([x, y]) {                // plane point → screen px (same maths as the CSS perspective)
+  const p = MAT.transformPoint(new DOMPoint(x, y, 0, 1)), f = PERSP / (PERSP - p.z);
+  return [OX + (p.x - OX) * f, OY + (p.y - OY) * f, f];
+}
+
+// ── swell: wave fronts marching in from the forecast direction, drawn on the sea only ──
+function swell(t, sw, a) {
+  const c = swellCv.getContext("2d"); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, CV, CV);
+  if (!sw || a <= 0) return;
+  const [vx, vy] = vec(sw.dir + 180), nx = -vy, ny = vx;        // travels away from where it comes from
+  const L = clamp(26 + (sw.period || 12) * 3.4, 44, 96), speed = 20 + (sw.period || 12) * 1.6, span = CV * .75;
+  const n = Math.ceil(span * 2 / L), ph = (t * speed) % L;
+  c.lineCap = "round";
+  for (let k = 0; k < n; k++) {
+    const d = -span + k * L + ph, e = Math.pow(Math.sin(Math.PI * clamp((d + span) / (span * 2))), .7);
+    c.beginPath();
+    for (let u = -span; u <= span; u += 24) {
+      const w = d + 9 * Math.sin(u * .008 + k * 1.7) + 5 * Math.sin(u * .021 + k * .6);
+      const x = CV / 2 + vx * w + nx * u, y = CV / 2 + vy * w + ny * u;
+      u === -span ? c.moveTo(x, y) : c.lineTo(x, y);
+    }
+    c.strokeStyle = `rgba(17,183,242,${.34 * e * a})`; c.lineWidth = 7; c.stroke();
+    c.strokeStyle = `rgba(255,255,255,${.78 * e * a})`; c.lineWidth = 2.2; c.stroke();
+  }
+  c.globalCompositeOperation = "destination-in";
+  c.drawImage(seaImg, 0, 0, CV, CV);
+  const g = c.createRadialGradient(CV / 2, CV / 2, CV * .2, CV / 2, CV / 2, CV * .5);
+  g.addColorStop(0, "rgba(0,0,0,1)"); g.addColorStop(1, "rgba(0,0,0,0)");
+  c.fillStyle = g; c.fillRect(0, 0, CV, CV);
+  c.globalCompositeOperation = "source-over";
+}
+
+// ── wind: streaks blowing downwind, coloured the way the app colours wind ──
+const STREAKS = 150;
+function wind(t, w, a) {
+  const c = windCv.getContext("2d"); c.clearRect(0, 0, CV, CV);
+  if (!w || a <= 0) return;
+  const [vx, vy] = vec(w.dir + 180), col = WIND[w.cls] || "#f5f0e8", sp = 60 + clamp(w.kph, 4, 50) * 7;
+  c.lineCap = "round";
+  for (let i = 0; i < STREAKS; i++) {
+    const life = 1.6 + hash("wl" + i) * 1.4, k = ((t + hash("wo" + i) * life) % life) / life;
+    const x0 = hash("wx" + i) * CV, y0 = hash("wy" + i) * CV, len = 30 + hash("wn" + i) * 60;
+    const x = x0 + vx * sp * life * (k - .5), y = y0 + vy * sp * life * (k - .5);
+    const rr = Math.hypot(x - CV / 2, y - CV / 2) / (CV * .5), e = Math.sin(Math.PI * k) * clamp(1.15 - rr) * a;
+    if (e <= .01) continue;
+    const g = c.createLinearGradient(x - vx * len, y - vy * len, x, y);
+    g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(1, col);
+    c.globalAlpha = e; c.strokeStyle = g; c.lineWidth = 4.5;
+    c.beginPath(); c.moveTo(x - vx * len, y - vy * len); c.lineTo(x, y); c.stroke();
+  }
+  c.globalAlpha = 1;
+}
+
+// ── ride: the line a surfer draws down the wave ──
+const rides = B.map((b, i) => {
+  if (!b.ride) return null;
+  const a = ground(b.ride.a), z = ground(b.ride.b), mx = (a[0] + z[0]) / 2, my = (a[1] + z[1]) / 2;
+  const bend = b.ride.bend ?? .12, cx = mx - (z[1] - a[1]) * bend, cy = my + (z[0] - a[0]) * bend;
+  const mk = (w, col, o) => { const p = document.createElementNS(svg.namespaceURI, "path"); p.setAttribute("d", `M${a[0]},${a[1]} Q${cx},${cy} ${z[0]},${z[1]}`); p.setAttribute("fill", "none"); p.setAttribute("stroke", col); p.setAttribute("stroke-width", w); p.setAttribute("stroke-linecap", "round"); p.setAttribute("opacity", o); svg.appendChild(p); return p; };
+  const sw = .0075 * near.w * (b.ride.w || 1);
+  const glow = mk(sw * 2.6, "#11b7f2", .35), path = mk(sw, "#ffffff", 1), len = path.getTotalLength();
+  const dot = document.createElementNS(svg.namespaceURI, "circle"); dot.setAttribute("r", sw * 1.25); dot.setAttribute("fill", "#11b7f2"); dot.setAttribute("stroke", "#fff"); dot.setAttribute("stroke-width", sw * .4); svg.appendChild(dot);
+  for (const p of [glow, path]) p.setAttribute("stroke-dasharray", len);
+  return { glow, path, dot, len, b };
+});
+function ride(t) {
+  for (const r of rides) {
+    if (!r) continue;
+    const on = t >= r.b.t0 && t < r.b.t1 + .4, k = outExpo(seg(t, r.b.t0 + .5, r.b.t0 + 1.8)), o = 1 - seg(t, r.b.t1, r.b.t1 + .4);
+    for (const p of [r.glow, r.path]) { p.style.display = on ? "" : "none"; p.setAttribute("stroke-dashoffset", r.len * (1 - k)); p.style.opacity = o * (p === r.glow ? .35 : 1); }
+    const run = ((t - r.b.t0 - 1.2) % 2.6) / 2.6, pt = r.path.getPointAtLength(r.len * clamp(inOut(clamp(run))));
+    r.dot.style.display = on && t > r.b.t0 + 1.2 ? "" : "none"; r.dot.setAttribute("cx", pt.x); r.dot.setAttribute("cy", pt.y); r.dot.style.opacity = o * Math.sin(Math.PI * clamp(run));
+  }
+}
+
+// ── pins: a dot on the ground, a stem, a label that always faces the camera ──
+const pins = [];
+B.forEach((b) => (b.pins || []).forEach((p, j) => {
+  const d = el("div", "pin", `<div class="ring"></div><div class="stem"></div><div class="dot"></div><div class="lab"><b>${p.name}</b>${p.tag ? `<i>${p.tag}</i>` : ""}</div>`, $("pins"));
+  d.style.setProperty("--c", p.col || "#11b7f2");
+  pins.push({ d, g: ground(p.at), b, j, p, stem: p.stem ?? 120 });
+}));
+function drawPins(t) {
+  for (const q of pins) {
+    const a = q.b.t0 + .7 + q.j * .28, on = t >= a && t < q.b.t1 + .3;
+    q.d.style.display = on ? "" : "none"; if (!on) continue;
+    const [x, y] = project(q.g), k = outBack(seg(t, a, a + .55)), o = 1 - seg(t, q.b.t1, q.b.t1 + .3);
+    q.d.style.transform = `translate(${x}px, ${y}px)`; q.d.style.opacity = o;
+    const [ring, stem, dot, lab] = q.d.children;
+    dot.style.transform = `scale(${k})`;
+    const pulse = ((t - a) % 1.8) / 1.8; ring.style.transform = `scale(${1 + pulse * 3.2})`; ring.style.opacity = 1 - pulse;
+    const sk = outExpo(seg(t, a + .15, a + .7)); stem.style.height = q.stem * sk + "px";
+    const lw = lab.offsetWidth, left = clamp(x - lw / 2, 65, 1015 - lw) - x;       // label stays in the safe box
+    const up = y - q.stem - 13 - lab.offsetHeight > SAFE_TOP + 290;                // under the title: hang the label below the dot
+    lab.style.left = left + "px"; lab.style.bottom = up ? q.stem + 13 + "px" : "auto"; lab.style.top = up ? "auto" : q.stem + 13 + "px";
+    stem.style.bottom = up ? "13px" : "auto"; stem.style.top = up ? "auto" : "13px";
+    const lk = outExpo(seg(t, a + .35, a + .9)); lab.style.opacity = lk; lab.style.transform = `translateY(${(1 - lk) * 26}px)`;
+  }
+}
+
+// ── the words of each beat: kicker + title on top, a card, a line near the bottom ──
+const cardHtml = (c) => {
+  let h = c.title ? `<h3><span>${c.title}</span>${c.pill ? `<span class="pill" style="background:${RATING[c.pill.bucket] || "#11b7f2"}">${c.pill.text}</span>` : ""}</h3>` : "";
+  if (c.chips) h += `<div class="chips" ${c.title ? 'style="margin-top:26px"' : ""}>${c.chips.map((x) => `<div class="chip"><b style="color:${x.col || "#fff"}; font-size:${Math.max(...c.chips.map((y) => y.v.length)) > 8 ? 54 : Math.max(...c.chips.map((y) => y.v.length)) > 5 ? 66 : 92}px">${x.v}</b><span>${x.k}</span></div>`).join("")}</div>`;
+  if (c.rows) h += c.rows.map(([k, v]) => `<div class="row"><span>${k}</span><b>${v}</b></div>`).join("");
+  if (c.week) h += `<div class="week">${c.week.map((d) => `<div class="day${d.best ? " best" : ""}"><div class="h">${d.h}</div><div class="bar" style="height:${Math.max(18, 190 * d.h / Math.max(...c.week.map((x) => +x.h)))}px; background:${RATING[d.bucket]}"></div><div class="n">${d.name}</div></div>`).join("")}</div>`;
+  if (c.why) h += `<div class="why">${c.why.map((w) => `<div class="w"><span>${w.name}</span><div class="tr"><i style="width:${w.frac * 100}%; background:${w.col}"></i></div></div>`).join("")}</div>`;
+  return h;
+};
+const huds = B.map((b) => {
+  const top = el("div", "beat", (b.kicker ? `<div class="line"><span class="kick">${b.kicker}</span></div>` : "") +
+    (b.title || []).map((l) => `<div class="line"><span class="title">${l}</span></div>`).join(""), $("hud"));
+  top.style.top = SAFE_TOP + 6 + "px";
+  const sub = b.sub ? el("div", "sub", b.sub, $("hud")) : null;
+  const card = b.card ? el("div", "card", cardHtml(b.card), $("hud")) : null;
+  return { top, sub, card, b };
+});
+function rise(s, t, a, z, d = .7) {
+  const i = outExpo(seg(t, a, a + d)), o = 1 - inOut(seg(t, z - .35, z));
+  s.style.transform = `translateY(${(1 - i) * 105 + (1 - o) * -110}%)`; s.style.opacity = Math.min(i * 1.4, 1 - seg(t, z - .2, z)); s.style.filter = `blur(${(1 - i) * 10 + (1 - o) * 6}px)`;
+}
+function words(t) {
+  huds.forEach(({ top, sub, card, b }, i) => {
+    const on = t >= b.t0 - .05 && t < b.t1 + .05;
+    const same = (x) => x && JSON.stringify([x.kicker, x.title]) === JSON.stringify([b.kicker, b.title]);   // a title held across beats does not re-enter
+    const a = same(B[i - 1]) ? -9 : b.t0 + .12, z = same(B[i + 1]) ? 1e9 : b.t1;
+    top.style.visibility = on ? "visible" : "hidden";
+    if (on) [...top.querySelectorAll(".line > span")].forEach((s, j) => rise(s, t, a + j * .1, z));
+    if (sub) {
+      const sa = b.t0 + (b.subAt ?? .5), k = outExpo(seg(t, sa, sa + .5)), o = 1 - seg(t, b.t1 - .25, b.t1);
+      sub.style.visibility = on ? "visible" : "hidden"; sub.style.opacity = k * o; sub.style.transform = `translateY(${(1 - k) * 30}px)`;
+      sub.style.top = SAFE_BOTTOM - sub.offsetHeight - 4 + "px";
+    }
+    if (card) {
+      const ca = b.t0 + (b.cardAt ?? .9), k = outExpo(seg(t, ca, ca + .7)), o = 1 - seg(t, b.t1 - .3, b.t1);
+      card.style.visibility = on && t >= ca ? "visible" : "hidden"; card.style.opacity = Math.min(1, k * 1.5) * o;
+      card.style.transform = `translateY(${(1 - k) * 90}px) scale(${lerp(.94, 1, k)})`; card.style.filter = `blur(${(1 - k) * 8}px)`;
+      card.style.top = SAFE_BOTTOM - (sub ? sub.offsetHeight + 34 : 0) - card.offsetHeight - 4 + "px";
+      card.querySelectorAll(".day .bar").forEach((x, j) => { x.style.transform = `scaleY(${outBack(seg(t, ca + .25 + j * .09, ca + .85 + j * .09))})`; });
+      card.querySelectorAll(".day .h").forEach((x, j) => { x.style.opacity = seg(t, ca + .7 + j * .09, ca + 1 + j * .09); });
+      card.querySelectorAll(".why .tr i").forEach((x, j) => { x.style.transform = `scaleX(${outExpo(seg(t, ca + .3 + j * .35, ca + 1.2 + j * .35))})`; x.style.transformOrigin = "0 50%"; });
+      card.querySelectorAll(".chip").forEach((x, j) => { const q = outBack(seg(t, ca + .15 + j * .14, ca + .7 + j * .14)); x.style.transform = `scale(${lerp(.6, 1, q)})`; x.style.opacity = clamp(q * 2); });
+    }
+  });
+}
+
+// ── Rosa particles: the app's splash field as a pure function of t (as in the other Rosa films) ──
+const BW = 390, BH = 460, N = Math.round(BW * BH / 11000 * 1.4), PAL = ["125, 185, 240", "94, 205, 205"];
+const SLOTS = Array.from({ length: N }, (_, i) => ({ life: 4 * (0.8 + hash("l" + i) * 0.4), off: hash("o" + i) * 4 }));
+function particles(cv, t, o, gain) {
+  const c = cv.getContext("2d"); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cv.width, cv.height); cv.style.opacity = o;
+  if (o <= 0) return;
+  const CSS = cv.width / BW; c.setTransform(CSS, 0, 0, CSS, 0, 0);
+  const ps = [];
+  SLOTS.forEach(({ life, off }, i) => {
+    const k = Math.floor((t + off) / life), age = t + off - k * life, f = age * 60, r = (s) => hash(s + i + "-" + k);
+    const depth = Math.pow(r("d"), 0.85), rad = 0.5 + depth * 2.7, blur = (1 - depth) * 4.5;
+    const vy = -(0.24 + depth * 1.4), vx = (r("v") - 0.5) * (0.05 + depth * 0.28);
+    const ph = r("p") * 6.283, ws = 0.004 + r("w") * 0.012, wa = 0.05 + depth * 0.4;
+    const x = r("x") * BW + vx * f + (wa / ws) * (Math.cos(ph) - Math.cos(ph + ws * f)), y = BH + r("y") * 30 + vy * f;
+    const lf = age / life, env = lf < .15 ? lf / .15 : lf > .7 ? (1 - lf) / .3 : 1;
+    const a = clamp((0.22 + depth * 0.7) * 0.3 * gain * Math.min(1, (BH - y) / 80) * Math.min(1, y / (BH * .55)) * env);
+    if (a > 0.002 && y > -10) ps.push({ x, y, rad, depth, bucket: Math.round(blur), a, col: PAL[Math.floor(r("c") * PAL.length)] });
+  });
+  ps.sort((p, q) => p.depth - q.depth);
+  for (const p of ps) { c.filter = p.bucket ? `blur(${p.bucket / 2 * CSS}px)` : "none"; c.globalAlpha = p.a; c.fillStyle = `rgb(${p.col})`; c.beginPath(); c.arc(p.x, p.y, p.rad, 0, 6.283); c.fill(); }
+  c.filter = "none"; c.globalAlpha = 1;
+}
+
+// ── closing card: logo, two lines, the glowing button, "link in bio" ──
+$("e1").innerHTML = S.end.line; $("btn").textContent = S.end.button;
+function closing(t) {
+  const E = S.end.t, k = seg(t, E - .5, E + .4);
+  $("dim").style.opacity = .8 * k; $("view").style.filter = k ? `blur(${k * 14}px)` : "none";
+  $("pins").style.opacity = $("hud").style.opacity = 1 - seg(t, E - .5, E - .1);
+  particles($("pt"), t, seg(t, E - .2, E + .8), 2.4);
+  $("end").style.top = SAFE_TOP + 120 + "px"; $("end").style.visibility = t < E ? "hidden" : "visible";
+  const lg = seg(t, E, E + .8);
+  $("logo").style.transform = `scale(${lerp(.4, 1, outBack(lg))}) rotate(${(1 - outExpo(lg)) * -20}deg)`; $("logo").style.opacity = clamp(lg * 3);
+  const pop = (e, a) => { const q = outExpo(seg(t, a, a + .8)); e.style.opacity = q; e.style.transform = `translateY(${(1 - q) * 60}px)`; e.style.filter = `blur(${(1 - q) * 8}px)`; };
+  pop($("e1"), E + .2); pop($("btn"), E + .5); pop($("e3"), E + .85);
+  const glow = 30 + 10 * Math.sin(t * 2.6);
+  $("btn").style.boxShadow = `0 0 ${glow}px rgba(17,183,242,.65), 0 0 ${glow * 2.4}px rgba(17,183,242,.28)`;
+}
+
+const ready = Promise.all([document.fonts.ready, ...[...document.images, seaImg].map((i) => i.decode().catch(() => {}))]);
+async function seek(t) {
+  await ready;
+  place(camera(t));
+  let i = B.findIndex((b) => t < b.t1); if (i < 0) i = B.length - 1;
+  const b = B[i], fade = Math.min(seg(t, b.t0 + .2, b.t0 + 1.1), 1 - seg(t, b.t1 - .35, b.t1 + .05));
+  swell(t, b.swell, fade); wind(t, b.wind, fade);
+  ride(t); drawPins(t); words(t); closing(t);
+}
+window.__film = { seek, duration: S.dur };
+</script>
+</body></html>

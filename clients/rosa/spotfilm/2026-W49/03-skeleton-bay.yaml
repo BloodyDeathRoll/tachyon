@@ -1,0 +1,57 @@
+type: explain
+spot: skeleton-bay
+name: Skeleton Bay
+place: Walvis Bay, Namibia
+title: Skeleton Bay, explained
+pillar: Spot spotlight
+hook: This wave was found on Google Earth
+brief: >
+  Map film, spot explained. Satellite view of Walvis Bay from high up, then the camera dives to
+  the sand spit at Pelican Point. The left is drawn two kilometres down the spit, then the walk
+  back, how rarely it breaks and the swell it needs. A surfer's voice tells it; the closing card
+  has the glowing button.
+beats:
+  - say: This wave was found on Google Earth.
+    kicker: Walvis Bay, Namibia
+    title: [Found on, <em>Google Earth</em>]
+    cam: {km: 44, orbit: 3, rot: 8, tilt: 18}
+  - say: Skeleton Bay, Namibia. A left down a desert sand spit.
+    kicker: The wave
+    title: ['Skeleton Bay,', <em>a left on sand</em>]
+    cam: {at: {km: [0.2, 1.2]}, km: 7, rot: -30, tilt: 50}
+    pins: [{name: Skeleton Bay, tag: 'Left, sand bottom'}]
+  - say: One ride can go two kilometres.
+    kicker: One wave
+    title: [Up to, <em>2 kilometres</em>]
+    cam: {at: {km: [0.2, 1.3]}, km: 5.2, rot: -70, tilt: 54}
+    ride: {a: {km: [0.07, 0.25]}, b: {km: [0.27, 2.25]}, bend: 0.03, w: 0.8}
+  - say: Then you walk back. No cars allowed.
+    kicker: The way back
+    title: [Then you, <em>walk back</em>]
+    cam: {at: {km: [0.25, 1.3]}, km: 4.4, rot: -100, tilt: 54}
+    ride: {a: {km: [0.36, 2.2]}, b: {km: [0.18, 0.3]}, bend: 0.03, w: 0.5}
+  - say: It breaks four or five times a year.
+    kicker: When it works
+    title: [Four or five, <em>times a year</em>]
+    cam: {at: {km: [0.2, 1.0]}, km: 9, rot: -14, tilt: 46}
+    swell: {dir: 225, period: 17}
+    card: {chips: [{k: swell, v: SW}, {k: period, v: Long}, {k: season, v: Jun-Sep}]}
+  - say: So Rosa watches it for me. It's free.
+    kicker: On Rosa
+    title: ['Skeleton Bay,', <em>16 days out</em>]
+    cam: {at: {km: [0.2, 1.0]}, km: 7, rot: -40, tilt: 48}
+caption: |
+  This wave was found on Google Earth.
+
+  Skeleton Bay, Namibia: a left that runs down a sand spit in the desert, for up to two kilometres. Then you walk back, no cars allowed. It only breaks four or five times a year, on a long southwest swell in winter.
+
+  Over 5,000 spots, 16 days out, four updates a day. Free at rosa.surf, link in bio.
+  .
+  .
+  .
+  #skeletonbay #namibia #surfing
+sources:
+  - https://eos.surf/entries/skeleton-bay
+  - https://www.surfertoday.com/videos/skeleton-bay-like-you-ve-never-seen-before
+  - https://stabmag.com/style/comments-of-the-week-edition-63/news/surf-it-while-you-can-the-shifting-sands-of-skeleton-bay/
+  - https://dukesurf.com/en/That-Google-Earth-Challenge-that-led-to-the-discovery-of-Skeleton-Bay/

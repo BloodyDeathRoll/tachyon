@@ -1,0 +1,58 @@
+type: explain
+spot: uluwatu
+name: Uluwatu
+place: Bali, Indonesia
+title: Uluwatu, explained
+pillar: Spot spotlight
+hook: The name means land's end rock
+brief: >
+  Map film, spot explained. Satellite view of Bali's Bukit from high up, then the camera dives to
+  Uluwatu. The left is drawn along the cliff, the five sections listed, the cave marked, then the
+  swell and wind it wants. A surfer's voice tells it; the closing card has the glowing button.
+beats:
+  - say: Uluwatu. The name means land's end rock.
+    kicker: Bali, Indonesia
+    title: ['Uluwatu,', <em>explained</em>]
+    cam: {km: 44, orbit: 3, rot: -8, tilt: 18}
+  - say: One long left over coral.
+    kicker: The wave
+    title: [A long left, <em>over coral</em>]
+    cam: {km: 4.4, rot: 20, tilt: 52}
+    ride: {a: {km: [-0.55, -0.8]}, b: {km: [-0.1, -0.03]}}
+    pins: [{name: Uluwatu, tag: 'Left, reef'}]
+  - say: Really it's five waves, from the Peak to the Bombie.
+    kicker: Five sections
+    title: [Five waves, <em>in one</em>]
+    cam: {km: 5.6, rot: -14, tilt: 46}
+    card: {rows: [[The Peak, at the cave], [Racetracks, 'fast, low tide'], [Outside Corner, needs size], [Temples, hollow], [The Bombie, outer reef]]}
+  - say: You paddle out through a cave.
+    kicker: The way in
+    title: [Out through, <em>the cave</em>]
+    cam: {km: 2.8, rot: 30, tilt: 56}
+    pins: [{name: The cave, tag: In and out}]
+  - say: Southwest swell, southeast wind, May to October.
+    kicker: When it works
+    title: ['Southwest swell,', <em>southeast wind</em>]
+    cam: {km: 8, rot: -10, tilt: 46}
+    swell: {dir: 225, period: 15}
+    wind: {cls: offshore, dir: 135, kph: 16}
+    card: {chips: [{k: swell, v: SW}, {k: wind, v: SE}, {k: season, v: May-Oct}]}
+  - say: I check it on Rosa. It's free.
+    kicker: On Rosa
+    title: ['Uluwatu,', <em>16 days out</em>]
+    cam: {km: 6, rot: 12, tilt: 48}
+caption: |
+  Uluwatu means land's end rock.
+
+  One long left over coral on the southwest corner of the Bukit. Five sections, from The Peak to the Bombie, and a cave to paddle out through. Southwest swell, southeast wind, May to October.
+
+  Over 5,000 spots, 16 days out, four updates a day. Free at rosa.surf, link in bio.
+  .
+  .
+  .
+  #uluwatu #bali #surfing
+sources:
+  - https://en.wikipedia.org/wiki/Uluwatu,_Bali
+  - https://www.eos.surf/encyclopedia/uluwatu
+  - https://www.worldsurfleague.com/posts/331063/the-allure-of-uluwatu
+  - https://www.surf-forecast.com/breaks/Uluwatu
