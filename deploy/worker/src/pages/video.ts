@@ -358,7 +358,8 @@ export async function renderVideo(p: Page, slot: string, q: URLSearchParams = ne
   else if (LIVE.has(row.state) && row.ig_media_id) links.push(removeCard(s, title));
   right.push(`<div class=links>${links.join("")}</div>`);
 
-  const body = `<a class=back href='${path(p.client.id)}'>${icon("back", 16)}Overview</a><h1>${esc(title)} <span class=hno>${esc(slotNo(slot).filter(Boolean).join(" · "))}</span></h1><p class=sub>${whenLine}</p><div class=vpage><div class=player>${player(s, q.get("as") === "story")}</div><div class='stack c2'>${blocks.join("")}</div><div class='stack c3'>${right.join("")}</div></div>`;
+  const err = (q.get("err") ?? "").slice(0, 400);
+  const body = `<a class=back href='${path(p.client.id)}'>${icon("back", 16)}Overview</a>${err ? `<div class='banner stop' role=alert>Not done: ${esc(err)}</div>` : ""}<h1>${esc(title)} <span class=hno>${esc(slotNo(slot).filter(Boolean).join(" · "))}</span></h1><p class=sub>${whenLine}</p><div class=vpage><div class=player>${player(s, q.get("as") === "story")}</div><div class='stack c2'>${blocks.join("")}</div><div class='stack c3'>${right.join("")}</div></div>`;
   const writing = open_(jobs.caption) && !s.caption;
   const refresh = cls === "busy" || publishing(row, p.now) ? 15 : open_(jobs.formats) || writing ? 5 : null;
   return shell(p, "overview", body + (open_(jobs.track) ? `<script>${MIX_JS}</script>` : ""), title, refresh);

@@ -214,7 +214,10 @@ test("reject needs a note and asks a PC for the re-render; revoke takes the appr
   assert.deepEqual(JSON.parse(job.payload), { argv: ["spine.revise", "run", "rosa", "r1"], notes: "faster please" });
   assert.equal(job.by, 1);
   await waiting("r2", { meta: { upload: "x.mp4" } }); // no film to edit: refused, not silently REJECTED
-  assert.equal((await call("POST", "/rosa/v/r2/decide", { form: { action: "reject", notes: "faster" } })).status, 409);
+  const refused = await call("POST", "/rosa/v/r2/decide", { form: { action: "reject", notes: "faster" } });
+  assert.equal(refused.status, 409);
+  assert.match(refused.text, /class='banner stop' role=alert>Not done: this video has no film a note can edit/); // on the video page itself
+  assert.match(refused.text, /class=vpage/);
   assert.equal((await post("r2")).state, "NEEDS_APPROVAL");
   assert.match((await call("GET", "/rosa/v/r1")).text, /waiting for a PC/);
   assert.match((await call("GET", "/rosa")).text, /Re-rendering/); // queued counts: app.py wrote "running" on fork
