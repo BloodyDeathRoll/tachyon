@@ -1,6 +1,6 @@
 <!doctype html>
-<!-- Rosa spot card: one surf spot as a collectible card. Face down, it flips to the spot's stats
-     (wave, level, months, tide) over its satellite picture, then flips back to this week's forecast
+<!-- Rosa spot card: one surf spot as a collectible card, no map. Face down, it flips to the spot's stats
+     (wave, level, months, tide) under a rolling-swell picture, then flips back to this week's forecast
      from Rosa. Read from spec.js (tools/spotfilm/build.py, type: card); every frame is a pure
      function of t: window.__film.seek(t), spine/render.py. -->
 <html><head><meta charset="utf-8">
@@ -33,10 +33,9 @@ body { font-family: Inter, sans-serif; color: #f5f0e8; position: relative; -webk
 .head { display: flex; justify-content: space-between; align-items: center; padding: 26px 28px 0; }
 .no { font-size: 30px; font-weight: 800; color: #11b7f2; letter-spacing: .02em; }
 .lvl { padding: 5px 18px 7px; border-radius: 99px; font-size: 26px; font-weight: 800; color: #fff; }
-.art { position: relative; margin: 16px 28px 0; height: 300px; border-radius: 22px; overflow: hidden; background-repeat: no-repeat; background-color: #0a1733; filter: saturate(1.15) contrast(1.05); }
-.art::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, rgba(8,17,39,.65)); }
-.dot { position: absolute; left: 50%; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; background: #11b7f2; border: 4px solid #fff; box-shadow: 0 0 22px #11b7f2; z-index: 1; }
-.ring { position: absolute; left: 50%; top: 50%; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; border: 3px solid #11b7f2; z-index: 1; }
+.art { position: relative; margin: 16px 28px 0; height: 300px; border-radius: 22px; overflow: hidden; background: linear-gradient(180deg, #0d3a8c 0, #0b2a66 45%, #071a42 100%); }
+.art canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.art .sun { position: absolute; left: 50%; top: 58px; width: 120px; height: 120px; margin-left: -60px; border-radius: 50%; background: radial-gradient(circle, #8df0ff 0, #11b7f2 45%, rgba(17,183,242,0) 70%); opacity: .85; }
 .name { padding: 16px 28px 0; font-size: 60px; font-weight: 800; letter-spacing: -.035em; line-height: 1.02; }
 .place { padding: 4px 28px 0; font-size: 26px; font-weight: 600; color: rgba(245,240,232,.66); }
 .stats { padding: 14px 16px 0; }
@@ -79,7 +78,7 @@ body { font-family: Inter, sans-serif; color: #f5f0e8; position: relative; -webk
 <div id="stage"><div id="card">
   <div class="face" id="front">
     <div class="head"><span class="no" id="no"></span><span class="lvl" id="lvl"></span></div>
-    <div class="art" id="art"><div class="ring" id="ring"></div><div class="dot"></div></div>
+    <div class="art" id="art"><div class="sun"></div><canvas id="sea" width="988" height="600"></canvas></div>
     <div class="name" id="nm"></div>
     <div class="place" id="pl"></div>
     <div class="stats" id="stats"></div>
@@ -121,9 +120,20 @@ const MONTHS = "JFMAMJJASOND";
 $("no").textContent = $("cno").textContent = "#" + String(C.number).padStart(2, "0");
 $("lvl").textContent = C.level.label; $("lvl").style.background = LEVEL[C.level.n];
 $("nm").textContent = C.name; $("pl").textContent = C.place;
-const art = $("art"), ART_KM = C.art_km || 3.2;   // the art window shows ART_KM of the 12 km picture
-art.style.backgroundImage = `url(${S.near.src})`;
-const bw = 494 * S.near.km / ART_KM; art.style.backgroundSize = `${bw}px ${bw}px`; art.style.backgroundPosition = `${247 - bw / 2}px ${150 - bw / 2}px`;
+// the art: layered swell lines rolling in, Rosa's blues (no map on a card)
+function sea(t) {
+  const cv = $("sea"), c = cv.getContext("2d"), W = cv.width, H = cv.height;
+  c.clearRect(0, 0, W, H);
+  const seed = hash(C.name);
+  for (let j = 0; j < 7; j++) {
+    const y0 = H * (.42 + j * .085), amp = 10 + j * 5, len = 260 + j * 60, sp = .5 + j * .18, ph = seed * 6.28 + j;
+    c.beginPath(); c.moveTo(0, H);
+    for (let x = 0; x <= W; x += 8) c.lineTo(x, y0 + Math.sin(x / len * 6.283 + t * sp + ph) * amp + Math.sin(x / (len * .37) - t * sp * .7) * amp * .25);
+    c.lineTo(W, H); c.closePath();
+    const a = .18 + j * .1; c.fillStyle = `rgba(${j % 2 ? "17,183,242" : "3,42,250"},${a})`; c.fill();
+    c.strokeStyle = `rgba(200,245,255,${.25 + j * .06})`; c.lineWidth = 2.5; c.stroke();
+  }
+}
 const ROWS = {
   wave: ["Wave", `<b>${C.wave}</b>`],
   level: ["Level", `<div class="pips">${[1, 2, 3, 4, 5].map((n) => `<i class="${n <= C.level.n ? "on" : ""}"></i>`).join("")}</div>`],
@@ -191,7 +201,7 @@ function card(t) {
     r.style.background = `rgba(17,183,242,${.2 * lit})`; r.style.transform = `scale(${1 + .04 * lit})`;
     r.style.boxShadow = lit ? `0 0 0 2px rgba(17,183,242,${.7 * lit})` : "none";
   }
-  const ring = (t * .9) % 1; $("ring").style.transform = `scale(${1 + ring * 3})`; $("ring").style.opacity = 1 - ring;
+  sea(t);
   const sh = ((t * .35) % 1.4) - .2; for (const s of [$("sh1"), $("sh2")]) s.style.transform = `translateX(${lerp(-110, 110, sh)}%)`;
   $("rays").innerHTML = ""; for (let j = 0; j < 6; j++) { const r = el("i", null, null, $("rays")); r.style.transform = `rotate(${j * 30 + t * 6}deg)`; }
   $("rays").style.top = top + h / 2 + "px";
@@ -236,8 +246,7 @@ function closing(t) {
   $("btn").style.boxShadow = `0 0 ${glow}px rgba(17,183,242,.65), 0 0 ${glow * 2.4}px rgba(17,183,242,.28)`;
 }
 
-const bgImg = new Image(); bgImg.src = S.near.src;
-const ready = Promise.all([document.fonts.ready, ...[...document.images, bgImg].map((i) => i.decode().catch(() => {}))]);
+const ready = Promise.all([document.fonts.ready, ...[...document.images].map((i) => i.decode().catch(() => {}))]);
 async function seek(t) {
   await ready;
   card(t); words(t); closing(t);

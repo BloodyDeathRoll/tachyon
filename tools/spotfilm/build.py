@@ -12,7 +12,7 @@ Two kinds of film, `type` in the spec:
   explain   the spot explained, beat by beat as written in the spec (`beats`, each with a `say`
             line). With --vo the beats are cut to the words of the recorded voice-over.
   card      the spot as a collectible card (tools/spotfilm/card.html): face down, its stats over its
-            satellite picture, then this week's forecast on its back. Beats as in explain; a beat's
+            no map: a rolling-swell picture, then this week's forecast on its back. Beats as in explain; a beat's
             `show` is cover, front or week, its `focus` lights a stat (wave, level, months, tide).
 
 Satellite pictures are fetched once per spot (tools/spotfilm/sat.py, needs rasterio; SPOTFILM_SAT_PY
@@ -208,7 +208,7 @@ def imagery(spec: dict, film_dir: Path) -> dict:
     """near.jpg / near-sea.png / far.jpg in the film folder; fetched only when missing."""
     lat, lon = spec["at"]
     out = {}
-    for name, km in (("near", spec.get("near_km", 12)), ("far", spec.get("far_km", 70)))[: 1 if spec["type"] == "card" else 2]:   # a card shows the near picture only
+    for name, km in (("near", spec.get("near_km", 12)), ("far", spec.get("far_km", 70))):
         meta = film_dir / f"{name}.json"
         if not meta.exists() or json.loads(meta.read_text())["width_km"] != km:
             py = os.environ.get("SPOTFILM_SAT_PY") or sys.executable
@@ -223,7 +223,7 @@ def build(spec_path: Path, film_dir: Path, start: str | None = None, vo: Path | 
     film_dir.mkdir(parents=True, exist_ok=True)
     payload = fetch_forecast(spec["spot"])
     spec.setdefault("at", [payload["spot"]["lat"], payload["spot"]["lon"]])
-    im = imagery(spec, film_dir)
+    im = imagery(spec, film_dir) if spec["type"] != "card" else {}   # a card has no map
     start = start or (date.today() + timedelta(days=1)).isoformat()
     if spec["type"] == "forecast":
         beats = forecast_beats(spec, payload, start)
@@ -231,9 +231,10 @@ def build(spec_path: Path, film_dir: Path, start: str | None = None, vo: Path | 
         beats = explain_beats(spec, vo, vo_start)
     film = timeline(beats, {**END, **(spec.get("end") or {})})
     lat, lon = spec["at"]
-    film |= {"spot": {"lat": lat, "lon": lon, "name": spec["name"]},
-             "near": {"src": "near.jpg", "sea": "near-sea.png", "km": im["near"]["width_km"], "lat": lat, "lon": lon, "m_per_px": im["near"]["m_per_px"]},
-             **({"far": {"src": "far.jpg", "km": im["far"]["width_km"], "lat": lat, "lon": lon}} if "far" in im else {})}
+    film |= {"spot": {"lat": lat, "lon": lon, "name": spec["name"]}}
+    if im:
+        film |= {"near": {"src": "near.jpg", "sea": "near-sea.png", "km": im["near"]["width_km"], "lat": lat, "lon": lon, "m_per_px": im["near"]["m_per_px"]},
+                 "far": {"src": "far.jpg", "km": im["far"]["width_km"], "lat": lat, "lon": lon}}
     if spec["type"] == "card":
         film |= {"card": {"name": spec["name"], "place": spec["place"], **spec["card"]}, "week": week_card(spec, payload, start)}
     (film_dir / "spec.js").write_text("window.SPEC = " + json.dumps(film, indent=1, ensure_ascii=False) + ";\n")
@@ -243,7 +244,7 @@ def build(spec_path: Path, film_dir: Path, start: str | None = None, vo: Path | 
         src = HERE.parent.parent / "engines" / "remotion" / "public" / "fonts" / f
         if not (film_dir / f).exists():
             shutil.copy2(src, film_dir / f)
-    return {"duration": film["dur"], "generated_at": payload.get("generated_at"), "notice": im["near"]["notice"],
+    return {"duration": film["dur"], "generated_at": payload.get("generated_at"), "notice": im["near"]["notice"] if im else None,
             "text": re.sub(r"<[^>]+>", " ", json.dumps([[b.get("kicker"), b.get("title"), b.get("sub")] for b in beats], ensure_ascii=False))}
 
 
