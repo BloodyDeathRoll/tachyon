@@ -5,6 +5,7 @@ waiting for approval. One spec per publishing slot, in file-name order.
     python tools/spotfilm/produce.py voice <client> <week>        # the voice-overs, one after another (one GPU)
     python tools/spotfilm/produce.py film <client> <week> <n>     # build + render + QA spec number n (run several at once)
     python tools/spotfilm/produce.py refresh <client> <slot>      # a forecast film again, on today's forecast
+    python tools/spotfilm/produce.py finish <client> <slot>       # QA a slot whose video is rendered, no new render
 
 Run it from the checkout that holds the client's data (the main checkout), with --root if this
 file lives in another one. Uses the week's own machinery (spine.week, spine.revise).
@@ -82,10 +83,32 @@ def film(client: str, slot: str, finish: bool = True) -> None:
     if finish:
         db = DB.for_client(C.client_dir(client))
         try:
+            if db.post(slot)["state"] in ("BRIEFED", "NEEDS_INPUT"):   # the spec is the script; a failed QA renders again
+                db.set_state(slot, "SCRIPTED")
             W._finish(slot, sd, db, verdicts)
         finally:
             db.close()
     print(slot, out["duration"], verdicts)
+
+
+def finish(client: str, slot: str) -> None:
+    """QA and state for a slot whose video.mp4 is already rendered (spine.revise.render's checks, no render)."""
+    import subprocess
+    sd = C.client_dir(client) / "posts" / slot
+    verdicts = {}
+    for variant, f in (("reel", "video.mp4"), ("story", "video-story.mp4")):
+        r = subprocess.run([sys.executable, "tools/safezone.py", "check", str(sd / f), "--variant", variant, "--every", "1"],
+                           cwd=ROOT, capture_output=True, text=True)
+        verdicts[variant] = (r.stdout.strip().splitlines() or ["VERDICT: ?"])[-1]
+    verdicts |= R.spec_verdicts(sd)
+    db = DB.for_client(C.client_dir(client))
+    try:
+        if db.post(slot)["state"] in ("BRIEFED", "NEEDS_INPUT"):
+            db.set_state(slot, "SCRIPTED")
+        W._finish(slot, sd, db, verdicts)
+    finally:
+        db.close()
+    print(slot, verdicts)
 
 
 if __name__ == "__main__":
@@ -96,6 +119,8 @@ if __name__ == "__main__":
         voice(client, arg)
     elif cmd == "film":
         film(client, slot_of(arg, int(sys.argv[4])))
+    elif cmd == "finish":
+        finish(client, arg)
     elif cmd == "refresh":
         film(client, arg, finish=False)
     else:
