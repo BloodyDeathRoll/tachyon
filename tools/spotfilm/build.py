@@ -11,6 +11,9 @@ Two kinds of film, `type` in the spec:
             Build it again close to the publish day: the forecast moves.
   explain   the spot explained, beat by beat as written in the spec (`beats`, each with a `say`
             line). With --vo the beats are cut to the words of the recorded voice-over.
+  card      the spot as a collectible card (tools/spotfilm/card.html): face down, its stats over its
+            satellite picture, then this week's forecast on its back. Beats as in explain; a beat's
+            `show` is cover, front or week, its `focus` lights a stat (wave, level, months, tide).
 
 Satellite pictures are fetched once per spot (tools/spotfilm/sat.py, needs rasterio; SPOTFILM_SAT_PY
 names the Python that has it) and kept in the film folder.
@@ -121,6 +124,19 @@ def forecast_beats(spec: dict, payload: dict, start: str) -> list[dict]:
     return beats
 
 
+def week_card(spec: dict, payload: dict, start: str) -> dict:
+    """The back of a spot card: the 7 days from `start`, their heights, the best day."""
+    u = spec.get("units", "m")
+    days = week(payload, start)
+    best = max(days, key=lambda d: (d["rating_max"], d["h_max"][1]))
+    d0, d6 = date.fromisoformat(days[0]["date"]), date.fromisoformat(days[6]["date"])
+    dn = lambda d: DAYS[date.fromisoformat(d).weekday()]
+    return {"when": f"{d0.day} {d0:%b} to {d6.day} {d6:%b}", "unit": "feet" if u == "ft" else "metres",
+            "best": {"day": dn(best["date"]), "word": WORD[best["bucket"]], "bucket": best["bucket"]},
+            "days": [{"name": dn(d["date"])[:3], "h": height(d["h_max"][1], u), "rating": d["rating_max"], "bucket": d["bucket"],
+                      "best": d is best} for d in days]}
+
+
 def vo_words(wav: Path) -> list[tuple[str, float]]:
     """Every word of the recorded voice-over with the second it starts (tools/spotfilm/align.py)."""
     py = os.environ.get("SPOTFILM_WHISPER_PY") or str(Path.home() / ".cache" / "tachyon-tts" / "venv" / "bin" / "python")
@@ -151,7 +167,7 @@ def point(spec: dict, p) -> list[float]:
 def explain_beats(spec: dict, vo: Path | None, vo_start: float) -> list[dict]:
     beats = [json.loads(json.dumps(b)) for b in spec["beats"]]
     for b in beats:
-        if "at" in b["cam"]:
+        if "at" in (b.get("cam") or {}):
             b["cam"]["at"] = point(spec, b["cam"]["at"])
         if b.get("ride"):
             b["ride"] |= {"a": point(spec, b["ride"]["a"]), "b": point(spec, b["ride"]["b"])}
@@ -183,8 +199,8 @@ def timeline(beats: list[dict], end: dict) -> dict:
     for b in beats:
         b["t0"], b["t1"] = round(t, 3), round(t + b.pop("len"), 3)
         t = b["t1"]
-    last = beats[-1]["cam"]
-    beats.append({"t0": t, "t1": round(t + END_S, 3), "cam": {**last, "km": last["km"] * 1.5, "tilt": 34}})
+    last = beats[-1].get("cam")
+    beats.append({"t0": t, "t1": round(t + END_S, 3), **({"cam": {**last, "km": last["km"] * 1.5, "tilt": 34}} if last else {})})
     return {"dur": round(t + END_S, 2), "beats": beats, "end": {"t": round(t + 0.4, 3), **end}}
 
 
@@ -208,8 +224,9 @@ def build(spec_path: Path, film_dir: Path, start: str | None = None, vo: Path | 
     payload = fetch_forecast(spec["spot"])
     spec.setdefault("at", [payload["spot"]["lat"], payload["spot"]["lon"]])
     im = imagery(spec, film_dir)
+    start = start or (date.today() + timedelta(days=1)).isoformat()
     if spec["type"] == "forecast":
-        beats = forecast_beats(spec, payload, start or (date.today() + timedelta(days=1)).isoformat())
+        beats = forecast_beats(spec, payload, start)
     else:
         beats = explain_beats(spec, vo, vo_start)
     film = timeline(beats, {**END, **(spec.get("end") or {})})
@@ -217,9 +234,11 @@ def build(spec_path: Path, film_dir: Path, start: str | None = None, vo: Path | 
     film |= {"spot": {"lat": lat, "lon": lon, "name": spec["name"]},
              "near": {"src": "near.jpg", "sea": "near-sea.png", "km": im["near"]["width_km"], "lat": lat, "lon": lon, "m_per_px": im["near"]["m_per_px"]},
              "far": {"src": "far.jpg", "km": im["far"]["width_km"], "lat": lat, "lon": lon}}
+    if spec["type"] == "card":
+        film |= {"card": {"name": spec["name"], "place": spec["place"], **spec["card"]}, "week": week_card(spec, payload, start)}
     (film_dir / "spec.js").write_text("window.SPEC = " + json.dumps(film, indent=1, ensure_ascii=False) + ";\n")
     (film_dir / "film.json").write_text(json.dumps({"duration": film["dur"], "width": 1080, "height": 1920}) + "\n")
-    shutil.copy2(HERE / "film.html", film_dir / "index.html")
+    shutil.copy2(HERE / ("card.html" if spec["type"] == "card" else "film.html"), film_dir / "index.html")
     for f in ("inter-latin-wght-normal.woff2", "rosa-icon.svg"):
         src = HERE.parent.parent / "engines" / "remotion" / "public" / "fonts" / f
         if not (film_dir / f).exists():

@@ -25,6 +25,9 @@ import yaml  # noqa: E402
 
 import build as B  # noqa: E402
 from spine import clients as C  # noqa: E402
+from spine import jobs as J  # noqa: E402
+from spine import remote as RM  # noqa: E402
+from spine import worker as SW  # noqa: E402
 from spine import revise as R  # noqa: E402
 from spine import week as W  # noqa: E402
 from spine.db import DB  # noqa: E402
@@ -57,9 +60,21 @@ def slots(client: str, week: str) -> None:
             meta = json.loads(mp.read_text())
             meta |= {"engine": "html (tools/spotfilm)", "spotfilm": str(p.relative_to(HERE.parent.parent)), "scheduled_at": times[n - 1]}
             mp.write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n")
+            sync(client, slot)
             print(slot, times[n - 1], spec["type"], spec["name"])
     finally:
         db.close()
+
+
+def sync(client: str, slot: str) -> None:
+    """The slot as the app shows it: its text files, and its video and cover once rendered (spine.worker.upload)."""
+    cfg = RM.config()
+    if not cfg:
+        return   # no Worker: the local dashboard reads the folder
+    if (C.client_dir(client) / "posts" / slot / "video.mp4").exists():
+        SW.upload(client, slot, cfg)
+    else:
+        J.push_files(client, slot)
 
 
 def voice(client: str, week: str) -> None:
@@ -88,6 +103,7 @@ def film(client: str, slot: str, finish: bool = True) -> None:
             W._finish(slot, sd, db, verdicts)
         finally:
             db.close()
+    sync(client, slot)
     print(slot, out["duration"], verdicts)
 
 
@@ -108,6 +124,7 @@ def finish(client: str, slot: str) -> None:
         W._finish(slot, sd, db, verdicts)
     finally:
         db.close()
+    sync(client, slot)
     print(slot, verdicts)
 
 
