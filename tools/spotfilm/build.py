@@ -72,8 +72,9 @@ def fetch_forecast(spot_id: str) -> dict:
 def week(payload: dict, start: str) -> list[dict]:
     """The 7 forecast days from `start` (the spot's own calendar days)."""
     days = [d for d in payload["days"] if d["date"] >= start][:7]
-    if len(days) < 7:
-        raise ValueError(f"the forecast has {len(days)} days from {start}, a week needs 7")
+    if len(days) < 7:   # built before the forecast reaches the whole week: its last 7 days, until `produce.py refresh`
+        days = payload["days"][-7:]
+        print(f"forecast ends {days[-1]['date']}: draft on {days[0]['date']}, refresh on the publish day", file=sys.stderr)
     return days
 
 
