@@ -119,6 +119,21 @@ test("jobs: members enqueue, a host claims the oldest, a lease that ran out is c
   assert.deepEqual(row, { state: "failed", result: '"boom"' });
 });
 
+test("a PC registers its own render running and holds it; no PC is ever handed it", async () => {
+  assert.equal((await call("POST", "/api/jobs", { as: 1, body: { kind: "pc", client: "rosa", host: "pc-a" } })).status, 400);   // needs a slot
+  assert.equal((await call("POST", "/api/jobs", { as: 2, body: { kind: "pc", client: "rosa", slot_id: "w45-1", host: "pc-a" } })).status, 403);
+  const id = (await call("POST", "/api/jobs", { as: 1, body: { kind: "pc", client: "rosa", slot_id: "w45-1", host: "pc-a", payload: { notes: "rebuilt" } } })).data.id;
+  const row = await env.DB.prepare("SELECT state, holder, until FROM jobs WHERE id = ?").bind(id).first();
+  assert.equal(row.state, "running");
+  assert.equal(row.holder, "pc-a");
+  assert.equal((await call("GET", "/api/jobs/next?host=pc-a", { as: 1 })).status, 204);
+  await env.DB.prepare("UPDATE jobs SET until = ? WHERE id = ?").bind(NOW - 1, id).run();
+  assert.equal((await call("GET", "/api/jobs/next?host=pc-a", { as: 1 })).status, 204);   // even with its lease run out
+  await env.DB.prepare("UPDATE jobs SET until = ? WHERE id = ?").bind(NOW + 60_000, id).run();
+  assert.equal((await call("POST", `/api/jobs/${id}/done`, { as: 1, body: { host: "pc-a", result: {} } })).status, 200);
+  await env.DB.prepare("DELETE FROM jobs WHERE id = ?").bind(id).run();
+});
+
 test("media: a video uploads under a random key, a replacement deletes the old one, published is final", async () => {
   const bytes = new TextEncoder().encode("not really mp4");
   // Content-Length as a real upload sends it; dispatchFetch would otherwise chunk the body

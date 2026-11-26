@@ -144,10 +144,11 @@ async function routes(req: Request, env: Page["env"], _ctx: ExecutionContext, us
   if (kind === "track" && parts.length === 3 && req.method === "GET") return catching(path(client), () => pageFor().then((page) => trackFile(page, slot!, req)));
   const video = kind === "v" && slot !== undefined && ID.test(slot) && parts.length <= 4;
   if (!(parts.length === 1 || (kind === "week" && parts.length === 2) || video)) return null;
+  let page: Page | undefined;
   try {
     // `return await`: a promise returned from inside the try would skip the catch below
     await member(env, user, client);
-    const page = await pageOf(env, user, client, now, true);
+    page = await pageOf(env, user, client, now, true);
     if (parts.length === 1) return req.method === "GET" ? await renderOverview(page, url.searchParams) : null;
     if (kind === "week") return req.method === "POST" ? await prepareWeek(page, await formOf(req)) : null;
     if (req.method === "GET") {
@@ -160,6 +161,15 @@ async function routes(req: Request, env: Page["env"], _ctx: ExecutionContext, us
     if (req.method === "POST" && action) return await act(page, slot!, action, await formOf(req), fetcher);
     return null;
   } catch (e) {
+    // a refused action on a video says why on the video page itself (a member's page only), not on a page of its own
+    if (e instanceof HttpError && page && video && req.method === "POST" && e.status < 500) {
+      try {
+        const r = await renderVideo(page, slot!, new URLSearchParams({ err: e.detail ?? e.message }), fetcher);
+        return new Response(r.body, { status: e.status, headers: r.headers });
+      } catch {
+        // no video page to show it on (a slot that doesn't exist): the error page below
+      }
+    }
     if (e instanceof HttpError) return errorPage(e.status, e.detail ?? e.message, slot ? path(client, slot) : "/app");
     throw e;
   }

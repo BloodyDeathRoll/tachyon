@@ -1,0 +1,129 @@
+type: explain
+spot: imsouane
+name: Imsouane
+place: Morocco
+title: Imsouane, explained
+pillar: Spot spotlight
+hook: One wave, three hundred metres
+brief: Map film, spot explained. Satellite view of Morocco's coast from high up, then the camera dives to Imsouane. The right
+  is drawn from the tip of the point into the bay, the walk-in off the rocks is marked, then the season. A surfer's voice
+  tells it; the closing card has the glowing button.
+beats:
+- say: One wave here can run three hundred metres.
+  kicker: Imsouane, Morocco
+  title:
+  - 300 metres,
+  - <em>one wave</em>
+  cam:
+    km: 44
+    tilt: 18
+    rot: -8
+    orbit: 3
+- say: Imsouane Bay, Morocco. A right-hand point for total beginners and longboarders.
+  kicker: The Bay
+  title:
+  - A right point
+  - <em>for beginners</em>
+  cam:
+    km: 4.2
+    tilt: 52
+    rot: 24
+    at:
+      km:
+      - 0.2
+      - 0.2
+  pins:
+  - name: Imsouane
+    tag: Right point
+- say: It peels around the point, into the bay.
+  kicker: The ride
+  title:
+  - Around the point,
+  - <em>into the bay</em>
+  cam:
+    km: 3
+    tilt: 54
+    rot: 40
+    at:
+      km:
+      - 0.15
+      - 0.15
+  ride:
+    a:
+      km:
+      - 0.0
+      - 0.0
+    b:
+      km:
+      - 0.3
+      - 0.26
+    bend: 0.12
+    w: 0.6
+- say: No long paddle. You just hop off a few rocks by the village.
+  kicker: The way in
+  title:
+  - Hop off
+  - <em>the rocks</em>
+  cam:
+    km: 2.6
+    tilt: 54
+    rot: 10
+    at:
+      km:
+      - 0.1
+      - 0.2
+- say: Best months are November to March.
+  kicker: When it works
+  title:
+  - November
+  - <em>to March</em>
+  cam:
+    km: 6
+    tilt: 48
+    rot: -10
+    at:
+      km:
+      - 0.2
+      - 0.1
+  card:
+    chips:
+    - v: Right
+      k: point
+    - v: Beginner
+      k: level
+    - v: Nov-Mar
+      k: season
+- say: I check it on Rosa. It's free.
+  kicker: On Rosa
+  title:
+  - Imsouane,
+  - <em>16 days out</em>
+  cam:
+    km: 5
+    tilt: 48
+    rot: 30
+    at:
+      km:
+      - 0.2
+      - 0.2
+caption: 'One wave, 300 metres.
+
+
+  Imsouane Bay, Morocco: a right-hand point for total beginners and longboarders. No long paddle, you hop off a few rocks
+  by the village. Peak season November to March.
+
+
+  Over 5,000 spots, 16 days out, four updates a day. Free at rosa.surf, link in bio.
+
+  .
+
+  .
+
+  .
+
+  #imsouane #morocco #surfing
+
+  '
+sources:
+- https://thesurfatlas.com/surfing-morocco/imsouane-surf/
+- https://www.sun-trails.com/private-morocco-tours-blog/best-places-surf-morocco/

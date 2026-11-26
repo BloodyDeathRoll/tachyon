@@ -12,7 +12,7 @@ import { open } from "../crypto.ts";
 import { files, iso, journal, journalOutcome, OPS, post, posts, setState, type PostRow } from "../db.ts";
 import { Graph, GraphError, type Fetcher } from "../graph.ts";
 import { HttpError } from "../http.ts";
-import { insertJob, latestJobs, slotJobs, type JobRow } from "../jobs.ts";
+import { insertJob, latestJobs, slotJobs, working, type JobRow } from "../jobs.ts";
 import { FIELDS, HAND_FROM, linkByHand } from "../pickup.ts";
 import { dropVideo } from "../publish.ts";
 import { viewsBlock } from "./overview.ts";
@@ -47,11 +47,11 @@ async function load(p: Page, slot: string): Promise<Slot> {
 
 /** The newest of the jobs that make the video (app.py's revise.json). */
 function making(jobs: Record<string, JobRow>): JobRow | undefined {
-  return [jobs.produce, jobs.revise].filter((j): j is JobRow => Boolean(j)).sort((a, b) => b.id - a.id)[0];
+  return [jobs.produce, jobs.revise, jobs.pc].filter((j): j is JobRow => Boolean(j)).sort((a, b) => b.id - a.id)[0];
 }
 
 function open_(j: JobRow | undefined): boolean {
-  return j?.state === "running" || j?.state === "queued";
+  return working(j);
 }
 
 async function setFiles(s: Slot, given: Record<string, string>): Promise<void> {
@@ -181,7 +181,7 @@ function errorCard(s: Slot, st: JobRow): string {
   const asked = typeof payload.prompt === "string" ? payload.prompt : typeof payload.notes === "string" ? payload.notes : "";
   return `<section class='card errcard' id=error><h2>${isNew ? "Making it failed" : "Re-render failed"}</h2><p class=hint>Failed ${esc(ago(iso(st.updated_at), s.p.now))}. ${
     isNew && !s.row.r2_key && !s.host ? "Nothing was made yet.</p>" : "The video here is still the previous cut, so you can approve it or send new notes.</p>"}${
-    asked ? `<p class=hint><b>${isNew ? "Your prompt" : "Your notes"}:</b> ${esc(asked)}</p>` : ""}<pre class=errlog>${esc(jobResult(st) || "No error text.")}</pre><form method=post action='${path(s.p.client.id, s.slot)}/decide'><div class=btns><button class='btn pri' name=action value=retry>${icon("redo")}Re-run</button></div><p class=hint>${isNew ? "Tries again from where it stopped, with the same prompt." : "Runs the edit and the render again with the same notes."}</p></form></section>`;
+    asked ? `<p class=hint><b>${isNew ? "Your prompt" : "Your notes"}:</b> ${esc(asked)}</p>` : ""}<pre class=errlog>${esc(jobResult(st) || "No error text.")}</pre>${st.kind === "pc" ? "" : `<form method=post action='${path(s.p.client.id, s.slot)}/decide'><div class=btns><button class='btn pri' name=action value=retry>${icon("redo")}Re-run</button></div><p class=hint>${isNew ? "Tries again from where it stopped, with the same prompt." : "Runs the edit and the render again with the same notes."}</p></form>`}</section>`;
 }
 
 /** app.py's Review card: Approve | Edit (notes) | Generate New. */
@@ -358,7 +358,8 @@ export async function renderVideo(p: Page, slot: string, q: URLSearchParams = ne
   else if (LIVE.has(row.state) && row.ig_media_id) links.push(removeCard(s, title));
   right.push(`<div class=links>${links.join("")}</div>`);
 
-  const body = `<a class=back href='${path(p.client.id)}'>${icon("back", 16)}Overview</a><h1>${esc(title)} <span class=hno>${esc(slotNo(slot).filter(Boolean).join(" · "))}</span></h1><p class=sub>${whenLine}</p><div class=vpage><div class=player>${player(s, q.get("as") === "story")}</div><div class='stack c2'>${blocks.join("")}</div><div class='stack c3'>${right.join("")}</div></div>`;
+  const err = (q.get("err") ?? "").slice(0, 400);
+  const body = `<a class=back href='${path(p.client.id)}'>${icon("back", 16)}Overview</a>${err ? `<div class='banner stop' role=alert>Not done: ${esc(err)}</div>` : ""}<h1>${esc(title)} <span class=hno>${esc(slotNo(slot).filter(Boolean).join(" · "))}</span></h1><p class=sub>${whenLine}</p><div class=vpage><div class=player>${player(s, q.get("as") === "story")}</div><div class='stack c2'>${blocks.join("")}</div><div class='stack c3'>${right.join("")}</div></div>`;
   const writing = open_(jobs.caption) && !s.caption;
   const refresh = cls === "busy" || publishing(row, p.now) ? 15 : open_(jobs.formats) || writing ? 5 : null;
   return shell(p, "overview", body + (open_(jobs.track) ? `<script>${MIX_JS}</script>` : ""), title, refresh);
@@ -694,7 +695,7 @@ async function decide(s: Slot, form: FormData, back: string): Promise<Response> 
   switch (action) {
     case "retry": {
       const st = making(s.jobs);
-      if (st?.state === "failed") await enqueue(s, st.kind, parseJson(st.payload));
+      if (st?.state === "failed" && st.kind !== "pc") await enqueue(s, st.kind, parseJson(st.payload));   // a PC's own render is run again on that PC
       break;
     }
     case "generate": {

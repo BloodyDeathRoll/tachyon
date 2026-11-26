@@ -6,7 +6,7 @@
 // (ui.gen.ts and public/static, written by `python -m spine.review.export_ui`).
 
 import type { Ctx, PostRow } from "../db.ts";
-import type { JobRow } from "../jobs.ts";
+import { working, type JobRow } from "../jobs.ts";
 import type { UserRow } from "../members.ts";
 import { CSS as LOCAL_CSS, DTP_JS, ICONS as LOCAL_ICONS, LOCK_JS, PV_JS, SEG_JS } from "./ui.gen.ts";
 
@@ -59,8 +59,8 @@ export const ORDER: Record<string, number> = { need: 0, busy: 1, sched: 2, live:
 /** The tag for a row given the slot's newest job per kind (app.py read revise.json for this).
     A queued job counts as running: app.py wrote "running" the moment it forked. */
 export function tagFor(row: PostRow, jobs: Record<string, JobRow> | undefined): [string, string] | null {
-  const st = [jobs?.produce, jobs?.revise].filter((j): j is JobRow => Boolean(j)).sort((a, b) => b.id - a.id)[0];
-  if (st?.state === "running" || st?.state === "queued") return st.kind === "produce" ? ["In production", "busy"] : ["Re-rendering", "busy"];
+  const st = [jobs?.produce, jobs?.revise, jobs?.pc].filter((j): j is JobRow => Boolean(j)).sort((a, b) => b.id - a.id)[0];
+  if (st && working(st)) return st.kind === "produce" ? ["In production", "busy"] : ["Re-rendering", "busy"];
   if (["REJECTED", "BRIEFED", "SCRIPTED", "NEEDS_APPROVAL"].includes(row.state) && st?.state === "failed") return ["Needs approval", "need"];
   return TAG[row.state] ?? null;
 }
