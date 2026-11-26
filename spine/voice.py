@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -154,7 +155,16 @@ def synth(spec: str, text: str, out: Path, client: str = "rosa") -> None:
     """Raw speech for `text` in voice `spec` → out (wav, any rate)."""
     engine, name, speed = parse(spec)
     if engine in GEMINI:
-        _gemini(GEMINI[engine], name, text, out)
+        # the free tier is about 10 calls a day per model: out of quota, the same voice on the next model
+        models = [GEMINI[engine], *(m for k, m in GEMINI.items() if k != engine)]
+        for i, model in enumerate(models):
+            try:
+                _gemini(model, name, text, out)
+                break
+            except urllib.error.HTTPError as e:
+                if e.code != 429 or i == len(models) - 1:
+                    raise
+                print(f"{name}: {model} is out of quota, recording on {models[i + 1]}", file=sys.stderr)
     elif engine == "dia":
         _dia(client, name, text, out)
     elif engine == "kokoro":
