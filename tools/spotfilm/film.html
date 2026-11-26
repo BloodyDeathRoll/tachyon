@@ -325,6 +325,7 @@ function closing(t) {
 const ready = Promise.all([document.fonts.ready, ...[...document.images, seaImg].map((i) => i.decode().catch(() => {}))]);
 async function seek(t) {
   await ready;
+  if (t < .1) await new Promise((r) => setTimeout(r, 500));   // Chromium re-rasters the map on the first camera moves; a frame taken mid-raster flashed an ungraded square
   place(camera(t));
   let i = B.findIndex((b) => t < b.t1); if (i < 0) i = B.length - 1;
   const b = B[i], fade = Math.min(seg(t, b.t0 + .2, b.t0 + 1.1), 1 - seg(t, b.t1 - .35, b.t1 + .05));
