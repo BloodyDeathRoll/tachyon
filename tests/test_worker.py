@@ -121,6 +121,19 @@ def test_a_job_runs_only_its_kind_s_command_for_its_own_client(env, monkeypatch,
     assert ran == []
 
 
+def test_a_video_making_job_sends_its_new_cut_at_once(env, monkeypatch):
+    sd = env / "clients" / "rosa" / "posts" / "s"
+    sd.mkdir()
+    (sd / "video.mp4").write_bytes(b"vid")
+    sent = []
+    monkeypatch.setattr(W, "sync_videos", lambda clients, cfg, only=None: sent.append((tuple(clients), only)) or [])
+    ok = lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0)  # noqa: E731
+    for kind, argv in (("caption", ["spine.caption", "write", "rosa", "s"]), ("revise", ["spine.revise", "run", "rosa", "s"])):
+        fake(monkeypatch, (200, {"id": 1, "kind": kind, "client": "rosa", "slot_id": "s", "payload": {"argv": argv}}), (200, {"ok": True}))
+        assert W.once(CFG, runner=ok) is True
+    assert sent == [(("rosa",), "s")]   # the edit's cut, not the caption's
+
+
 def test_only_video_making_jobs_report_a_file(env, monkeypatch):
     sd = env / "clients" / "rosa" / "posts" / "s"
     sd.mkdir()

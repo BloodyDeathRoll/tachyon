@@ -1,0 +1,90 @@
+type: explain
+spot: el-sunzal
+name: El Sunzal
+place: La Libertad, El Salvador
+title: El Sunzal, explained
+pillar: Spot spotlight
+hook: An Olympic qualifier, and a mellow wave
+brief: Map film, spot explained. Satellite view of El Salvador's coast from high up, then the camera dives to El Sunzal. The
+  point is marked, its 2021 Olympic qualifier, who it suits and the season. A surfer's voice tells it; the closing card has
+  the glowing button.
+beats:
+- say: In 2021, this wave hosted a qualifier for the Olympics.
+  kicker: La Libertad, El Salvador
+  title:
+  - An Olympic
+  - <em>qualifier</em>
+  cam:
+    km: 44
+    tilt: 18
+    rot: -8
+    orbit: 3
+- say: El Sunzal. The longest right-hand point in the area.
+  kicker: The wave
+  title:
+  - The longest
+  - <em>right point</em>
+  cam:
+    km: 4
+    tilt: 52
+    rot: 18
+  pins:
+  - name: El Sunzal
+    tag: Right point
+- say: But it's mellow. Everyone can surf it, from beginner up.
+  kicker: Who it's for
+  title:
+  - Mellow,
+  - <em>beginner up</em>
+  cam:
+    km: 3
+    tilt: 54
+    rot: -12
+- say: November is the most consistent month.
+  kicker: When it works
+  title:
+  - November,
+  - <em>most consistent</em>
+  cam:
+    km: 6
+    tilt: 48
+    rot: 6
+  card:
+    chips:
+    - v: Right
+      k: point
+    - v: Beginner+
+      k: level
+    - v: Nov
+      k: best month
+- say: I check it on Rosa. It's free.
+  kicker: On Rosa
+  title:
+  - El Sunzal,
+  - <em>16 days out</em>
+  cam:
+    km: 4.5
+    tilt: 48
+    rot: 24
+caption: 'In 2021, this wave hosted a qualifier for the Olympics.
+
+
+  El Sunzal, El Salvador: the longest right-hand point in the area, and mellow enough for everyone from beginner up. November
+  is the most consistent month.
+
+
+  Over 5,000 spots, 16 days out, four updates a day. Free at rosa.surf, link in bio.
+
+  .
+
+  .
+
+  .
+
+  #elsalvador #surfcity #surfing
+
+  '
+sources:
+- https://thesurfatlas.com/el-salvador-surf/el-tunco-surf/
+- https://www.surf-forecast.com/breaks/El-Zunzal
+- https://en.wikipedia.org/wiki/2021_ISA_World_Surfing_Games

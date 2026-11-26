@@ -5,6 +5,7 @@
 // runs in Node against the same D1 (Node >= 22.18 imports the .ts source directly).
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { RESERVED } from "../src/admin.ts";
 import { bindUser, HttpError } from "../src/index.ts";
@@ -118,6 +119,21 @@ test("jobs: members enqueue, a host claims the oldest, a lease that ran out is c
   assert.deepEqual(row, { state: "failed", result: '"boom"' });
 });
 
+test("a PC registers its own render running and holds it; no PC is ever handed it", async () => {
+  assert.equal((await call("POST", "/api/jobs", { as: 1, body: { kind: "pc", client: "rosa", host: "pc-a" } })).status, 400);   // needs a slot
+  assert.equal((await call("POST", "/api/jobs", { as: 2, body: { kind: "pc", client: "rosa", slot_id: "w45-1", host: "pc-a" } })).status, 403);
+  const id = (await call("POST", "/api/jobs", { as: 1, body: { kind: "pc", client: "rosa", slot_id: "w45-1", host: "pc-a", payload: { notes: "rebuilt" } } })).data.id;
+  const row = await env.DB.prepare("SELECT state, holder, until FROM jobs WHERE id = ?").bind(id).first();
+  assert.equal(row.state, "running");
+  assert.equal(row.holder, "pc-a");
+  assert.equal((await call("GET", "/api/jobs/next?host=pc-a", { as: 1 })).status, 204);
+  await env.DB.prepare("UPDATE jobs SET until = ? WHERE id = ?").bind(NOW - 1, id).run();
+  assert.equal((await call("GET", "/api/jobs/next?host=pc-a", { as: 1 })).status, 204);   // even with its lease run out
+  await env.DB.prepare("UPDATE jobs SET until = ? WHERE id = ?").bind(NOW + 60_000, id).run();
+  assert.equal((await call("POST", `/api/jobs/${id}/done`, { as: 1, body: { host: "pc-a", result: {} } })).status, 200);
+  await env.DB.prepare("DELETE FROM jobs WHERE id = ?").bind(id).run();
+});
+
 test("media: a video uploads under a random key, a replacement deletes the old one, published is final", async () => {
   const bytes = new TextEncoder().encode("not really mp4");
   // Content-Length as a real upload sends it; dispatchFetch would otherwise chunk the body
@@ -194,6 +210,15 @@ test("the sign-in page carries the Google client id and needs no session", async
   assert.match(r.headers.get("Content-Type"), /text\/html/);
   assert.match(r.data, /client_id: "x"/);
   assert.match(r.data, /spine\.worker login/);
+});
+
+test("the sign-in page carries the brand panel, its canvas and the script that draws the line wave on it", async () => {
+  const r = await call("GET", "/login");
+  assert.match(r.data, /class="brand"/);
+  assert.match(r.data, /<canvas /);
+  assert.match(r.data, /<script src="\/static\/login-art\.js" defer><\/script>/);
+  assert.match(r.headers.get("Content-Security-Policy"), /script-src 'self' /); // or the browser refuses the script
+  assert.ok(existsSync(new URL("../public/static/login-art.js", import.meta.url)));
 });
 
 test("every first path segment index.ts routes is a reserved client id", async () => {

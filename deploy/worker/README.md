@@ -27,6 +27,21 @@ venvs, Remotion and the service (its header says what it needs first). Run it ag
    (`spine/worker.py` `ARGV`). The crontab's `spine.week auto` and publish lines stay
    until phase 4's cron takes them over.
 
+## A new client (setup, learning, approval)
+
+A client made on `/admin/clients` starts at `setup` and has one page, `/<client>/setup`
+(`src/pages/setup.ts`), until its industry file is approved:
+
+1. **Business**: the industry, a summary, links and files the Facebook Page does not cover.
+2. **Learning**: a `learn` job. Any PC of the user that runs `claude` claims it (no PC holds
+   the client's folder yet), studies the industry (`spine/learn.py`, the "Industry study" of
+   `skills/intake/SKILL.md`) and reports each finished stage with its heartbeat.
+3. **Approve**: `industry.md` and `industry-short.md` (client files) as a short and a long view.
+4. **Active**: the cron's `week auto` and every other page start only now.
+
+An existing D1 needs `migrations-0004-client-status.sql` once, then `npm run db:remote`, both
+before the deploy.
+
 ## Run without an account
 
 ```sh

@@ -20,10 +20,11 @@
 //                                                     the host's clients (5 min lease)
 //   GET  /api/jobs?client=<c>[&slot=<s>]           -> the client's last 50 jobs, newest first
 //   POST /api/jobs     {kind, client, slot_id, payload} -> {id}
-//   POST /api/jobs/<id>/heartbeat | done | fail  {host, result}   done with result.media
+//   POST /api/jobs/<id>/heartbeat | done | fail  {host, result}   a heartbeat's result is the job's progress; done with result.media
 //                                                     {path, sha, size} records the file on the host
 //   PUT  /api/media/<client>/<slot>/video | cover  body = the file, X-Sha256 -> {key}
 //   GET  /api/media/<client>/<slot>/video | cover  -> the file
+//   GET  /api/intake/<client>/<n>                  -> the n-th intake source, an uploaded file (a learn job reads it)
 //   POST /api/db/<client>/<op>  {...args}          -> the op's result (src/db.ts: spine/db.py's
 //                                                     methods, for a member of the client)
 //   /api/admin/users | memberships | clients       -> src/admin.ts, admins only
@@ -290,13 +291,15 @@ async function nextJob(url: URL, env: Env, ctx: ExecutionContext, user: UserRow,
   }
   const mine = await clientsOf(env, user); // re-read: a removed member's PC stops at once
   const clients = parseList(host.clients).filter((c) => mine.includes(c));
-  if (clients.length === 0) return new Response(null, { status: 204 });
-  const marks = clients.map(() => "?").join(",");
-  const open = `(state = 'queued' OR (state = 'running' AND until < ?))`;
+  // a learn job is for a client no PC holds yet: any of the user's PCs that runs claude takes it
+  const learn = parseList(host.caps).includes("claude") ? mine : [];
+  if (clients.length === 0 && learn.length === 0) return new Response(null, { status: 204 });
+  const marks = (list: string[]) => list.map(() => "?").join(",") || "NULL";
+  const open = `kind != 'pc' AND (state = 'queued' OR (state = 'running' AND until < ?))`;   // a pc job is its own PC's
   const job = await env.DB.prepare(
-    `SELECT * FROM jobs WHERE client IN (${marks}) AND ${open} ORDER BY created_at, id LIMIT 1`,
+    `SELECT * FROM jobs WHERE (client IN (${marks(clients)}) OR (kind = 'learn' AND client IN (${marks(learn)}))) AND ${open} ORDER BY created_at, id LIMIT 1`,
   )
-    .bind(...clients, now)
+    .bind(...clients, ...learn, now)
     .first<JobRow>();
   if (!job) return new Response(null, { status: 204 });
   const r = await env.DB.prepare(
@@ -314,8 +317,18 @@ async function enqueue(req: Request, env: Env, user: UserRow, now: number): Prom
   if (typeof kind !== "string" || !JOB_KINDS.has(kind)) throw new HttpError(400, "kind");
   const client = id(body.client, "client");
   await member(env, user, client);
+  // a client still being set up has no work but its study, and that starts on its setup page (src/pages/setup.ts)
+  const st = await env.DB.prepare("SELECT status FROM clients WHERE id = ?").bind(client).first<{ status: string }>();
+  if (st && st.status !== "active") throw new HttpError(409, "setup", "the client is not active yet");
   const slot = body.slot_id == null ? null : id(body.slot_id, "slot_id");
   const payload = body.payload == null ? null : JSON.stringify(body.payload);
+  if (kind === "pc") {   // a PC's own render: running from the start, held by that PC, never handed out
+    if (!slot) throw new HttpError(400, "slot_id");
+    const host = await hostOf(env, user, body.host);
+    const r = await env.DB.prepare("INSERT INTO jobs (kind, client, slot_id, payload, by, state, holder, until, created_at, updated_at) VALUES ('pc', ?, ?, ?, ?, 'running', ?, ?, ?, ?)")
+      .bind(client, slot, payload, user.id, host.id, now + JOB_LEASE_MS, now, now).run();
+    return json(200, { id: r.meta.last_row_id });
+  }
   // two hosts, or the cron and a button, asking for the same week while it is still open: one job
   return json(200, await insertJob(env.DB, kind, client, slot, payload, user.id, now));
 }
@@ -328,7 +341,7 @@ async function updateJob(req: Request, env: Env, user: UserRow, jobId: number, a
   const host = await hostOf(env, user, body.host);
   const result = body.result == null ? null : JSON.stringify(body.result);
   const sets: Record<string, [string, unknown[]]> = {
-    heartbeat: ["until = ?", [now + JOB_LEASE_MS]],
+    heartbeat: ["until = ?, result = COALESCE(?, result)", [now + JOB_LEASE_MS, result]], // a learn job reports its progress in `result`
     done: ["state = 'done', result = ?, until = NULL", [result]],
     fail: ["state = 'failed', result = ?, until = NULL", [result]],
   };
@@ -338,6 +351,8 @@ async function updateJob(req: Request, env: Env, user: UserRow, jobId: number, a
     .bind(...set[1], now, jobId, host.id)
     .run();
   if (r.meta.changes !== 1) throw new HttpError(409, "lease");
+  // the industry study is written: the client waits for its approval (src/pages/setup.ts)
+  if (action === "done") await env.DB.prepare("UPDATE clients SET status = 'review' WHERE status = 'learning' AND id = (SELECT client FROM jobs WHERE id = ? AND kind = 'learn')").bind(jobId).run();
   const media = action === "done" && typeof body.result === "object" && body.result !== null ? (body.result as Record<string, unknown>).media : null;
   if (media && typeof media === "object") {
     const m = media as Record<string, unknown>;
@@ -397,23 +412,26 @@ window.onload = () => {
     m.textContent = "Signed in as " + j.profile.email + ". Copy the token into: python -m spine.worker login " + location.origin;
     t.hidden = false; t.value = j.token;
   } });
-  google.accounts.id.renderButton(g, { theme: "filled_black", size: "large", shape: "rectangular", text: "signin_with", locale: "en", width: Math.min(400, g.parentElement.clientWidth) });
+  google.accounts.id.renderButton(g, { theme: "outline", size: "large", shape: "pill", text: "continue_with", locale: "en", width: 215 });
 };
 </script>`
     : "<p>Not configured yet: GOOGLE_CLIENT_ID is empty (wrangler.toml).</p>";
-  // the design (login.png): the logo on dark at the left, the sign-in on the light right; Google's
-  // own button (its rules allow no restyle); Google only, no passwords
+  // the design: the whole screen dark with the ring behind (login-art.js draws it); in the
+  // middle the logo, then Google's own button (its rules allow no restyle: its white
+  // pill is the nearest to the Figma screen "login"); Google only, no passwords
   const html = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tachyon sign-in</title><link rel="icon" href="/static/icon.svg">
 <style>@font-face{font-family:Inter;font-weight:100 900;font-display:swap;src:url(/static/inter.woff2) format("woff2")}
-html,body{margin:0;height:100%}body{display:grid;grid-template-columns:1fr 1fr;font:14px/1.5 Inter,system-ui,sans-serif;color:#111;background:#F8F8F8}
-.brand{background:#111;display:flex;align-items:flex-end;padding:0 4vw 6vh}.brand img{width:min(440px,60%);height:auto}
-.form{display:flex;align-items:center;justify-content:center;padding:32px 16px}.box{width:min(400px,100%);display:flex;flex-direction:column;align-items:flex-end;gap:16px}
-.box p{margin:0;align-self:stretch;color:#4A4A4A}#m:empty,#pc[hidden]{display:none}#m{color:#B42318}
-textarea{width:100%;height:8rem;font:13px monospace;border:1px solid #E8E8E8;border-radius:8px;padding:8px}
-@media (max-width:760px){body{grid-template-columns:1fr;grid-template-rows:auto 1fr}.brand{padding:24px 16px}.brand img{width:200px}.box{align-items:stretch}}</style>
-<div class="brand"><img src="/static/logo.svg" alt="Tachyon"></div>
+html,body{margin:0;height:100%}body{font:14px/1.5 Inter,system-ui,sans-serif;color:#111;background:#111}
+.brand{position:fixed;inset:0;overflow:hidden}.brand canvas{position:absolute;inset:0;width:100%;height:100%}
+.form{position:relative;box-sizing:border-box;min-height:100%;display:flex;align-items:center;justify-content:center;padding:32px 16px}.box{width:min(400px,100%);display:flex;flex-direction:column;align-items:center;gap:24px}
+.box img{width:min(180px,80%);height:auto}
+.box p{margin:0;align-self:stretch;text-align:center;color:#C8C8C8}#m:empty,#pc[hidden]{display:none}#m{color:#FF9B8F}
+textarea{box-sizing:border-box;width:100%;height:8rem;font:13px monospace;border:1px solid #E8E8E8;border-radius:8px;padding:8px}</style>
+<div class="brand"><canvas aria-hidden="true"></canvas></div>
+<script src="/static/login-art.js" defer></script>
 <main class="form"><div class="box">
+<img src="/static/logo.svg" alt="Tachyon">
 <p id="pc" hidden>Linking a PC: sign in, then copy the token below into the PC.</p>
 <script>if (new URLSearchParams(location.search).get("pc") === "1") document.getElementById("pc").hidden = false;</script>
 ${setup}
@@ -426,7 +444,7 @@ ${setup}
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store",
       "Content-Security-Policy":
-        "default-src 'self'; script-src 'unsafe-inline' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com/gsi/; connect-src 'self' https://accounts.google.com/gsi/; style-src 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data:",
+        "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com/gsi/; connect-src 'self' https://accounts.google.com/gsi/; style-src 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data:",
     },
   });
 }
@@ -516,6 +534,16 @@ export async function media(req: Request, env: { DB: D1Database; MEDIA: R2Bucket
   return json(200, { key });
 }
 
+// GET /api/intake/<client>/<n>: the n-th source of the client's intake, a file the operator
+// uploaded on the setup page (src/pages/setup.ts), for the PC that runs the learn job.
+async function intakeFile(req: Request, env: Env, user: UserRow, client: string, n: string): Promise<Response> {
+  await member(env, user, client);
+  const row = await env.DB.prepare("SELECT sources FROM client_intake WHERE client = ?").bind(client).first<{ sources: string }>();
+  const src = (JSON.parse(row?.sources ?? "[]") as { key?: string }[])[/^\d{1,3}$/.test(n) ? Number(n) : -1];
+  if (!src?.key) throw new HttpError(404, "file");
+  return serve(req, env.MEDIA, src.key, "application/octet-stream");
+}
+
 // ── a client's icon: the sidebar's avatar (app.py's assets/icon.png), sent up by a PC ─────────
 const AVATAR_MAX = 512 * 1024;
 
@@ -593,7 +621,7 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   }
 
   if (path === "/me" && req.method === "GET") return me(env, user);
-  if (path === "/app" && req.method === "GET") return homePage(env, user);
+  if (path === "/app" && req.method === "GET") return homePage(env, user, now);
   // the pages' player: the API's GET with the cookie allowed (the path is not under /api/)
   if (p[0] === "m" && p.length === 4 && req.method === "GET") return media(req, env, user, id(p[1], "client"), id(p[2], "slot"), p[3] ?? "");
   if (p[0] === "connect" && p.length === 2 && req.method === "GET") {
@@ -625,6 +653,7 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   if (p[0] === "api" && p[1] === "media" && p.length === 5) {
     return media(req, env, user, id(p[2], "client"), id(p[3], "slot"), p[4] ?? "");
   }
+  if (p[0] === "api" && p[1] === "intake" && p.length === 4 && req.method === "GET") return intakeFile(req, env, user, id(p[2], "client"), p[3] ?? "");
   if (p[0] === "api" && p[1] === "admin") {
     if (!user.admin) throw new HttpError(403, "admin");
     const r = await admin(req, env, p, () => readJson(req), user.id, now);

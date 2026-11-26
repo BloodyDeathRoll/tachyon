@@ -16,6 +16,8 @@
 //   POST /<client>/flag | schedule | sync
 //   GET  /<client>/insights             src/pages/insights.ts
 //   POST /<client>/audience/upload      the followers export      src/pages/audience.ts
+//   GET|POST /<client>/setup            a new client: the business, the learning, the approval   src/pages/setup.ts
+//                                       (a client that is not active yet has it in place of every other page)
 //   GET|POST /admin/members | clients   admins only               src/pages/admin.ts
 //   GET /account, POST /account/disconnect  the signed-in user     src/pages/account.ts
 
@@ -34,6 +36,8 @@ import { act, mixing, renderByhand, renderQa, renderVideo, trackFile } from "./v
 import { move, renderCalendar } from "./calendar.ts";
 import { newPrompt, upload as newUpload } from "./newvideo.ts";
 import { flag, renderSettings, schedule, sync } from "./settings.ts";
+import { renderSetup, setupPost } from "./setup.ts";
+import { redirect } from "./shell.ts";
 
 const ID = /^[\w-]{1,64}$/;
 
@@ -42,23 +46,46 @@ function formOf(req: Request): Promise<FormData> {
   return req.formData().catch(() => new FormData());
 }
 
-async function pageOf(env: Page["env"], user: UserRow, client: string, now: number): Promise<Page> {
+/** A client still being set up, asked for a page it does not have yet. */
+class NotActive extends Error {
+  page: Page; // no parameter property: the tests import this file with Node's type stripping
+  constructor(page: Page) {
+    super("not active");
+    this.page = page;
+  }
+}
+
+/** `gate`: a client that is not active has only its setup page (src/pages/setup.ts). */
+async function pageOf(env: Page["env"], user: UserRow, client: string, now: number, gate = false): Promise<Page> {
   const c: Ctx = { env, client, by: user.id, now };
   const info = (await clientRow(c)) as unknown as ClientInfo;
   const mine = await clientsOf(env, user);
   const nav = (await env.DB.prepare(`SELECT id, name FROM clients WHERE id IN (${mine.map(() => "?").join(", ")}) ORDER BY name`).bind(...mine).all<{ id: string; name: string }>()).results;
-  return { env, c, user, client: info, nav, now };
+  const page = { env, c, user, client: info, nav, now };
+  if (gate && info.status !== "active") throw new NotActive(page);
+  return page;
 }
 
 /** The page for this request, or null when the path is not a page. */
-export async function pages(req: Request, env: Page["env"], _ctx: ExecutionContext, user: UserRow, url: URL, now: number, fetcher: Fetcher = fetch): Promise<Response | null> {
+export async function pages(req: Request, env: Page["env"], ctx: ExecutionContext, user: UserRow, url: URL, now: number, fetcher: Fetcher = fetch): Promise<Response | null> {
+  try {
+    return await routes(req, env, ctx, user, url, now, fetcher);
+  } catch (e) {
+    if (!(e instanceof NotActive)) throw e;
+    // the client's own address shows the setup; every other page of it leads there
+    const home = url.pathname.replace(/\/+$/, "") === path(e.page.client.id);
+    return home && req.method === "GET" ? renderSetup(e.page, url.searchParams) : redirect(path(e.page.client.id));
+  }
+}
+
+async function routes(req: Request, env: Page["env"], _ctx: ExecutionContext, user: UserRow, url: URL, now: number, fetcher: Fetcher): Promise<Response | null> {
   const parts = url.pathname.replace(/\/+$/, "").split("/").slice(1);
   const [client, kind, slot, action] = parts;
   if (!client || !ID.test(client)) return null;
   // slice c: the membership gate and the page context, the error page, then the routes
   const pageFor = async (): Promise<Page> => {
     await member(env, user, client);
-    return pageOf(env, user, client, now);
+    return pageOf(env, user, client, now, true);
   };
   const catching = async (back: string, run: () => Promise<Response>): Promise<Response> => {
     try {
@@ -82,6 +109,13 @@ export async function pages(req: Request, env: Page["env"], _ctx: ExecutionConte
       return renderAdmin(first ? await pageOf(env, user, first, now) : noClient(env, user, now), kind, req);
     });
   }
+  if (parts.length === 2 && kind === "setup" && (req.method === "GET" || req.method === "POST")) {
+    return catching(`${path(client)}/setup`, async () => {
+      await member(env, user, client);
+      const page = await pageOf(env, user, client, now);
+      return req.method === "GET" ? renderSetup(page, url.searchParams) : setupPost(page, req);
+    });
+  }
   if (parts.length === 2 && kind === "insights" && req.method === "GET") return catching(path(client), () => pageFor().then(renderInsights));
   if (parts.length === 3 && kind === "audience" && slot === "upload" && req.method === "POST") return catching(path(client), () => pageFor().then((page) => audienceUpload(page, req)));
   // slice b: the calendar, a new video and settings (calendar.ts, newvideo.ts, settings.ts); a refusal goes back to its page
@@ -92,7 +126,7 @@ export async function pages(req: Request, env: Page["env"], _ctx: ExecutionConte
     const back = `${path(client)}${b === "sync" ? "" : b === "settings" || b === "schedule" || b === "flag" ? "/settings" : "/calendar"}`;
     try {
       await member(env, user, client);
-      const page = await pageOf(env, user, client, now);
+      const page = await pageOf(env, user, client, now, true);
       if (b === "calendar") return await renderCalendar(page, req, url);
       if (b === "settings") return renderSettings(page);
       if (b === "upload") return await newUpload(page, req, url.searchParams);
@@ -110,10 +144,11 @@ export async function pages(req: Request, env: Page["env"], _ctx: ExecutionConte
   if (kind === "track" && parts.length === 3 && req.method === "GET") return catching(path(client), () => pageFor().then((page) => trackFile(page, slot!, req)));
   const video = kind === "v" && slot !== undefined && ID.test(slot) && parts.length <= 4;
   if (!(parts.length === 1 || (kind === "week" && parts.length === 2) || video)) return null;
+  let page: Page | undefined;
   try {
     // `return await`: a promise returned from inside the try would skip the catch below
     await member(env, user, client);
-    const page = await pageOf(env, user, client, now);
+    page = await pageOf(env, user, client, now, true);
     if (parts.length === 1) return req.method === "GET" ? await renderOverview(page, url.searchParams) : null;
     if (kind === "week") return req.method === "POST" ? await prepareWeek(page, await formOf(req)) : null;
     if (req.method === "GET") {
@@ -126,6 +161,15 @@ export async function pages(req: Request, env: Page["env"], _ctx: ExecutionConte
     if (req.method === "POST" && action) return await act(page, slot!, action, await formOf(req), fetcher);
     return null;
   } catch (e) {
+    // a refused action on a video says why on the video page itself (a member's page only), not on a page of its own
+    if (e instanceof HttpError && page && video && req.method === "POST" && e.status < 500) {
+      try {
+        const r = await renderVideo(page, slot!, new URLSearchParams({ err: e.detail ?? e.message }), fetcher);
+        return new Response(r.body, { status: e.status, headers: r.headers });
+      } catch {
+        // no video page to show it on (a slot that doesn't exist): the error page below
+      }
+    }
     if (e instanceof HttpError) return errorPage(e.status, e.detail ?? e.message, slot ? path(client, slot) : "/app");
     throw e;
   }

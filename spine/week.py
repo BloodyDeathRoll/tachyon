@@ -182,7 +182,7 @@ def plan_prompt(client: str, week: str, times: list[str], out: Path) -> str:
 
 Read first: {c}/strategy.md, {c}/brand.md, {c}/product.md, {c}/audience.md, {c}/funnel.md,
 {c}/swipe.md, {c}/CHANGELOG.md, {MOTION.relative_to(ROOT)} (motion styles), every {c}/posts/*/meta.json and caption.txt (what already ran),
-and {c}/reports/ and {c}/lessons.yaml if they exist (what worked).
+and {c}/industry.md, {c}/reports/ and {c}/lessons.yaml if they exist (the industry's practices; what worked).
 
 Week {week} has {len(times)} publishing slots (UTC):
 {chr(10).join('- ' + t for t in times)}

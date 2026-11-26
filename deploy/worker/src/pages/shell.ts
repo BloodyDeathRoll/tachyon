@@ -6,7 +6,7 @@
 // (ui.gen.ts and public/static, written by `python -m spine.review.export_ui`).
 
 import type { Ctx, PostRow } from "../db.ts";
-import type { JobRow } from "../jobs.ts";
+import { working, type JobRow } from "../jobs.ts";
 import type { UserRow } from "../members.ts";
 import { CSS as LOCAL_CSS, DTP_JS, ICONS as LOCAL_ICONS, LOCK_JS, PV_JS, SEG_JS } from "./ui.gen.ts";
 
@@ -23,6 +23,7 @@ export interface ClientInfo {
   grants: Json;
   emergency_stop: number;
   publisher: string;
+  status: string; // setup | learning | review | active (src/pages/setup.ts)
 }
 
 /** What every page handler gets: the client, its grants, the DB context for the user. */
@@ -58,8 +59,8 @@ export const ORDER: Record<string, number> = { need: 0, busy: 1, sched: 2, live:
 /** The tag for a row given the slot's newest job per kind (app.py read revise.json for this).
     A queued job counts as running: app.py wrote "running" the moment it forked. */
 export function tagFor(row: PostRow, jobs: Record<string, JobRow> | undefined): [string, string] | null {
-  const st = [jobs?.produce, jobs?.revise].filter((j): j is JobRow => Boolean(j)).sort((a, b) => b.id - a.id)[0];
-  if (st?.state === "running" || st?.state === "queued") return st.kind === "produce" ? ["In production", "busy"] : ["Re-rendering", "busy"];
+  const st = [jobs?.produce, jobs?.revise, jobs?.pc].filter((j): j is JobRow => Boolean(j)).sort((a, b) => b.id - a.id)[0];
+  if (st && working(st)) return st.kind === "produce" ? ["In production", "busy"] : ["Re-rendering", "busy"];
   if (["REJECTED", "BRIEFED", "SCRIPTED", "NEEDS_APPROVAL"].includes(row.state) && st?.state === "failed") return ["Needs approval", "need"];
   return TAG[row.state] ?? null;
 }
@@ -179,7 +180,7 @@ export const CSS = LOCAL_CSS + `
 /* Members and Clients (the Figma screens "members screen" and "clients screen") */
 .adm .card{padding:30px;border-radius:18px;border-color:#E5E7EB}@media (max-width:900px){.adm .card{padding:20px 16px}}.adm .card>h2+*{margin-top:16px}.adm .card>.hint{margin:16px 0 0}
 .adm .tw{overflow-x:auto}.adm table.full{width:100%;border-collapse:collapse;font-size:14px}.adm table.full th,.adm table.full td{text-align:left;padding:14px 12px 14px 0;vertical-align:middle;border-bottom:1px solid #DEDEDE;white-space:nowrap}.adm table.full th{padding-top:8px;padding-bottom:8px;color:var(--ink3);font-weight:500;font-size:12.5px}.adm table.full :is(th,td):last-child{padding-right:0}.adm table.full .act{text-align:right}.adm table.full .muted{color:var(--ink3)}
-.adm table.cli td{padding-top:16px;padding-bottom:16px}.adm table.cli td:first-child{font-weight:500}.adm table.cli th:nth-child(1){width:420px}.adm table.cli th:nth-child(2){width:300px}.adm table.cli th:nth-child(3){width:420px}.adm table.cli th:nth-child(5){width:240px}
+.adm table.cli td{padding-top:16px;padding-bottom:16px}.adm table.cli td:first-child{font-weight:500}.adm table.cli th:nth-child(1){width:420px}.adm table.cli th:nth-child(2){width:300px}.adm table.cli th:nth-child(3){width:420px}.adm table.cli th:nth-child(5){width:300px}.adm table.cli th:nth-child(6){width:240px}.adm table.cli a.tag:hover{filter:brightness(.96)}
 .adm table.mem th:nth-child(1){width:520px}.adm table.mem th:nth-child(2),.adm table.mem th:nth-child(3){width:260px}.adm table.mem th:nth-child(5){width:140px}
 .adm .em{display:inline-block;padding:12px 16px;font-size:18px;line-height:22px;vertical-align:middle}.adm .em+.tag{margin-left:8px;vertical-align:middle}
 .adm input[type=text],.adm input[type=email]{height:48px;padding:12px 16px;border:1px solid rgba(0,0,0,.1);border-radius:12px;box-shadow:0 0 2px rgba(0,0,0,.25);background:#fff;color:var(--ink);font:inherit;font-size:18px;line-height:22px;max-width:100%}.adm input::placeholder{color:rgba(17,17,17,.7)}.adm input.w567{width:567px}.adm input.w280{width:280px}.adm input[type=text]:focus,.adm input[type=email]:focus{outline:none;border-color:var(--ink)}
@@ -188,6 +189,32 @@ export const CSS = LOCAL_CSS + `
 .adm .clis{display:inline-flex;align-items:center;gap:8px;vertical-align:middle}.adm td form{margin:0;display:inline-flex}
 .adm .chip,.adm .rm{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px 0 14px;border:1px solid rgba(0,0,0,.1);border-radius:10px;background:#fff;box-shadow:0 0 2px rgba(0,0,0,.25);color:#111;font:inherit;font-size:14px}.adm .chip i{width:6px;height:6px;border-radius:50%;background:var(--blue)}.adm .chip button{all:unset;display:grid;place-items:center;cursor:pointer;border-radius:4px}.adm .chip button:focus-visible{outline:2px solid var(--lime)}.adm .rm{cursor:pointer}.adm .rm.red{color:#C62828;border-color:rgba(34,34,34,.1)}.adm .rm:hover,.adm .chip:hover{border-color:rgba(0,0,0,.25)}
 .adm select.dd{appearance:none;-webkit-appearance:none;width:54px;height:36px;padding:0 12px 0 14px;border:0;border-radius:10px;background:#222;color:#fff;font:inherit;font-size:14px;cursor:pointer}.adm select.dd:hover{background:#2A2A2A}.adm select.dd:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+/* a new client's setup (the Figma screens "new client · 1-4"; src/pages/setup.ts) */
+.banner.ok{background:var(--lime-bg);color:var(--lime-ink);margin-bottom:20px}.banner.ok span{flex:1;font-weight:400}.banner.ok b{display:block;font-weight:600}
+.setup h1+.sub{margin-bottom:20px}.setup .card+.card,.setup .card+.btns,.setup .card+form{margin-top:20px}.setup .card>h2+*{margin-top:16px}
+.steps{display:flex;flex-wrap:wrap;align-items:center;gap:12px;list-style:none;margin:0 0 20px;padding:0;font-size:14px;font-weight:500;color:#9CA3AF}.steps li{display:flex;align-items:center;gap:8px}.steps li+li:before{content:"";width:48px;height:1px;background:#DEDEDE;margin-right:4px}
+.steps i{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:13px;border:1px solid #DEDEDE;background:#fff}.steps .done{color:var(--ink)}.steps .done i{background:var(--ink);border-color:var(--ink);color:#fff}.steps .now{color:var(--ink);font-weight:600}.steps .now i{background:var(--lime);border-color:var(--lime);color:var(--ink);font-weight:700}
+.setup .cols{display:grid;grid-template-columns:minmax(0,1fr) 560px;gap:20px;align-items:start;margin:0}@media (max-width:1300px){.setup .cols{grid-template-columns:1fr}}
+.setup .fl,.setup .q,.setup .drop{display:flex}.setup .fl{flex-direction:column;gap:6px;margin-top:16px;font-size:12.5px;font-weight:500}.setup input.w520{width:520px}.setup textarea{font-size:14.5px;line-height:22px;min-height:88px;border-color:#E8E8E8;border-radius:10px;padding:12px 14px}
+.setup .addsrc{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:16px}.setup .addsrc input{flex:1 1 220px;min-width:0}.setup select.dd{width:auto;height:48px;padding:0 16px}.setup .addsrc .btn{height:48px}
+.setup table.src{table-layout:fixed}.setup table.src td:first-child{font-weight:500}.setup table.src th:first-child{width:140px}.setup table.src th:nth-child(4){width:120px}.setup table.src td:nth-child(2){white-space:normal;word-break:break-all}.setup table.src td:nth-child(3){white-space:normal}
+.setup .drop{position:relative;flex-direction:row;justify-content:center;align-items:center;gap:6px;margin-top:16px;padding:22px;border:1.5px dashed #D4D4D4;border-radius:10px;font-size:12.5px;color:var(--ink3);cursor:pointer}.setup .drop:hover{border-color:var(--ink3)}.setup .drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.setup .btns{align-items:center}.setup .btns .hint{margin:0}
+.setup .conn,.setup .next,.setup .stages{list-style:none;margin:16px 0 0;padding:0}.setup .conn li,.setup .next li{display:flex;gap:10px;align-items:center;margin-top:12px;font-size:14px;line-height:22px}.setup .next li{align-items:flex-start}
+.setup .conn b,.setup .conn small{display:block}.setup .conn small{color:var(--ink3);font-size:13px}.setup .cd,.setup .next i,.setup .stages>li>i{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:1px solid #DEDEDE;background:#fff;font-style:normal;font-size:12px;color:#9CA3AF}.setup .cd.ok{background:var(--ink);border-color:var(--ink);color:#fff}
+.lbar{height:6px;background:var(--grey-bg);border-radius:6px;overflow:hidden}.lbar i{display:block;height:100%;background:var(--lime);border-radius:6px;transition:width .2s}
+.setup .nowl{display:flex;align-items:center;gap:10px;margin:16px 0 0;font-size:14px}.setup .stages{margin-top:8px}
+.setup .stages>li{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid #DEDEDE;color:#9CA3AF}.setup .stages>li>i{width:24px;height:24px}.setup .stages span{flex:1;min-width:0}.setup .stages span b{display:block;font-weight:500;font-size:14px}.setup .stages small{font-size:13px}.setup .stages em{font-style:normal;font-size:13px;white-space:nowrap}
+.setup .stages .done,.setup .stages .now{color:var(--ink3)}.setup .stages .done span b,.setup .stages .now span b{color:var(--ink)}.setup .stages .now span b{font-weight:600}.setup .stages .now em{color:var(--ink);font-weight:500}.setup .stages .done>i{background:var(--ink);border-color:var(--ink);color:#fff}.setup .stages .now>i{background:var(--lime);border-color:var(--lime);color:var(--ink)}
+.setup .stages em.upok{margin:0;font-size:14px}.setup .stages .spin{width:12px;height:12px}
+.setup .log{margin-top:16px;background:var(--ground);border-radius:12px;padding:14px 16px;font-size:12.5px;line-height:19px;color:var(--ink2);max-height:420px;overflow:auto}.setup .log p{margin:0 0 6px;display:flex;gap:12px}.setup .log p:first-child{color:var(--ink);font-weight:500}.setup .log time{color:#9CA3AF;font-weight:400;flex:none}
+.setup .fhead{display:flex;flex-wrap:wrap;align-items:center;gap:20px}.setup .fhead>div:first-child{flex:1;min-width:240px}.setup .fhead .hint{margin:6px 0 0}.setup .fhead .btns{margin:0}.setup .fhead .btn{height:40px;padding:0 16px;border-radius:10px;font-size:14.5px}
+.setup .oneline{margin-top:24px;background:var(--ink);color:#fff;border-radius:12px;padding:20px 24px}.setup .oneline small{color:#A3A3A3;font-size:12.5px;font-weight:500}.setup .oneline p{margin:6px 0 0;font-size:20px;line-height:28px;font-weight:600}
+.setup .sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px}@media (max-width:1100px){.setup .sum{grid-template-columns:1fr}}.setup .tile{background:var(--ground);border-radius:12px;padding:22px 24px}.setup .tile b{font-size:15px;font-weight:600}.setup .tile .row a{font-size:13px;font-weight:500;color:var(--ink3)}
+.setup .tile ul,.setup .doc ul{list-style:none;margin:0;padding:0}.setup .tile li,.setup .doc li{position:relative;padding-left:15px;margin-top:12px;font-size:14.5px;line-height:22px}.setup .tile li:before,.setup .doc li:before{content:"";position:absolute;left:0;top:9px;width:5px;height:5px;border-radius:50%;background:var(--lime)}
+.setup .q{flex-direction:row;align-items:center;gap:20px;margin-top:16px;font-size:14.5px;font-weight:500;color:var(--ink)}.setup .q span{flex:1}.setup .q input{width:min(640px,50%)}@media (max-width:900px){.setup .q{flex-direction:column;align-items:stretch}.setup .q input{width:100%}}
+.setup .doc{display:grid;grid-template-columns:300px minmax(0,1040px);gap:48px;margin-top:24px;align-items:start}@media (max-width:1100px){.setup .doc{grid-template-columns:1fr;gap:20px}}.setup .toc{display:flex;flex-direction:column;gap:4px;position:sticky;top:20px}.setup .toc small{font-size:12.5px;font-weight:500;color:var(--ink3)}.setup .toc a{padding:9px 12px;border-radius:8px;font-size:14px;color:var(--ink2)}.setup .toc a:hover{background:#F3F3F3;color:var(--ink)}
+.setup .doc h3{font-size:20px;line-height:26px;margin:32px 0 12px;scroll-margin-top:20px}.setup .doc h3:first-child{margin-top:0}.setup .doc p{margin:0 0 12px;font-size:15px;line-height:25px}.setup .doc p.src{margin:0 0 4px;font-size:13px;line-height:19px;color:var(--ink3);word-break:break-all}.setup .doc ul{margin-bottom:12px}.setup .doc li{font-size:15px;line-height:25px}.setup .doc li:before{top:10px}
 .accts{list-style:none;margin:14px 0 0;padding:0}.accts li{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--rule)}.accts li:first-child{border-top:0}
 .accts li>span{flex:1;min-width:0}.accts b,.accts small{display:block}.accts small{color:var(--ink3);font-size:13px}.accts .btns{margin:0}.acctpage form{margin:0}.acctpage .card>.btns{margin-top:14px}
 aside a.me{margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px 12px;background:#222;border-radius:10px;color:#fff;font-weight:600;font-size:14px;min-width:0}aside a.me:hover,aside a.me.on{background:#2A2A2A}aside a.me span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}aside a.me .av{width:28px;height:28px;border-radius:50%;font-size:13px}
@@ -223,7 +250,8 @@ export function shell(p: Page, active: string, body: string, title: string, refr
   const d = display(p.client);
   const base = path(p.client.id);
   const others = p.nav.map((c) => `<li><a href='${path(c.id)}'>${avatar(c.id)}${esc(c.name)}</a></li>`).join("");
-  const nav = NAV.map(([key, href, ic, label]) => `<a href='${base}${href}' class='${key === active ? "on" : ""}'>${icon(ic)}${label}</a>`).join("");
+  // no client (the stand-in of admin.ts noClient): the menu stays, and every item leads to /app's empty state
+  const nav = NAV.map(([key, href, ic, label]) => `<a href='${p.client.id ? base + href : "/app"}' class='${key === active ? "on" : ""}'>${icon(ic)}${label}</a>`).join("");
   // the signed-in user at the bottom (the Figma): their Google picture, else their first letter
   const me = p.user.picture ? `<img class=av src='${esc(p.user.picture)}' alt='' referrerpolicy=no-referrer>` : `<span class=av>${esc((p.user.name?.trim() || p.user.email).slice(0, 1).toUpperCase())}</span>`;
   const html = `<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>
@@ -249,19 +277,16 @@ export function page(html: string, status: number): Response {
   });
 }
 
-/** The title line and the banners: emergency stop, an Instagram connection missing or about to lapse. */
-export function header(p: Page, title: string): string {
-  const d = display(p.client);
-  const bits = [`<b>${esc(d.name)}</b>`];
-  if (d.handle) bits.push(`@${esc(d.handle)}`);
-  if (typeof p.client.grants.tagline === "string") bits.push(esc(p.client.grants.tagline));
-  let banners = d.stop ? "<div class='banner stop'>Emergency stop is on. Nothing publishes until it is turned off in Settings.</div>" : "";
+/** The banners at a page's top: emergency stop, an Instagram connection missing or about to lapse.
+    No title and no client line: the side menu marks both. */
+export function header(p: Page): string {
+  let banners = display(p.client).stop ? "<div class='banner stop'>Emergency stop is on. Nothing publishes until it is turned off in Settings.</div>" : "";
   const connect = `<a href='/connect/${encodeURIComponent(p.client.id)}'>Connect Instagram</a>`;
   if (!p.client.connected) banners += `<div class=banner>Not connected to Instagram: nothing publishes. ${connect}.</div>`;
   else if (p.client.token_expires && p.client.token_expires - p.now <= 14 * 24 * 3600_000) {
     banners += `<div class=banner>Meta data access ends ${when(new Date(p.client.token_expires).toISOString())}. ${connect} again before then.</div>`;
   }
-  return `${banners}<h1>${esc(title)}</h1><p class=sub>${bits.join(" · ")}</p>`;
+  return banners;
 }
 
 /** A small page for a refused action: the message and a way back (app.py sent text/plain). */

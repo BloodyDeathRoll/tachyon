@@ -52,6 +52,7 @@ test("the switches flip the grants; the emergency stop shows on every page; anyt
   assert.match(page.text, /Reply to comments/);
   assert.match(page.text, /name=flag value='auto_reply.comments'><input type=hidden name=value value='1'><button class='btn sec'>Off/);
   assert.match(page.text, /Stop everything/);
+  assert.match(page.text, /Business research.*href='\/rosa\/setup'>View</); // the way to the industry file
   let r = await call("POST", "/rosa/flag", { form: { flag: "auto_reply.comments", value: "1" } });
   assert.equal(r.status, 303);
   assert.equal(r.headers.get("Location"), "/rosa/settings");

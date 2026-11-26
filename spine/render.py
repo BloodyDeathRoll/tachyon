@@ -73,8 +73,7 @@ def render(film_dir: Path, out: Path, variant: str = "reel", fps: int = 60, prev
         for i in range(0, n, step):
             t = i / fps
             page.evaluate("async t => { await window.__film.seek(t); }", t)   # seek may return a promise (footage frames)
-            png = page.screenshot(type="png", animations="disabled", caret="hide")
-            ff.stdin.write(png)
+            ff.stdin.write(settled_shot(page))
             frames += 1
             if frames % (out_fps * 2) == 0:
                 print(f"  {t:5.2f}s / {dur:.1f}s  {time.time() - t0:5.1f}s", flush=True)
@@ -88,6 +87,20 @@ def render(film_dir: Path, out: Path, variant: str = "reel", fps: int = 60, prev
     secs = time.time() - t0
     print(f"rendered {frames} frames at {out_fps} fps → {out} in {secs:.0f}s")
     return {"frames": frames, "fps": out_fps, "seconds": round(secs, 1), "errors": errors, "variant": variant}
+
+
+def settled_shot(page, tries: int = 3) -> bytes:
+    """A PNG of the page once Chromium has finished drawing it.
+
+    A screenshot can land while Chromium is still re-rastering a layer at a new zoom (a spot film's
+    satellite map showed a square at the wrong scale for one frame). The PNG is kept only when a cheap
+    JPEG probe taken just before it matches one taken just after it."""
+    for _ in range(tries):
+        before = page.screenshot(type="jpeg", quality=20, animations="disabled", caret="hide")
+        png = page.screenshot(type="png", animations="disabled", caret="hide")
+        if page.screenshot(type="jpeg", quality=20, animations="disabled", caret="hide") == before:
+            return png
+    return png   # shortcut: a page that never holds still keeps its last shot after `tries`, raise tries if a film still shows a frame mid-draw
 
 
 def still(film_dir: Path, t: float, out: Path, variant: str = "reel", page_name: str = "index.html", size: str | None = None) -> list[str]:

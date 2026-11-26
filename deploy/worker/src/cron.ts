@@ -47,7 +47,7 @@ export async function sweep(env: { DB: D1Database; MEDIA: R2Bucket }, now: numbe
   );
   // shortcut: one list() page of 1,000 objects; past that, keep the cursor in the sweep lease row and go on next minute
   const page = await env.MEDIA.list({ limit: 1000 });
-  const gone = page.objects.filter((o) => !referenced.has(o.key) && !/^[^/]+\/(avatar\.png$|music\/)/.test(o.key) && o.uploaded.getTime() < now - GRACE_MS).map((o) => o.key);
+  const gone = page.objects.filter((o) => !referenced.has(o.key) && !/^[^/]+\/(avatar\.png$|music\/|intake\/)/.test(o.key) && o.uploaded.getTime() < now - GRACE_MS).map((o) => o.key);
   if (gone.length) await env.MEDIA.delete(gone);
   await env.DB.prepare("DELETE FROM pending_connects WHERE expires < ?").bind(now).run();
   return { deleted: gone, kept: page.objects.length - gone.length };
@@ -58,6 +58,7 @@ export async function sweep(env: { DB: D1Database; MEDIA: R2Bucket }, now: numbe
 export async function enqueueAuto(env: { DB: D1Database }, clients: ClientRow[], now: number): Promise<string[]> {
   const out: string[] = [];
   for (const client of clients) {
+    if ((client as { status?: string }).status !== "active") continue; // still being set up: nothing to plan from (src/pages/setup.ts)
     const recent = await env.DB.prepare("SELECT 1 FROM jobs WHERE kind = 'auto' AND client = ? AND created_at > ?").bind(client.id, now - 20 * 60 * 60 * 1000).first();
     if (recent) continue;
     await env.DB.prepare("INSERT INTO jobs (kind, client, slot_id, payload, by, created_at, updated_at) VALUES ('auto', ?, NULL, ?, NULL, ?, ?)")
