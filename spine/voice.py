@@ -137,11 +137,17 @@ def _gemini(model: str, name: str, text: str, out: Path) -> None:
                                  headers={"x-goog-api-key": key, "Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=180) as r:
         pcm = base64.b64decode(json.load(r)["candidates"][0]["content"]["parts"][0]["inlineData"]["data"])
-    raw = out.with_name(".gemini-raw.wav")
-    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "s16le", "-ar", "24000", "-ac", "1", "-i", "-", str(raw)],
-                   input=pcm, check=True)
-    subprocess.run([str(DIA_PY), str(ROOT / "tools" / "vo_clean.py"), str(raw), str(out)], check=True, capture_output=True)
-    raw.unlink()
+    raw = out.with_name(f".gemini-raw-{out.stem}.wav")
+    venv = ROOT / ".venv" / "bin" / "python"   # vo_clean needs numpy, which the repo venv has (not the Dia one)
+    try:
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "s16le", "-ar", "24000", "-ac", "1", "-i", "-", str(raw)],
+                       input=pcm, check=True)
+        r = subprocess.run([str(venv) if venv.exists() else sys.executable, str(ROOT / "tools" / "vo_clean.py"), str(raw), str(out)],
+                           capture_output=True, text=True)
+        if r.returncode:
+            raise RuntimeError(f"vo_clean failed: {r.stderr.strip()[-800:]}")
+    finally:
+        raw.unlink(missing_ok=True)
 
 
 def synth(spec: str, text: str, out: Path, client: str = "rosa") -> None:

@@ -108,7 +108,10 @@ def shown(client: str, slot: str, notes: str):
         yield
     except BaseException as e:
         stop.set()
-        RM.call("POST", f"/api/jobs/{jid}/fail", {"host": host, "result": str(e)[-1500:] or type(e).__name__}, cfg=cfg)
+        try:
+            RM.call("POST", f"/api/jobs/{jid}/fail", {"host": host, "result": str(e)[-1500:] or type(e).__name__}, cfg=cfg)
+        except Exception as f:   # the render's own error is the one to see
+            print(f"{slot}: not marked failed in the app ({f})", file=sys.stderr)
         raise
     stop.set()
     RM.call("POST", f"/api/jobs/{jid}/done", {"host": host, "result": {"media": SW.media_of(client, slot, cfg)}}, cfg=cfg)

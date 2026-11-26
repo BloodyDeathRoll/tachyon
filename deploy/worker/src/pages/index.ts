@@ -163,8 +163,12 @@ async function routes(req: Request, env: Page["env"], _ctx: ExecutionContext, us
   } catch (e) {
     // a refused action on a video says why on the video page itself (a member's page only), not on a page of its own
     if (e instanceof HttpError && page && video && req.method === "POST" && e.status < 500) {
-      const r = await renderVideo(page, slot!, new URLSearchParams({ err: e.detail ?? e.message }), fetcher);
-      return new Response(r.body, { status: e.status, headers: r.headers });
+      try {
+        const r = await renderVideo(page, slot!, new URLSearchParams({ err: e.detail ?? e.message }), fetcher);
+        return new Response(r.body, { status: e.status, headers: r.headers });
+      } catch {
+        // no video page to show it on (a slot that doesn't exist): the error page below
+      }
     }
     if (e instanceof HttpError) return errorPage(e.status, e.detail ?? e.message, slot ? path(client, slot) : "/app");
     throw e;

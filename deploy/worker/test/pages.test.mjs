@@ -218,6 +218,10 @@ test("reject needs a note and asks a PC for the re-render; revoke takes the appr
   assert.equal(refused.status, 409);
   assert.match(refused.text, /class='banner stop' role=alert>Not done: this video has no film a note can edit/); // on the video page itself
   assert.match(refused.text, /class=vpage/);
+  const gone = await call("POST", "/rosa/v/nope/decide", { form: { action: "reject", notes: "faster" } }); // no such video: the error page, not the API's JSON
+  assert.equal(gone.status, 404);
+  assert.doesNotMatch(gone.text, /^\s*\{/);
+  assert.match(gone.text, /<html|<!doctype/i);
   assert.equal((await post("r2")).state, "NEEDS_APPROVAL");
   assert.match((await call("GET", "/rosa/v/r1")).text, /waiting for a PC/);
   assert.match((await call("GET", "/rosa")).text, /Re-rendering/); // queued counts: app.py wrote "running" on fork
