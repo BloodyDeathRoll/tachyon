@@ -62,7 +62,10 @@ const addSnapshot = putSnapshot; // the one writer: it keeps view_gains in step
     today's daily row. `all` is the client's posts, read once by the caller. */
 export async function due(c: Ctx, now: number, all?: PostRow[]): Promise<Work[]> {
   const db = c.env.DB;
-  const live = (all ?? (await posts(c, null))).filter((p) => p.ig_media_id && p.published_at && p.state !== "REMOVED");
+  const live = (all ?? (await posts(c, null)))
+    .filter((p) => p.ig_media_id && p.published_at && p.state !== "REMOVED")
+    // newest day first (a day keeps its schedule order): an hour fits fewer readings than there are live videos, so the oldest wait, never the newest
+    .sort((a, b) => Math.floor(parse(b.published_at!) / 86400_000) - Math.floor(parse(a.published_at!) / 86400_000));
   const have = new Set(
     (await db.prepare("SELECT post_id || '|' || window AS k FROM metric_snapshots WHERE client = ? AND source = 'ig_media' AND window IN ('24h', '72h', '7d')").bind(c.client).all<{ k: string }>()).results.map((r) => r.k),
   );
