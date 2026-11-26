@@ -314,5 +314,21 @@
   "at": "2026-11-11T08:31:10+00:00",
   "viewport": "390x844@3x",
   "theme": "light"
+ },
+ {
+  "file": "spot-anchor-full.png",
+  "url": "https://rosa.surf/spot/anchor?theme=light",
+  "title": "Anchor Point surf forecast - Taghazout, Morocco | Rosa",
+  "at": "2026-11-26T16:31:29+00:00",
+  "viewport": "390x844@3x",
+  "theme": "light"
+ },
+ {
+  "file": "spot-anchor.png",
+  "url": "https://rosa.surf/spot/anchor?theme=light",
+  "title": "Anchor Point surf forecast - Taghazout, Morocco | Rosa",
+  "at": "2026-11-26T16:31:44+00:00",
+  "viewport": "390x844@3x",
+  "theme": "light"
  }
 ]

@@ -185,5 +185,31 @@
   "at": "2026-11-11T10:26:42+00:00",
   "viewport": "390x844@3x",
   "theme": "dark"
+ },
+ {
+  "file": "spot-crocro-full.png",
+  "url": "https://rosa.surf/spot/cro-cro?theme=dark",
+  "title": "Cro Cro surf forecast - Tamraght, Morocco | Rosa",
+  "at": "2026-11-26T10:54:58+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark"
+ },
+ {
+  "file": "spot-crocro-scroll.png",
+  "url": "https://rosa.surf/spot/cro-cro?theme=dark",
+  "title": "Cro Cro surf forecast - Tamraght, Morocco | Rosa",
+  "at": "2026-11-26T10:55:28+00:00",
+  "viewport": "390x844@3x",
+  "theme": "dark",
+  "note": "full page, fixed bottom nav hidden"
+ },
+ {
+  "file": "map-area-south-africa-east.png",
+  "url": "https://rosa.surf/map?theme=dark",
+  "title": "Surf map - every spot, rated right now | Rosa",
+  "at": "2026-11-26",
+  "viewport": "390x844@3x",
+  "theme": "dark",
+  "how": "Search 'South Africa' > 'South Africa East' (view on map), then a touch drag to frame J-Bay; phone location -34.03,24.93"
  }
 ]
