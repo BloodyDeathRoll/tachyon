@@ -269,3 +269,10 @@ test("the time of day and the week follow the client's zone (grants timezone), U
   const late = Date.UTC(2026, 10, 15, 22, 30); // Sunday 22:30 UTC is Monday 00:30 in Israel: the next week
   assert.equal(new Date(wall(late, "Asia/Jerusalem")).getUTCDay(), 1);
 });
+
+test("the newest video is measured first, whatever its place in the schedule", async () => {
+  await live("p1", "m-p1", iso(T0 - 20 * 24 * 3600_000)); // first in slot order, published long ago
+  await live("p2", "m-p2", iso(T0 - 2 * 3600_000)); // last in slot order, published 2 hours ago
+  const hours = (await due(ctx(), T0)).filter((w) => w.kind === "hourly" && ["p1", "p2"].includes(w.slot)).map((w) => w.slot);
+  assert.deepEqual(hours, ["p2", "p1"]);
+});
