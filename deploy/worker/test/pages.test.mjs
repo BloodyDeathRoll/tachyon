@@ -226,6 +226,26 @@ test("reject needs a note and asks a PC for the re-render; revoke takes the appr
   await call("POST", "/rosa/v/a1/decide", { form: { action: "approve" } });
 });
 
+test("a PC's own render shows as rendering with no buttons; when it fails there is nothing to re-run", async () => {
+  await waiting("pc1", { meta: { film: { engine: "html" } }, file: true });
+  const ins = (state, until) => env.DB.prepare("INSERT INTO jobs (kind, client, slot_id, payload, state, holder, until, created_at, updated_at) VALUES ('pc', 'rosa', 'pc1', ?, ?, 'pc-a', ?, 1, 1)")
+    .bind(JSON.stringify({ notes: "voice re-made, film rebuilt" }), state, until).run();
+  await ins("running", Date.now() + 60_000);
+  let page = (await call("GET", "/rosa/v/pc1")).text;
+  assert.match(page, /Rendering the new version/);
+  assert.match(page, /voice re-made, film rebuilt/);
+  assert.doesNotMatch(page, /value=approve/);
+  assert.equal((await call("POST", "/rosa/v/pc1/decide", { form: { action: "generate" } })).status, 409);
+  await env.DB.prepare("UPDATE jobs SET until = ? WHERE kind = 'pc'").bind(Date.now() - 1).run();   // its PC went quiet: not stuck busy
+  assert.match((await call("GET", "/rosa/v/pc1")).text, /value=approve/);
+  await env.DB.prepare("UPDATE jobs SET state = 'failed', result = '\"render crashed\"' WHERE kind = 'pc'").run();
+  page = (await call("GET", "/rosa/v/pc1")).text;
+  assert.match(page, /Re-render failed/);
+  assert.doesNotMatch(page, /value=retry/);
+  await call("POST", "/rosa/v/pc1/decide", { form: { action: "retry" } });
+  assert.equal((await env.DB.prepare("SELECT count(*) AS n FROM jobs WHERE slot_id = 'pc1'").first()).n, 1);   // nothing queued
+});
+
 test("the caption and first comment edit until PUBLISHING, then CAPTION_LOCKED", async () => {
   const r = await call("POST", "/rosa/v/a1/decide", { form: { action: "caption", caption: "new text\r\n\r\nline two " } });
   assert.equal(r.status, 303);

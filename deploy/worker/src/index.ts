@@ -295,7 +295,7 @@ async function nextJob(url: URL, env: Env, ctx: ExecutionContext, user: UserRow,
   const learn = parseList(host.caps).includes("claude") ? mine : [];
   if (clients.length === 0 && learn.length === 0) return new Response(null, { status: 204 });
   const marks = (list: string[]) => list.map(() => "?").join(",") || "NULL";
-  const open = `(state = 'queued' OR (state = 'running' AND until < ?))`;
+  const open = `kind != 'pc' AND (state = 'queued' OR (state = 'running' AND until < ?))`;   // a pc job is its own PC's
   const job = await env.DB.prepare(
     `SELECT * FROM jobs WHERE (client IN (${marks(clients)}) OR (kind = 'learn' AND client IN (${marks(learn)}))) AND ${open} ORDER BY created_at, id LIMIT 1`,
   )
@@ -322,6 +322,13 @@ async function enqueue(req: Request, env: Env, user: UserRow, now: number): Prom
   if (st && st.status !== "active") throw new HttpError(409, "setup", "the client is not active yet");
   const slot = body.slot_id == null ? null : id(body.slot_id, "slot_id");
   const payload = body.payload == null ? null : JSON.stringify(body.payload);
+  if (kind === "pc") {   // a PC's own render: running from the start, held by that PC, never handed out
+    if (!slot) throw new HttpError(400, "slot_id");
+    const host = await hostOf(env, user, body.host);
+    const r = await env.DB.prepare("INSERT INTO jobs (kind, client, slot_id, payload, by, state, holder, until, created_at, updated_at) VALUES ('pc', ?, ?, ?, ?, 'running', ?, ?, ?, ?)")
+      .bind(client, slot, payload, user.id, host.id, now + JOB_LEASE_MS, now, now).run();
+    return json(200, { id: r.meta.last_row_id });
+  }
   // two hosts, or the cron and a button, asking for the same week while it is still open: one job
   return json(200, await insertJob(env.DB, kind, client, slot, payload, user.id, now));
 }

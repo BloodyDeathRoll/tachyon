@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -85,7 +87,39 @@ def voice(client: str, week: str) -> None:
         print(slot_of(week, n), "vo" if (sd / "vo.wav").exists() else "-")
 
 
+@contextmanager
+def shown(client: str, slot: str, notes: str):
+    """The work runs as a "pc" job in the app: the video page shows it rendering, with no buttons,
+    until it is done or fails (a heartbeat keeps it alive; a PC that dies stops counting as busy)."""
+    cfg = RM.config()
+    if not cfg:
+        yield
+        return
+    host = SW.host_id(cfg)
+    try:
+        jid = RM.call("POST", "/api/jobs", {"kind": "pc", "client": client, "slot_id": slot, "host": host, "payload": {"notes": notes}}, cfg=cfg)["id"]
+    except RM.RemoteError as e:   # a Worker without the kind yet: the work still runs, unannounced
+        print(f"{slot}: not shown as rendering in the app ({e})", file=sys.stderr)
+        yield
+        return
+    stop = threading.Event()
+    threading.Thread(target=SW._beat, args=(jid, cfg, stop), daemon=True).start()
+    try:
+        yield
+    except BaseException as e:
+        stop.set()
+        RM.call("POST", f"/api/jobs/{jid}/fail", {"host": host, "result": str(e)[-1500:] or type(e).__name__}, cfg=cfg)
+        raise
+    stop.set()
+    RM.call("POST", f"/api/jobs/{jid}/done", {"host": host, "result": {"media": SW.media_of(client, slot, cfg)}}, cfg=cfg)
+
+
 def film(client: str, slot: str, finish: bool = True) -> None:
+    with shown(client, slot, "Rebuilding the film from its spec and rendering it on this PC."):
+        _film(client, slot, finish)
+
+
+def _film(client: str, slot: str, finish: bool = True) -> None:
     sd = C.client_dir(client) / "posts" / slot
     meta = json.loads((sd / "meta.json").read_text())
     vo = sd / "vo.wav"
@@ -112,6 +146,11 @@ def film(client: str, slot: str, finish: bool = True) -> None:
 
 def finish(client: str, slot: str) -> None:
     """QA and state for a slot whose video.mp4 is already rendered (spine.revise.render's checks, no render)."""
+    with shown(client, slot, "Checking the new cut on this PC."):
+        _finish(client, slot)
+
+
+def _finish(client: str, slot: str) -> None:
     import subprocess
     sd = C.client_dir(client) / "posts" / slot
     verdicts = {}
