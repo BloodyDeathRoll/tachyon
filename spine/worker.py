@@ -475,6 +475,13 @@ def once(cfg: dict, *, runner=subprocess.run, sleep=time.sleep) -> bool:
             say(f"job {job['id']}: report failed ({e}), trying again")
             sleep(POLL)
     say(f"job {job['id']}: {action}")
+    if action == "done" and job["kind"] in MAKES_VIDEO and job.get("slot_id"):
+        # the new cut goes up now, as after a song mix: the loop's own sync only runs when the queue
+        # is idle, so with edits queued back to back the app kept playing the old cut
+        try:
+            sync_videos([job["client"]], cfg, job["slot_id"])
+        except Exception as e:  # noqa: BLE001 — the loop's sync sends it later
+            say(f"{job['client']}/{job['slot_id']}: the new cut not sent yet ({e})")
     return True
 
 
