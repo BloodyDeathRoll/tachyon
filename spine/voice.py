@@ -25,7 +25,24 @@ RELEASE = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-f
 FILES = ("kokoro-v1.0.onnx", "voices-v1.0.bin")
 # Voices: "<engine>:<name>[@speed]". The roster is the operator's pick from the auditions in
 # clients/<c>/assets/voice-auditions/ (grants.yaml `voices` overrides it); the week rotates it.
-ROSTER = ["dia:seed5", "dia:seed8", "dia:seed9", "dia:seed3"]
+# Operator's picks 2026-11-26 from the w49-03 auditions (Gemini prebuilt voices). Engine = the
+# Gemini model the voice was heard on: g38lite = gemini-3.8-flash-lite-tts, g25 = gemini-2.5-flash-preview-tts.
+# Heard as anchor-like (narration only, not the surfer rotation): g25:Iapetus, g25:Enceladus, g25:Vindemiatrix.
+ROSTER = ["g38lite:Gacrux", "g38lite:Kore", "g38lite:Orus", "g38lite:Rasalgethi", "g25:Sadachbia", "g38lite:Sadachbia"]
+GEMINI = {"g38": "gemini-3.8-flash-tts", "g38lite": "gemini-3.8-flash-lite-tts",
+          "g31": "gemini-3.1-flash-tts-preview", "g25": "gemini-2.5-flash-preview-tts"}
+# The direction the picks were auditioned with; the script follows "#### TRANSCRIPT".
+GEMINI_NOTES = """# AUDIO PROFILE
+A surfer in his or her late twenties, telling friends about a spot they love.
+
+## DIRECTOR'S NOTES
+Style: awake, bright and happy. A real smile in the voice, genuinely stoked on the good bits, warm and casual on the rest.
+Not sleepy, not drowsy, not dreamy. Not a news anchor, not an advert, not shouting.
+Pace: a natural, relaxed talking speed with a short breath between sentences. Never rushed, never speeding up at the end.
+Every word crisp and clear. "Roza" is said RO-za.
+
+#### TRANSCRIPT
+"""
 DIA_PY = Path.home() / ".cache" / "tachyon-tts" / "venv" / "bin" / "python"   # Python 3.12 + torch + dia
 DEFAULT_VOICE = ROSTER[0]
 SPEED = 1.08
@@ -34,7 +51,8 @@ TARGET_LUFS = -15   # one-pass loudnorm lands ~1 dB low on short clips → about
 
 _k = None
 ENGINES = {"kokoro": "kokoro-82m (kokoro-onnx, Apache-2.0)",
-           "dia": "dia-1.6b (Nari Labs, Apache-2.0), local GPU"}
+           "dia": "dia-1.6b (Nari Labs, Apache-2.0), local GPU",
+           **{k: f"{m} (Google AI Studio free tier, SynthID watermark), pauses silenced" for k, m in GEMINI.items()}}
 # Not used: Chatterbox (embeds a Perth neural watermark in every output; no-AI-label rule),
 # ElevenLabs (no key). Dia and Kokoro write plain audio with no watermark.
 
@@ -101,10 +119,37 @@ def _dia(client: str, name: str, text: str, out: Path) -> None:
     subprocess.run([str(DIA_PY), str(ROOT / "tools" / "dia_tts.py"), f.name], check=True, capture_output=True)
 
 
+def _gemini(model: str, name: str, text: str, out: Path) -> None:
+    """Gemini TTS prebuilt voice, one whole take, then tools/vo_clean.py silences the hiss it
+    leaves after each sentence. Key: GEMINI_API_KEY (env, else ~/Projects/tachyon/.env.local).
+    Free tier is about 10 calls a day per model."""
+    import base64
+    import os
+    from .publisher.auth import env_path, read_env
+    key = os.environ.get("GEMINI_API_KEY") or read_env(env_path()).get("GEMINI_API_KEY")
+    if not key:
+        raise RuntimeError("no GEMINI_API_KEY in the env or .env.local")
+    body = {"contents": [{"parts": [{"text": GEMINI_NOTES + text}]}],
+            "generationConfig": {"responseModalities": ["AUDIO"],
+                                 "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": name}}}}}
+    req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                                 data=json.dumps(body).encode(), method="POST",
+                                 headers={"x-goog-api-key": key, "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=180) as r:
+        pcm = base64.b64decode(json.load(r)["candidates"][0]["content"]["parts"][0]["inlineData"]["data"])
+    raw = out.with_name(".gemini-raw.wav")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "s16le", "-ar", "24000", "-ac", "1", "-i", "-", str(raw)],
+                   input=pcm, check=True)
+    subprocess.run([str(DIA_PY), str(ROOT / "tools" / "vo_clean.py"), str(raw), str(out)], check=True, capture_output=True)
+    raw.unlink()
+
+
 def synth(spec: str, text: str, out: Path, client: str = "rosa") -> None:
     """Raw speech for `text` in voice `spec` → out (wav, any rate)."""
     engine, name, speed = parse(spec)
-    if engine == "dia":
+    if engine in GEMINI:
+        _gemini(GEMINI[engine], name, text, out)
+    elif engine == "dia":
         _dia(client, name, text, out)
     elif engine == "kokoro":
         import soundfile as sf   # Kokoro only: the dashboard's Python has no soundfile
